@@ -1,0 +1,8 @@
+---
+- name: Deploy Traefik Reverse Proxy
+  hosts: localhost
+  become: true
+  gather_facts: false
+
+  roles:
+    - role: traefik
