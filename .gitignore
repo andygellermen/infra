@@ -1,0 +1,15 @@
+# Secrets
+ansible/secrets/*
+!ansible/secrets/.keep
+
+# Vault
+*.vault
+*.enc
+
+# Temporary
+*.retry
+*.log
+
+# Docker volumes (falls lokal)
+data/
+volumes/
