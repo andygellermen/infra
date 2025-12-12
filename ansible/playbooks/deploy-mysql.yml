@@ -1,0 +1,8 @@
+---
+- name: Deploy central MySQL server for Ghost
+  hosts: local
+  become: true
+  gather_facts: false
+
+  roles:
+    - role: mysql
