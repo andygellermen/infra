@@ -1,13 +1,13 @@
 # /home/andy/infra/ansible/playbooks/roles/traefik/tasks/main.yml
 ---
 - name: Create traefik docker network
-  docker_network:
-    name: web
+  community.docker.docker_network:
+    name: traefik
     driver: bridge
     state: present
 
 - name: Create traefik container
-  docker_container:
+  community.docker.docker_container:
     name: traefik
     image: traefik:v2.11
     restart_policy: always
@@ -19,7 +19,7 @@
       - "/home/andy/infra/data/traefik/acme:/etc/traefik/acme"
       - "/home/andy/infra/data/traefik:/etc/traefik/dynamic"
     networks:
-      - traefik
+      - name: traefik
     command:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
