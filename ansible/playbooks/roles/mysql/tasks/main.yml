@@ -4,7 +4,7 @@
     name: mysql_data
 
 - name: Start MySQL container
-  docker_container:
+  community.docker.docker_container:
     name: ghost-mysql
     image: mysql:8.0
     restart_policy: always

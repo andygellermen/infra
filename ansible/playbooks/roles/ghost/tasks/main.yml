@@ -27,7 +27,7 @@
     login_host: 127.0.0.1
 
 - name: Deploy Ghost container
-  docker_container:
+  community.docker.docker_container:
     name: "ghost-{{ traefik.domain | replace('.', '-') }}"
     image: "ghost:6"
     restart_policy: unless-stopped
