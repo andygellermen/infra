@@ -40,6 +40,25 @@
     login_password: "{{ mysql_root_password }}"
     login_host: 127.0.0.1
 
+- name: Build Traefik labels
+  ansible.builtin.set_fact:
+    ghost_router_name: "ghost-{{ domain | replace('.', '-') }}"
+    ghost_service_name: "ghost-{{ domain | replace('.', '-') }}"
+    ghost_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik'
+        }
+        | combine({
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): 'Host(`' ~ domain ~ '`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
+        })
+      }}
+
 - name: Deploy Ghost container
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
@@ -59,15 +78,4 @@
       database__connection__user: "{{ ghost_domain_usr }}"
       database__connection__password: "{{ ghost_domain_pwd }}"
       database__connection__database: "{{ ghost_domain_db }}"
-
-    labels:
-      traefik.enable: "true"
-      traefik.docker.network: "traefik"
-
-      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.entrypoints: "websecure"
-      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.rule: "Host(`{{ domain }}`)"
-
-      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.tls: "true"
-      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
-
-      traefik.http.services.ghost-{{ domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
+    labels: "{{ ghost_labels }}"
