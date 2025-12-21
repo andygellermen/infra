@@ -1,0 +1,13 @@
+---
+- name: Deploy Ghost CMS for specific domain
+  hosts: localhost
+  connection: local
+  #become: true
+  gather_facts: false
+
+  vars_files:
+    - "../secrets/secrets.yml"
+    - "../hostvars/{{ target_domain }}.yml"
+
+  roles:
+    - ghost

@@ -1,0 +1,31 @@
+---
+# 1. Ghost-Container stoppen & entfernen
+- name: Stop Ghost container
+  community.docker.docker_container:
+    name: "ghost-{{ domain | replace('.', '-') }}"
+    state: stopped
+  ignore_errors: true
+
+- name: Remove Ghost container
+  community.docker.docker_container:
+    name: "ghost-{{ domain | replace('.', '-') }}"
+    state: absent
+  ignore_errors: true
+
+# 3. MySQL Datenbank löschen
+- name: Remove Ghost MySQL database
+  community.mysql.mysql_db:
+    name: "{{ ghost_mysql.db_name }}"
+    state: absent
+    login_host: "{{ ghost_mysql.host }}"
+    login_user: "{{ ghost_mysql.root_user }}"
+    login_password: "{{ ghost_mysql.root_password }}"
+
+# 4. MySQL User löschen
+- name: Remove Ghost MySQL user
+  community.mysql.mysql_user:
+    name: "{{ ghost_mysql.db_user }}"
+    state: absent
+    login_host: "{{ ghost_mysql.host }}"
+    login_user: "{{ ghost_mysql.root_user }}"
+    login_password: "{{ ghost_mysql.root_password }}"

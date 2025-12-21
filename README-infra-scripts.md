@@ -1,0 +1,128 @@
+# 📘 Dokumentation der Ghost-Infra-Skripte
+
+### ghost-add.sh
+
+**Beschreibung:**  
+Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Datenbankeintrag, Zertifikatseinrichtung über Traefik sowie der passenden `hostvars` Datei.
+
+**Syntax:**
+```bash
+./scripts/ghost-add.sh DOMAIN [ALIAS]
+```
+
+**Parameter:**
+- `DOMAIN` – Die Hauptdomain, z. B. `blog.example.com`
+- `ALIAS` – (optional) Alias-Domain, z. B. `www.blog.example.com`
+
+**Vorgänge:**
+- Docker-Container mit Labels für Traefik wird erzeugt
+- Datenbank wird erstellt
+- `hostvars/DOMAIN.yml` inkl. ALIAS wird automatisch generiert
+- Zertifikat via Let's Encrypt wird beantragt
+
+### ghost-delete.sh
+
+**Beschreibung:**  
+Dieses Skript entfernt eine bestehende Ghost-Instanz inklusive Datenbank und Hostvars. Optional mit Backup & vollständigem Löschen.
+
+**Syntax:**
+```bash
+./scripts/ghost-delete.sh DOMAIN [--purge]
+```
+
+**Parameter:**
+- `DOMAIN` – Die zu entfernende Ghost-Domain
+- `--purge` – (optional) löscht alle zugehörigen Daten, inkl. Backups
+
+**Features:**
+- Sicheres Entfernen des Containers und der DB
+- Optionaler Backup vor Löschung
+- Log-Eintrag in `/logs`
+- Interaktive Bestätigung bei gefährlichen Operationen
+
+### create-hostvars.sh
+
+**Beschreibung:**  
+Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
+
+**Syntax:**
+```bash
+./scripts/create-hostvars.sh DOMAIN [ALIAS]
+```
+
+**Parameter:**
+- `DOMAIN` – Hauptdomain
+- `ALIAS` – (optional) Aliasdomain
+
+**Features:**
+- Validiert Eingaben (inkl. Punycode bei Umlauten)
+- Schreibt in `ansible/hostvars`
+- Warnung bei bestehenden Dateien
+
+
+# 🌀 Ghost Backup & Restore Toolkit
+
+Willkommen im Restore-Tempel deines Ghost CMS Docker-Systems.  
+Dieses Toolkit ermöglicht dir die einfache Wiederherstellung gelöschter oder geänderter Ghost-Websites – vollständig automatisiert, abgesichert und protokolliert.
+
+---
+
+## 📜 `ghost-restore.sh`
+
+Wiederherstellung einer Ghost-Instanz aus einem `.tar.gz`-Backup.
+
+### 🔧 Syntax
+
+```bash
+./scripts/ghost-restore.sh [domain] [options]
+```
+
+---
+
+## 🏷️ Verfügbare Optionen / Flags
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--force` | Erzwingt die Wiederherstellung und ersetzt eine bereits existierende Instanz ohne Rückfrage. |
+| `--dry-run` | Führt keine Wiederherstellung durch. Prüft nur, ob das gewählte Backup vollständig und gültig ist. |
+| `--purge` | (Geplant für `ghost-delete.sh`) Entfernt _endgültig_ inkl. Datenbank, Docker-Volume und Hostvars. |
+| `--select` | Öffnet ein interaktives Menü zur Auswahl eines Backups aus dem Backup-Ordner. |
+| `--help` | Zeigt diese Übersicht an. |
+
+---
+
+## 📂 Backup-Verzeichnisstruktur
+
+Backups werden im folgenden Format abgelegt:
+
+```
+infra/backups/ghost/<domain>/<timestamp>.tar.gz
+```
+
+### Inhalt eines gültigen Backups:
+
+- Docker Volume (Ghost Content)
+- MySQL Dump
+- `hostvars/<domain>.yml`
+
+---
+
+## 📓 Logs
+
+Alle Wiederherstellungsaktionen werden protokolliert unter:
+
+```
+infra/logs/ghost-restore/<domain>/<timestamp>.log
+```
+
+---
+
+## ⚠️ Sicherheit & Hinweise
+
+- Keine Verschlüsselung, kein Passwortschutz: bitte Backups sicher verwahren.
+- Die `--dry-run`-Option kann verwendet werden, um Backups vor der Wiederherstellung zu prüfen.
+- Im Restore-Prozess wird überprüft, ob `hostvars/<domain>.yml` im Backup enthalten ist. Fehlt diese Datei ➤ Abbruch.
+
+---
+
+Bleibe bei deiner Macht. Restore mit Bedacht.

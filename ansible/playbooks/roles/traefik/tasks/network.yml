@@ -1,0 +1,7 @@
+# roles/traefik/tasks/network.yml
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present

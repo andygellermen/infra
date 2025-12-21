@@ -1,0 +1,12 @@
+---
+- name: Delete Ghost CMS for specific domain
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - "../secrets/secrets.yml"
+    - "../hostvars/{{ target_domain }}.yml"
+
+  roles:
+    - ghost-delete

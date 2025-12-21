@@ -1,0 +1,15 @@
+# Hostvars für erweckedeinekraft.de
+
+domain: erweckedeinekraft.de
+
+traefik:
+  domain: erweckedeinekraft.de
+  aliases:
+    - www.erweckedeinekraft.de
+
+# ghost_mysql:
+ghost_domain_db: ghost_erweckedeinekraft_de
+ghost_domain_usr: ghost_erweckedeinekraft_de_usr
+ghost_domain_pwd: 0eff527d484d4106380e4ed30a099e97
+
+ghost_env: production

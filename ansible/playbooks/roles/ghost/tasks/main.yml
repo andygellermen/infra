@@ -1,0 +1,61 @@
+# /home/andy/infra/ansible/playbook/roles/ghost/tasks/main.yml
+---
+- debug:
+    var: ghost_domain_db
+
+- name: Create Ghost content volume
+  docker_volume:
+    name: "ghost_{{ traefik.domain | replace('.', '_') }}_content"
+
+- name: Create MySQL database for Ghost
+  community.mysql.mysql_db:
+    name: "{{ ghost_domain_db }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+
+- name: Create MySQL user for Ghost
+  community.mysql.mysql_user:
+    name: "{{ ghost_domain_usr }}"
+    password: "{{ ghost_domain_pwd }}"
+    priv: "{{ ghost_domain_db }}.*:ALL"
+    host: "%"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+
+- name: Deploy Ghost container
+  docker_container:
+    name: "ghost-{{ traefik.domain | replace('.', '-') }}"
+    image: "ghost:6"
+    restart_policy: unless-stopped
+    networks:
+      - name: traefik
+      - name: backend
+    volumes:
+      - "ghost_{{ traefik.domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+    env:
+      # Ghost braucht URL + DB Config
+      url: "https://{{ traefik.domain }}"
+      NODE_ENV: "{{ ghost_env | default('production') }}"
+      database__client: "mysql"
+      database__connection__host: "mysql"
+      database__connection__user: "{{ ghost_domain_usr }}"
+      database__connection__password: "{{ ghost_domain_pwd }}"
+      database__connection__database: "{{ ghost_domain_db }}"
+
+    labels:
+      traefik.enable: "true"
+
+      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.entrypoints: "websecure"
+      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.rule: >
+        Host(`{{ traefik.domain }}`{% for d in traefik.alias_domains %}, `{{ d }}`{% endfor %})
+
+      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls: "true"
+      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
+
+      traefik.http.services.ghost-{{ traefik.domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
+
+

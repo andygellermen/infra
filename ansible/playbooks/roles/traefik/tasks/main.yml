@@ -1,3 +1,4 @@
+# /home/andy/infra/ansible/playbooks/roles/traefik/tasks/main.yml
 ---
 - name: Create traefik docker network
   docker_network:
@@ -14,10 +15,11 @@
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - traefik_data:/etc/traefik/acme
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/home/andy/infra/data/traefik/acme:/etc/traefik/acme"
+      - "/home/andy/infra/data/traefik:/etc/traefik/dynamic"
     networks:
-      - name: web
+      - traefik
     command:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
