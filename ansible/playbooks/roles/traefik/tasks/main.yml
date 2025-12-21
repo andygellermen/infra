@@ -19,7 +19,7 @@
       - "/home/andy/infra/data/traefik/acme:/etc/traefik/acme"
       - "/home/andy/infra/data/traefik:/etc/traefik/dynamic"
     networks:
-      - traefik
+      - name: traefik
     command:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"

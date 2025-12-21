@@ -3,6 +3,13 @@
   community.docker.docker_volume:
     name: mysql_data
 
+- name: Create backend docker network
+  community.docker.docker_network:
+    name: backend
+    driver: bridge
+    attachable: true
+    state: present
+
 - name: Start MySQL container
   community.docker.docker_container:
     name: ghost-mysql
@@ -15,4 +22,4 @@
     ports:
       - "127.0.0.1:3306:3306"
     networks:
-      - name: web
+      - name: backend

@@ -7,6 +7,20 @@
   community.docker.docker_volume:
     name: "ghost_{{ traefik.domain | replace('.', '_') }}_content"
 
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+
+- name: Ensure backend docker network exists
+  community.docker.docker_network:
+    name: backend
+    driver: bridge
+    attachable: true
+    state: present
+
 - name: Create MySQL database for Ghost
   community.mysql.mysql_db:
     name: "{{ ghost_domain_db }}"
@@ -61,4 +75,3 @@
       traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
 
       traefik.http.services.ghost-{{ traefik.domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
-
