@@ -77,7 +77,7 @@
       url: "https://{{ domain }}"
       NODE_ENV: "{{ ghost_env | default('production') }}"
       database__client: "mysql"
-      database__connection__host: "mysql"
+      database__connection__host: "ghost-mysql"
       database__connection__user: "{{ ghost_domain_usr }}"
       database__connection__password: "{{ ghost_domain_pwd }}"
       database__connection__database: "{{ ghost_domain_db }}"
