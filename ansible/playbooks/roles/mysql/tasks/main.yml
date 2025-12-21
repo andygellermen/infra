@@ -1,6 +1,6 @@
 ---
 - name: Create MySQL data volume
-  docker_volume:
+  community.docker.docker_volume:
     name: mysql_data
 
 - name: Start MySQL container

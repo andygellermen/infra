@@ -1,7 +1,7 @@
 # /home/andy/infra/ansible/playbooks/roles/traefik/tasks/main.yml
 ---
 - name: Create traefik docker network
-  docker_network:
+  community.docker.docker_network:
     name: traefik
     driver: bridge
     state: present

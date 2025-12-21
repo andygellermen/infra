@@ -4,7 +4,7 @@
     var: ghost_domain_db
 
 - name: Create Ghost content volume
-  docker_volume:
+  community.docker.docker_volume:
     name: "ghost_{{ traefik.domain | replace('.', '_') }}_content"
 
 - name: Create MySQL database for Ghost
