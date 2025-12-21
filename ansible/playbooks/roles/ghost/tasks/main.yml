@@ -5,7 +5,7 @@
 
 - name: Create Ghost content volume
   community.docker.docker_volume:
-    name: "ghost_{{ traefik.domain | replace('.', '_') }}_content"
+    name: "ghost_{{ domain | replace('.', '_') }}_content"
 
 - name: Ensure traefik docker network exists
   community.docker.docker_network:
@@ -42,17 +42,17 @@
 
 - name: Deploy Ghost container
   community.docker.docker_container:
-    name: "ghost-{{ traefik.domain | replace('.', '-') }}"
+    name: "ghost-{{ domain | replace('.', '-') }}"
     image: "ghost:6"
     restart_policy: unless-stopped
     networks:
       - name: traefik
       - name: backend
     volumes:
-      - "ghost_{{ traefik.domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+      - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
     env:
       # Ghost braucht URL + DB Config
-      url: "https://{{ traefik.domain }}"
+      url: "https://{{ domain }}"
       NODE_ENV: "{{ ghost_env | default('production') }}"
       database__client: "mysql"
       database__connection__host: "mysql"
@@ -64,14 +64,10 @@
       traefik.enable: "true"
       traefik.docker.network: "traefik"
 
-      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.entrypoints: "websecure"
-      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.rule: >-
-        {{ ([traefik.domain] + (traefik.aliases | default([])))
-           | map('regex_replace', '^(.*)$', 'Host(`\\1`)')
-           | join(' || ')
-        }}
+      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.entrypoints: "websecure"
+      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.rule: "Host(`{{ domain }}`)"
 
-      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls: "true"
-      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.tls: "true"
+      traefik.http.routers.ghost-{{ domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
 
-      traefik.http.services.ghost-{{ traefik.domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
+      traefik.http.services.ghost-{{ domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
