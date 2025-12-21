@@ -44,6 +44,9 @@
   ansible.builtin.set_fact:
     ghost_router_name: "ghost-{{ domain | replace('.', '-') }}"
     ghost_service_name: "ghost-{{ domain | replace('.', '-') }}"
+
+- name: Build Traefik labels map
+  ansible.builtin.set_fact:
     ghost_labels: >-
       {{
         {
