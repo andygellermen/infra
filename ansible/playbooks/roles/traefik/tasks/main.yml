@@ -2,7 +2,7 @@
 ---
 - name: Create traefik docker network
   docker_network:
-    name: web
+    name: traefik
     driver: bridge
     state: present
 

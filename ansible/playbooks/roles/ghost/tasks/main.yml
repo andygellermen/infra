@@ -48,14 +48,17 @@
 
     labels:
       traefik.enable: "true"
+      traefik.docker.network: "traefik"
 
       traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.entrypoints: "websecure"
-      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.rule: >
-        Host(`{{ traefik.domain }}`{% for d in traefik.alias_domains %}, `{{ d }}`{% endfor %})
+      traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.rule: >-
+        {{ ([traefik.domain] + (traefik.aliases | default([])))
+           | map('regex_replace', '^(.*)$', 'Host(`\\1`)')
+           | join(' || ')
+        }}
 
       traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls: "true"
       traefik.http.routers.ghost-{{ traefik.domain | replace('.', '-') }}.tls.certresolver: "letsEncrypt"
 
       traefik.http.services.ghost-{{ traefik.domain | replace('.', '-') }}.loadbalancer.server.port: "2368"
-
 
