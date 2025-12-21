@@ -13,3 +13,11 @@ ansible/secrets/*
 # Docker volumes (falls lokal)
 data/
 volumes/
+
+# Runtime data (DO NOT COMMIT)
+data/*
+!data/.keep
+
+secrets/
+secrets/*.yml
+!secrets/README.md
