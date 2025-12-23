@@ -44,6 +44,18 @@
   ansible.builtin.set_fact:
     ghost_router_name: "ghost-{{ domain | replace('.', '-') }}"
     ghost_service_name: "ghost-{{ domain | replace('.', '-') }}"
+    ghost_hosts: >-
+      {{
+        [domain]
+        + (traefik.aliases | default([]))
+        | unique
+      }}
+    ghost_host_rule: >-
+      {{
+        'Host('
+        ~ (ghost_hosts | map('regex_replace', '^(.*)$', '`\\1`') | join(','))
+        ~ ')'
+      }}
 
 - name: Build Traefik labels map
   ansible.builtin.set_fact:
@@ -55,7 +67,7 @@
         }
         | combine({
           ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): 'Host(`' ~ domain ~ '`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule,
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
