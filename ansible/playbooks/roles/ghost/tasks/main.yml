@@ -50,6 +50,9 @@
         + (traefik.aliases | default([]))
         | unique
       }}
+
+- name: Build Traefik host rule
+  ansible.builtin.set_fact:
     ghost_host_rule: >-
       {{
         'Host('
