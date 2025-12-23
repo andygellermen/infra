@@ -21,3 +21,6 @@ data/*
 secrets/
 secrets/*.yml
 !secrets/README.md
+
+# hostvars Yaml (Host specific Domains/Portainer etc.)
+ansible/hostvars/*.yml

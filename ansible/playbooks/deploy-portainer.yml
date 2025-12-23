@@ -1,0 +1,39 @@
+# ~/infra/ansible/playbooks/deploy-portainer.yml
+---
+- name: Deploy Portainer
+  hosts: localhost
+  connection: local
+  become: true
+
+  tasks:
+    - name: Ensure traefik network exists
+      community.docker.docker_network:
+        name: traefik
+        driver: bridge
+        attachable: true
+        state: present
+
+    - name: Ensure Portainer volume exists
+      community.docker.docker_volume:
+        name: portainer_data
+        state: present
+
+    - name: Deploy Portainer container
+      community.docker.docker_container:
+        name: portainer
+        image: portainer/portainer-ce:latest
+        restart_policy: unless-stopped
+        networks:
+          - name: traefik
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - portainer_data:/data
+        labels:
+          traefik.enable: "true"
+
+          traefik.http.routers.portainer.rule: "Host(`{{ portainer.domain }}`)"
+          traefik.http.routers.portainer.entrypoints: "websecure"
+          traefik.http.routers.portainer.tls: "true"
+          traefik.http.routers.portainer.tls.certresolver: "letsEncrypt"
+
+          traefik.http.services.portainer.loadbalancer.server.port: "9000"
