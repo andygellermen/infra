@@ -2,6 +2,9 @@
 ansible/secrets/*
 !ansible/secrets/.keep
 
+# hostvars Yaml (Host specific Domains/Portainer etc.)
+ansible/hostvars/*.yml
+
 # Vault
 *.vault
 *.enc
@@ -21,6 +24,3 @@ data/*
 secrets/
 secrets/*.yml
 !secrets/README.md
-
-# hostvars Yaml (Host specific Domains/Portainer etc.)
-ansible/hostvars/*.yml
