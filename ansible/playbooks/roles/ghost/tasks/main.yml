@@ -56,7 +56,12 @@
     ghost_host_rule: >-
       {{
         'Host('
-        ~ (ghost_hosts | map('regex_replace', '^(.*)$', '`\\1`') | join(','))
+        ~ (
+          ghost_hosts
+          | map('regex_replace', '^', '`')
+          | map('regex_replace', '$', '`')
+          | join(',')
+        )
         ~ ')'
       }}
 
