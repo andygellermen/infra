@@ -39,7 +39,8 @@ echo "📝 Erstelle oder aktualisiere: $file"
 # --- DB-Daten (kompatibel zu blog.geller.men.yml) ---
 db_prefix=$(echo "$main_domain" | tr '.-' '__')
 ghost_domain_db="ghost_${db_prefix}"
-ghost_domain_usr="${ghost_domain_db}_usr"
+ghost_user_hash=$(printf '%s' "$main_domain" | md5sum | awk '{print $1}')
+ghost_domain_usr="${ghost_user_hash:0:24}_usr"
 ghost_domain_pwd=$(openssl rand -hex 16)
 
 # --- YAML schreiben ---
