@@ -59,6 +59,23 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 - Schreibt in `ansible/hostvars`
 - Warnung bei bestehenden Dateien
 
+### Amazon SES (Standard für Ghost-Mail)
+
+Die Ghost-Container verwenden standardmäßig Amazon SES als SMTP-Transport. Lege die Zugangsdaten einmalig in `ansible/secrets/secrets.yml` ab, damit sie bei jeder Neuanlage automatisch genutzt werden. Beispiel:
+
+```yaml
+ghost_ses_smtp_user: "AKIA...SMTP_USER"
+ghost_ses_smtp_password: "DEIN_SMTP_PASSWORT"
+ghost_ses_from: "Ghost <noreply@deine-domain.tld>"
+
+# Optional (Defaults werden verwendet, wenn nicht gesetzt)
+ghost_ses_smtp_host: "email-smtp.eu-central-1.amazonaws.com"
+ghost_ses_smtp_port: 587
+ghost_ses_smtp_secure: false
+```
+
+Individuelle Abweichungen kannst du pro Instanz im jeweiligen `ansible/hostvars/<domain>.yml` überschreiben.
+
 
 # 🌀 Ghost Backup & Restore Toolkit
 
