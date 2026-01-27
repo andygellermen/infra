@@ -74,7 +74,7 @@ ghost_ses_smtp_port: 587
 ghost_ses_smtp_secure: false
 ```
 
-Individuelle Abweichungen kannst du pro Instanz im jeweiligen `ansible/hostvars/<domain>.yml` überschreiben.
+Wenn `ghost_ses_from` nicht gesetzt ist, wird automatisch `noreply@<domain>` verwendet. Individuelle Abweichungen kannst du pro Instanz im jeweiligen `ansible/hostvars/<domain>.yml` überschreiben.
 
 
 # 🌀 Ghost Backup & Restore Toolkit

@@ -107,5 +107,5 @@
       mail__options__secure: "{{ ghost_ses_smtp_secure | default(false) }}"
       mail__options__auth__user: "{{ ghost_ses_smtp_user }}"
       mail__options__auth__pass: "{{ ghost_ses_smtp_password }}"
-      mail__from: "{{ ghost_ses_from }}"
+      mail__from: "{{ ghost_ses_from | default('noreply@' ~ domain) }}"
     labels: "{{ ghost_labels }}"
