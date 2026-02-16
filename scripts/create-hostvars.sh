@@ -4,10 +4,46 @@
 
 set -e
 
-if [[ -z "$1" ]]; then
-    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [...]"
+ghost_version="6"
+
+usage() {
+    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major>]"
+}
+
+main_domain=""
+args=()
+for arg in "$@"; do
+    case "$arg" in
+        --version=*)
+            ghost_version="${arg#*=}"
+            ;;
+        --version)
+            echo "Fehler: Bitte --version=<major> verwenden (z. B. --version=4)."
+            usage
+            exit 1
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            args+=("$arg")
+            ;;
+    esac
+done
+
+if [[ ${#args[@]} -lt 1 ]]; then
+    usage
     exit 1
 fi
+
+if ! [[ "$ghost_version" =~ ^[0-9]+$ ]]; then
+    echo "Fehler: Ungültige Ghost-Version '$ghost_version'. Erlaubt sind nur numerische Major-Versionen."
+    exit 1
+fi
+
+main_domain="${args[0]}"
+alias_args=("${args[@]:1}")
 
 # Prüfe idn
 if ! command -v idn >/dev/null 2>&1; then
@@ -17,13 +53,12 @@ if ! command -v idn >/dev/null 2>&1; then
 fi
 
 # --- Domains ---
-main_domain=$(idn --quiet "$1")
-shift
+main_domain=$(idn --quiet "$main_domain")
 
 alias_domains=()
 alias_domains+=("www.${main_domain}")
 
-for alias in "$@"; do
+for alias in "${alias_args[@]}"; do
     puny=$(idn --quiet "$alias")
     alias_domains+=("$puny")
     alias_domains+=("www.$puny")
@@ -65,6 +100,7 @@ ghost_domain_db: ${ghost_domain_db}
 ghost_domain_usr: ${ghost_domain_usr}
 ghost_domain_pwd: ${ghost_domain_pwd}
 
+ghost_version: "${ghost_version}"
 ghost_env: production
 EOF
 

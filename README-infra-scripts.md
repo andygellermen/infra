@@ -7,12 +7,13 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 
 **Syntax:**
 ```bash
-./scripts/ghost-add.sh DOMAIN [ALIAS]
+./scripts/ghost-add.sh DOMAIN [ALIAS] [--version=<major>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Die Hauptdomain, z. B. `blog.example.com`
 - `ALIAS` – (optional) Alias-Domain, z. B. `www.blog.example.com`
+- `--version=<major>` – (optional) setzt die gewünschte Ghost-Major-Version, z. B. `--version=4` für `ghost:4`
 
 **Vorgänge:**
 - Docker-Container mit Labels für Traefik wird erzeugt
@@ -47,12 +48,13 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 
 **Syntax:**
 ```bash
-./scripts/create-hostvars.sh DOMAIN [ALIAS]
+./scripts/create-hostvars.sh DOMAIN [ALIAS] [--version=<major>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Hauptdomain
 - `ALIAS` – (optional) Aliasdomain
+- `--version=<major>` – (optional) gewünschte Ghost-Major-Version für den Container-Tag
 
 **Features:**
 - Validiert Eingaben (inkl. Punycode bei Umlauten)
@@ -143,3 +145,23 @@ infra/logs/ghost-restore/<domain>/<timestamp>.log
 ---
 
 Bleibe bei deiner Macht. Restore mit Bedacht.
+
+
+**Hinweis zu Node.js:**
+Die Node.js-Version wird automatisch durch das gewählte offizielle Ghost-Docker-Image bestimmt (z. B. `ghost:4`, `ghost:5`, `ghost:6`). Dadurch ist immer die zur Ghost-Version passende Node-Laufzeit enthalten.
+
+### Ghost-Version auf nächste Major-Version anheben
+
+1. Hostvars der Domain anpassen (`ansible/hostvars/<domain>.yml`):
+   ```yaml
+   ghost_version: "5"
+   ```
+2. Deployment erneut ausführen:
+   ```bash
+   ./scripts/ghost-add.sh <domain> --version=5
+   ```
+   oder alternativ direkt:
+   ```bash
+   ansible-playbook -i ./ansible/inventory -e "target_domain=<domain>" ./ansible/playbooks/deploy-ghost.yml
+   ```
+3. Anschließend Ghost-Admin unter `/ghost` prüfen und ggf. Migrationshinweise im Dashboard bestätigen.
