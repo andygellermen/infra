@@ -1,67 +1,56 @@
+# 🌀 Ghost Backup Restore (`scripts/ghost-restore.sh`)
 
-# 🌀 Ghost Backup & Restore Toolkit
+Helper-Skript für den Restore eines Legacy-Backups (`ghost backup`) in eine **bestehende** Ghost-Instanz der Infra.
 
-Willkommen im Restore-Tempel deines Ghost CMS Docker-Systems.  
-Dieses Toolkit ermöglicht dir die einfache Wiederherstellung gelöschter oder geänderter Ghost-Websites – vollständig automatisiert, abgesichert und protokolliert.
+## Voraussetzungen
 
----
+- Zielinstanz existiert bereits (`ghost-<domain>` Container + Hostvars)
+- Backup-ZIP liegt auf dem Zielserver
+- Hostvars enthalten:
+  - `ghost_domain_db`
+  - `ghost_domain_usr`
+  - `ghost_domain_pwd`
+  - optional `ghost_version`
 
-## 📜 `ghost-restore.sh`
-
-Wiederherstellung einer Ghost-Instanz aus einem `.tar.gz`-Backup.
-
-### 🔧 Syntax
+## Verwendung
 
 ```bash
-./scripts/ghost-restore.sh [domain] [options]
+# 1) Verfügbare Ghost-Container anzeigen
+./scripts/ghost-restore.sh --list
+
+# 2) Validierung ohne Änderungen
+./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --dry-run
+
+# 3) Restore durchführen
+./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --yes
 ```
 
----
+## Was das Skript macht
 
-## 🏷️ Verfügbare Optionen / Flags
+1. Prüft ZIP-Integrität (`unzip -t`)
+2. Entpackt Backup in ein Temp-Verzeichnis
+3. Validiert, dass SQL-Dump + `content/` existieren
+4. Liest DB-Credentials aus `ansible/hostvars/<domain>.yml`
+5. Liest Quellversion aus `data/content-from-v*-on-*.json` (wenn vorhanden)
+6. Prüft Major-Version Quelle vs. Ziel (Abbruch bei Mismatch, außer `--allow-major-mismatch`)
+7. Erstellt Safety-Backups (DB + Content)
+8. Stoppt Ghost-Container
+9. Leert Ziel-DB und importiert SQL
+10. Leert Ghost-Volume und kopiert `content/`
+11. Startet Ghost neu
 
-| Flag | Beschreibung |
-|------|--------------|
-| `--force` | Erzwingt die Wiederherstellung und ersetzt eine bereits existierende Instanz ohne Rückfrage. |
-| `--dry-run` | Führt keine Wiederherstellung durch. Prüft nur, ob das gewählte Backup vollständig und gültig ist. |
-| `--purge` | (Geplant für `ghost-delete.sh`) Entfernt _endgültig_ inkl. Datenbank, Docker-Volume und Hostvars. |
-| `--select` | Öffnet ein interaktives Menü zur Auswahl eines Backups aus dem Backup-Ordner. |
-| `--help` | Zeigt diese Übersicht an. |
+## Optionen
 
----
+- `--list`: Zeigt bestehende Ghost-Container (`docker ps -a`) 
+- `--dry-run`: Nur Checks, keine Änderung
+- `--yes`: Keine Rückfrage
+- `--allow-major-mismatch`: Restore trotz Versions-Major-Mismatch erzwingen
 
-## 📂 Backup-Verzeichnisstruktur
+## Hinweise
 
-Backups werden im folgenden Format abgelegt:
+- Standardmäßig wird bei Versions-Major-Mismatch abgebrochen.
+- Safety-Backups landen unter:
 
+```bash
+/tmp/ghost-restore-safety/<domain>/<timestamp>/
 ```
-infra/backups/ghost/<domain>/<timestamp>.tar.gz
-```
-
-### Inhalt eines gültigen Backups:
-
-- Docker Volume (Ghost Content)
-- MySQL Dump
-- `hostvars/<domain>.yml`
-
----
-
-## 📓 Logs
-
-Alle Wiederherstellungsaktionen werden protokolliert unter:
-
-```
-infra/logs/ghost-restore/<domain>/<timestamp>.log
-```
-
----
-
-## ⚠️ Sicherheit & Hinweise
-
-- Keine Verschlüsselung, kein Passwortschutz: bitte Backups sicher verwahren.
-- Die `--dry-run`-Option kann verwendet werden, um Backups vor der Wiederherstellung zu prüfen.
-- Im Restore-Prozess wird überprüft, ob `hostvars/<domain>.yml` im Backup enthalten ist. Fehlt diese Datei ➤ Abbruch.
-
----
-
-Bleibe bei deiner Macht. Restore mit Bedacht.
