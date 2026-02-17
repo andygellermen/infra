@@ -2,3 +2,5 @@ ghost_mysql_user: {{ domain | hash('md5') | truncate(24, True, '') }}_usr
 ghost_mysql_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
 ghost_mysql_database: {{ domain | replace('.', '_') }}
 ghost_site_url: https://{{ domain }}
+
+ghost_version: "latest"
