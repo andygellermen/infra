@@ -6,11 +6,11 @@ INVENTORY="./ansible/inventory"
 HOSTVARS_DIR="./ansible/hostvars"
 CREATE_HOSTVARS="./scripts/create-hostvars.sh"
 
-DEFAULT_GHOST_VERSION="6"
+DEFAULT_GHOST_VERSION="latest"
 
 usage() {
   cat <<EOF
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<major>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|latest>]
 
 Beispiele:
   $0 blog.example.com
@@ -44,7 +44,7 @@ for arg in "$@"; do
       ghost_version="${arg#*=}"
       ;;
     --version)
-      die "Bitte --version=<major> verwenden (z. B. --version=4)."
+      die "Bitte --version=<major|latest> verwenden (z. B. --version=4 oder --version=latest)."
       ;;
     --help|-h)
       usage
@@ -61,14 +61,14 @@ if [[ ${#args[@]} -lt 1 ]]; then
   exit 1
 fi
 
-if ! [[ "$ghost_version" =~ ^[0-9]+$ ]]; then
-  die "Ungültige Ghost-Version '$ghost_version'. Erlaubt sind numerische Major-Versionen (z. B. 4, 5, 6)."
+if [[ "$ghost_version" != "latest" ]] && ! [[ "$ghost_version" =~ ^[0-9]+$ ]]; then
+  die "Ungültige Ghost-Version '$ghost_version'. Erlaubt sind 'latest' oder numerische Major-Versionen (z. B. 4, 5, 6)."
 fi
 
 DOMAIN_RAW="${args[0]}"
 ALIASES_RAW=("${args[@]:1}")
 
-echo "🚀 Starte Ghost-Setup für ${DOMAIN_RAW} (Ghost ${ghost_version}.x)"
+echo "🚀 Starte Ghost-Setup für ${DOMAIN_RAW} (Ghost ${ghost_version})"
 
 # =========================
 # idn vorhanden?

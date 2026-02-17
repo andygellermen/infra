@@ -85,7 +85,7 @@
 - name: Deploy Ghost container
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
-    image: "ghost:{{ ghost_version | default('6') }}"
+    image: "ghost:{{ ghost_version | default('latest') }}"
     restart_policy: unless-stopped
     networks:
       - name: traefik

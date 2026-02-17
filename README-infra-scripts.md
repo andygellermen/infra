@@ -7,13 +7,13 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 
 **Syntax:**
 ```bash
-./scripts/ghost-add.sh DOMAIN [ALIAS] [--version=<major>]
+./scripts/ghost-add.sh DOMAIN [ALIAS] [--version=<major|latest>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Die Hauptdomain, z. B. `blog.example.com`
 - `ALIAS` – (optional) Alias-Domain, z. B. `www.blog.example.com`
-- `--version=<major>` – (optional) setzt die gewünschte Ghost-Major-Version, z. B. `--version=4` für `ghost:4`
+- `--version=<major|latest>` – (optional) setzt die gewünschte Ghost-Version, z. B. `--version=4` für `ghost:4`; ohne Angabe wird `latest` verwendet
 
 **Vorgänge:**
 - Docker-Container mit Labels für Traefik wird erzeugt
@@ -48,13 +48,13 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 
 **Syntax:**
 ```bash
-./scripts/create-hostvars.sh DOMAIN [ALIAS] [--version=<major>]
+./scripts/create-hostvars.sh DOMAIN [ALIAS] [--version=<major|latest>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Hauptdomain
 - `ALIAS` – (optional) Aliasdomain
-- `--version=<major>` – (optional) gewünschte Ghost-Major-Version für den Container-Tag
+- `--version=<major|latest>` – (optional) gewünschte Ghost-Version für den Container-Tag; ohne Angabe wird `latest` verwendet
 
 **Features:**
 - Validiert Eingaben (inkl. Punycode bei Umlauten)
