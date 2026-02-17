@@ -38,6 +38,10 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Benötigtes Tool fehlt: $1"
 }
 
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
 trim() {
   local v="$1"
   v="${v#\"}"
@@ -118,8 +122,8 @@ done
 require_cmd docker
 require_cmd unzip
 require_cmd awk
-require_cmd rg
 require_cmd sed
+require_cmd grep
 
 HOSTVARS_FILE="./ansible/hostvars/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
@@ -171,7 +175,11 @@ VERSION_JSON="$(find "$WORKDIR" -type f -path '*/data/content-from-v*-on-*.json'
 SOURCE_GHOST_VERSION=""
 SOURCE_GHOST_MAJOR=""
 if [[ -n "$VERSION_JSON" ]]; then
-  SOURCE_GHOST_VERSION="$(rg -o '"version"\s*:\s*"[0-9]+\.[0-9]+\.[0-9]+"' "$VERSION_JSON" | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)"/\1/' || true)"
+  if has_cmd rg; then
+    SOURCE_GHOST_VERSION="$(rg -o '"version"\s*:\s*"[0-9]+\.[0-9]+\.[0-9]+"' "$VERSION_JSON" | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)"/\1/' || true)"
+  else
+    SOURCE_GHOST_VERSION="$(grep -Eo '"version"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$VERSION_JSON" | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)"/\1/' || true)"
+  fi
   if [[ -n "$SOURCE_GHOST_VERSION" ]]; then
     SOURCE_GHOST_MAJOR="${SOURCE_GHOST_VERSION%%.*}"
   fi

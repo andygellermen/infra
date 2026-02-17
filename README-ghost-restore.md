@@ -11,6 +11,7 @@ Helper-Skript für den Restore eines Legacy-Backups (`ghost backup`) in eine **b
   - `ghost_domain_usr`
   - `ghost_domain_pwd`
   - optional `ghost_version`
+- Tools: `docker`, `unzip`, `awk`, `sed`, `grep` (optional: `rg` für schnellere Mustererkennung)
 
 ## Verwendung
 
