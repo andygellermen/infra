@@ -7,7 +7,7 @@ set -e
 ghost_version="latest"
 
 usage() {
-    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|latest>]"
+    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|major.minor|major.minor.patch|latest>]"
 }
 
 main_domain=""
@@ -18,7 +18,7 @@ for arg in "$@"; do
             ghost_version="${arg#*=}"
             ;;
         --version)
-            echo "Fehler: Bitte --version=<major|latest> verwenden (z. B. --version=4 oder --version=latest)."
+            echo "Fehler: Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
             usage
             exit 1
             ;;
@@ -37,8 +37,8 @@ if [[ ${#args[@]} -lt 1 ]]; then
     exit 1
 fi
 
-if [[ "$ghost_version" != "latest" ]] && ! [[ "$ghost_version" =~ ^[0-9]+$ ]]; then
-    echo "Fehler: Ungültige Ghost-Version '$ghost_version'. Erlaubt sind 'latest' oder numerische Major-Versionen."
+if [[ "$ghost_version" != "latest" ]] && ! [[ "$ghost_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+    echo "Fehler: Ungültige Ghost-Version '$ghost_version'. Erlaubt sind 'latest' oder Major-/Minor-/Patch-Versionen (z. B. 6, 6.18, 6.18.2)."
     exit 1
 fi
 

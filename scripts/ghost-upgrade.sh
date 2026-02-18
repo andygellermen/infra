@@ -7,10 +7,12 @@ PLAYBOOK="./ansible/playbooks/deploy-ghost.yml"
 
 usage() {
   cat <<USAGE
-Usage: $0 <domain> --version=<major|latest> [--force-major-jump] [--dry-run]
+Usage: $0 <domain> --version=<major|major.minor|major.minor.patch|latest> [--force-major-jump] [--dry-run]
 
 Beispiele:
   $0 blog.example.com --version=5
+  $0 blog.example.com --version=6.18
+  $0 blog.example.com --version=6.18.2
   $0 blog.example.com --version=latest --force-major-jump
 USAGE
 }
@@ -44,7 +46,7 @@ for arg in "$@"; do
       target_version="${arg#*=}"
       ;;
     --version)
-      die "Bitte --version=<major|latest> verwenden (z. B. --version=5 oder --version=latest)."
+      die "Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=5, --version=6.18 oder --version=latest)."
       ;;
     --force-major-jump)
       force_major_jump="true"
@@ -70,16 +72,16 @@ for arg in "$@"; do
 done
 
 [[ -n "$domain" ]] || die "Bitte eine Domain angeben."
-[[ -n "$target_version" ]] || die "Bitte --version=<major|latest> angeben."
+[[ -n "$target_version" ]] || die "Bitte --version=<major|major.minor|major.minor.patch|latest> angeben."
 
-if [[ "$target_version" != "latest" ]] && ! [[ "$target_version" =~ ^[0-9]+$ ]]; then
-  die "Ungültige Zielversion '$target_version'. Erlaubt sind 'latest' oder numerische Major-Versionen."
+if [[ "$target_version" != "latest" ]] && ! [[ "$target_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  die "Ungültige Zielversion '$target_version'. Erlaubt sind 'latest', Major (z. B. 6), Minor (z. B. 6.18) oder Patch (z. B. 6.18.2)."
 fi
 
 hostvars_file="${HOSTVARS_DIR}/${domain}.yml"
 [[ -f "$hostvars_file" ]] || die "Hostvars-Datei fehlt: $hostvars_file"
 
-current_version="$(awk -F '"' '/^ghost_version:/ { print $2 }' "$hostvars_file" | tail -n 1)"
+current_version="$(awk -F':' '/^ghost_version:/ {gsub(/["[:space:]]/,"",$2); print $2}' "$hostvars_file" | tail -n 1)"
 [[ -n "$current_version" ]] || die "ghost_version konnte nicht aus $hostvars_file gelesen werden."
 
 info "Aktuelle Version für ${domain}: ${current_version}"
@@ -90,10 +92,21 @@ if [[ "$current_version" == "$target_version" ]]; then
   exit 0
 fi
 
-if [[ "$current_version" =~ ^[0-9]+$ ]] && [[ "$target_version" =~ ^[0-9]+$ ]]; then
-  expected_next=$((current_version + 1))
-  if (( target_version > expected_next )) && [[ "$force_major_jump" != "true" ]]; then
-    die "Sprung von ${current_version} auf ${target_version} ist größer als +1. Nutze --force-major-jump oder upgrade schrittweise."
+current_major=""
+target_major=""
+
+if [[ "$current_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  current_major="${current_version%%.*}"
+fi
+
+if [[ "$target_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  target_major="${target_version%%.*}"
+fi
+
+if [[ -n "$current_major" ]] && [[ -n "$target_major" ]]; then
+  expected_next=$((current_major + 1))
+  if (( target_major > expected_next )) && [[ "$force_major_jump" != "true" ]]; then
+    die "Sprung von Major ${current_major} auf ${target_major} ist größer als +1. Nutze --force-major-jump oder upgrade schrittweise."
   fi
 fi
 

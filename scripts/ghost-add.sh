@@ -10,7 +10,7 @@ DEFAULT_GHOST_VERSION="latest"
 
 usage() {
   cat <<EOF
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|latest>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|major.minor|major.minor.patch|latest>]
 
 Beispiele:
   $0 blog.example.com
@@ -44,7 +44,7 @@ for arg in "$@"; do
       ghost_version="${arg#*=}"
       ;;
     --version)
-      die "Bitte --version=<major|latest> verwenden (z. B. --version=4 oder --version=latest)."
+      die "Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
       ;;
     --help|-h)
       usage
@@ -61,8 +61,8 @@ if [[ ${#args[@]} -lt 1 ]]; then
   exit 1
 fi
 
-if [[ "$ghost_version" != "latest" ]] && ! [[ "$ghost_version" =~ ^[0-9]+$ ]]; then
-  die "Ungültige Ghost-Version '$ghost_version'. Erlaubt sind 'latest' oder numerische Major-Versionen (z. B. 4, 5, 6)."
+if [[ "$ghost_version" != "latest" ]] && ! [[ "$ghost_version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  die "Ungültige Ghost-Version '$ghost_version'. Erlaubt sind 'latest' oder Major-/Minor-/Patch-Versionen (z. B. 4, 6.18, 6.18.2)."
 fi
 
 DOMAIN_RAW="${args[0]}"

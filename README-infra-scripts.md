@@ -7,13 +7,13 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 
 **Syntax:**
 ```bash
-./scripts/ghost-add.sh DOMAIN [ALIAS] [--version=<major|latest>]
+./scripts/ghost-add.sh DOMAIN [ALIAS] [--version=<major|major.minor|major.minor.patch|latest>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Die Hauptdomain, z. B. `blog.example.com`
 - `ALIAS` – (optional) Alias-Domain, z. B. `www.blog.example.com`
-- `--version=<major|latest>` – (optional) setzt die gewünschte Ghost-Version, z. B. `--version=4` für `ghost:4`; ohne Angabe wird `latest` verwendet
+- `--version=<major|major.minor|major.minor.patch|latest>` – (optional) setzt die gewünschte Ghost-Version, z. B. `--version=4`, `--version=6.18` oder `--version=6.18.2`; ohne Angabe wird `latest` verwendet
 
 **Vorgänge:**
 - Docker-Container mit Labels für Traefik wird erzeugt
@@ -29,12 +29,12 @@ Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_versio
 
 **Syntax:**
 ```bash
-./scripts/ghost-upgrade.sh DOMAIN --version=<major|latest> [--force-major-jump] [--dry-run]
+./scripts/ghost-upgrade.sh DOMAIN --version=<major|major.minor|major.minor.patch|latest> [--force-major-jump] [--dry-run]
 ```
 
 **Parameter:**
 - `DOMAIN` – Die bestehende Ghost-Domain
-- `--version=<major|latest>` – Zielversion, z. B. `--version=5`
+- `--version=<major|major.minor|major.minor.patch|latest>` – Zielversion, z. B. `--version=5`, `--version=6.18` oder `--version=6.18.2`
 - `--force-major-jump` – erlaubt Sprünge größer als +1 Major-Version
 - `--dry-run` – schreibt nur die Hostvars (inkl. Backup), ohne Deployment
 
@@ -71,13 +71,13 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 
 **Syntax:**
 ```bash
-./scripts/create-hostvars.sh DOMAIN [ALIAS] [--version=<major|latest>]
+./scripts/create-hostvars.sh DOMAIN [ALIAS] [--version=<major|major.minor|major.minor.patch|latest>]
 ```
 
 **Parameter:**
 - `DOMAIN` – Hauptdomain
 - `ALIAS` – (optional) Aliasdomain
-- `--version=<major|latest>` – (optional) gewünschte Ghost-Version für den Container-Tag; ohne Angabe wird `latest` verwendet
+- `--version=<major|major.minor|major.minor.patch|latest>` – (optional) gewünschte Ghost-Version für den Container-Tag; ohne Angabe wird `latest` verwendet
 
 **Features:**
 - Validiert Eingaben (inkl. Punycode bei Umlauten)
