@@ -5,11 +5,7 @@ usage() {
   cat <<USAGE
 Usage:
   $0 --list
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
   $0 <domain> <backup.zip> [--dry-run] [--yes] [--allow-major-mismatch] [--content-only]
-=======
-  $0 <domain> <backup.zip> [--dry-run] [--yes] [--allow-major-mismatch]
->>>>>>> main
 
 Beispiele:
   $0 --list
@@ -21,10 +17,7 @@ Optionen:
   --dry-run                Führt nur Validierung durch, ohne Restore.
   --yes                    Kein interaktiver Bestätigungs-Dialog.
   --allow-major-mismatch   Erlaubt Restore trotz Versions-Major-Mismatch.
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
   --content-only           Spielt nur content/ ein (kein DB-Import).
-=======
->>>>>>> main
   --help, -h               Hilfe anzeigen.
 USAGE
 }
@@ -79,10 +72,7 @@ BACKUP_ZIP=""
 DRY_RUN=0
 ASSUME_YES=0
 ALLOW_MAJOR_MISMATCH=0
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 CONTENT_ONLY=0
-=======
->>>>>>> main
 
 if [[ $# -eq 0 ]]; then
   usage
@@ -108,13 +98,10 @@ while [[ $# -gt 0 ]]; do
       ALLOW_MAJOR_MISMATCH=1
       shift
       ;;
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
     --content-only)
       CONTENT_ONLY=1
       shift
       ;;
-=======
->>>>>>> main
     --help|-h)
       usage
       exit 0
@@ -186,7 +173,6 @@ unzip -o "$BACKUP_ZIP" -d "$WORKDIR" >/dev/null
 SQL_FILE="$(find "$WORKDIR" -type f -name '*.sql' | head -n1 || true)"
 CONTENT_DIR="$(find "$WORKDIR" -type d -name content | head -n1 || true)"
 VERSION_JSON="$(find "$WORKDIR" -type f -path '*/data/content-from-v*-on-*.json' | head -n1 || true)"
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 DATA_JSON_FILE="$(find "$WORKDIR" -type f -path '*/data/*.json' | head -n1 || true)"
 
 [[ -n "$CONTENT_DIR" ]] || die "Kein content/ Ordner im Backup gefunden"
@@ -201,13 +187,6 @@ else
   die "Keine SQL-Datei im Backup gefunden"
 fi
 
-=======
-
-[[ -n "$SQL_FILE" ]] || die "Keine SQL-Datei im Backup gefunden"
-[[ -s "$SQL_FILE" ]] || die "SQL-Datei ist leer: $SQL_FILE"
-[[ -n "$CONTENT_DIR" ]] || die "Kein content/ Ordner im Backup gefunden"
-
->>>>>>> main
 SOURCE_GHOST_VERSION=""
 SOURCE_GHOST_MAJOR=""
 if [[ -n "$VERSION_JSON" ]]; then
@@ -233,11 +212,7 @@ fi
 
 info "Restore-Ziel: $DOMAIN"
 info "Container: $CONTAINER_NAME | Volume: $VOLUME_NAME | MySQL: $MYSQL_CONTAINER"
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 [[ -n "$SQL_FILE" ]] && info "SQL: $SQL_FILE" || info "SQL: (nicht vorhanden)"
-=======
-info "SQL: $SQL_FILE"
->>>>>>> main
 info "Content: $CONTENT_DIR"
 [[ -n "$SOURCE_GHOST_VERSION" ]] && info "Quelle Ghost-Version (aus Backup): $SOURCE_GHOST_VERSION"
 [[ -n "$TARGET_GHOST_VERSION" ]] && info "Ziel Ghost-Version (hostvars): $TARGET_GHOST_VERSION"
@@ -249,7 +224,6 @@ if [[ -n "$SOURCE_GHOST_MAJOR" && -n "$TARGET_GHOST_MAJOR" && "$SOURCE_GHOST_MAJ
   info "⚠️  Major-Mismatch wurde durch --allow-major-mismatch freigegeben"
 fi
 
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 if [[ "$CONTENT_ONLY" -eq 0 ]]; then
   info "Prüfe DB-Login"
   docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" -e 'SELECT 1' "$DB_NAME" >/dev/null
@@ -262,13 +236,6 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   if [[ -z "$SQL_FILE" ]]; then
     info "Hinweis: Ohne SQL wurde nur Content-Validierung geprüft. JSON-Datenimport im Ghost-Admin erforderlich."
   fi
-=======
-info "Prüfe DB-Login"
-docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" -e 'SELECT 1' "$DB_NAME" >/dev/null
-ok "DB-Login erfolgreich"
-
-if [[ "$DRY_RUN" -eq 1 ]]; then
->>>>>>> main
   ok "Dry-Run abgeschlossen. Keine Änderungen durchgeführt."
   exit 0
 fi
@@ -284,13 +251,9 @@ SAFETY_DIR="/tmp/ghost-restore-safety/${DOMAIN}/${TIMESTAMP}"
 mkdir -p "$SAFETY_DIR"
 
 info "Erzeuge Safety-Backups unter $SAFETY_DIR"
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 if [[ "$CONTENT_ONLY" -eq 0 ]]; then
   docker exec "$MYSQL_CONTAINER" mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" > "${SAFETY_DIR}/pre-restore.sql"
 fi
-=======
-docker exec "$MYSQL_CONTAINER" mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" > "${SAFETY_DIR}/pre-restore.sql"
->>>>>>> main
 docker run --rm -v "${VOLUME_NAME}:/data" -v "${SAFETY_DIR}:/backup" alpine \
   sh -c 'tar czf /backup/pre-restore-content.tar.gz -C /data .'
 ok "Safety-Backups erstellt"
@@ -298,32 +261,20 @@ ok "Safety-Backups erstellt"
 info "Stoppe Ghost-Container"
 docker stop "$CONTAINER_NAME" >/dev/null || true
 
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 if [[ "$CONTENT_ONLY" -eq 0 ]]; then
   info "Leere Ziel-Datenbank"
   docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "
 SET FOREIGN_KEY_CHECKS=0;
 SELECT CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`;')
-=======
-info "Leere Ziel-Datenbank"
-docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "
-SET FOREIGN_KEY_CHECKS=0;
-SELECT CONCAT('DROP TABLE IF EXISTS \\\`', table_name, '\\\`;')
->>>>>>> main
 FROM information_schema.tables
 WHERE table_schema='${DB_NAME}';
 " | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
   info "Importiere SQL"
   cat "$SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 else
   info "--content-only aktiv: DB-Reset und SQL-Import übersprungen"
 fi
-=======
-info "Importiere SQL"
-cat "$SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
->>>>>>> main
 
 info "Leere Ghost-Content-Volume"
 docker run --rm -v "${VOLUME_NAME}:/target" alpine sh -c 'find /target -mindepth 1 -delete'
@@ -341,9 +292,6 @@ sleep 2
 ok "Restore abgeschlossen"
 echo "📄 Safety-Backups: $SAFETY_DIR"
 echo "🔎 Logs prüfen: docker logs --tail=150 $CONTAINER_NAME"
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 if [[ -z "$SQL_FILE" ]]; then
   echo "📝 Hinweis: JSON-Inhalte jetzt im Ghost-Admin importieren (Settings -> Labs -> Import content)."
 fi
-=======
->>>>>>> main

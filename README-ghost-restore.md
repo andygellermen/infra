@@ -18,7 +18,6 @@ Helper-Skript für den Restore eines Legacy-Backups (`ghost backup`) in eine **b
 ```bash
 # 1) Verfügbare Ghost-Container anzeigen
 ./scripts/ghost-restore.sh --list
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 
 # 2) Validierung ohne Änderungen
 ./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --dry-run
@@ -28,14 +27,6 @@ Helper-Skript für den Restore eines Legacy-Backups (`ghost backup`) in eine **b
 
 # 4) Nur content/ einspielen (wenn Backup keine SQL enthält)
 ./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --content-only --yes
-=======
-
-# 2) Validierung ohne Änderungen
-./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --dry-run
-
-# 3) Restore durchführen
-./scripts/ghost-restore.sh blog.example.com /backups/ghost-backup.zip --yes
->>>>>>> main
 ```
 
 ## Was das Skript macht
@@ -58,16 +49,12 @@ Helper-Skript für den Restore eines Legacy-Backups (`ghost backup`) in eine **b
 - `--dry-run`: Nur Checks, keine Änderung
 - `--yes`: Keine Rückfrage
 - `--allow-major-mismatch`: Restore trotz Versions-Major-Mismatch erzwingen
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 - `--content-only`: Nur `content/` einspielen (DB bleibt unverändert)
-=======
->>>>>>> main
 
 ## Hinweise
 
 - Standardmäßig wird bei Versions-Major-Mismatch abgebrochen.
 - Safety-Backups landen unter:
-<<<<<<< codex/restore-ghost-backup-in-docker-mw88ee
 
 ```bash
 /tmp/ghost-restore-safety/<domain>/<timestamp>/
@@ -81,9 +68,3 @@ Das Skript meldet das jetzt klar und bietet zwei Wege:
 
 1. `--content-only` nutzen (nur Dateien wie Images/Themes einspielen),
 2. JSON im Ghost-Admin importieren (`/ghost` → Settings → Labs → Import content).
-=======
-
-```bash
-/tmp/ghost-restore-safety/<domain>/<timestamp>/
-```
->>>>>>> main

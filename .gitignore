@@ -21,6 +21,10 @@ volumes/
 data/*
 !data/.keep
 
+# huge backup-files
+*.zip
+*.tar.gz
+
 secrets/
 secrets/*.yml
 !secrets/README.md
