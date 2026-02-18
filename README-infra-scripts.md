@@ -21,6 +21,29 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 - `hostvars/DOMAIN.yml` inkl. ALIAS wird automatisch generiert
 - Zertifikat via Let's Encrypt wird beantragt
 
+
+### ghost-upgrade.sh
+
+**Beschreibung:**  
+Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_version` in den Hostvars angepasst und anschließend das Deployment neu ausgeführt wird.
+
+**Syntax:**
+```bash
+./scripts/ghost-upgrade.sh DOMAIN --version=<major|latest> [--force-major-jump] [--dry-run]
+```
+
+**Parameter:**
+- `DOMAIN` – Die bestehende Ghost-Domain
+- `--version=<major|latest>` – Zielversion, z. B. `--version=5`
+- `--force-major-jump` – erlaubt Sprünge größer als +1 Major-Version
+- `--dry-run` – schreibt nur die Hostvars (inkl. Backup), ohne Deployment
+
+**Features:**
+- Liest und validiert die aktuelle `ghost_version`
+- Verhindert standardmäßig große Versionssprünge (z. B. 4 → 6)
+- Erstellt automatisch ein Backup der Hostvars-Datei (`.bak.<timestamp>`)
+- Führt danach ein reguläres `ansible-playbook` Deployment aus
+
 ### ghost-delete.sh
 
 **Beschreibung:**  
