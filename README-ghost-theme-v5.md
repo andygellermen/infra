@@ -9,7 +9,7 @@ Dadurch kann Ghost die Datei nicht lesen und meldet anschließend viele Pflichtf
 ```json
 {
   "name": "casper-extension",
-  "description": "Eine Theme-Erweiterung fuer Silke Wolter",
+  "description": "Eine Theme-Erweiterung",
   "version": "1.0.1",
   "engines": {
     "ghost": ">=5.0.0 <6.0.0"
