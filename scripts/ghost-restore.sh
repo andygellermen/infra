@@ -17,7 +17,7 @@ Optionen:
   --dry-run                Führt nur Validierung durch, ohne Restore.
   --yes                    Kein interaktiver Bestätigungs-Dialog.
   --allow-major-mismatch   Erlaubt Restore trotz Versions-Major-Mismatch.
-  --content-only           Spielt nur content/ ein (kein DB-Import).
+  --content-only           Spielt nur content/ bzw. images/ ein (kein DB-Import).
   --help, -h               Hilfe anzeigen.
 USAGE
 }
@@ -174,15 +174,37 @@ SQL_FILE="$(find "$WORKDIR" -type f -name '*.sql' | head -n1 || true)"
 CONTENT_DIR="$(find "$WORKDIR" -type d -name content | head -n1 || true)"
 VERSION_JSON="$(find "$WORKDIR" -type f -path '*/data/content-from-v*-on-*.json' | head -n1 || true)"
 DATA_JSON_FILE="$(find "$WORKDIR" -type f -path '*/data/*.json' | head -n1 || true)"
+IMAGES_DIR=""
+[[ -d "$WORKDIR/images" ]] && IMAGES_DIR="$WORKDIR/images"
+HAS_JSON_EXPORT=0
+JSON_IMPORT_REQUIRED=0
 
-[[ -n "$CONTENT_DIR" ]] || die "Kein content/ Ordner im Backup gefunden"
+if [[ -n "$DATA_JSON_FILE" ]]; then
+  HAS_JSON_EXPORT=1
+fi
+
+if [[ -z "$SQL_FILE" && -z "$CONTENT_DIR" && -z "$IMAGES_DIR" && "$HAS_JSON_EXPORT" -eq 0 ]]; then
+  die "Weder SQL, content/, images/ noch JSON-Export im Backup gefunden"
+fi
+
+if [[ "$CONTENT_ONLY" -eq 1 && -z "$CONTENT_DIR" && -z "$IMAGES_DIR" ]]; then
+  die "--content-only wurde gesetzt, aber weder content/ noch images/ im Backup gefunden"
+fi
+
+if [[ -z "$CONTENT_DIR" && -n "$IMAGES_DIR" ]]; then
+  info "Kein content/ Ordner im Backup gefunden – nutze images/ für Medien-Restore"
+elif [[ -z "$CONTENT_DIR" ]]; then
+  info "Kein content/ Ordner im Backup gefunden – fahre ohne Content-Restore fort"
+fi
 
 if [[ -n "$SQL_FILE" ]]; then
   [[ -s "$SQL_FILE" ]] || die "SQL-Datei ist leer: $SQL_FILE"
 elif [[ "$CONTENT_ONLY" -eq 1 ]]; then
   info "Kein SQL gefunden – fahre wegen --content-only ohne DB-Import fort"
 elif [[ -n "$DATA_JSON_FILE" ]]; then
-  die "Keine SQL-Datei gefunden. Dieses Backup enthält JSON-Export (Ghost-CLI/Labs). Bitte Daten im Ghost-Admin importieren oder --content-only nutzen. JSON gefunden: $DATA_JSON_FILE"
+  JSON_IMPORT_REQUIRED=1
+  info "Keine SQL-Datei gefunden. JSON-Export erkannt (enthält Ghost-Inhalte/Settings für Admin-Import): $DATA_JSON_FILE"
+  info "Hinweis: Ohne MySQL-Dump ist ein Import im Ghost-Admin nötig (Settings -> Labs -> Import content)."
 else
   die "Keine SQL-Datei im Backup gefunden"
 fi
@@ -213,7 +235,9 @@ fi
 info "Restore-Ziel: $DOMAIN"
 info "Container: $CONTAINER_NAME | Volume: $VOLUME_NAME | MySQL: $MYSQL_CONTAINER"
 [[ -n "$SQL_FILE" ]] && info "SQL: $SQL_FILE" || info "SQL: (nicht vorhanden)"
-info "Content: $CONTENT_DIR"
+[[ -n "$CONTENT_DIR" ]] && info "Content: $CONTENT_DIR" || info "Content: (nicht vorhanden)"
+[[ -n "$IMAGES_DIR" ]] && info "Images: $IMAGES_DIR" || info "Images: (nicht vorhanden)"
+[[ "$HAS_JSON_EXPORT" -eq 1 ]] && info "JSON-Export: $DATA_JSON_FILE"
 [[ -n "$SOURCE_GHOST_VERSION" ]] && info "Quelle Ghost-Version (aus Backup): $SOURCE_GHOST_VERSION"
 [[ -n "$TARGET_GHOST_VERSION" ]] && info "Ziel Ghost-Version (hostvars): $TARGET_GHOST_VERSION"
 
@@ -224,24 +248,40 @@ if [[ -n "$SOURCE_GHOST_MAJOR" && -n "$TARGET_GHOST_MAJOR" && "$SOURCE_GHOST_MAJ
   info "⚠️  Major-Mismatch wurde durch --allow-major-mismatch freigegeben"
 fi
 
-if [[ "$CONTENT_ONLY" -eq 0 ]]; then
+WILL_RESTORE_DB=0
+WILL_RESTORE_FILES=0
+[[ "$CONTENT_ONLY" -eq 0 && -n "$SQL_FILE" ]] && WILL_RESTORE_DB=1
+[[ -n "$CONTENT_DIR" || -n "$IMAGES_DIR" ]] && WILL_RESTORE_FILES=1
+
+if [[ "$CONTENT_ONLY" -eq 1 ]]; then
+  info "--content-only aktiv: DB-Login/Import wird übersprungen"
+elif [[ -n "$SQL_FILE" ]]; then
   info "Prüfe DB-Login"
-  docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" -e 'SELECT 1' "$DB_NAME" >/dev/null
+  docker exec -e MYSQL_PWD="$DB_PASS" "$MYSQL_CONTAINER" mysql -u"$DB_USER" -e 'SELECT 1' "$DB_NAME" >/dev/null
   ok "DB-Login erfolgreich"
 else
-  info "--content-only aktiv: DB-Login/Import wird übersprungen"
+  info "Kein SQL-Import geplant: DB-Login wird übersprungen"
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  if [[ -z "$SQL_FILE" ]]; then
-    info "Hinweis: Ohne SQL wurde nur Content-Validierung geprüft. JSON-Datenimport im Ghost-Admin erforderlich."
+  if [[ "$JSON_IMPORT_REQUIRED" -eq 1 ]]; then
+    info "Hinweis: JSON-Export erkannt. Er enthält Inhalte/Einstellungen und wird später im Ghost-Admin importiert (Settings -> Labs -> Import content)."
   fi
+  [[ "$WILL_RESTORE_DB" -eq 0 ]] && info "Hinweis: Kein SQL gefunden; im echten Lauf findet kein DB-Import statt."
+  [[ "$WILL_RESTORE_FILES" -eq 0 ]] && info "Hinweis: Kein content/images gefunden; im echten Lauf findet kein Medien-Restore statt."
   ok "Dry-Run abgeschlossen. Keine Änderungen durchgeführt."
   exit 0
 fi
 
+if [[ "$WILL_RESTORE_DB" -eq 0 && "$WILL_RESTORE_FILES" -eq 0 ]]; then
+  ok "Keine automatischen Restore-Schritte ausführbar (kein SQL, kein content/, kein images/)."
+  echo "📝 Bitte JSON im Ghost-Admin importieren: Settings -> Labs -> Import content"
+  echo "📄 JSON-Datei: $DATA_JSON_FILE"
+  exit 0
+fi
+
 if [[ "$ASSUME_YES" -ne 1 ]]; then
-  echo "⚠️  Es werden DB und Content der Zielinstanz überschrieben: $DOMAIN"
+  echo "⚠️  Es werden verfügbare Backup-Daten wiederhergestellt (SQL und/oder Medien): $DOMAIN"
   read -r -p "Fortfahren? (yes/no): " answer
   [[ "$answer" == "yes" ]] || die "Abgebrochen"
 fi
@@ -251,17 +291,19 @@ SAFETY_DIR="/tmp/ghost-restore-safety/${DOMAIN}/${TIMESTAMP}"
 mkdir -p "$SAFETY_DIR"
 
 info "Erzeuge Safety-Backups unter $SAFETY_DIR"
-if [[ "$CONTENT_ONLY" -eq 0 ]]; then
+if [[ "$WILL_RESTORE_DB" -eq 1 ]]; then
   docker exec "$MYSQL_CONTAINER" mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" > "${SAFETY_DIR}/pre-restore.sql"
 fi
-docker run --rm -v "${VOLUME_NAME}:/data" -v "${SAFETY_DIR}:/backup" alpine \
-  sh -c 'tar czf /backup/pre-restore-content.tar.gz -C /data .'
+if [[ "$WILL_RESTORE_FILES" -eq 1 ]]; then
+  docker run --rm -v "${VOLUME_NAME}:/data" -v "${SAFETY_DIR}:/backup" alpine \
+    sh -c 'tar czf /backup/pre-restore-content.tar.gz -C /data .'
+fi
 ok "Safety-Backups erstellt"
 
 info "Stoppe Ghost-Container"
 docker stop "$CONTAINER_NAME" >/dev/null || true
 
-if [[ "$CONTENT_ONLY" -eq 0 ]]; then
+if [[ "$WILL_RESTORE_DB" -eq 1 ]]; then
   info "Leere Ziel-Datenbank"
   docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "
 SET FOREIGN_KEY_CHECKS=0;
@@ -273,17 +315,27 @@ WHERE table_schema='${DB_NAME}';
   info "Importiere SQL"
   cat "$SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 else
-  info "--content-only aktiv: DB-Reset und SQL-Import übersprungen"
+  info "DB-Reset und SQL-Import übersprungen"
 fi
 
-info "Leere Ghost-Content-Volume"
-docker run --rm -v "${VOLUME_NAME}:/target" alpine sh -c 'find /target -mindepth 1 -delete'
+if [[ -n "$CONTENT_DIR" ]]; then
+  info "Leere Ghost-Content-Volume"
+  docker run --rm -v "${VOLUME_NAME}:/target" alpine sh -c 'find /target -mindepth 1 -delete'
 
-info "Kopiere content/ in Volume"
-docker run --rm \
-  -v "${VOLUME_NAME}:/target" \
-  -v "${CONTENT_DIR}:/source:ro" \
-  alpine sh -c 'cp -a /source/. /target/'
+  info "Kopiere content/ in Volume"
+  docker run --rm \
+    -v "${VOLUME_NAME}:/target" \
+    -v "${CONTENT_DIR}:/source:ro" \
+    alpine sh -c 'cp -a /source/. /target/'
+elif [[ -n "$IMAGES_DIR" ]]; then
+  info "Kopiere images/ nach content/images (ohne komplettes Volume zu löschen)"
+  docker run --rm \
+    -v "${VOLUME_NAME}:/target" \
+    -v "${IMAGES_DIR}:/source:ro" \
+    alpine sh -c 'mkdir -p /target/images && cp -a /source/. /target/images/'
+else
+  info "Kein content/images im Backup – Content-Volume bleibt unverändert"
+fi
 
 info "Starte Ghost-Container"
 docker start "$CONTAINER_NAME" >/dev/null
@@ -292,6 +344,6 @@ sleep 2
 ok "Restore abgeschlossen"
 echo "📄 Safety-Backups: $SAFETY_DIR"
 echo "🔎 Logs prüfen: docker logs --tail=150 $CONTAINER_NAME"
-if [[ -z "$SQL_FILE" ]]; then
+if [[ "$JSON_IMPORT_REQUIRED" -eq 1 ]]; then
   echo "📝 Hinweis: JSON-Inhalte jetzt im Ghost-Admin importieren (Settings -> Labs -> Import content)."
 fi
