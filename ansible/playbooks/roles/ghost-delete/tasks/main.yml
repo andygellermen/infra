@@ -1,15 +1,10 @@
 ---
-# 1. Ghost-Container stoppen & entfernen
-- name: Stop Ghost container
-  community.docker.docker_container:
-    name: "ghost-{{ domain | replace('.', '-') }}"
-    state: stopped
-  ignore_errors: true
-
+# 1. Ghost-Container entfernen
 - name: Remove Ghost container
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
     state: absent
+    force_kill: true
   ignore_errors: true
 
 # 2. Variablen für DB-Löschung kompatibel zu alten/neuen Hostvars ableiten
