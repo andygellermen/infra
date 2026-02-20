@@ -12,20 +12,36 @@
     state: absent
   ignore_errors: true
 
+# 2. Variablen für DB-Löschung kompatibel zu alten/neuen Hostvars ableiten
+- name: Resolve Ghost DB settings
+  ansible.builtin.set_fact:
+    _ghost_db_name: "{{ ghost_domain_db | default(ghost_mysql_database | default('ghost_' ~ (domain | replace('.', '_') | replace('-', '_')))) }}"
+    _ghost_db_user: "{{ ghost_domain_usr | default(ghost_mysql_user | default('')) }}"
+    _ghost_db_password: "{{ ghost_domain_pwd | default(ghost_mysql_password | default('')) }}"
+
 # 3. MySQL Datenbank löschen
 - name: Remove Ghost MySQL database
   community.mysql.mysql_db:
-    name: "{{ ghost_mysql.db_name }}"
+    name: "{{ _ghost_db_name }}"
     state: absent
-    login_host: "{{ ghost_mysql.host }}"
-    login_user: "{{ ghost_mysql.root_user }}"
-    login_password: "{{ ghost_mysql.root_password }}"
+    login_host: "{{ ghost_mysql_host | default('127.0.0.1') }}"
+    login_user: "{{ ghost_mysql_root_user | default('root') }}"
+    login_password: "{{ mysql_root_password }}"
 
 # 4. MySQL User löschen
 - name: Remove Ghost MySQL user
   community.mysql.mysql_user:
-    name: "{{ ghost_mysql.db_user }}"
+    name: "{{ _ghost_db_user }}"
+    host: "%"
     state: absent
-    login_host: "{{ ghost_mysql.host }}"
-    login_user: "{{ ghost_mysql.root_user }}"
-    login_password: "{{ ghost_mysql.root_password }}"
+    login_host: "{{ ghost_mysql_host | default('127.0.0.1') }}"
+    login_user: "{{ ghost_mysql_root_user | default('root') }}"
+    login_password: "{{ mysql_root_password }}"
+  when: _ghost_db_user | length > 0
+
+# 5. Content-Volume entfernen (Media-Dateien)
+- name: Remove Ghost content volume
+  community.docker.docker_volume:
+    name: "ghost_{{ domain | replace('.', '_') }}_content"
+    state: absent
+  ignore_errors: true
