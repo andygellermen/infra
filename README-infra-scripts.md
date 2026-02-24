@@ -188,3 +188,27 @@ Die Node.js-Version wird automatisch durch das gewählte offizielle Ghost-Docker
    ansible-playbook -i ./ansible/inventory -e "target_domain=<domain>" ./ansible/playbooks/deploy-ghost.yml
    ```
 3. Anschließend Ghost-Admin unter `/ghost` prüfen und ggf. Migrationshinweise im Dashboard bestätigen.
+
+### infra-setup.sh
+
+**Beschreibung:**  
+Initialisiert den kompletten Infra-Stack auf einem frischen Host und installiert fehlende Basis-Tools automatisch (Docker, Ansible, MySQL-Client, dnsutils, jq, Python 3, community.docker Collection).
+
+**Syntax:**
+```bash
+sudo ./scripts/infra-setup.sh
+```
+
+**Funktionen:**
+- Fragt die Portainer-Domain interaktiv ab.
+- Deployt nacheinander MySQL, Traefik, CrowdSec und Portainer via Ansible.
+- Prüft den A-Record der Portainer-Domain gegen die öffentliche Host-IP und bricht bei Abweichung ab.
+- Richtet CrowdSec + Traefik-Bouncer ein, inkl. Middleware-Namen:
+  - `crowdsec-default@docker`
+  - `crowdsec-admin@docker`
+  - `crowdsec-api@docker`
+
+**Hinweis für weitere Container (z. B. WordPress / statische Seiten):**
+- Hänge die passenden Traefik-Router an mindestens `crowdsec-default@docker`.
+- Für WordPress-Backend explizit zusätzliche Router für `/wp-admin` und `/wp-login.php` mit `crowdsec-admin@docker` verwenden.
+- Für APIs (Ghost/WordPress) Router mit `crowdsec-api@docker` verwenden.

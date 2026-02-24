@@ -1,0 +1,57 @@
+---
+- name: Ensure CrowdSec directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}"
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config"
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data"
+
+- name: Ensure traefik network exists
+  community.docker.docker_network:
+    name: traefik
+    state: present
+
+- name: Deploy CrowdSec LAPI
+  community.docker.docker_container:
+    name: crowdsec
+    image: crowdsecurity/crowdsec:latest
+    restart_policy: unless-stopped
+    pull: true
+    networks:
+      - name: traefik
+    volumes:
+      - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config:/etc/crowdsec"
+      - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data:/var/lib/crowdsec/data"
+      - "/var/log:/var/log:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+- name: Ensure Traefik bouncer key exists
+  ansible.builtin.shell: |
+    set -euo pipefail
+    KEY_FILE="{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/traefik-bouncer.key"
+    if [[ ! -s "$KEY_FILE" ]]; then
+      docker exec crowdsec cscli bouncers add traefik-bouncer -k > "$KEY_FILE"
+      chmod 600 "$KEY_FILE"
+    fi
+  args:
+    executable: /bin/bash
+
+- name: Read bouncer key
+  ansible.builtin.slurp:
+    src: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/traefik-bouncer.key"
+  register: crowdsec_bouncer_key_raw
+
+- name: Deploy Traefik bouncer service
+  community.docker.docker_container:
+    name: crowdsec-bouncer-traefik
+    image: fbonalair/traefik-crowdsec-bouncer:latest
+    restart_policy: unless-stopped
+    pull: true
+    networks:
+      - name: traefik
+    env:
+      CROWDSEC_BOUNCER_API_KEY: "{{ crowdsec_bouncer_key_raw.content | b64decode | trim }}"
+      CROWDSEC_AGENT_HOST: crowdsec:8080

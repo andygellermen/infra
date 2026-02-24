@@ -76,8 +76,26 @@
         | combine({
           ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.middlewares'): 'crowdsec-default@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.middlewares'): 'crowdsec-admin@docker',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.priority'): '200',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.service'): ghost_service_name,
+
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost/api`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.middlewares'): 'crowdsec-api@docker',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.priority'): '220',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.service'): ghost_service_name,
+
           ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
         })
       }}
