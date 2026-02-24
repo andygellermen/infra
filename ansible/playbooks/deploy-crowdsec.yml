@@ -1,0 +1,8 @@
+---
+- name: Deploy CrowdSec + Traefik Bouncer
+  hosts: localhost
+  connection: local
+  become: true
+
+  roles:
+    - crowdsec
