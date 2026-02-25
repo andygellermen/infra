@@ -262,3 +262,29 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
 - Optional Kopie von `data/traefik` und `data/crowdsec`
+
+### ghost-redeploy.sh
+
+**Beschreibung:**  
+Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvars/<domain>.yml` (z. B. neue Alias-Domain). Vor dem Redeploy werden Integrität und DNS-Matching geprüft.
+
+**Syntax:**
+```bash
+# Validieren + Redeploy
+./scripts/ghost-redeploy.sh <domain>
+
+# Nur validieren
+./scripts/ghost-redeploy.sh <domain> --check-only
+
+# Optional mit Traefik-Restart danach
+./scripts/ghost-redeploy.sh <domain> --restart-traefik
+```
+
+**Prüfungen:**
+- Pflichtwerte in Hostvars: `domain`, `ghost_domain_db`, `ghost_domain_usr`, `ghost_domain_pwd`
+- Domain-Matching zwischen Argument und `hostvars.domain`
+- DNS-A-Record-Matching (Hauptdomain + alle Aliase) gegen die öffentliche Host-IP
+
+**TLS/Let's Encrypt Hinweis:**
+- Alias-Domains sind **relevant** für Zertifikate.
+- Nach erfolgreichem Redeploy zieht Traefik die Zertifikate für die Host-Regeln nach (bei korrekt gesetztem DNS und eingehendem Traffic).
