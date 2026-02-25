@@ -31,7 +31,7 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
 check_repo_for_conflict_markers() {
   local matches
-  matches="$(rg -n "^(<<<<<<<|=======|>>>>>>>)" "$ROOT_DIR/ansible" "$ROOT_DIR/scripts" || true)"
+  matches="$(rg -n -e "^<<<<<<< " -e "^=======$" -e "^>>>>>>> " "$ROOT_DIR/ansible" "$ROOT_DIR/scripts" || true)"
 
   if [[ -n "$matches" ]]; then
     echo "❌ Merge-Konfliktmarker im Repository gefunden:" >&2
