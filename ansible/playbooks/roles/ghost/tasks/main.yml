@@ -65,7 +65,6 @@
         ~ ')'
       }}
 
-<<<<<<< codex/fix-404-error-after-redeploy-cjqbxr
 - name: Inspect Traefik container network settings
   community.docker.docker_container_info:
     name: traefik
@@ -84,11 +83,6 @@
 - name: Build Ghost internal host overrides
   ansible.builtin.set_fact:
     ghost_etc_hosts: "{{ ghost_etc_hosts | default({}) | combine({item: ghost_traefik_ip}) }}"
-=======
-- name: Build Ghost internal host overrides
-  ansible.builtin.set_fact:
-    ghost_etc_hosts: "{{ ghost_etc_hosts | default({}) | combine({item: 'host-gateway'}) }}"
->>>>>>> main
   loop: "{{ ghost_hosts }}"
 
 - name: Build Traefik labels map
