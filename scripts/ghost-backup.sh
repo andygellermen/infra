@@ -17,6 +17,11 @@ info(){ echo "ℹ️  $*"; }
 ok(){ echo "✅ $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
+mysql_dump_cmd() {
+  # --no-tablespaces verhindert PROCESS-Privilege Fehler bei eingeschränkten DB-Usern
+  docker exec -e MYSQL_PWD="$1" "$2" mysqldump --no-tablespaces -u"$3" "$4"
+}
+
 extract_hostvar() {
   local key="$1" file="$2"
   awk -F': ' -v k="$key" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$file"
@@ -76,7 +81,10 @@ case "$ACTION" in
     mkdir -p "$WORKDIR"/{meta,data,files}
 
     info "Dump DB: $DB_NAME"
-    docker exec "$MYSQL_CONTAINER" mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$WORKDIR/data/db.sql"
+    if ! mysql_dump_cmd "$DB_PASS" "$MYSQL_CONTAINER" "$DB_USER" "$DB_NAME" > "$WORKDIR/data/db.sql"; then
+      die "MySQL-Dump fehlgeschlagen (DB=${DB_NAME}, User=${DB_USER}). Prüfe Berechtigungen/Verbindung."
+    fi
+    [[ -s "$WORKDIR/data/db.sql" ]] || die "MySQL-Dump ist leer: $WORKDIR/data/db.sql"
 
     info "Backup Content-Volume: $VOLUME"
     backup_volume "$VOLUME" "$WORKDIR/data"
@@ -138,7 +146,7 @@ case "$ACTION" in
     SAFETY_DIR="$ROOT_DIR/backups/ghost/${DOMAIN}/safety-$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$SAFETY_DIR"
     if docker ps --format '{{.Names}}' | grep -qx "$MYSQL_CONTAINER"; then
-      docker exec "$MYSQL_CONTAINER" mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$SAFETY_DIR/pre-restore.sql" || true
+      mysql_dump_cmd "$DB_PASS" "$MYSQL_CONTAINER" "$DB_USER" "$DB_NAME" > "$SAFETY_DIR/pre-restore.sql" || true
     fi
     docker run --rm -v "${VOLUME}:/src:ro" -v "${SAFETY_DIR}:/backup" alpine sh -c 'tar czf /backup/pre-content.tar.gz -C /src .' || true
 

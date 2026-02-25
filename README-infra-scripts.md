@@ -258,6 +258,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 
 **Backup-Inhalt:**
 - SQL-Dump der Ghost-Datenbank (gemäß `ansible/hostvars/<domain>.yml`)
+- Der Dump nutzt `mysqldump --no-tablespaces`, damit kein zusätzliches `PROCESS`-Privilege nötig ist.
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
 - Optional Kopie von `data/traefik` und `data/crowdsec`

@@ -90,10 +90,14 @@ done
 
 if [[ "$INCLUDE_MYSQL_DUMP" -eq 1 ]] && docker ps --format '{{.Names}}' | grep -qx 'ghost-mysql'; then
   info "Exportiere MySQL Dump (all databases)"
-  docker exec ghost-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases --single-transaction --quick --lock-tables=false' > "$WORKDIR/mysql/all-databases.sql" || {
+  docker exec ghost-mysql sh -c 'exec mysqldump --no-tablespaces -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases --single-transaction --quick --lock-tables=false' > "$WORKDIR/mysql/all-databases.sql" || {
     info "⚠️ MySQL-Dump fehlgeschlagen, fahre ohne Dump fort"
     rm -f "$WORKDIR/mysql/all-databases.sql"
   }
+  if [[ -f "$WORKDIR/mysql/all-databases.sql" ]] && [[ ! -s "$WORKDIR/mysql/all-databases.sql" ]]; then
+    info "⚠️ MySQL-Dump ist leer, entferne Dump-Datei"
+    rm -f "$WORKDIR/mysql/all-databases.sql"
+  fi
 fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
