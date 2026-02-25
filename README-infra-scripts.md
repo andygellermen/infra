@@ -253,7 +253,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 ./scripts/ghost-backup.sh --create <domain> [--output /pfad/ghost-backup.tar.gz]
 
 # Restore
-./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes]
+./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes] [--content-only]
 ```
 
 **Backup-Inhalt:**
@@ -263,6 +263,11 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Hostvars der Domain
 - **Keine** TLS-Zertifikate (`acme.json`) im Backup: Zertifikate werden nach Restore von Traefik/Let's Encrypt neu ausgestellt
 - Optional Kopie von `data/crowdsec`
+
+
+**Restore-Modi:**
+- Standard: DB + Content + Hostvars (und optional CrowdSec-Dateien)
+- `--content-only`: **nur** Ghost-Content-Volume wird wiederhergestellt; Domain-Setup/Hostvars/DB/CrowdSec bleiben unverändert. Ideal zum Duplizieren in bestehende Ziel-Instanzen.
 
 ### ghost-redeploy.sh
 
