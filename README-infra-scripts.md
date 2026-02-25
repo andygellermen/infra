@@ -212,3 +212,52 @@ sudo ./scripts/infra-setup.sh
 - Hänge die passenden Traefik-Router an mindestens `crowdsec-default@docker`.
 - Für WordPress-Backend explizit zusätzliche Router für `/wp-admin` und `/wp-login.php` mit `crowdsec-admin@docker` verwenden.
 - Für APIs (Ghost/WordPress) Router mit `crowdsec-api@docker` verwenden.
+
+### infra-backup.sh
+
+**Beschreibung:**  
+Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relevante Konfigurationen + optional MySQL all-databases Dump).
+
+**Syntax:**
+```bash
+./scripts/infra-backup.sh --create [--output /pfad/infra-backup.tar.gz] [--no-mysql-dump]
+```
+
+**Enthaltene Bestandteile (wenn vorhanden):**
+- Docker Volumes: `mysql_data`, `portainer_data`, `ghost_*_content`, sowie Volumes mit Präfix `traefik*`/`crowdsec*`
+- Dateibasierte Konfigurationen: `ansible/hostvars`, `ansible/secrets`, `data/traefik`, `data/crowdsec`
+- Optional: `ghost-mysql` Full-Dump via `mysqldump --all-databases`
+
+### infra-restore.sh
+
+**Beschreibung:**  
+Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Import). Kann vorab optional `infra-setup.sh` starten.
+
+**Syntax:**
+```bash
+./scripts/infra-restore.sh --restore /pfad/infra-backup.tar.gz [--yes] [--run-setup]
+```
+
+**Hinweis:**
+- Restore überschreibt Konfigurationen und Volume-Inhalte.
+- Für produktive Systeme zuerst mit frischem Infra-Backup absichern.
+
+### ghost-backup.sh
+
+**Beschreibung:**  
+Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional Traefik/CrowdSec-Dateien.
+
+**Syntax:**
+```bash
+# Backup
+./scripts/ghost-backup.sh --create <domain> [--output /pfad/ghost-backup.tar.gz]
+
+# Restore
+./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes]
+```
+
+**Backup-Inhalt:**
+- SQL-Dump der Ghost-Datenbank (gemäß `ansible/hostvars/<domain>.yml`)
+- Ghost Content-Volume (`ghost_<domain>_content`)
+- Hostvars der Domain
+- Optional Kopie von `data/traefik` und `data/crowdsec`
