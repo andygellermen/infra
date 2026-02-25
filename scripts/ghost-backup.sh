@@ -20,7 +20,7 @@ require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 ensure_crowdsec_hostvars_defaults() {
   local hostvars="$1"
   local defaults=(
-    'ghost_traefik_middleware_default: "crowdsec-default@docker"'
+    'ghost_traefik_middleware_default: ""'
     'ghost_traefik_middleware_admin: "crowdsec-admin@docker"'
     'ghost_traefik_middleware_api: "crowdsec-api@docker"'
     'ghost_traefik_middleware_dotghost: "crowdsec-api@docker"'

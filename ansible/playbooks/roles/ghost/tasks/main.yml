@@ -62,7 +62,7 @@
 
 - name: Build Ghost middleware settings
   ansible.builtin.set_fact:
-    ghost_middleware_default: "{{ ghost_traefik_middleware_default | default('crowdsec-default@docker') }}"
+    ghost_middleware_default: "{{ ghost_traefik_middleware_default | default('') }}"
     ghost_middleware_admin: "{{ ghost_traefik_middleware_admin | default('crowdsec-admin@docker') }}"
     ghost_middleware_api: "{{ ghost_traefik_middleware_api | default('crowdsec-api@docker') }}"
     ghost_middleware_dotghost: "{{ ghost_traefik_middleware_dotghost | default(ghost_traefik_middleware_api | default('crowdsec-api@docker')) }}"

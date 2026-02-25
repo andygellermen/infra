@@ -103,7 +103,7 @@ ghost_domain_pwd: ${ghost_domain_pwd}
 ghost_version: "${ghost_version}"
 ghost_env: production
 
-ghost_traefik_middleware_default: "crowdsec-default@docker"
+ghost_traefik_middleware_default: ""
 ghost_traefik_middleware_admin: "crowdsec-admin@docker"
 ghost_traefik_middleware_api: "crowdsec-api@docker"
 ghost_traefik_middleware_dotghost: "crowdsec-api@docker"
