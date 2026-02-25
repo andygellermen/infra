@@ -132,7 +132,8 @@
       - name: backend
     volumes:
       - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
-    etc_hosts: "{{ ghost_etc_hosts }}"
+    # Wichtig: alte /etc/hosts-Overrides (z.B. aus früheren Deployments) explizit entfernen
+    etc_hosts: {}
     env:
       # Ghost braucht URL + DB Config
       url: "https://{{ domain }}"
