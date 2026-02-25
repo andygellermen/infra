@@ -6,6 +6,14 @@
   become: true
 
   tasks:
+    - name: Validate Portainer domain variable
+      ansible.builtin.assert:
+        that:
+          - portainer is defined
+          - portainer.domain is defined
+          - portainer.domain | length > 0
+        fail_msg: "Bitte portainer.domain via -e 'portainer={domain:\'portainer.example.com\'}' setzen."
+
     - name: Ensure traefik network exists
       community.docker.docker_network:
         name: traefik
@@ -33,6 +41,7 @@
 
           traefik.http.routers.portainer.rule: "Host(`{{ portainer.domain }}`)"
           traefik.http.routers.portainer.entrypoints: "websecure"
+          traefik.http.routers.portainer.middlewares: "crowdsec-admin@docker"
           traefik.http.routers.portainer.tls: "true"
           traefik.http.routers.portainer.tls.certresolver: "letsEncrypt"
 
