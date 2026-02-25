@@ -94,6 +94,7 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '.middlewares'): 'crowdsec-default@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost`)',
