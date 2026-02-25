@@ -127,6 +127,7 @@
     name: "ghost-{{ domain | replace('.', '-') }}"
     image: "ghost:{{ ghost_version | default('latest') }}"
     restart_policy: unless-stopped
+    recreate: true
     networks:
       - name: traefik
       - name: backend
