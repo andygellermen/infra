@@ -65,6 +65,12 @@
         ~ ')'
       }}
 
+- name: Build Ghost middleware settings
+  ansible.builtin.set_fact:
+    ghost_middleware_default: "{{ ghost_traefik_middleware_default | default('') }}"
+    ghost_middleware_admin: "{{ ghost_traefik_middleware_admin | default('') }}"
+    ghost_middleware_api: "{{ ghost_traefik_middleware_api | default('') }}"
+
 - name: Build Traefik labels map
   ansible.builtin.set_fact:
     ghost_labels: >-
@@ -76,13 +82,12 @@
         | combine({
           ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule,
-          ('traefik.http.routers.' ~ ghost_router_name ~ '.middlewares'): 'crowdsec-default@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost`)',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.middlewares'): 'crowdsec-admin@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.priority'): '200',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
@@ -90,14 +95,32 @@
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost/api`)',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.middlewares'): 'crowdsec-api@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.priority'): '220',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.service'): ghost_service_name,
 
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/.ghost`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.priority'): '230',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.service'): ghost_service_name,
+
           ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
         })
+        | combine(
+          ({ ('traefik.http.routers.' ~ ghost_router_name ~ '.middlewares'): ghost_middleware_default }
+          if (ghost_middleware_default | length > 0) else {}
+        )
+        | combine(
+          ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.middlewares'): ghost_middleware_admin }
+          if (ghost_middleware_admin | length > 0) else {}
+        )
+        | combine(
+          ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-api.middlewares'): ghost_middleware_api }
+          if (ghost_middleware_api | length > 0) else {}
+        )
       }}
 
 - name: Deploy Ghost container
@@ -105,11 +128,14 @@
     name: "ghost-{{ domain | replace('.', '-') }}"
     image: "ghost:{{ ghost_version | default('latest') }}"
     restart_policy: unless-stopped
+    recreate: true
     networks:
       - name: traefik
       - name: backend
     volumes:
       - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+    # Wichtig: alte /etc/hosts-Overrides (z.B. aus früheren Deployments) explizit entfernen
+    etc_hosts: {}
     env:
       # Ghost braucht URL + DB Config
       url: "https://{{ domain }}"
