@@ -242,6 +242,28 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 - Restore überschreibt Konfigurationen und Volume-Inhalte.
 - Für produktive Systeme zuerst mit frischem Infra-Backup absichern.
 
+
+### ghost-migrate-crowdsec.sh
+
+**Beschreibung:**  
+Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Middleware-Defaults in `ansible/hostvars/*.yml` und führt anschließend je Domain einen `ghost-redeploy.sh` aus.
+
+**Syntax:**
+```bash
+# Nur prüfen (keine Änderungen)
+./scripts/ghost-migrate-crowdsec.sh --check-only
+
+# Migration + Redeploy aller Ghost-Domains
+./scripts/ghost-migrate-crowdsec.sh
+
+# Optional: Traefik am Ende einmalig neu starten
+./scripts/ghost-migrate-crowdsec.sh --restart-traefik
+```
+
+**Hinweis:**
+- Das ist der einfachste Weg, CrowdSec nachträglich für bestehende Ghost-Container zu aktivieren.
+- Voraussetzung: DNS/Hostvars sind gültig, da intern `ghost-redeploy.sh` aufgerufen wird.
+
 ### ghost-backup.sh
 
 **Beschreibung:**  
