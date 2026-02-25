@@ -245,7 +245,7 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 ### ghost-backup.sh
 
 **Beschreibung:**  
-Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional Traefik/CrowdSec-Dateien.
+Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional CrowdSec-Dateien.
 
 **Syntax:**
 ```bash
@@ -261,7 +261,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Der Dump nutzt `mysqldump --no-tablespaces`, damit kein zusätzliches `PROCESS`-Privilege nötig ist.
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
-- Selektiv gefilterte Kopie aus `data/traefik/acme/acme.json` (nur Zertifikate der Ziel-Domain + Aliase)
+- **Keine** TLS-Zertifikate (`acme.json`) im Backup: Zertifikate werden nach Restore von Traefik/Let's Encrypt neu ausgestellt
 - Optional Kopie von `data/crowdsec`
 
 ### ghost-redeploy.sh
