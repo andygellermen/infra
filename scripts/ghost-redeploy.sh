@@ -29,6 +29,17 @@ info() { echo "ℹ️  $*"; }
 ok() { echo "✅ $*"; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
+check_repo_for_conflict_markers() {
+  local matches
+  matches="$(rg -n -e "^<<<<<<< " -e "^=======$" -e "^>>>>>>> " "$ROOT_DIR/ansible" "$ROOT_DIR/scripts" || true)"
+
+  if [[ -n "$matches" ]]; then
+    echo "❌ Merge-Konfliktmarker im Repository gefunden:" >&2
+    echo "$matches" >&2
+    die "Bitte Konflikte auflösen, committen und Redeploy erneut starten."
+  fi
+}
+
 normalize_domain() {
   local d="$1"
   if [[ "$d" =~ ^[a-zA-Z0-9.-]+$ ]]; then
@@ -110,6 +121,8 @@ HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
 [[ -f "$PLAYBOOK" ]] || die "Playbook nicht gefunden: $PLAYBOOK"
 [[ -f "$INVENTORY" ]] || die "Inventory nicht gefunden: $INVENTORY"
+
+check_repo_for_conflict_markers
 
 HOSTVARS_DOMAIN="$(extract_scalar domain "$HOSTVARS_FILE")"
 DB_NAME="$(extract_scalar ghost_domain_db "$HOSTVARS_FILE")"
