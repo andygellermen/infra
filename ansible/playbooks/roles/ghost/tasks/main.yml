@@ -55,14 +55,9 @@
   ansible.builtin.set_fact:
     ghost_host_rule: >-
       {{
-        'Host('
-        ~ (
-          ghost_hosts
-          | map('regex_replace', '^', '`')
-          | map('regex_replace', '$', '`')
-          | join(',')
-        )
-        ~ ')'
+        ghost_hosts
+        | map('regex_replace', '^(.*)$', 'Host(`\1`)')
+        | join(' || ')
       }}
 
 - name: Build Ghost middleware settings
