@@ -242,10 +242,32 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 - Restore überschreibt Konfigurationen und Volume-Inhalte.
 - Für produktive Systeme zuerst mit frischem Infra-Backup absichern.
 
+
+### ghost-migrate-crowdsec.sh
+
+**Beschreibung:**  
+Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Middleware-Defaults in `ansible/hostvars/*.yml` und führt anschließend je Domain einen `ghost-redeploy.sh` aus.
+
+**Syntax:**
+```bash
+# Nur prüfen (keine Änderungen)
+./scripts/ghost-migrate-crowdsec.sh --check-only
+
+# Migration + Redeploy aller Ghost-Domains
+./scripts/ghost-migrate-crowdsec.sh
+
+# Optional: Traefik am Ende einmalig neu starten
+./scripts/ghost-migrate-crowdsec.sh --restart-traefik
+```
+
+**Hinweis:**
+- Das ist der einfachste Weg, CrowdSec nachträglich für bestehende Ghost-Container zu aktivieren.
+- Voraussetzung: DNS/Hostvars sind gültig, da intern `ghost-redeploy.sh` aufgerufen wird.
+
 ### ghost-backup.sh
 
 **Beschreibung:**  
-Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional Traefik/CrowdSec-Dateien.
+Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional CrowdSec-Dateien.
 
 **Syntax:**
 ```bash
@@ -253,7 +275,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 ./scripts/ghost-backup.sh --create <domain> [--output /pfad/ghost-backup.tar.gz]
 
 # Restore
-./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes]
+./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes] [--content-only] [--restore-hostvars]
 ```
 
 **Backup-Inhalt:**
@@ -261,7 +283,29 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Der Dump nutzt `mysqldump --no-tablespaces`, damit kein zusätzliches `PROCESS`-Privilege nötig ist.
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
-- Optional Kopie von `data/traefik` und `data/crowdsec`
+- **Keine** TLS-Zertifikate (`acme.json`) im Backup: Zertifikate werden nach Restore von Traefik/Let's Encrypt neu ausgestellt
+- Optional Kopie von `data/crowdsec`
+
+
+**Restore-Modi:**
+- Standard: DB + Content, aber bestehende Hostvars bleiben unverändert (sicheres Default).
+- `--restore-hostvars`: stellt zusätzlich Hostvars (und optional CrowdSec-Dateien) aus dem Backup wieder her.
+- `--content-only`: **nur** Ghost-Content-Volume wird wiederhergestellt; Domain-Setup/Hostvars/DB/CrowdSec bleiben unverändert. Ideal zum Duplizieren in bestehende Ziel-Instanzen.
+
+### ghost-smoke-check.sh
+
+**Beschreibung:**  
+Schneller Smoke-Check für eine Ghost-Domain nach Redeploy/Restore. Prüft Frontend-, Admin- und API-Erreichbarkeit über HTTPS, um Routing-/Middleware-Regressions schnell zu erkennen.
+
+**Syntax:**
+```bash
+./scripts/ghost-smoke-check.sh <domain>
+```
+
+**Geprüfte Endpunkte:**
+- `/` (Frontend)
+- `/ghost/` (Admin-Route)
+- `/ghost/api/admin/site/` (API-Erreichbarkeit)
 
 ### ghost-redeploy.sh
 
@@ -288,3 +332,10 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 **TLS/Let's Encrypt Hinweis:**
 - Alias-Domains sind **relevant** für Zertifikate.
 - Nach erfolgreichem Redeploy zieht Traefik die Zertifikate für die Host-Regeln nach (bei korrekt gesetztem DNS und eingehendem Traffic).
+
+
+**CrowdSec-Routen (Ghost):**
+- Standardseiten: standardmäßig **ohne** CrowdSec-Middleware (optional via `ghost_traefik_middleware_default: "crowdsec-default@docker"`)
+- Admin: `/ghost` über `crowdsec-admin@docker`
+- API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
+- Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
