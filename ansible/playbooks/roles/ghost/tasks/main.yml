@@ -65,6 +65,26 @@
         ~ ')'
       }}
 
+- name: Inspect Traefik container network settings
+  community.docker.docker_container_info:
+    name: traefik
+  register: traefik_container_info
+
+- name: Resolve Traefik IP on traefik network
+  ansible.builtin.set_fact:
+    ghost_traefik_ip: "{{ traefik_container_info.container.NetworkSettings.Networks.traefik.IPAddress | default('') }}"
+
+- name: Ensure Traefik IP is available for Ghost self-calls
+  ansible.builtin.assert:
+    that:
+      - ghost_traefik_ip | length > 0
+    fail_msg: "Traefik IP on network 'traefik' konnte nicht ermittelt werden."
+
+- name: Build Ghost internal host overrides
+  ansible.builtin.set_fact:
+    ghost_etc_hosts: "{{ ghost_etc_hosts | default({}) | combine({item: ghost_traefik_ip}) }}"
+  loop: "{{ ghost_hosts }}"
+
 - name: Build Traefik labels map
   ansible.builtin.set_fact:
     ghost_labels: >-
@@ -96,6 +116,14 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.service'): ghost_service_name,
 
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/.ghost`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): 'crowdsec-api@docker',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.priority'): '230',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.service'): ghost_service_name,
+
           ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
         })
       }}
@@ -110,6 +138,7 @@
       - name: backend
     volumes:
       - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+    etc_hosts: "{{ ghost_etc_hosts }}"
     env:
       # Ghost braucht URL + DB Config
       url: "https://{{ domain }}"
