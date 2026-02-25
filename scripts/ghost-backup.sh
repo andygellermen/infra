@@ -8,7 +8,7 @@ usage() {
   cat <<USAGE
 Usage:
   $0 --create <domain> [--output <file.tar.gz>]
-  $0 --restore <domain> <file.tar.gz> [--yes] [--content-only]
+  $0 --restore <domain> <file.tar.gz> [--yes] [--content-only] [--restore-hostvars]
 USAGE
 }
 
@@ -127,10 +127,12 @@ case "$ACTION" in
     DOMAIN="$1"; BACKUP_FILE="$2"; shift 2
     ASSUME_YES=0
     CONTENT_ONLY=0
+    RESTORE_HOSTVARS=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --yes) ASSUME_YES=1; shift ;;
         --content-only) CONTENT_ONLY=1; shift ;;
+        --restore-hostvars) RESTORE_HOSTVARS=1; shift ;;
         *) die "Unbekannte Option: $1" ;;
       esac
     done
@@ -155,20 +157,25 @@ case "$ACTION" in
     if [[ "$ASSUME_YES" -ne 1 ]]; then
       if [[ "$CONTENT_ONLY" -eq 1 ]]; then
         echo "⚠️  Restore überschreibt nur Ghost-Content für $DOMAIN (--content-only)"
+      elif [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
+        echo "⚠️  Restore überschreibt Ghost-DB + Content und Hostvars für $DOMAIN"
       else
-        echo "⚠️  Restore überschreibt Ghost-DB + Content für $DOMAIN"
+        echo "⚠️  Restore überschreibt Ghost-DB + Content für $DOMAIN (Hostvars bleiben unverändert)"
       fi
       read -r -p "Fortfahren? (yes/no): " a
       [[ "$a" == "yes" ]] || die "Abgebrochen"
     fi
 
-    if [[ "$CONTENT_ONLY" -eq 0 ]]; then
-      [[ -f "$WORKDIR/files/hostvars.yml" ]] || die "hostvars.yml fehlt im Backup (oder --content-only verwenden)"
+    if [[ "$CONTENT_ONLY" -eq 1 ]]; then
+      info "--content-only aktiv: Hostvars/Domain-Setup bleiben unverändert"
+    elif [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
+      [[ -f "$WORKDIR/files/hostvars.yml" ]] || die "hostvars.yml fehlt im Backup (oder ohne --restore-hostvars ausführen)"
       mkdir -p "$(dirname "$HOSTVARS")"
       cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
       ensure_crowdsec_hostvars_defaults "$HOSTVARS"
+      info "Hostvars aus Backup wurden wiederhergestellt (--restore-hostvars)"
     else
-      info "--content-only aktiv: Hostvars/Domain-Setup bleiben unverändert"
+      info "Hostvars/Domain-Setup bleiben unverändert (Standardverhalten)"
     fi
 
     DB_NAME="$(extract_hostvar ghost_domain_db "$HOSTVARS")"
@@ -190,7 +197,7 @@ case "$ACTION" in
       info "Leere DB & importiere Dump"
       docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "
 SET FOREIGN_KEY_CHECKS=0;
-SELECT CONCAT('DROP TABLE IF EXISTS `', table_name, '`;')
+SELECT CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`;')
 FROM information_schema.tables
 WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
@@ -202,11 +209,11 @@ WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$
     info "Restore Content-Volume"
     restore_volume "$VOLUME" "$WORKDIR/data/content.tar.gz"
 
-    if [[ "$CONTENT_ONLY" -eq 0 ]]; then
+    if [[ "$CONTENT_ONLY" -eq 0 && "$RESTORE_HOSTVARS" -eq 1 ]]; then
       info "Stelle CrowdSec Files optional wieder her (TLS-Zertifikate werden nicht aus Backup importiert)"
       [[ -d "$WORKDIR/files/crowdsec" ]] && cp -a "$WORKDIR/files/crowdsec" "$ROOT_DIR/data/"
     else
-      info "--content-only aktiv: CrowdSec/Host-Konfiguration bleibt unverändert"
+      info "CrowdSec/Host-Konfiguration bleibt unverändert (nur mit --restore-hostvars wird sie aus Backup übernommen)"
     fi
 
     info "Starte Container: $CONTAINER"
@@ -216,6 +223,7 @@ WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$
     [[ "$CONTENT_ONLY" -eq 1 ]] && echo "🧬 Klon-Modus: Nur Ghost-Content wurde wiederhergestellt."
     echo "📄 Safety-Backup: $SAFETY_DIR"
     echo "🔐 TLS-Hinweis: Zertifikate werden durch Traefik/Let's Encrypt neu erstellt (ggf. Traefik neu starten und Domain aufrufen)."
+    [[ "$RESTORE_HOSTVARS" -eq 0 ]] && echo "🧭 Hostvars-Hinweis: Standardmäßig werden bestehende Hostvars NICHT überschrieben."
     ;;
 
   *)

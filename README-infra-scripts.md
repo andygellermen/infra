@@ -275,7 +275,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 ./scripts/ghost-backup.sh --create <domain> [--output /pfad/ghost-backup.tar.gz]
 
 # Restore
-./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes] [--content-only]
+./scripts/ghost-backup.sh --restore <domain> <pfad/ghost-backup.tar.gz> [--yes] [--content-only] [--restore-hostvars]
 ```
 
 **Backup-Inhalt:**
@@ -288,7 +288,8 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 
 
 **Restore-Modi:**
-- Standard: DB + Content + Hostvars (und optional CrowdSec-Dateien)
+- Standard: DB + Content, aber bestehende Hostvars bleiben unverändert (sicheres Default).
+- `--restore-hostvars`: stellt zusätzlich Hostvars (und optional CrowdSec-Dateien) aus dem Backup wieder her.
 - `--content-only`: **nur** Ghost-Content-Volume wird wiederhergestellt; Domain-Setup/Hostvars/DB/CrowdSec bleiben unverändert. Ideal zum Duplizieren in bestehende Ziel-Instanzen.
 
 ### ghost-redeploy.sh
