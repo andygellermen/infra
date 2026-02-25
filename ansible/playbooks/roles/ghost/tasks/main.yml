@@ -65,6 +65,11 @@
         ~ ')'
       }}
 
+- name: Build Ghost internal host overrides
+  ansible.builtin.set_fact:
+    ghost_etc_hosts: "{{ ghost_etc_hosts | default({}) | combine({item: 'host-gateway'}) }}"
+  loop: "{{ ghost_hosts }}"
+
 - name: Build Traefik labels map
   ansible.builtin.set_fact:
     ghost_labels: >-
@@ -118,6 +123,7 @@
       - name: backend
     volumes:
       - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+    etc_hosts: "{{ ghost_etc_hosts }}"
     env:
       # Ghost braucht URL + DB Config
       url: "https://{{ domain }}"
