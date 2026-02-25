@@ -197,7 +197,7 @@ case "$ACTION" in
       info "Leere DB & importiere Dump"
       docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "
 SET FOREIGN_KEY_CHECKS=0;
-SELECT CONCAT('DROP TABLE IF EXISTS `', table_name, '`;')
+SELECT CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`;')
 FROM information_schema.tables
 WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
