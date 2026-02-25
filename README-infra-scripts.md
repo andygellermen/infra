@@ -245,7 +245,7 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 ### ghost-backup.sh
 
 **Beschreibung:**  
-Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional Traefik/CrowdSec-Dateien.
+Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional CrowdSec-Dateien.
 
 **Syntax:**
 ```bash
@@ -261,7 +261,8 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Der Dump nutzt `mysqldump --no-tablespaces`, damit kein zusätzliches `PROCESS`-Privilege nötig ist.
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
-- Optional Kopie von `data/traefik` und `data/crowdsec`
+- **Keine** TLS-Zertifikate (`acme.json`) im Backup: Zertifikate werden nach Restore von Traefik/Let's Encrypt neu ausgestellt
+- Optional Kopie von `data/crowdsec`
 
 ### ghost-redeploy.sh
 
@@ -288,3 +289,10 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 **TLS/Let's Encrypt Hinweis:**
 - Alias-Domains sind **relevant** für Zertifikate.
 - Nach erfolgreichem Redeploy zieht Traefik die Zertifikate für die Host-Regeln nach (bei korrekt gesetztem DNS und eingehendem Traffic).
+
+
+**CrowdSec-Routen (Ghost):**
+- Standardseiten: `crowdsec-default@docker`
+- Admin: `/ghost` über `crowdsec-admin@docker`
+- API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
+- Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.

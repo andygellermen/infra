@@ -17,6 +17,25 @@ info(){ echo "ℹ️  $*"; }
 ok(){ echo "✅ $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
+ensure_crowdsec_hostvars_defaults() {
+  local hostvars="$1"
+  local defaults=(
+    'ghost_traefik_middleware_default: "crowdsec-default@docker"'
+    'ghost_traefik_middleware_admin: "crowdsec-admin@docker"'
+    'ghost_traefik_middleware_api: "crowdsec-api@docker"'
+    'ghost_traefik_middleware_dotghost: "crowdsec-api@docker"'
+    'ghost_traefik_middleware_members_api: "crowdsec-api@docker"'
+  )
+  local line key
+
+  for line in "${defaults[@]}"; do
+    key="${line%%:*}"
+    if ! grep -qE "^${key}:" "$hostvars"; then
+      printf '%s\n' "$line" >> "$hostvars"
+    fi
+  done
+}
+
 mysql_dump_cmd() {
   # --no-tablespaces verhindert PROCESS-Privilege Fehler bei eingeschränkten DB-Usern
   docker exec -e MYSQL_PWD="$1" "$2" mysqldump --no-tablespaces -u"$3" "$4"
@@ -90,8 +109,8 @@ case "$ACTION" in
     backup_volume "$VOLUME" "$WORKDIR/data"
 
     cp -a "$HOSTVARS" "$WORKDIR/files/hostvars.yml"
-    [[ -d "$ROOT_DIR/data/traefik" ]] && cp -a "$ROOT_DIR/data/traefik" "$WORKDIR/files/traefik"
     [[ -d "$ROOT_DIR/data/crowdsec" ]] && cp -a "$ROOT_DIR/data/crowdsec" "$WORKDIR/files/crowdsec"
+
 
     {
       echo "domain=$DOMAIN"
@@ -137,6 +156,7 @@ case "$ACTION" in
 
     mkdir -p "$(dirname "$HOSTVARS")"
     cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
+    ensure_crowdsec_hostvars_defaults "$HOSTVARS"
 
     DB_NAME="$(extract_hostvar ghost_domain_db "$HOSTVARS")"
     DB_USER="$(extract_hostvar ghost_domain_usr "$HOSTVARS")"
@@ -165,8 +185,7 @@ WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$
     info "Restore Content-Volume"
     restore_volume "$VOLUME" "$WORKDIR/data/content.tar.gz"
 
-    info "Stelle Traefik/CrowdSec Files optional wieder her"
-    [[ -d "$WORKDIR/files/traefik" ]] && cp -a "$WORKDIR/files/traefik" "$ROOT_DIR/data/"
+    info "Stelle CrowdSec Files optional wieder her (TLS-Zertifikate werden nicht aus Backup importiert)"
     [[ -d "$WORKDIR/files/crowdsec" ]] && cp -a "$WORKDIR/files/crowdsec" "$ROOT_DIR/data/"
 
     info "Starte Container: $CONTAINER"
@@ -174,6 +193,7 @@ WHERE table_schema='${DB_NAME}';" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$
 
     ok "Restore abgeschlossen"
     echo "📄 Safety-Backup: $SAFETY_DIR"
+    echo "🔐 TLS-Hinweis: Zertifikate werden durch Traefik/Let's Encrypt neu erstellt (ggf. Traefik neu starten und Domain aufrufen)."
     ;;
 
   *)
