@@ -292,6 +292,21 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - `--restore-hostvars`: stellt zusätzlich Hostvars (und optional CrowdSec-Dateien) aus dem Backup wieder her.
 - `--content-only`: **nur** Ghost-Content-Volume wird wiederhergestellt; Domain-Setup/Hostvars/DB/CrowdSec bleiben unverändert. Ideal zum Duplizieren in bestehende Ziel-Instanzen.
 
+### ghost-smoke-check.sh
+
+**Beschreibung:**  
+Schneller Smoke-Check für eine Ghost-Domain nach Redeploy/Restore. Prüft Frontend-, Admin- und API-Erreichbarkeit über HTTPS, um Routing-/Middleware-Regressions schnell zu erkennen.
+
+**Syntax:**
+```bash
+./scripts/ghost-smoke-check.sh <domain>
+```
+
+**Geprüfte Endpunkte:**
+- `/` (Frontend)
+- `/ghost/` (Admin-Route)
+- `/ghost/api/admin/site/` (API-Erreichbarkeit)
+
 ### ghost-redeploy.sh
 
 **Beschreibung:**  
@@ -320,11 +335,7 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 
 
 **CrowdSec-Routen (Ghost):**
-<<<<<<< codex/fix-backup-functionality-and-crowdsec-migration
 - Standardseiten: standardmäßig **ohne** CrowdSec-Middleware (optional via `ghost_traefik_middleware_default: "crowdsec-default@docker"`)
-=======
-- Standardseiten: `crowdsec-default@docker`
->>>>>>> main
 - Admin: `/ghost` über `crowdsec-admin@docker`
 - API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
 - Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
