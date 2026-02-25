@@ -29,6 +29,39 @@ info() { echo "ℹ️  $*"; }
 ok() { echo "✅ $*"; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
+check_repo_for_conflict_markers() {
+  local matches
+  matches="$(rg -n -e "^<<<<<<< " -e "^=======$" -e "^>>>>>>> " "$ROOT_DIR/ansible" "$ROOT_DIR/scripts" || true)"
+
+  if [[ -n "$matches" ]]; then
+    echo "❌ Merge-Konfliktmarker im Repository gefunden:" >&2
+    echo "$matches" >&2
+    die "Bitte Konflikte auflösen, committen und Redeploy erneut starten."
+  fi
+}
+
+check_ghost_role_consistency() {
+  local role_file matches
+  role_file="$ROOT_DIR/ansible/playbooks/roles/ghost/tasks/main.yml"
+
+  [[ -f "$role_file" ]] || die "Ghost-Role Datei fehlt: $role_file"
+
+  matches="$(rg -n -e "Inspect Traefik container network settings" -e "ghost_traefik_ip" -e "ghost_etc_hosts" "$role_file" || true)"
+  if [[ -n "$matches" ]]; then
+    echo "⚠️  Hinweis: Legacy-Marker in Ghost-Role gefunden (kein Hard-Stop):" >&2
+    echo "$matches" >&2
+  fi
+}
+
+print_repo_revision() {
+  local branch commit
+  branch="$(git -C "$ROOT_DIR" branch --show-current 2>/dev/null || true)"
+  commit="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+  if [[ -n "$branch" && -n "$commit" ]]; then
+    info "Repo-Stand: branch=${branch}, commit=${commit}"
+  fi
+}
+
 normalize_domain() {
   local d="$1"
   if [[ "$d" =~ ^[a-zA-Z0-9.-]+$ ]]; then
@@ -110,6 +143,10 @@ HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
 [[ -f "$PLAYBOOK" ]] || die "Playbook nicht gefunden: $PLAYBOOK"
 [[ -f "$INVENTORY" ]] || die "Inventory nicht gefunden: $INVENTORY"
+
+check_repo_for_conflict_markers
+check_ghost_role_consistency
+print_repo_revision
 
 HOSTVARS_DOMAIN="$(extract_scalar domain "$HOSTVARS_FILE")"
 DB_NAME="$(extract_scalar ghost_domain_db "$HOSTVARS_FILE")"
