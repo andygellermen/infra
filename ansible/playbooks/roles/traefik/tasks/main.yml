@@ -20,6 +20,14 @@
       - "/home/andy/infra/data/traefik:/etc/traefik/dynamic"
     networks:
       - name: traefik
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.crowdsec-default.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
+      traefik.http.middlewares.crowdsec-default.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.crowdsec-admin.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
+      traefik.http.middlewares.crowdsec-admin.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.crowdsec-api.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
+      traefik.http.middlewares.crowdsec-api.forwardauth.trustForwardHeader: "true"
     command:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"

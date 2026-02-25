@@ -31,6 +31,28 @@ success() {
   echo "✅ $*"
 }
 
+resolve_a_record() {
+  local domain="$1"
+  dig +short A "$domain" | head -n1
+}
+
+verify_domain_points_here() {
+  local domain="$1"
+  local host_ip dns_ip
+
+  host_ip="$(curl -fsSL https://api.ipify.org || true)"
+  dns_ip="$(resolve_a_record "$domain")"
+
+  [[ -n "$host_ip" ]] || die "Öffentliche Host-IP konnte nicht ermittelt werden."
+  [[ -n "$dns_ip" ]] || die "Kein A-Record für ${domain} gefunden."
+
+  if [[ "$dns_ip" != "$host_ip" ]]; then
+    die "DNS-Fehler: ${domain} zeigt auf ${dns_ip}, erwartet wird ${host_ip}. Zertifikats-Deployment wird abgebrochen."
+  fi
+
+  info "DNS OK: ${domain} -> ${dns_ip}"
+}
+
 if [[ $# -lt 1 ]]; then
   usage
   exit 1
@@ -76,6 +98,12 @@ echo "🚀 Starte Ghost-Setup für ${DOMAIN_RAW} (Ghost ${ghost_version})"
 if ! command -v idn >/dev/null 2>&1; then
   die "Das 'idn'-Tool fehlt. Installiere es mit: sudo apt install idn"
 fi
+if ! command -v dig >/dev/null 2>&1; then
+  die "Das 'dig'-Tool fehlt. Installiere es mit: sudo apt install dnsutils"
+fi
+if ! command -v curl >/dev/null 2>&1; then
+  die "Das 'curl'-Tool fehlt. Installiere es mit: sudo apt install curl"
+fi
 
 # =========================
 # Domain validieren & normalisieren
@@ -109,6 +137,14 @@ for a in "${ALIASES_RAW[@]}"; do
   p="$(normalize_domain "$a")" \
     || die "Ungültige Alias-Domain: '$a'"
   ALIASES_PUNY+=("$p")
+done
+
+# =========================
+# DNS A-Record prüfen (Pflicht für LE-Zertifikate)
+# =========================
+verify_domain_points_here "$DOMAIN_PUNY"
+for alias in "${ALIASES_PUNY[@]}"; do
+  verify_domain_points_here "$alias"
 done
 
 # =========================
