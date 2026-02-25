@@ -320,7 +320,11 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 
 
 **CrowdSec-Routen (Ghost):**
+<<<<<<< codex/fix-backup-functionality-and-crowdsec-migration
 - Standardseiten: standardmäßig **ohne** CrowdSec-Middleware (optional via `ghost_traefik_middleware_default: "crowdsec-default@docker"`)
+=======
+- Standardseiten: `crowdsec-default@docker`
+>>>>>>> main
 - Admin: `/ghost` über `crowdsec-admin@docker`
 - API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
 - Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
