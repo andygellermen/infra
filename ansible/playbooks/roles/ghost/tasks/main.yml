@@ -118,7 +118,6 @@
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/.ghost`)',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): 'crowdsec-api@docker',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.priority'): '230',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): 'letsEncrypt',
