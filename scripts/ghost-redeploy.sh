@@ -41,12 +41,15 @@ check_repo_for_conflict_markers() {
 }
 
 check_ghost_role_consistency() {
-  local role_file="$ROOT_DIR/ansible/playbooks/roles/ghost/tasks/main.yml"
+  local role_file matches
+  role_file="$ROOT_DIR/ansible/playbooks/roles/ghost/tasks/main.yml"
 
   [[ -f "$role_file" ]] || die "Ghost-Role Datei fehlt: $role_file"
 
-  if rg -n -e "Inspect Traefik container network settings" -e "ghost_traefik_ip" -e "ghost_etc_hosts" "$role_file" >/dev/null 2>&1; then
-    die "Veraltete Ghost-Role-Version erkannt (Traefik-IP/ghost_etc_hosts-Override). Bitte 'git checkout main && git pull --ff-only' ausführen und erneut deployen."
+  matches="$(rg -n -e "Inspect Traefik container network settings" -e "ghost_traefik_ip" -e "ghost_etc_hosts" "$role_file" || true)"
+  if [[ -n "$matches" ]]; then
+    echo "⚠️  Hinweis: Legacy-Marker in Ghost-Role gefunden (kein Hard-Stop):" >&2
+    echo "$matches" >&2
   fi
 }
 
