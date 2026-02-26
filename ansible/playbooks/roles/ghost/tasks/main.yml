@@ -47,7 +47,7 @@
     ghost_hosts: >-
       {{
         [domain]
-        + (traefik.aliases | default([]))
+        + (traefik.aliases | default([], true))
         | unique
       }}
 
