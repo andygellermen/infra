@@ -44,20 +44,27 @@
   ansible.builtin.set_fact:
     ghost_router_name: "ghost-{{ domain | replace('.', '-') }}"
     ghost_service_name: "ghost-{{ domain | replace('.', '-') }}"
-    ghost_hosts: >-
+    ghost_aliases: >-
       {{
-        [domain]
-        + (traefik.aliases | default([], true))
+        (traefik.aliases | default([], true))
+        | difference([domain])
         | unique
       }}
 
-- name: Build Traefik host rule
+- name: Build Traefik host rules
   ansible.builtin.set_fact:
-    ghost_host_rule: >-
+    ghost_host_rule_primary: "Host(`{{ domain }}`)"
+    ghost_host_rule_aliases: >-
       {{
-        ghost_hosts
+        ghost_aliases
         | map('regex_replace', '^(.*)$', 'Host(`\1`)')
         | join(' || ')
+      }}
+    ghost_alias_domains_regex: >-
+      {{
+        ghost_aliases
+        | map('regex_escape')
+        | join('|')
       }}
 
 - name: Build Ghost middleware settings
@@ -76,6 +83,25 @@
     ghost_labels_middleware_dotghost: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): ghost_middleware_dotghost }) if (ghost_middleware_dotghost | length > 0) else {} }}"
     ghost_labels_middleware_members_api: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.middlewares'): ghost_middleware_members_api }) if (ghost_middleware_members_api | length > 0) else {} }}"
 
+- name: Build optional alias redirect labels
+  ansible.builtin.set_fact:
+    ghost_labels_alias_redirect: >-
+      {{
+        {
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^https?://(?:' ~ ghost_alias_domains_regex ~ ')(/.*)?$',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '$1',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.permanent'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.rule'): ghost_host_rule_aliases,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.priority'): '300',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.middlewares'): ghost_router_name ~ '-alias-redirect',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): 'noop@internal'
+        }
+        if (ghost_aliases | length > 0) else {}
+      }}
+
 - name: Build Traefik labels map
   ansible.builtin.set_fact:
     ghost_labels: >-
@@ -86,34 +112,34 @@
         }
         | combine({
           ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule_primary,
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/ghost`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.priority'): '200',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/ghost/api`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/ghost/api`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.priority'): '220',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/.ghost`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/.ghost`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.priority'): '230',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.rule'): '(' ~ ghost_host_rule ~ ') && PathPrefix(`/members/api`)',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/members/api`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.priority'): '210',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls.certresolver'): 'letsEncrypt',
@@ -126,6 +152,7 @@
         | combine(ghost_labels_middleware_api)
         | combine(ghost_labels_middleware_dotghost)
         | combine(ghost_labels_middleware_members_api)
+        | combine(ghost_labels_alias_redirect)
       }}
 
 - name: Deploy Ghost container
