@@ -60,12 +60,6 @@
         | map('regex_replace', '^(.*)$', 'Host(`\1`)')
         | join(' || ')
       }}
-    ghost_alias_domains_regex: >-
-      {{
-        ghost_aliases
-        | map('regex_escape')
-        | join('|')
-      }}
 
 - name: Build Ghost middleware settings
   ansible.builtin.set_fact:
@@ -83,21 +77,17 @@
     ghost_labels_middleware_dotghost: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): ghost_middleware_dotghost }) if (ghost_middleware_dotghost | length > 0) else {} }}"
     ghost_labels_middleware_members_api: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.middlewares'): ghost_middleware_members_api }) if (ghost_middleware_members_api | length > 0) else {} }}"
 
-- name: Build optional alias redirect labels
+- name: Build optional alias router labels
   ansible.builtin.set_fact:
     ghost_labels_alias_redirect: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^https?://(?:' ~ ghost_alias_domains_regex ~ ')(/.*)?$',
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '$1',
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.permanent'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.rule'): ghost_host_rule_aliases,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.priority'): '300',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.middlewares'): ghost_router_name ~ '-alias-redirect',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): 'noop@internal'
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): ghost_service_name
         }
         if (ghost_aliases | length > 0) else {}
       }}
