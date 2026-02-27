@@ -88,8 +88,8 @@
     ghost_labels_alias_redirect: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^https?://(?:' ~ ghost_alias_domains_regex ~ ')(/.*)?$',
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '$1',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^https?://(?:' ~ ghost_alias_domains_regex ~ ')(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.permanent'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.rule'): ghost_host_rule_aliases,
