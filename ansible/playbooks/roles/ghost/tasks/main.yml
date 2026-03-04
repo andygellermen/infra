@@ -77,7 +77,7 @@
     ghost_labels_middleware_dotghost: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): ghost_middleware_dotghost }) if (ghost_middleware_dotghost | length > 0) else {} }}"
     ghost_labels_middleware_members_api: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.middlewares'): ghost_middleware_members_api }) if (ghost_middleware_members_api | length > 0) else {} }}"
 
-- name: Build optional alias redirect labels
+- name: Build optional alias router labels
   ansible.builtin.set_fact:
     ghost_labels_alias_redirect: >-
       {{
@@ -90,8 +90,7 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.priority'): '300',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.middlewares'): ghost_router_name ~ '-alias-redirect',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): 'noop@internal'
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): ghost_service_name
         }
         if (ghost_aliases | length > 0) else {}
       }}
