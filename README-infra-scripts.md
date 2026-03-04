@@ -83,6 +83,7 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 - Validiert Eingaben (inkl. Punycode bei Umlauten)
 - Schreibt in `ansible/hostvars`
 - Warnung bei bestehenden Dateien
+- Ergänzt standardmäßig Tinybird-Credentials/-Defaults (`tinybird_*`) pro neuer Domain
 
 ### Amazon SES (Standard für Ghost-Mail)
 
@@ -264,6 +265,30 @@ Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Mid
 - Das ist der einfachste Weg, CrowdSec nachträglich für bestehende Ghost-Container zu aktivieren.
 - Voraussetzung: DNS/Hostvars sind gültig, da intern `ghost-redeploy.sh` aufgerufen wird.
 
+### ghost-migrate-tinybird.sh
+
+**Beschreibung:**
+Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende Tinybird-Defaults in `ansible/hostvars/*.yml`, generiert pro Domain ein eigenes `tinybird_token` und führt optional je Domain `ghost-redeploy.sh` aus.
+
+**Syntax:**
+```bash
+# Nur prüfen (keine Änderungen)
+./scripts/ghost-migrate-tinybird.sh --check-only
+
+# Migration + Redeploy aller Ghost-Domains
+./scripts/ghost-migrate-tinybird.sh
+
+# Nur Hostvars schreiben, ohne Redeploy
+./scripts/ghost-migrate-tinybird.sh --no-redeploy
+
+# Optional vorhandene Tokens rotieren
+./scripts/ghost-migrate-tinybird.sh --rotate-tokens
+```
+
+**Hinweis:**
+- Ideal für den Nachzug bei bereits produktiven Domains.
+- Für einen kontrollierten Rollout zuerst `--check-only`, danach regulär ausführen.
+
 ### ghost-backup.sh
 
 **Beschreibung:**  
@@ -328,6 +353,13 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 - Pflichtwerte in Hostvars: `domain`, `ghost_domain_db`, `ghost_domain_usr`, `ghost_domain_pwd`
 - Domain-Matching zwischen Argument und `hostvars.domain`
 - DNS-A-Record-Matching (Hauptdomain + alle Aliase) gegen die öffentliche Host-IP
+
+**Tinybird-Nachzug (Bestandsdomains):**
+- `ghost-redeploy.sh` ist der empfohlene Weg, um Änderungen in Hostvars (inkl. `tinybird_*`) live in die Container-Umgebung zu übernehmen.
+- Typischer Ablauf:
+  1. `./scripts/ghost-migrate-tinybird.sh --check-only`
+  2. `./scripts/ghost-migrate-tinybird.sh`
+  3. Optional: `./scripts/ghost-smoke-check.sh <domain>`
 
 **TLS/Let's Encrypt Hinweis:**
 - Alias-Domains sind **relevant** für Zertifikate.
