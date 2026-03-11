@@ -82,7 +82,7 @@
     ghost_labels_alias_redirect: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^https?://(?:' ~ (ghost_aliases | map('regex_escape') | join('|')) ~ ')(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^/(.*)$',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.permanent'): 'true',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.statuscode'): '301',
