@@ -77,6 +77,8 @@ ghost_domain_db="ghost_${db_prefix}"
 ghost_user_hash=$(printf '%s' "$main_domain" | md5sum | awk '{print $1}')
 ghost_domain_usr="${ghost_user_hash:0:24}_usr"
 ghost_domain_pwd=$(openssl rand -hex 16)
+tinybird_token=$(openssl rand -hex 24)
+tinybird_datasource=$(echo "$main_domain" | tr '.-' '__')
 
 # --- YAML schreiben ---
 cat > "$file" <<EOF
@@ -108,6 +110,14 @@ ghost_traefik_middleware_admin: "crowdsec-admin@docker"
 ghost_traefik_middleware_api: "crowdsec-api@docker"
 ghost_traefik_middleware_dotghost: "crowdsec-api@docker"
 ghost_traefik_middleware_members_api: "crowdsec-api@docker"
+
+# Tinybird analytics defaults
+tinybird_enabled: true
+tinybird_api_url: "https://api.tinybird.co"
+tinybird_workspace: "main"
+tinybird_datasource: "ghost_pageviews_${tinybird_datasource}"
+tinybird_token: "${tinybird_token}"
+tinybird_events_endpoint: "/v0/events?name=pageviews"
 EOF
 
 echo "✅ Hostvars-Datei erzeugt: $file"
