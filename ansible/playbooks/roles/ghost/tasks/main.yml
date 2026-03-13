@@ -92,12 +92,20 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.middlewares'): ghost_router_name ~ '-alias-redirect',
+<<<<<<< codex/set-permanent-redirects-to-status-code-301-z6qvis
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): ghost_service_name,
+=======
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): 'noop@internal',
+>>>>>>> main
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.entrypoints'): 'web',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.rule'): ghost_host_rule_aliases,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.priority'): '300',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.middlewares'): ghost_router_name ~ '-alias-redirect',
+<<<<<<< codex/set-permanent-redirects-to-status-code-301-z6qvis
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.service'): ghost_service_name
+=======
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.service'): 'noop@internal'
+>>>>>>> main
         }
         if (ghost_aliases | length > 0) else {}
       }}
