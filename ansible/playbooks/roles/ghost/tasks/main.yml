@@ -77,7 +77,7 @@
     ghost_labels_middleware_dotghost: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.middlewares'): ghost_middleware_dotghost }) if (ghost_middleware_dotghost | length > 0) else {} }}"
     ghost_labels_middleware_members_api: "{{ ({ ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.middlewares'): ghost_middleware_members_api }) if (ghost_middleware_members_api | length > 0) else {} }}"
 
-- name: Build optional alias redirect labels
+- name: Build optional alias router labels
   ansible.builtin.set_fact:
     ghost_labels_alias_redirect: >-
       {{
@@ -85,6 +85,7 @@
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.regex'): '^(?:https?://[^/]+)?/(.*)$',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.permanent'): 'true',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-alias-redirect.redirectregex.statuscode'): '301',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.rule'): ghost_host_rule_aliases,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.priority'): '300',
@@ -184,4 +185,10 @@
       mail__options__auth__user: "{{ ghost_ses_smtp_user }}"
       mail__options__auth__pass: "{{ ghost_ses_smtp_password }}"
       mail__from: "{{ ghost_ses_from | default('noreply@' ~ domain) }}"
+      TINYBIRD_ENABLED: "{{ tinybird_enabled | default(true) | bool | lower }}"
+      TINYBIRD_API_URL: "{{ tinybird_api_url | default('https://api.tinybird.co') }}"
+      TINYBIRD_WORKSPACE: "{{ tinybird_workspace | default('main') }}"
+      TINYBIRD_DATASOURCE: "{{ tinybird_datasource | default('ghost_pageviews_' ~ (domain | replace('.', '__') | replace('-', '__'))) }}"
+      TINYBIRD_TOKEN: "{{ tinybird_token | default('') }}"
+      TINYBIRD_EVENTS_ENDPOINT: "{{ tinybird_events_endpoint | default('/v0/events?name=pageviews') }}"
     labels: "{{ ghost_labels }}"
