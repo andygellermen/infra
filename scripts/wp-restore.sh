@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REDEPLOY_SCRIPT="$ROOT_DIR/scripts/wp-redeploy.sh"
+
+die(){ echo "❌ $*" >&2; exit 1; }
+info(){ echo "ℹ️  $*"; }
+ok(){ echo "✅ $*"; }
+warn(){ echo "⚠️  $*"; }
+require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
+extract_hostvar(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$2"; }
+
+usage() {
+  cat <<USAGE
+Usage:
+  $0 <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--allow-version-downgrade] [--php-version=<major.minor>] [--redeploy]
+USAGE
+}
+
+version_to_int() {
+  local v="$1" a b c
+  [[ "$v" == "latest" || -z "$v" ]] && { echo 999999999; return; }
+  IFS='.' read -r a b c <<< "$v"
+  a="${a:-0}"; b="${b:-0}"; c="${c:-0}"
+  printf '%03d%03d%03d\n' "$a" "$b" "$c"
+}
+
+set_hostvar_value() {
+  local key="$1" value="$2" file="$3"
+  if grep -q "^${key}:" "$file"; then
+    sed -i -E "s|^${key}:.*|${key}: \"${value}\"|" "$file"
+  else
+    printf '%s: "%s"\n' "$key" "$value" >> "$file"
+  fi
+}
+
+extract_wp_config_domain() {
+  local config_file="$1"
+  [[ -f "$config_file" ]] || return 0
+  grep -E "define\(['\"]WP_(HOME|SITEURL)['\"],[[:space:]]*['\"]https?://[^/'\"]+" "$config_file" \
+    | sed -E "s/.*https?:\/\/([^/'\"]+).*/\1/" \
+    | head -n1 || true
+}
+
+extract_backup_archive() {
+  local archive="$1" dest="$2"
+  case "$archive" in
+    *.tar.gz|*.tgz)
+      tar xzf "$archive" -C "$dest"
+      ;;
+    *.zip)
+      require_cmd unzip
+      unzip -q "$archive" -d "$dest"
+      ;;
+    *)
+      die "Unbekanntes Backup-Format: $archive (erwartet .tar.gz, .tgz oder .zip)"
+      ;;
+  esac
+}
+
+select_sql_file() {
+  local sql_files=()
+  mapfile -t sql_files < <(find "$1" -type f -name '*.sql' | sort)
+
+  [[ ${#sql_files[@]} -gt 0 ]] || die "Kein SQL-File im Backup gefunden."
+
+  if [[ ${#sql_files[@]} -eq 1 ]]; then
+    printf '%s\n' "${sql_files[0]}"
+    return
+  fi
+
+  echo "Mehrere SQL-Dateien gefunden:"
+  local i=1
+  for f in "${sql_files[@]}"; do
+    echo "  $i) ${f#$1/}"
+    ((i++))
+  done
+  echo "Bitte wähle das Datenbank-Backup zur Wiederherstellung 1...${#sql_files[@]} (standard: 1)"
+  read -r selection
+  [[ -n "$selection" ]] || selection=1
+  [[ "$selection" =~ ^[0-9]+$ ]] || die "Ungültige Auswahl: $selection"
+  (( selection >= 1 && selection <= ${#sql_files[@]} )) || die "Auswahl außerhalb des Bereichs"
+  printf '%s\n' "${sql_files[$((selection-1))]}"
+}
+
+[[ ${1:-} == "--help" || ${1:-} == "-h" ]] && { usage; exit 0; }
+[[ $# -ge 2 ]] || { usage; exit 1; }
+
+DOMAIN="$1"; BACKUP_FILE="$2"; shift 2
+RESTORE_HOSTVARS=0
+ALLOW_DOWNGRADE=0
+FORCE_REDEPLOY=0
+PHP_VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --restore-hostvars) RESTORE_HOSTVARS=1; shift ;;
+    --allow-version-downgrade) ALLOW_DOWNGRADE=1; shift ;;
+    --redeploy) FORCE_REDEPLOY=1; shift ;;
+    --php-version=*) PHP_VERSION="${1#*=}"; shift ;;
+    *) die "Unbekannte Option: $1" ;;
+  esac
+done
+
+require_cmd docker
+[[ -f "$BACKUP_FILE" ]] || die "Backup fehlt: $BACKUP_FILE"
+
+MYSQL_CONTAINER="ghost-mysql"
+HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
+VOLUME="wp_${DOMAIN//./_}_html"
+CONTAINER="wp-${DOMAIN//./-}"
+
+WORKDIR="$(mktemp -d /tmp/wp-restore-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"' EXIT
+extract_backup_archive "$BACKUP_FILE" "$WORKDIR"
+[[ -f "$WORKDIR/data/html.tar.gz" ]] || die "Backup unvollständig (data/html.tar.gz fehlt)"
+
+SELECTED_SQL_FILE="$(select_sql_file "$WORKDIR")"
+info "Verwende SQL-Backup: ${SELECTED_SQL_FILE#$WORKDIR/}"
+
+if [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
+  [[ -f "$WORKDIR/files/hostvars.yml" ]] || die "hostvars.yml fehlt im Backup"
+  mkdir -p "$(dirname "$HOSTVARS")"
+  cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
+  info "Hostvars aus Backup wiederhergestellt"
+fi
+
+[[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
+
+SOURCE_DOMAIN="$(extract_hostvar domain "$WORKDIR/files/hostvars.yml" 2>/dev/null || true)"
+if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
+  echo "Die gewählte WordPress-Domain ('${DOMAIN}') entspricht nicht der Domain aus dem Backup ('${SOURCE_DOMAIN}') soll die neue Domain ('${DOMAIN}') migriert werden? (yes/NO)"
+  read -r choice
+  if [[ "$choice" != "yes" ]]; then
+    warn "Nutze Domain aus dem Backup: ${SOURCE_DOMAIN}"
+    DOMAIN="$SOURCE_DOMAIN"
+  else
+    warn "Domain-Migration aktiv: ${SOURCE_DOMAIN} -> ${DOMAIN}"
+  fi
+fi
+
+HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
+VOLUME="wp_${DOMAIN//./_}_html"
+CONTAINER="wp-${DOMAIN//./-}"
+
+if [[ ! -f "$HOSTVARS" && -f "$WORKDIR/files/hostvars.yml" ]]; then
+  mkdir -p "$(dirname "$HOSTVARS")"
+  cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
+  set_hostvar_value "domain" "$DOMAIN" "$HOSTVARS"
+fi
+
+DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"
+DB_USER="$(extract_hostvar wp_domain_usr "$HOSTVARS")"
+DB_PASS="$(extract_hostvar wp_domain_pwd "$HOSTVARS")"
+TABLE_PREFIX="$(extract_hostvar wp_table_prefix "$HOSTVARS")"
+TARGET_WP_VERSION="$(extract_hostvar wp_version "$HOSTVARS")"
+SOURCE_WP_VERSION="$(extract_hostvar wp_version "$WORKDIR/files/hostvars.yml" 2>/dev/null || true)"
+[[ -n "$TABLE_PREFIX" ]] || TABLE_PREFIX="wp_"
+[[ -n "$TARGET_WP_VERSION" ]] || TARGET_WP_VERSION="latest"
+[[ -n "$SOURCE_WP_VERSION" ]] || SOURCE_WP_VERSION="$TARGET_WP_VERSION"
+
+if [[ -n "$PHP_VERSION" ]]; then
+  [[ "$PHP_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] || die "Ungültige PHP-Version: $PHP_VERSION (erwartet z. B. 8.2)"
+  if [[ "$TARGET_WP_VERSION" == "latest" ]]; then
+    set_hostvar_value "wp_image_tag" "php${PHP_VERSION}-apache" "$HOSTVARS"
+  else
+    set_hostvar_value "wp_image_tag" "${TARGET_WP_VERSION}-php${PHP_VERSION}-apache" "$HOSTVARS"
+  fi
+  info "Hostvars aktualisiert: wp_image_tag=$(extract_hostvar wp_image_tag "$HOSTVARS")"
+  FORCE_REDEPLOY=1
+fi
+
+src_int="$(version_to_int "$SOURCE_WP_VERSION")"
+tgt_int="$(version_to_int "$TARGET_WP_VERSION")"
+if [[ "$ALLOW_DOWNGRADE" -ne 1 && "$tgt_int" -lt "$src_int" ]]; then
+  die "Version-Downgrade erkannt (Backup: $SOURCE_WP_VERSION -> Ziel: $TARGET_WP_VERSION). Entweder wp_version anheben oder --allow-version-downgrade setzen."
+fi
+
+mkdir -p "$WORKDIR/unpacked-html"
+tar xzf "$WORKDIR/data/html.tar.gz" -C "$WORKDIR/unpacked-html"
+CONFIG_DOMAIN="$(extract_wp_config_domain "$WORKDIR/unpacked-html/wp-config.php")"
+if [[ -n "$CONFIG_DOMAIN" && "$CONFIG_DOMAIN" != "$DOMAIN" ]]; then
+  warn "Passe wp-config.php Domain an: ${CONFIG_DOMAIN} -> ${DOMAIN}"
+  sed -i "s|${CONFIG_DOMAIN}|${DOMAIN}|g" "$WORKDIR/unpacked-html/wp-config.php"
+fi
+
+warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
+info "Backup-Version: $SOURCE_WP_VERSION | Ziel-Version: $TARGET_WP_VERSION"
+read -r -p "Fortfahren? (yes/no): " a
+[[ "$a" == yes ]] || die "Abbruch"
+
+docker ps --format '{{.Names}}' | grep -qx "$MYSQL_CONTAINER" || die "MySQL Container läuft nicht: $MYSQL_CONTAINER"
+
+info "Stoppe Container: $CONTAINER"
+docker stop "$CONTAINER" >/dev/null || true
+
+info "Leere DB und importiere Dump"
+{
+  echo "SET FOREIGN_KEY_CHECKS=0;"
+  docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SELECT CONCAT('DROP TABLE IF EXISTS \\`', table_name, '\\`;') FROM information_schema.tables WHERE table_schema='${DB_NAME}';"
+  echo "SET FOREIGN_KEY_CHECKS=1;"
+} | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+
+if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
+  info "Aktualisiere WordPress-Domain in DB (${TABLE_PREFIX}options)"
+  docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE ${TABLE_PREFIX}options SET option_value='https://${DOMAIN}' WHERE option_name IN ('siteurl','home');"
+fi
+
+info "Restore Document Root"
+docker volume create "$VOLUME" >/dev/null
+docker run --rm -v "${VOLUME}:/target" -v "${WORKDIR}/unpacked-html:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
+
+info "Starte Container: $CONTAINER"
+docker start "$CONTAINER" >/dev/null || true
+
+if [[ "$FORCE_REDEPLOY" -eq 1 ]]; then
+  info "Führe gezielten Redeploy aus"
+  "$REDEPLOY_SCRIPT" "$DOMAIN"
+fi
+
+if [[ "$TARGET_WP_VERSION" != "$SOURCE_WP_VERSION" ]]; then
+  info "Versionen unterscheiden sich (Backup=$SOURCE_WP_VERSION, Ziel=$TARGET_WP_VERSION)."
+  info "Empfehlung: kontrolliert mit ./scripts/wp-upgrade.sh ${DOMAIN} --version=<ziel> weiterziehen."
+fi
+
+ok "WordPress-Restore abgeschlossen"
