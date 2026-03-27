@@ -49,9 +49,56 @@
 
 - name: Build WordPress middleware settings
   ansible.builtin.set_fact:
-    wp_middleware_default: "{{ wp_traefik_middleware_default | default('crowdsec-default@docker') }}"
-    wp_middleware_admin: "{{ wp_traefik_middleware_admin | default('crowdsec-admin@docker') }}"
-    wp_middleware_api: "{{ wp_traefik_middleware_api | default('crowdsec-api@docker') }}"
+    wp_requested_middleware_default: "{{ wp_traefik_middleware_default | default('', true) }}"
+    wp_requested_middleware_admin: "{{ wp_traefik_middleware_admin | default('', true) }}"
+    wp_requested_middleware_api: "{{ wp_traefik_middleware_api | default('', true) }}"
+
+- name: Check if CrowdSec Traefik bouncer is running
+  community.docker.docker_container_info:
+    name: crowdsec-bouncer-traefik
+  register: wp_crowdsec_bouncer
+  failed_when: false
+  changed_when: false
+
+- name: Resolve active middleware settings
+  ansible.builtin.set_fact:
+    wp_crowdsec_available: "{{ wp_crowdsec_bouncer.exists | default(false) and (wp_crowdsec_bouncer.container.State.Running | default(false)) }}"
+    wp_middleware_default: >-
+      {{
+        wp_requested_middleware_default
+        if (
+          (wp_requested_middleware_default | length > 0)
+          and (
+            ('crowdsec-' not in wp_requested_middleware_default)
+            or wp_crowdsec_available
+          )
+        )
+        else ''
+      }}
+    wp_middleware_admin: >-
+      {{
+        wp_requested_middleware_admin
+        if (
+          (wp_requested_middleware_admin | length > 0)
+          and (
+            ('crowdsec-' not in wp_requested_middleware_admin)
+            or wp_crowdsec_available
+          )
+        )
+        else ''
+      }}
+    wp_middleware_api: >-
+      {{
+        wp_requested_middleware_api
+        if (
+          (wp_requested_middleware_api | length > 0)
+          and (
+            ('crowdsec-' not in wp_requested_middleware_api)
+            or wp_crowdsec_available
+          )
+        )
+        else ''
+      }}
 
 - name: Build optional middleware labels
   ansible.builtin.set_fact:
@@ -98,6 +145,13 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ wp_router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ wp_router_name ~ '.service'): wp_service_name,
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.rule'): wp_host_rule_primary,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.priority'): '200',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.middlewares'): wp_router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.service'): 'noop@internal',
 
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.rule'): '(' ~ wp_host_rule_primary ~ ') && (PathPrefix(`/wp-admin`) || Path(`/wp-login.php`))',
