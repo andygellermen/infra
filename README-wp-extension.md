@@ -20,17 +20,16 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-upgrade.sh`: Setzt `wp_version` in Hostvars und führt Redeploy aus.
 
 ## Backup-Format für WordPress
-Das Backup-Archiv (`.tar.gz`) sollte diese Struktur haben:
-- `meta/manifest.env` (Domain, Container, Volume, Timestamp, `wp_version`)
-- `data/db.sql` (MySQL-Dump der WP-Datenbank)
-- `data/html.tar.gz` (vollständiger Inhalt des WordPress Document-Roots `/var/www/html`)
-- `files/hostvars.yml` (instanzspezifische Hostvars)
+Erwartetes Backup-Format (neu):
+- Das Archiv enthält den **vollständigen WordPress-Document-Root** direkt auf Top-Level.
+- Die DB-SQL-Datei liegt ebenfalls direkt im Document-Root (z. B. `db.sql`).
+- `manifest` und/oder `hostvars` sind **optional** (z. B. unter `_infra/`), damit auch Legacy-WordPress-Backups ohne Infra-Metadaten nutzbar bleiben.
 
 > Empfehlung: Der Document-Root **muss vollständig** enthalten sein, damit Plugins/Themes/Uploads konsistent restauriert werden können.
 
 ## Restore bei Domain-Migration (neu)
 `wp-restore.sh` prüft die Domain-Konsistenz über:
-- `domain` aus `files/hostvars.yml` im Backup
+- falls vorhanden: `domain` aus optionaler hostvars-Datei im Backup (`_infra/hostvars.yml` oder Legacy `files/hostvars.yml`)
 - optional `WP_HOME/WP_SITEURL` in `wp-config.php`
 
 Verhalten:
@@ -42,7 +41,7 @@ Verhalten:
 
 Zusätzlich:
 - Backup-Archive können als `.tar.gz`, `.tgz` oder `.zip` wiederhergestellt werden.
-- Bei mehreren SQL-Dateien im Archiv erfolgt eine interaktive Auswahl in der Konsole (`1...n`, Standard `1`).
+- Bei mehreren SQL-Dateien im Archiv erfolgt eine interaktive Auswahl in der Konsole (`1...n`, Standard `1`). Dabei wird zuerst im Document-Root gesucht.
 
 - **Default:** Schutz vor unbeabsichtigtem Downgrade (Abbruch, wenn Zielversion kleiner als Backup-Version).
 - `--restore-hostvars`: übernimmt Hostvars aus Backup (inkl. damaliger `wp_version`).

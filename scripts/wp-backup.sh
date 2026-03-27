@@ -54,24 +54,27 @@ WP_VERSION="$(extract_hostvar wp_version "$HOSTVARS")"
 [[ -n "$WP_VERSION" ]] || WP_VERSION="latest"
 
 WORKDIR="$(mktemp -d /tmp/wp-backup-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"' EXIT
-mkdir -p "$WORKDIR"/{data,files,meta}
+EXPORT_ROOT="$WORKDIR/export-root"
+mkdir -p "$EXPORT_ROOT"
+
+info "Sichere vollständigen WordPress-Document-Root"
+docker run --rm -v "${VOLUME}:/src:ro" -v "${EXPORT_ROOT}:/backup" alpine sh -c 'cp -a /src/. /backup/'
 
 info "Dump DB: $DB_NAME"
-docker exec -e MYSQL_PWD="$DB_PASS" "$MYSQL_CONTAINER" mysqldump --no-tablespaces -u"$DB_USER" "$DB_NAME" > "$WORKDIR/data/db.sql"
-[[ -s "$WORKDIR/data/db.sql" ]] || die "DB-Dump ist leer"
+docker exec -e MYSQL_PWD="$DB_PASS" "$MYSQL_CONTAINER" mysqldump --no-tablespaces -u"$DB_USER" "$DB_NAME" > "$EXPORT_ROOT/db.sql"
+[[ -s "$EXPORT_ROOT/db.sql" ]] || die "DB-Dump ist leer"
 
-info "Sichere WordPress-Dateien (Document Root)"
-docker run --rm -v "${VOLUME}:/src:ro" -v "${WORKDIR}/data:/backup" alpine sh -c 'tar czf /backup/html.tar.gz -C /src .'
-cp -a "$HOSTVARS" "$WORKDIR/files/hostvars.yml"
-
+# Optionales Infra-Meta für managed Instanzen
+mkdir -p "$EXPORT_ROOT/_infra"
+cp -a "$HOSTVARS" "$EXPORT_ROOT/_infra/hostvars.yml" || true
 {
   echo "domain=$DOMAIN"
   echo "container=$CONTAINER"
   echo "volume=$VOLUME"
   echo "wp_version=$WP_VERSION"
   echo "timestamp=$TIMESTAMP"
-} > "$WORKDIR/meta/manifest.env"
+} > "$EXPORT_ROOT/_infra/manifest.env"
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
-tar czf "$OUTPUT_FILE" -C "$WORKDIR" .
+tar czf "$OUTPUT_FILE" -C "$EXPORT_ROOT" .
 ok "WordPress-Backup erstellt: $OUTPUT_FILE"

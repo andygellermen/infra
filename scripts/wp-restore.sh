@@ -59,9 +59,46 @@ extract_backup_archive() {
   esac
 }
 
+detect_docroot() {
+  local base="$1"
+  if [[ -f "$base/wp-config.php" ]]; then
+    printf '%s\n' "$base"
+    return
+  fi
+
+  local candidate
+  candidate="$(find "$base" -mindepth 1 -maxdepth 2 -type f -name 'wp-config.php' | head -n1 || true)"
+  if [[ -n "$candidate" ]]; then
+    dirname "$candidate"
+    return
+  fi
+
+  # Legacy-Format fallback: data/html.tar.gz
+  if [[ -f "$base/data/html.tar.gz" ]]; then
+    local legacy="$base/_legacy-docroot"
+    mkdir -p "$legacy"
+    tar xzf "$base/data/html.tar.gz" -C "$legacy"
+    printf '%s\n' "$legacy"
+    return
+  fi
+
+  die "Kein WordPress-Document-Root im Backup erkannt (wp-config.php fehlt)."
+}
+
 select_sql_file() {
+  local docroot="$1"
+  local backup_root="$2"
   local sql_files=()
-  mapfile -t sql_files < <(find "$1" -type f -name '*.sql' | sort)
+
+  # Zielbild: SQL direkt im Document-Root
+  mapfile -t sql_files < <(find "$docroot" -maxdepth 1 -type f -name '*.sql' | sort)
+  if [[ ${#sql_files[@]} -eq 0 ]]; then
+    # Fallbacks für ältere Backups
+    mapfile -t sql_files < <(find "$docroot" -type f -name '*.sql' | sort)
+  fi
+  if [[ ${#sql_files[@]} -eq 0 ]]; then
+    mapfile -t sql_files < <(find "$backup_root" -type f -name '*.sql' | sort)
+  fi
 
   [[ ${#sql_files[@]} -gt 0 ]] || die "Kein SQL-File im Backup gefunden."
 
@@ -73,7 +110,7 @@ select_sql_file() {
   echo "Mehrere SQL-Dateien gefunden:"
   local i=1
   for f in "${sql_files[@]}"; do
-    echo "  $i) ${f#$1/}"
+    echo "  $i) ${f#$backup_root/}"
     ((i++))
   done
   echo "Bitte wähle das Datenbank-Backup zur Wiederherstellung 1...${#sql_files[@]} (standard: 1)"
@@ -113,21 +150,36 @@ CONTAINER="wp-${DOMAIN//./-}"
 
 WORKDIR="$(mktemp -d /tmp/wp-restore-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"' EXIT
 extract_backup_archive "$BACKUP_FILE" "$WORKDIR"
-[[ -f "$WORKDIR/data/html.tar.gz" ]] || die "Backup unvollständig (data/html.tar.gz fehlt)"
-
-SELECTED_SQL_FILE="$(select_sql_file "$WORKDIR")"
+DOCROOT="$(detect_docroot "$WORKDIR")"
+SELECTED_SQL_FILE="$(select_sql_file "$DOCROOT" "$WORKDIR")"
+info "Erkannter Document-Root: ${DOCROOT#$WORKDIR/}"
 info "Verwende SQL-Backup: ${SELECTED_SQL_FILE#$WORKDIR/}"
 
 if [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
-  [[ -f "$WORKDIR/files/hostvars.yml" ]] || die "hostvars.yml fehlt im Backup"
-  mkdir -p "$(dirname "$HOSTVARS")"
-  cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
-  info "Hostvars aus Backup wiederhergestellt"
+  if [[ -f "$WORKDIR/_infra/hostvars.yml" ]]; then
+    mkdir -p "$(dirname "$HOSTVARS")"
+    cp -a "$WORKDIR/_infra/hostvars.yml" "$HOSTVARS"
+    info "Hostvars aus Backup wiederhergestellt"
+  elif [[ -f "$WORKDIR/files/hostvars.yml" ]]; then
+    mkdir -p "$(dirname "$HOSTVARS")"
+    cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
+    info "Hostvars aus Backup wiederhergestellt (Legacy-Pfad)"
+  else
+    warn "--restore-hostvars gesetzt, aber keine hostvars.yml im Backup gefunden (optional)"
+  fi
 fi
 
 [[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
 
-SOURCE_DOMAIN="$(extract_hostvar domain "$WORKDIR/files/hostvars.yml" 2>/dev/null || true)"
+SOURCE_HOSTVARS=""
+if [[ -f "$WORKDIR/_infra/hostvars.yml" ]]; then
+  SOURCE_HOSTVARS="$WORKDIR/_infra/hostvars.yml"
+elif [[ -f "$WORKDIR/files/hostvars.yml" ]]; then
+  SOURCE_HOSTVARS="$WORKDIR/files/hostvars.yml"
+fi
+
+SOURCE_DOMAIN=""
+[[ -n "$SOURCE_HOSTVARS" ]] && SOURCE_DOMAIN="$(extract_hostvar domain "$SOURCE_HOSTVARS" 2>/dev/null || true)"
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
   echo "Die gewählte WordPress-Domain ('${DOMAIN}') entspricht nicht der Domain aus dem Backup ('${SOURCE_DOMAIN}') soll die neue Domain ('${DOMAIN}') migriert werden? (yes/NO)"
   read -r choice
@@ -143,18 +195,21 @@ HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
 VOLUME="wp_${DOMAIN//./_}_html"
 CONTAINER="wp-${DOMAIN//./-}"
 
-if [[ ! -f "$HOSTVARS" && -f "$WORKDIR/files/hostvars.yml" ]]; then
+if [[ ! -f "$HOSTVARS" && -n "$SOURCE_HOSTVARS" ]]; then
   mkdir -p "$(dirname "$HOSTVARS")"
-  cp -a "$WORKDIR/files/hostvars.yml" "$HOSTVARS"
+  cp -a "$SOURCE_HOSTVARS" "$HOSTVARS"
   set_hostvar_value "domain" "$DOMAIN" "$HOSTVARS"
 fi
+
+[[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
 
 DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"
 DB_USER="$(extract_hostvar wp_domain_usr "$HOSTVARS")"
 DB_PASS="$(extract_hostvar wp_domain_pwd "$HOSTVARS")"
 TABLE_PREFIX="$(extract_hostvar wp_table_prefix "$HOSTVARS")"
 TARGET_WP_VERSION="$(extract_hostvar wp_version "$HOSTVARS")"
-SOURCE_WP_VERSION="$(extract_hostvar wp_version "$WORKDIR/files/hostvars.yml" 2>/dev/null || true)"
+SOURCE_WP_VERSION=""
+[[ -n "$SOURCE_HOSTVARS" ]] && SOURCE_WP_VERSION="$(extract_hostvar wp_version "$SOURCE_HOSTVARS" 2>/dev/null || true)"
 [[ -n "$TABLE_PREFIX" ]] || TABLE_PREFIX="wp_"
 [[ -n "$TARGET_WP_VERSION" ]] || TARGET_WP_VERSION="latest"
 [[ -n "$SOURCE_WP_VERSION" ]] || SOURCE_WP_VERSION="$TARGET_WP_VERSION"
@@ -176,12 +231,10 @@ if [[ "$ALLOW_DOWNGRADE" -ne 1 && "$tgt_int" -lt "$src_int" ]]; then
   die "Version-Downgrade erkannt (Backup: $SOURCE_WP_VERSION -> Ziel: $TARGET_WP_VERSION). Entweder wp_version anheben oder --allow-version-downgrade setzen."
 fi
 
-mkdir -p "$WORKDIR/unpacked-html"
-tar xzf "$WORKDIR/data/html.tar.gz" -C "$WORKDIR/unpacked-html"
-CONFIG_DOMAIN="$(extract_wp_config_domain "$WORKDIR/unpacked-html/wp-config.php")"
+CONFIG_DOMAIN="$(extract_wp_config_domain "$DOCROOT/wp-config.php")"
 if [[ -n "$CONFIG_DOMAIN" && "$CONFIG_DOMAIN" != "$DOMAIN" ]]; then
   warn "Passe wp-config.php Domain an: ${CONFIG_DOMAIN} -> ${DOMAIN}"
-  sed -i "s|${CONFIG_DOMAIN}|${DOMAIN}|g" "$WORKDIR/unpacked-html/wp-config.php"
+  sed -i "s|${CONFIG_DOMAIN}|${DOMAIN}|g" "$DOCROOT/wp-config.php"
 fi
 
 warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
@@ -209,7 +262,7 @@ fi
 
 info "Restore Document Root"
 docker volume create "$VOLUME" >/dev/null
-docker run --rm -v "${VOLUME}:/target" -v "${WORKDIR}/unpacked-html:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
+docker run --rm -v "${VOLUME}:/target" -v "${DOCROOT}:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
 
 info "Starte Container: $CONTAINER"
 docker start "$CONTAINER" >/dev/null || true
