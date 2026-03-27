@@ -12,7 +12,8 @@
           - portainer is defined
           - portainer.domain is defined
           - portainer.domain | length > 0
-        fail_msg: "Bitte portainer.domain via -e 'portainer={domain:\'portainer.example.com\'}' setzen."
+        fail_msg: >-
+          Bitte portainer.domain via -e "portainer={'domain':'portainer.example.com'}" setzen.
 
     - name: Ensure traefik network exists
       community.docker.docker_network:

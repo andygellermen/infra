@@ -12,8 +12,8 @@
     image: traefik:v2.11
     restart_policy: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "{{ traefik_http_host_port | default(80) }}:80"
+      - "{{ traefik_https_host_port | default(443) }}:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "/home/andy/infra/data/traefik/acme:/etc/traefik/acme"
