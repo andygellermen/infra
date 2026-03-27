@@ -37,6 +37,7 @@ Erwartetes Backup-Format (neu):
 Verhalten:
 - **Default:** interaktive Abfrage bei Domain-Mismatch, ob auf die neue Domain migriert werden soll (`yes`) oder die Backup-Domain verwendet wird (`NO`).
 - bei erlaubter Migration: `siteurl`/`home` in `${wp_table_prefix}options` werden auf `https://<ziel-domain>` gesetzt
+- existiert der Ziel-Container noch nicht, schreibt der Restore zunächst DB/Volume und führt danach automatisiert einen Redeploy aus
 
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).

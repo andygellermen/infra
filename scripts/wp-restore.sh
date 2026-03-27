@@ -98,6 +98,15 @@ ensure_db_and_user_exists() {
   docker exec -e MYSQL_PWD="$mysql_root_password" "$MYSQL_CONTAINER" mysql -uroot -e "GRANT ALL PRIVILEGES ON \`${db_name}\`.* TO '${db_user}'@'%'; FLUSH PRIVILEGES;"
 }
 
+get_mysql_root_password() {
+  local secrets_file mysql_root_password
+  secrets_file="$ROOT_DIR/ansible/secrets/secrets.yml"
+  [[ -f "$secrets_file" ]] || die "Secrets-Datei fehlt: $secrets_file"
+  mysql_root_password="$(extract_secret mysql_root_password "$secrets_file")"
+  [[ -n "$mysql_root_password" ]] || die "mysql_root_password fehlt in $secrets_file"
+  printf '%s\n' "$mysql_root_password"
+}
+
 extract_backup_archive() {
   local archive="$1" dest="$2"
   case "$archive" in
@@ -303,15 +312,20 @@ read -r -p "Fortfahren? (yes/no): " a
 
 docker ps --format '{{.Names}}' | grep -qx "$MYSQL_CONTAINER" || die "MySQL Container läuft nicht: $MYSQL_CONTAINER"
 
-info "Stoppe Container: $CONTAINER"
-docker stop "$CONTAINER" >/dev/null || true
+CONTAINER_EXISTS=0
+if docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+  CONTAINER_EXISTS=1
+  info "Stoppe Container: $CONTAINER"
+  docker stop "$CONTAINER" >/dev/null || true
+else
+  warn "Container ${CONTAINER} existiert noch nicht. Restore schreibt DB/Volume und triggert anschließend Redeploy."
+  FORCE_REDEPLOY=1
+fi
 
 info "Leere DB und importiere Dump"
-{
-  echo "SET FOREIGN_KEY_CHECKS=0;"
-  docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SELECT CONCAT('DROP TABLE IF EXISTS \\`', table_name, '\\`;') FROM information_schema.tables WHERE table_schema='${DB_NAME}';"
-  echo "SET FOREIGN_KEY_CHECKS=1;"
-} | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+MYSQL_ROOT_PASSWORD="$(get_mysql_root_password)"
+docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`;"
+docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot -e "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%'; FLUSH PRIVILEGES;"
 cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
@@ -323,8 +337,10 @@ info "Restore Document Root"
 docker volume create "$VOLUME" >/dev/null
 docker run --rm -v "${VOLUME}:/target" -v "${DOCROOT}:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
 
-info "Starte Container: $CONTAINER"
-docker start "$CONTAINER" >/dev/null || true
+if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
+  info "Starte Container: $CONTAINER"
+  docker start "$CONTAINER" >/dev/null || true
+fi
 
 if [[ "$FORCE_REDEPLOY" -eq 1 ]]; then
   info "Führe gezielten Redeploy aus"
