@@ -40,6 +40,10 @@ Verhalten:
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).
 
+Zusätzlich:
+- Backup-Archive können als `.tar.gz`, `.tgz` oder `.zip` wiederhergestellt werden.
+- Bei mehreren SQL-Dateien im Archiv erfolgt eine interaktive Auswahl in der Konsole (`1...n`, Standard `1`).
+
 - **Default:** Schutz vor unbeabsichtigtem Downgrade (Abbruch, wenn Zielversion kleiner als Backup-Version).
 - `--restore-hostvars`: übernimmt Hostvars aus Backup (inkl. damaliger `wp_version`).
 - `--allow-version-downgrade`: explizite Freigabe eines Downgrades (nur bewusst einsetzen).

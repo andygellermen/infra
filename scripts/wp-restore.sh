@@ -14,7 +14,7 @@ extract_hostvar(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:
 usage() {
   cat <<USAGE
 Usage:
-  $0 --restore <domain> <backup.tar.gz> [--yes] [--restore-hostvars] [--allow-version-downgrade] [--php-version=<major.minor>] [--redeploy]
+  $0 <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--allow-version-downgrade] [--php-version=<major.minor>] [--redeploy]
 USAGE
 }
 
@@ -43,12 +43,51 @@ extract_wp_config_domain() {
     | head -n1 || true
 }
 
-[[ ${1:-} == "--help" || ${1:-} == "-h" ]] && { usage; exit 0; }
-[[ "${1:-}" == "--restore" ]] || die "Usage: $0 --restore <domain> <backup.tar.gz> [--yes]"
-[[ $# -ge 3 ]] || die "Parameter fehlen"
+extract_backup_archive() {
+  local archive="$1" dest="$2"
+  case "$archive" in
+    *.tar.gz|*.tgz)
+      tar xzf "$archive" -C "$dest"
+      ;;
+    *.zip)
+      require_cmd unzip
+      unzip -q "$archive" -d "$dest"
+      ;;
+    *)
+      die "Unbekanntes Backup-Format: $archive (erwartet .tar.gz, .tgz oder .zip)"
+      ;;
+  esac
+}
 
-DOMAIN="$2"; BACKUP_FILE="$3"; shift 3
-ASSUME_YES=0
+select_sql_file() {
+  local sql_files=()
+  mapfile -t sql_files < <(find "$1" -type f -name '*.sql' | sort)
+
+  [[ ${#sql_files[@]} -gt 0 ]] || die "Kein SQL-File im Backup gefunden."
+
+  if [[ ${#sql_files[@]} -eq 1 ]]; then
+    printf '%s\n' "${sql_files[0]}"
+    return
+  fi
+
+  echo "Mehrere SQL-Dateien gefunden:"
+  local i=1
+  for f in "${sql_files[@]}"; do
+    echo "  $i) ${f#$1/}"
+    ((i++))
+  done
+  echo "Bitte wähle das Datenbank-Backup zur Wiederherstellung 1...${#sql_files[@]} (standard: 1)"
+  read -r selection
+  [[ -n "$selection" ]] || selection=1
+  [[ "$selection" =~ ^[0-9]+$ ]] || die "Ungültige Auswahl: $selection"
+  (( selection >= 1 && selection <= ${#sql_files[@]} )) || die "Auswahl außerhalb des Bereichs"
+  printf '%s\n' "${sql_files[$((selection-1))]}"
+}
+
+[[ ${1:-} == "--help" || ${1:-} == "-h" ]] && { usage; exit 0; }
+[[ $# -ge 2 ]] || { usage; exit 1; }
+
+DOMAIN="$1"; BACKUP_FILE="$2"; shift 2
 RESTORE_HOSTVARS=0
 ALLOW_DOWNGRADE=0
 FORCE_REDEPLOY=0
@@ -56,7 +95,6 @@ PHP_VERSION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --yes) ASSUME_YES=1; shift ;;
     --restore-hostvars) RESTORE_HOSTVARS=1; shift ;;
     --allow-version-downgrade) ALLOW_DOWNGRADE=1; shift ;;
     --redeploy) FORCE_REDEPLOY=1; shift ;;
@@ -74,8 +112,11 @@ VOLUME="wp_${DOMAIN//./_}_html"
 CONTAINER="wp-${DOMAIN//./-}"
 
 WORKDIR="$(mktemp -d /tmp/wp-restore-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"' EXIT
-tar xzf "$BACKUP_FILE" -C "$WORKDIR"
-[[ -f "$WORKDIR/data/db.sql" && -f "$WORKDIR/data/html.tar.gz" ]] || die "Backup unvollständig (db.sql/html.tar.gz fehlt)"
+extract_backup_archive "$BACKUP_FILE" "$WORKDIR"
+[[ -f "$WORKDIR/data/html.tar.gz" ]] || die "Backup unvollständig (data/html.tar.gz fehlt)"
+
+SELECTED_SQL_FILE="$(select_sql_file "$WORKDIR")"
+info "Verwende SQL-Backup: ${SELECTED_SQL_FILE#$WORKDIR/}"
 
 if [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
   [[ -f "$WORKDIR/files/hostvars.yml" ]] || die "hostvars.yml fehlt im Backup"
@@ -88,17 +129,13 @@ fi
 
 SOURCE_DOMAIN="$(extract_hostvar domain "$WORKDIR/files/hostvars.yml" 2>/dev/null || true)"
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    warn "--yes aktiv: Domain-Mismatch erkannt (${SOURCE_DOMAIN} -> ${DOMAIN}), Migration wird automatisch ausgeführt."
+  echo "Die gewählte WordPress-Domain ('${DOMAIN}') entspricht nicht der Domain aus dem Backup ('${SOURCE_DOMAIN}') soll die neue Domain ('${DOMAIN}') migriert werden? (yes/NO)"
+  read -r choice
+  if [[ "$choice" != "yes" ]]; then
+    warn "Nutze Domain aus dem Backup: ${SOURCE_DOMAIN}"
+    DOMAIN="$SOURCE_DOMAIN"
   else
-    echo "Die gewählte WordPress-Domain ('${DOMAIN}') entspricht nicht der Domain aus dem Backup ('${SOURCE_DOMAIN}') soll die neue Domain ('${DOMAIN}') migriert werden? (yes/NO)"
-    read -r choice
-    if [[ "$choice" != "yes" ]]; then
-      warn "Nutze Domain aus dem Backup: ${SOURCE_DOMAIN}"
-      DOMAIN="$SOURCE_DOMAIN"
-    else
-      warn "Domain-Migration aktiv: ${SOURCE_DOMAIN} -> ${DOMAIN}"
-    fi
+    warn "Domain-Migration aktiv: ${SOURCE_DOMAIN} -> ${DOMAIN}"
   fi
 fi
 
@@ -147,12 +184,10 @@ if [[ -n "$CONFIG_DOMAIN" && "$CONFIG_DOMAIN" != "$DOMAIN" ]]; then
   sed -i "s|${CONFIG_DOMAIN}|${DOMAIN}|g" "$WORKDIR/unpacked-html/wp-config.php"
 fi
 
-if [[ "$ASSUME_YES" -ne 1 ]]; then
-  warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
-  info "Backup-Version: $SOURCE_WP_VERSION | Ziel-Version: $TARGET_WP_VERSION"
-  read -r -p "Fortfahren? (yes/no): " a
-  [[ "$a" == yes ]] || die "Abbruch"
-fi
+warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
+info "Backup-Version: $SOURCE_WP_VERSION | Ziel-Version: $TARGET_WP_VERSION"
+read -r -p "Fortfahren? (yes/no): " a
+[[ "$a" == yes ]] || die "Abbruch"
 
 docker ps --format '{{.Names}}' | grep -qx "$MYSQL_CONTAINER" || die "MySQL Container läuft nicht: $MYSQL_CONTAINER"
 
@@ -165,7 +200,7 @@ info "Leere DB und importiere Dump"
   docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SELECT CONCAT('DROP TABLE IF EXISTS \\`', table_name, '\\`;') FROM information_schema.tables WHERE table_schema='${DB_NAME}';"
   echo "SET FOREIGN_KEY_CHECKS=1;"
 } | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
-cat "$WORKDIR/data/db.sql" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
   info "Aktualisiere WordPress-Domain in DB (${TABLE_PREFIX}options)"
