@@ -98,6 +98,13 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ wp_router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ wp_router_name ~ '.service'): wp_service_name,
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.rule'): wp_host_rule_primary,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.priority'): '200',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.middlewares'): wp_router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-web.service'): 'noop@internal',
 
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.rule'): '(' ~ wp_host_rule_primary ~ ') && (PathPrefix(`/wp-admin`) || Path(`/wp-login.php`))',
