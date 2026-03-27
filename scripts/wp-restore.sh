@@ -359,6 +359,19 @@ fi
 info "Restore Document Root"
 docker volume create "$VOLUME" >/dev/null
 docker run --rm -v "${VOLUME}:/target" -v "${DOCROOT}:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
+docker run --rm -v "${VOLUME}:/target" alpine sh -c '
+  set -eu
+  # WordPress official Apache image runs as www-data (uid/gid 33).
+  chown -R 33:33 /target
+  # Ensure Apache can traverse directories and read .htaccess/files.
+  find /target -type d -exec chmod 755 {} +
+  find /target -type f -exec chmod 644 {} +
+  # Keep wp-content writable for plugin/theme updates and uploads.
+  if [ -d /target/wp-content ]; then
+    find /target/wp-content -type d -exec chmod 775 {} +
+    find /target/wp-content -type f -exec chmod 664 {} +
+  fi
+'
 
 if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
   info "Starte Container: $CONTAINER"
