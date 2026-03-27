@@ -31,6 +31,7 @@ Erwartetes Backup-Format (neu):
 `wp-restore.sh` prüft die Domain-Konsistenz über:
 - falls vorhanden: `domain` aus optionaler hostvars-Datei im Backup (`_infra/hostvars.yml` oder Legacy `files/hostvars.yml`)
 - ohne hostvars: Fallback-Domain-Ermittlung aus der ausgewählten SQL-Datei (siteurl/home)
+- Tabellenprefix wird aus der ausgewählten SQL-Datei erkannt und als `wp_table_prefix` in Hostvars übernommen
 - fehlen lokale Hostvars komplett, erzeugt `wp-restore.sh` minimale Hostvars automatisch und initialisiert DB/User aus `ansible/secrets/secrets.yml`
 - optional `WP_HOME/WP_SITEURL` in `wp-config.php`
 

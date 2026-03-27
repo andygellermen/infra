@@ -58,7 +58,7 @@ extract_domain_from_sql() {
 }
 
 ensure_hostvars_exists() {
-  local hostvars_file="$1" domain="$2"
+  local hostvars_file="$1" domain="$2" table_prefix="${3:-wp_}"
   [[ -f "$hostvars_file" ]] && return 0
 
   warn "Hostvars fehlen für ${domain}. Erzeuge minimale Hostvars für Legacy-Restore."
@@ -74,7 +74,7 @@ domain: ${domain}
 wp_domain_db: wp_${db_prefix}
 wp_domain_usr: ${db_user}
 wp_domain_pwd: ${db_pwd}
-wp_table_prefix: wp_
+wp_table_prefix: ${table_prefix}
 wp_version: "latest"
 EOF
   info "Hostvars neu erzeugt: $hostvars_file"
@@ -105,6 +105,18 @@ get_mysql_root_password() {
   mysql_root_password="$(extract_secret mysql_root_password "$secrets_file")"
   [[ -n "$mysql_root_password" ]] || die "mysql_root_password fehlt in $secrets_file"
   printf '%s\n' "$mysql_root_password"
+}
+
+detect_wp_table_prefix_from_sql() {
+  local sql_file="$1"
+  local table
+
+  table="$(grep -Eo "CREATE TABLE \`[^\\\`]+\`" "$sql_file" | sed -E "s/CREATE TABLE \`([^\\\`]+)\`/\\1/" | grep -E "_options$" | head -n1 || true)"
+  if [[ -z "$table" ]]; then
+    table="$(grep -Eo "INSERT INTO \`[^\\\`]+\`" "$sql_file" | sed -E "s/INSERT INTO \`([^\\\`]+)\`/\\1/" | grep -E "_options$" | head -n1 || true)"
+  fi
+  [[ -n "$table" ]] || return 0
+  printf '%s\n' "${table%options}"
 }
 
 extract_backup_archive() {
@@ -216,8 +228,10 @@ WORKDIR="$(mktemp -d /tmp/wp-restore-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"
 extract_backup_archive "$BACKUP_FILE" "$WORKDIR"
 DOCROOT="$(detect_docroot "$WORKDIR")"
 SELECTED_SQL_FILE="$(select_sql_file "$DOCROOT" "$WORKDIR")"
+DETECTED_TABLE_PREFIX="$(detect_wp_table_prefix_from_sql "$SELECTED_SQL_FILE" || true)"
 info "Erkannter Document-Root: ${DOCROOT#$WORKDIR/}"
 info "Verwende SQL-Backup: ${SELECTED_SQL_FILE#$WORKDIR/}"
+[[ -n "$DETECTED_TABLE_PREFIX" ]] && info "Erkannter WP-Tabellenprefix aus SQL: ${DETECTED_TABLE_PREFIX}"
 
 if [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
   if [[ -f "$WORKDIR/_infra/hostvars.yml" ]]; then
@@ -268,7 +282,7 @@ if [[ ! -f "$HOSTVARS" && -n "$SOURCE_HOSTVARS" ]]; then
   set_hostvar_value "domain" "$DOMAIN" "$HOSTVARS"
 fi
 
-ensure_hostvars_exists "$HOSTVARS" "$DOMAIN"
+ensure_hostvars_exists "$HOSTVARS" "$DOMAIN" "${DETECTED_TABLE_PREFIX:-wp_}"
 ensure_db_and_user_exists "$HOSTVARS"
 
 DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"
@@ -279,6 +293,11 @@ TARGET_WP_VERSION="$(extract_hostvar wp_version "$HOSTVARS")"
 SOURCE_WP_VERSION=""
 [[ -n "$SOURCE_HOSTVARS" ]] && SOURCE_WP_VERSION="$(extract_hostvar wp_version "$SOURCE_HOSTVARS" 2>/dev/null || true)"
 [[ -n "$TABLE_PREFIX" ]] || TABLE_PREFIX="wp_"
+if [[ -n "${DETECTED_TABLE_PREFIX:-}" && "$TABLE_PREFIX" != "$DETECTED_TABLE_PREFIX" ]]; then
+  warn "Setze wp_table_prefix aus SQL: ${TABLE_PREFIX} -> ${DETECTED_TABLE_PREFIX}"
+  TABLE_PREFIX="$DETECTED_TABLE_PREFIX"
+  set_hostvar_value "wp_table_prefix" "$TABLE_PREFIX" "$HOSTVARS"
+fi
 [[ -n "$TARGET_WP_VERSION" ]] || TARGET_WP_VERSION="latest"
 [[ -n "$SOURCE_WP_VERSION" ]] || SOURCE_WP_VERSION="$TARGET_WP_VERSION"
 
@@ -329,8 +348,12 @@ docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot 
 cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
 
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
-  info "Aktualisiere WordPress-Domain in DB (${TABLE_PREFIX}options)"
-  docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE ${TABLE_PREFIX}options SET option_value='https://${DOMAIN}' WHERE option_name IN ('siteurl','home');"
+  if docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SHOW TABLES LIKE '${TABLE_PREFIX}options';" | grep -qx "${TABLE_PREFIX}options"; then
+    info "Aktualisiere WordPress-Domain in DB (${TABLE_PREFIX}options)"
+    docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE ${TABLE_PREFIX}options SET option_value='https://${DOMAIN}' WHERE option_name IN ('siteurl','home');"
+  else
+    warn "Tabelle ${TABLE_PREFIX}options nicht gefunden - überspringe Domain-Update in DB."
+  fi
 fi
 
 info "Restore Document Root"
