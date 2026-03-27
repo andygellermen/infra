@@ -1,0 +1,146 @@
+---
+- name: Create WordPress html volume
+  community.docker.docker_volume:
+    name: "wp_{{ domain | replace('.', '_') }}_html"
+
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+
+- name: Ensure backend docker network exists
+  community.docker.docker_network:
+    name: backend
+    driver: bridge
+    attachable: true
+    state: present
+
+- name: Create MySQL database for WordPress
+  community.mysql.mysql_db:
+    name: "{{ wp_domain_db }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+
+- name: Create MySQL user for WordPress
+  community.mysql.mysql_user:
+    name: "{{ wp_domain_usr }}"
+    password: "{{ wp_domain_pwd }}"
+    priv: "{{ wp_domain_db }}.*:ALL"
+    host: "%"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+
+- name: Build Traefik labels
+  ansible.builtin.set_fact:
+    wp_router_name: "wp-{{ domain | replace('.', '-') }}"
+    wp_service_name: "wp-{{ domain | replace('.', '-') }}"
+    wp_aliases: "{{ (traefik.aliases | default([], true)) | difference([domain]) | unique }}"
+
+- name: Build Traefik host rules
+  ansible.builtin.set_fact:
+    wp_host_rule_primary: "Host(`{{ domain }}`)"
+    wp_host_rule_aliases: "{{ wp_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+
+- name: Build WordPress middleware settings
+  ansible.builtin.set_fact:
+    wp_middleware_default: "{{ wp_traefik_middleware_default | default('crowdsec-default@docker') }}"
+    wp_middleware_admin: "{{ wp_traefik_middleware_admin | default('crowdsec-admin@docker') }}"
+    wp_middleware_api: "{{ wp_traefik_middleware_api | default('crowdsec-api@docker') }}"
+
+- name: Build optional middleware labels
+  ansible.builtin.set_fact:
+    wp_labels_middleware_default: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '.middlewares'): wp_middleware_default }) if (wp_middleware_default | length > 0) else {} }}"
+    wp_labels_middleware_admin: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-admin.middlewares'): wp_middleware_admin }) if (wp_middleware_admin | length > 0) else {} }}"
+    wp_labels_middleware_api: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-api.middlewares'): wp_middleware_api }) if (wp_middleware_api | length > 0) else {} }}"
+
+- name: Build optional alias router labels
+  ansible.builtin.set_fact:
+    wp_labels_alias_redirect: >-
+      {{
+        {
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-path.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-path.redirectregex.permanent'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.rule'): wp_host_rule_aliases,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.priority'): '300',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.middlewares'): wp_router_name ~ '-alias-redirect-url,' ~ wp_router_name ~ '-alias-redirect-path',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.service'): 'noop@internal',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.rule'): wp_host_rule_aliases,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.priority'): '300',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.middlewares'): wp_router_name ~ '-alias-redirect-url,' ~ wp_router_name ~ '-alias-redirect-path',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.service'): 'noop@internal'
+        }
+        if (wp_aliases | length > 0) else {}
+      }}
+
+- name: Build Traefik labels map
+  ansible.builtin.set_fact:
+    wp_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik',
+          ('traefik.http.routers.' ~ wp_router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ wp_router_name ~ '.rule'): wp_host_rule_primary,
+          ('traefik.http.routers.' ~ wp_router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '.service'): wp_service_name,
+
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.rule'): '(' ~ wp_host_rule_primary ~ ') && (PathPrefix(`/wp-admin`) || Path(`/wp-login.php`))',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.priority'): '220',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.service'): wp_service_name,
+
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.rule'): '(' ~ wp_host_rule_primary ~ ') && PathPrefix(`/wp-json`)',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.priority'): '210',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls'): 'true',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.service'): wp_service_name,
+
+          ('traefik.http.services.' ~ wp_service_name ~ '.loadbalancer.server.port'): '80'
+        }
+        | combine(wp_labels_middleware_default)
+        | combine(wp_labels_middleware_admin)
+        | combine(wp_labels_middleware_api)
+        | combine(wp_labels_alias_redirect)
+      }}
+
+- name: Deploy WordPress container
+  community.docker.docker_container:
+    name: "wp-{{ domain | replace('.', '-') }}"
+    image: "wordpress:{{ wp_image_tag | default(wp_version | default('latest')) }}"
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+      - name: backend
+    volumes:
+      - "wp_{{ domain | replace('.', '_') }}_html:/var/www/html"
+    env:
+      WORDPRESS_DB_HOST: "ghost-mysql"
+      WORDPRESS_DB_USER: "{{ wp_domain_usr }}"
+      WORDPRESS_DB_PASSWORD: "{{ wp_domain_pwd }}"
+      WORDPRESS_DB_NAME: "{{ wp_domain_db }}"
+      WORDPRESS_TABLE_PREFIX: "{{ wp_table_prefix | default('wp_') }}"
+      WORDPRESS_CONFIG_EXTRA: |
+        define('FORCE_SSL_ADMIN', true);
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+          $_SERVER['HTTPS'] = 'on';
+        }
+    labels: "{{ wp_labels }}"
