@@ -33,7 +33,10 @@
     set -euo pipefail
     KEY_FILE="{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/traefik-bouncer.key"
     if [[ ! -s "$KEY_FILE" ]]; then
-      docker exec crowdsec cscli bouncers add traefik-bouncer -k > "$KEY_FILE"
+      if docker exec crowdsec cscli bouncers list -o raw | awk '{print $1}' | grep -Fxq "traefik-bouncer"; then
+        docker exec crowdsec cscli bouncers delete traefik-bouncer
+      fi
+      docker exec crowdsec cscli bouncers add traefik-bouncer -o raw > "$KEY_FILE"
       chmod 600 "$KEY_FILE"
     fi
   args:
