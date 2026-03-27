@@ -124,7 +124,7 @@
 - name: Deploy WordPress container
   community.docker.docker_container:
     name: "wp-{{ domain | replace('.', '-') }}"
-    image: "wordpress:{{ wp_version | default('latest') }}"
+    image: "wordpress:{{ wp_image_tag | default(wp_version | default('latest')) }}"
     restart_policy: unless-stopped
     recreate: true
     networks:

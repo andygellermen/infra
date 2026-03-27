@@ -5,6 +5,7 @@
 - Neue Ansible-Playbooks/Rollen für WordPress Deploy/Delete.
 - Einheitliche Hostvars-Flags für WordPress + Traefik/CrowdSec-Middleware.
 - Backup/Restore-Standard für WordPress dokumentiert.
+- Restore-Härtung mit Domain-Migrations-Checks und optionalem `wp_image_tag` via `--php-version`.
 
 ## 1.0.0 (current baseline)
 - Stabiler Infra-Kern mit Traefik, MySQL, CrowdSec, Portainer.
