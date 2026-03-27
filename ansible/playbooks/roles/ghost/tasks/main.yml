@@ -115,9 +115,25 @@
         | combine({
           ('traefik.http.routers.' ~ ghost_router_name ~ '.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule_primary,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.priority'): '100',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.service'): ghost_service_name,
+
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.rule'): ghost_host_rule_primary,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.priority'): '1',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.service'): ghost_service_name,
+
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ ghost_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-web.rule'): ghost_host_rule_primary,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-web.priority'): '100',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-web.middlewares'): ghost_router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-web.service'): 'noop@internal',
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/ghost`)',
