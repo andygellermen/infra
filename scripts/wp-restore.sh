@@ -224,8 +224,6 @@ if [[ "$RESTORE_HOSTVARS" -eq 1 ]]; then
   fi
 fi
 
-[[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
-
 SOURCE_HOSTVARS=""
 if [[ -f "$WORKDIR/_infra/hostvars.yml" ]]; then
   SOURCE_HOSTVARS="$WORKDIR/_infra/hostvars.yml"
