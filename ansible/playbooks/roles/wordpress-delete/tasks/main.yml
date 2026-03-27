@@ -1,0 +1,30 @@
+---
+- name: Remove WordPress container
+  community.docker.docker_container:
+    name: "wp-{{ domain | replace('.', '-') }}"
+    state: absent
+    force_kill: true
+  ignore_errors: true
+
+- name: Remove WordPress MySQL database
+  community.mysql.mysql_db:
+    name: "{{ wp_domain_db }}"
+    state: absent
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+
+- name: Remove WordPress MySQL user
+  community.mysql.mysql_user:
+    name: "{{ wp_domain_usr }}"
+    host: "%"
+    state: absent
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ mysql_root_password }}"
+
+- name: Remove WordPress html volume
+  community.docker.docker_volume:
+    name: "wp_{{ domain | replace('.', '_') }}_html"
+    state: absent
+  ignore_errors: true
