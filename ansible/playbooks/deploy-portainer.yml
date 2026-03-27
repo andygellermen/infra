@@ -6,14 +6,27 @@
   become: true
 
   tasks:
+    - name: Normalize Portainer variable when passed as string
+      ansible.builtin.set_fact:
+        portainer: "{{ portainer | from_yaml }}"
+      when:
+        - portainer is defined
+        - portainer is string
+
+    - name: Resolve Portainer domain from supported inputs
+      ansible.builtin.set_fact:
+        portainer_domain_resolved: >-
+          {{ portainer.domain | default(portainer_domain | default('')) }}
+
     - name: Validate Portainer domain variable
       ansible.builtin.assert:
         that:
-          - portainer is defined
-          - portainer.domain is defined
-          - portainer.domain | length > 0
+          - portainer_domain_resolved | length > 0
         fail_msg: >-
-          Bitte portainer.domain via -e "portainer={'domain':'portainer.example.com'}" setzen.
+          Bitte Portainer-Domain setzen, z. B. via
+          -e '{"portainer":{"domain":"portainer.example.com"}}'
+          oder
+          -e 'portainer_domain=portainer.example.com'.
 
     - name: Ensure traefik network exists
       community.docker.docker_network:
@@ -40,7 +53,7 @@
         labels:
           traefik.enable: "true"
 
-          traefik.http.routers.portainer.rule: "Host(`{{ portainer.domain }}`)"
+          traefik.http.routers.portainer.rule: "Host(`{{ portainer_domain_resolved }}`)"
           traefik.http.routers.portainer.entrypoints: "websecure"
           traefik.http.routers.portainer.middlewares: "crowdsec-admin@docker"
           traefik.http.routers.portainer.tls: "true"
