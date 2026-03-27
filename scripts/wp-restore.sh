@@ -10,6 +10,7 @@ ok(){ echo "✅ $*"; }
 warn(){ echo "⚠️  $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 extract_hostvar(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$2"; }
+extract_secret(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$2"; }
 
 usage() {
   cat <<USAGE
@@ -54,6 +55,47 @@ extract_domain_from_sql() {
   [[ -n "$line" ]] || return 0
 
   printf '%s\n' "$line" | sed -E 's#https?://([^/:]+).*#\1#'
+}
+
+ensure_hostvars_exists() {
+  local hostvars_file="$1" domain="$2"
+  [[ -f "$hostvars_file" ]] && return 0
+
+  warn "Hostvars fehlen für ${domain}. Erzeuge minimale Hostvars für Legacy-Restore."
+  local db_prefix db_user_hash db_user db_pwd
+  db_prefix="$(echo "$domain" | tr '.-' '__')"
+  db_user_hash="$(printf '%s' "$domain" | md5sum | awk '{print $1}')"
+  db_user="${db_user_hash:0:24}_usr"
+  db_pwd="$(openssl rand -hex 16)"
+
+  mkdir -p "$(dirname "$hostvars_file")"
+  cat > "$hostvars_file" <<EOF
+domain: ${domain}
+wp_domain_db: wp_${db_prefix}
+wp_domain_usr: ${db_user}
+wp_domain_pwd: ${db_pwd}
+wp_table_prefix: wp_
+wp_version: "latest"
+EOF
+  info "Hostvars neu erzeugt: $hostvars_file"
+}
+
+ensure_db_and_user_exists() {
+  local hostvars_file="$1"
+  local db_name db_user db_pwd secrets_file mysql_root_password
+  db_name="$(extract_hostvar wp_domain_db "$hostvars_file")"
+  db_user="$(extract_hostvar wp_domain_usr "$hostvars_file")"
+  db_pwd="$(extract_hostvar wp_domain_pwd "$hostvars_file")"
+  secrets_file="$ROOT_DIR/ansible/secrets/secrets.yml"
+  [[ -f "$secrets_file" ]] || die "Secrets-Datei fehlt für DB-Initialisierung: $secrets_file"
+
+  mysql_root_password="$(extract_secret mysql_root_password "$secrets_file")"
+  [[ -n "$mysql_root_password" ]] || die "mysql_root_password fehlt in $secrets_file"
+
+  info "Stelle DB/User sicher: ${db_name} / ${db_user}"
+  docker exec -e MYSQL_PWD="$mysql_root_password" "$MYSQL_CONTAINER" mysql -uroot -e "CREATE DATABASE IF NOT EXISTS \`${db_name}\`;"
+  docker exec -e MYSQL_PWD="$mysql_root_password" "$MYSQL_CONTAINER" mysql -uroot -e "CREATE USER IF NOT EXISTS '${db_user}'@'%' IDENTIFIED BY '${db_pwd}';"
+  docker exec -e MYSQL_PWD="$mysql_root_password" "$MYSQL_CONTAINER" mysql -uroot -e "GRANT ALL PRIVILEGES ON \`${db_name}\`.* TO '${db_user}'@'%'; FLUSH PRIVILEGES;"
 }
 
 extract_backup_archive() {
@@ -219,7 +261,8 @@ if [[ ! -f "$HOSTVARS" && -n "$SOURCE_HOSTVARS" ]]; then
   set_hostvar_value "domain" "$DOMAIN" "$HOSTVARS"
 fi
 
-[[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
+ensure_hostvars_exists "$HOSTVARS" "$DOMAIN"
+ensure_db_and_user_exists "$HOSTVARS"
 
 DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"
 DB_USER="$(extract_hostvar wp_domain_usr "$HOSTVARS")"
