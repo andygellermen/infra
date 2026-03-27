@@ -43,6 +43,19 @@ extract_wp_config_domain() {
     | head -n1 || true
 }
 
+extract_domain_from_sql() {
+  local sql_file="$1"
+  local line
+
+  line="$(grep -Ei "(siteurl|home)" "$sql_file" | grep -Eo "https?://[^'\" )]+" | head -n1 || true)"
+  if [[ -z "$line" ]]; then
+    line="$(grep -Eo "https?://[^'\" )]+" "$sql_file" | head -n1 || true)"
+  fi
+  [[ -n "$line" ]] || return 0
+
+  printf '%s\n' "$line" | sed -E 's#https?://([^/:]+).*#\1#'
+}
+
 extract_backup_archive() {
   local archive="$1" dest="$2"
   case "$archive" in
@@ -180,6 +193,11 @@ fi
 
 SOURCE_DOMAIN=""
 [[ -n "$SOURCE_HOSTVARS" ]] && SOURCE_DOMAIN="$(extract_hostvar domain "$SOURCE_HOSTVARS" 2>/dev/null || true)"
+if [[ -z "$SOURCE_DOMAIN" ]]; then
+  SOURCE_DOMAIN="$(extract_domain_from_sql "$SELECTED_SQL_FILE" || true)"
+  [[ -n "$SOURCE_DOMAIN" ]] && info "Backup-Domain aus SQL erkannt: $SOURCE_DOMAIN"
+fi
+
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
   echo "Die gewählte WordPress-Domain ('${DOMAIN}') entspricht nicht der Domain aus dem Backup ('${SOURCE_DOMAIN}') soll die neue Domain ('${DOMAIN}') migriert werden? (yes/NO)"
   read -r choice

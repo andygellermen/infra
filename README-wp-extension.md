@@ -30,6 +30,7 @@ Erwartetes Backup-Format (neu):
 ## Restore bei Domain-Migration (neu)
 `wp-restore.sh` prüft die Domain-Konsistenz über:
 - falls vorhanden: `domain` aus optionaler hostvars-Datei im Backup (`_infra/hostvars.yml` oder Legacy `files/hostvars.yml`)
+- ohne hostvars: Fallback-Domain-Ermittlung aus der ausgewählten SQL-Datei (siteurl/home)
 - optional `WP_HOME/WP_SITEURL` in `wp-config.php`
 
 Verhalten:
