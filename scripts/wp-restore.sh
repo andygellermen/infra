@@ -44,6 +44,30 @@ extract_wp_config_domain() {
     | head -n1 || true
 }
 
+set_wp_config_constant() {
+  local file="$1" constant="$2" value="$3" escaped_value
+  [[ -f "$file" ]] || return 0
+  escaped_value="$(printf '%s' "$value" | sed "s/[&|']/\\\\&/g")"
+
+  if grep -Eq "define\([[:space:]]*['\"]${constant}['\"]" "$file"; then
+    sed -i -E "s|define\([[:space:]]*['\"]${constant}['\"][[:space:]]*,[[:space:]]*['\"][^'\"]*['\"][[:space:]]*\);|define('${constant}', '${escaped_value}');|" "$file"
+  else
+    sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i define('${constant}', '${escaped_value}');" "$file"
+  fi
+}
+
+set_wp_config_table_prefix() {
+  local file="$1" value="$2" escaped_value
+  [[ -f "$file" ]] || return 0
+  escaped_value="$(printf '%s' "$value" | sed "s/[&|']/\\\\&/g")"
+
+  if grep -Eq "^[[:space:]]*\\\$table_prefix[[:space:]]*=" "$file"; then
+    sed -i -E "s|^[[:space:]]*\\\$table_prefix[[:space:]]*=.*|\\\$table_prefix = '${escaped_value}';|" "$file"
+  else
+    sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i \\\$table_prefix = '${escaped_value}';" "$file"
+  fi
+}
+
 extract_domain_from_sql() {
   local sql_file="$1"
   local line
@@ -322,6 +346,15 @@ CONFIG_DOMAIN="$(extract_wp_config_domain "$DOCROOT/wp-config.php")"
 if [[ -n "$CONFIG_DOMAIN" && "$CONFIG_DOMAIN" != "$DOMAIN" ]]; then
   warn "Passe wp-config.php Domain an: ${CONFIG_DOMAIN} -> ${DOMAIN}"
   sed -i "s|${CONFIG_DOMAIN}|${DOMAIN}|g" "$DOCROOT/wp-config.php"
+fi
+
+if [[ -f "$DOCROOT/wp-config.php" ]]; then
+  info "Setze DB-Zugangsdaten in wp-config.php auf Restore-/Hostvars-Werte"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "DB_NAME" "$DB_NAME"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "DB_USER" "$DB_USER"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "DB_PASSWORD" "$DB_PASS"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "DB_HOST" "infra-mysql"
+  set_wp_config_table_prefix "$DOCROOT/wp-config.php" "$TABLE_PREFIX"
 fi
 
 warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
