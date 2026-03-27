@@ -40,7 +40,7 @@ HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
 
 VOLUME="wp_${DOMAIN//./_}_html"
 CONTAINER="wp-${DOMAIN//./-}"
-MYSQL_CONTAINER="ghost-mysql"
+MYSQL_CONTAINER="infra-mysql"
 
 docker volume ls --format '{{.Name}}' | grep -qx "$VOLUME" || die "Volume fehlt: $VOLUME"
 docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER" || die "Container fehlt: $CONTAINER"

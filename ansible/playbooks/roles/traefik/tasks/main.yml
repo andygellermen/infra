@@ -8,7 +8,7 @@
 
 - name: Create traefik container
   community.docker.docker_container:
-    name: traefik
+    name: infra-traefik
     image: traefik:v2.11
     restart_policy: always
     ports:

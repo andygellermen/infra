@@ -62,16 +62,16 @@ ensure_hostvars_exists() {
   [[ -f "$hostvars_file" ]] && return 0
 
   warn "Hostvars fehlen für ${domain}. Erzeuge minimale Hostvars für Legacy-Restore."
-  local db_prefix db_user_hash db_user db_pwd
-  db_prefix="$(echo "$domain" | tr '.-' '__')"
+  local db_name db_user_hash db_user db_pwd
   db_user_hash="$(printf '%s' "$domain" | md5sum | awk '{print $1}')"
+  db_name="wp_${db_user_hash:0:24}_db"
   db_user="${db_user_hash:0:24}_usr"
   db_pwd="$(openssl rand -hex 16)"
 
   mkdir -p "$(dirname "$hostvars_file")"
   cat > "$hostvars_file" <<EOF
 domain: ${domain}
-wp_domain_db: wp_${db_prefix}
+wp_domain_db: ${db_name}
 wp_domain_usr: ${db_user}
 wp_domain_pwd: ${db_pwd}
 wp_table_prefix: ${table_prefix}
@@ -219,7 +219,7 @@ done
 require_cmd docker
 [[ -f "$BACKUP_FILE" ]] || die "Backup fehlt: $BACKUP_FILE"
 
-MYSQL_CONTAINER="ghost-mysql"
+MYSQL_CONTAINER="infra-mysql"
 HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
 VOLUME="wp_${DOMAIN//./_}_html"
 CONTAINER="wp-${DOMAIN//./-}"
@@ -359,6 +359,19 @@ fi
 info "Restore Document Root"
 docker volume create "$VOLUME" >/dev/null
 docker run --rm -v "${VOLUME}:/target" -v "${DOCROOT}:/src:ro" alpine sh -c 'find /target -mindepth 1 -delete; cp -a /src/. /target/'
+docker run --rm -v "${VOLUME}:/target" alpine sh -c '
+  set -eu
+  # WordPress official Apache image runs as www-data (uid/gid 33).
+  chown -R 33:33 /target
+  # Ensure Apache can traverse directories and read .htaccess/files.
+  find /target -type d -exec chmod 755 {} +
+  find /target -type f -exec chmod 644 {} +
+  # Keep wp-content writable for plugin/theme updates and uploads.
+  if [ -d /target/wp-content ]; then
+    find /target/wp-content -type d -exec chmod 775 {} +
+    find /target/wp-content -type f -exec chmod 664 {} +
+  fi
+'
 
 if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
   info "Starte Container: $CONTAINER"

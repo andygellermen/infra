@@ -14,6 +14,7 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-add.sh`: Legt Hostvars an, prüft DNS-A-Records und deployt WordPress via Ansible.
 - `scripts/wp-backup.sh`: Erstellt WordPress-Backup (DB-Dump + Volume + Hostvars + `wp_version` im Manifest).
 - `scripts/wp-delete.sh`: Entfernt WordPress-Instanz (Container/DB/User/Volume + Hostvars).
+- `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
 - `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions- und Domain-Guard.
@@ -75,7 +76,7 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 
 ## Container-Reuse / Wiederverwendung
 - **Traefik**: vollständig wiederverwendbar; 301-Redirects sind via RedirectRegex-Middleware möglich und in den WP-Labels vorgesehen.
-- **MySQL (`ghost-mysql`)**: sicher wiederverwendbar durch getrennte DBs/DB-User pro Instanz.
+- **MySQL (`infra-mysql`)**: sicher wiederverwendbar durch getrennte DBs/DB-User pro Instanz.
 - **Hostvars**: erweiterbar um zusätzliche Flags (z. B. Redirect-Strategien, Middleware-Wahl, optionale Traefik-Labels).
 
 ## Caching-Empfehlung (leichtgewichtig + robust)

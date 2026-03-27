@@ -137,7 +137,7 @@ HOSTVARS_FILE="./ansible/hostvars/${DOMAIN}.yml"
 
 CONTAINER_NAME="ghost-${DOMAIN//./-}"
 VOLUME_NAME="ghost_${DOMAIN//./_}_content"
-MYSQL_CONTAINER="ghost-mysql"
+MYSQL_CONTAINER="infra-mysql"
 
 if ! docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
   die "Zielcontainer existiert nicht: $CONTAINER_NAME (nutze '$0 --list')"

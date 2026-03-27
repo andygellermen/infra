@@ -77,9 +77,9 @@ if [[ -d "$WORKDIR/volumes" ]]; then
   done < <(find "$WORKDIR/volumes" -type f -name '*.tar.gz' | sort)
 fi
 
-if [[ -f "$WORKDIR/mysql/all-databases.sql" ]] && docker ps --format '{{.Names}}' | grep -qx 'ghost-mysql'; then
+if [[ -f "$WORKDIR/mysql/all-databases.sql" ]] && docker ps --format '{{.Names}}' | grep -qx 'infra-mysql'; then
   info "Importiere MySQL all-databases Dump"
-  docker exec -i ghost-mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < "$WORKDIR/mysql/all-databases.sql"
+  docker exec -i infra-mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < "$WORKDIR/mysql/all-databases.sql"
 fi
 
 ok "Infra-Restore abgeschlossen"

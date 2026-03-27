@@ -227,7 +227,7 @@ Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relev
 **Enthaltene Bestandteile (wenn vorhanden):**
 - Docker Volumes: `mysql_data`, `portainer_data`, `ghost_*_content`, sowie Volumes mit Präfix `traefik*`/`crowdsec*`
 - Dateibasierte Konfigurationen: `ansible/hostvars`, `ansible/secrets`, `data/traefik`, `data/crowdsec`
-- Optional: `ghost-mysql` Full-Dump via `mysqldump --all-databases`
+- Optional: `infra-mysql` Full-Dump via `mysqldump --all-databases`
 
 ### infra-restore.sh
 
@@ -371,3 +371,24 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 - Admin: `/ghost` über `crowdsec-admin@docker`
 - API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
 - Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
+
+### redeploy-all-web.sh
+
+**Beschreibung:**  
+Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_domain_db` / `wp_domain_db`).
+
+**Syntax:**
+```bash
+# Alle Ghost + WordPress Domains redeployen
+./scripts/redeploy-all-web.sh
+
+# Nur prüfen (kein Redeploy)
+./scripts/redeploy-all-web.sh --check-only
+
+# Nur Ghost oder nur WordPress
+./scripts/redeploy-all-web.sh --only=ghost
+./scripts/redeploy-all-web.sh --only=wp
+
+# Bei Fehlern weiterlaufen und am Ende gesammelt reporten
+./scripts/redeploy-all-web.sh --continue-on-error
+```
