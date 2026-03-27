@@ -84,7 +84,7 @@ case "$ACTION" in
     HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
     CONTAINER="ghost-${DOMAIN//./-}"
     VOLUME="ghost_${DOMAIN//./_}_content"
-    MYSQL_CONTAINER="ghost-mysql"
+    MYSQL_CONTAINER="infra-mysql"
 
     [[ -f "$HOSTVARS" ]] || die "Hostvars fehlt: $HOSTVARS"
     docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER" || die "Container fehlt: $CONTAINER"
@@ -142,7 +142,7 @@ case "$ACTION" in
 
     CONTAINER="ghost-${DOMAIN//./-}"
     VOLUME="ghost_${DOMAIN//./_}_content"
-    MYSQL_CONTAINER="ghost-mysql"
+    MYSQL_CONTAINER="infra-mysql"
     HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
 
     WORKDIR="$(mktemp -d /tmp/ghost-restore-${DOMAIN}.XXXXXX)"

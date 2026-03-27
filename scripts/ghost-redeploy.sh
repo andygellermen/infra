@@ -202,7 +202,7 @@ ok "Ghost-Redeploy abgeschlossen"
 
 if [[ "$RESTART_TRAEFIK" -eq 1 ]]; then
   info "Starte Traefik neu"
-  docker restart traefik >/dev/null
+  docker restart infra-traefik >/dev/null
   ok "Traefik neugestartet"
 fi
 

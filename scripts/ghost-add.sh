@@ -179,6 +179,6 @@ ansible-playbook \
 # Traefik Reload
 # =========================
 info "Starte Traefik neu zur Zertifikatsprüfung..."
-docker restart traefik >/dev/null
+docker restart infra-traefik >/dev/null
 
 success "Ghost-Setup für ${DOMAIN_PUNY} abgeschlossen 🎉"

@@ -21,7 +21,7 @@ WORKDIR="/tmp/ghost-restore-${DOMAIN}"
 
 GHOST_CONTAINER="ghost-${DOMAIN//./-}"
 VOLUME_NAME="ghost_${DOMAIN//./_}_content"
-MYSQL_CONTAINER="ghost-mysql"
+MYSQL_CONTAINER="infra-mysql"
 HOSTVARS="./ansible/hostvars/${DOMAIN}.yml"
 ```
 

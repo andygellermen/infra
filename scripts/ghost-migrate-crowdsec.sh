@@ -116,7 +116,7 @@ fi
 
 if [[ "$RESTART_TRAEFIK" -eq 1 ]]; then
   info "Starte Traefik einmalig neu"
-  docker restart traefik >/dev/null
+  docker restart infra-traefik >/dev/null
   ok "Traefik neugestartet"
 fi
 

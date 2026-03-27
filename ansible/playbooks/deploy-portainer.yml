@@ -28,7 +28,7 @@
 
     - name: Deploy Portainer container
       community.docker.docker_container:
-        name: portainer
+        name: infra-portainer
         image: portainer/portainer-ce:latest
         restart_policy: unless-stopped
         networks:

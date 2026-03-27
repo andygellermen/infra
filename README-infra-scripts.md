@@ -227,7 +227,7 @@ Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relev
 **Enthaltene Bestandteile (wenn vorhanden):**
 - Docker Volumes: `mysql_data`, `portainer_data`, `ghost_*_content`, sowie Volumes mit Präfix `traefik*`/`crowdsec*`
 - Dateibasierte Konfigurationen: `ansible/hostvars`, `ansible/secrets`, `data/traefik`, `data/crowdsec`
-- Optional: `ghost-mysql` Full-Dump via `mysqldump --all-databases`
+- Optional: `infra-mysql` Full-Dump via `mysqldump --all-databases`
 
 ### infra-restore.sh
 
@@ -242,6 +242,20 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 **Hinweis:**
 - Restore überschreibt Konfigurationen und Volume-Inhalte.
 - Für produktive Systeme zuerst mit frischem Infra-Backup absichern.
+
+### infra-update-all.sh
+
+**Beschreibung:**  
+Aktualisiert die zentralen Infrastruktur-Container per Ansible (`infra-mysql`, `infra-traefik`, CrowdSec, `infra-portainer`).
+
+**Syntax:**
+```bash
+# Vollständiges Infra-Update inkl. Portainer
+./scripts/infra-update-all.sh --portainer-domain=portainer.example.com
+
+# Einzelne Dienste überspringen
+./scripts/infra-update-all.sh --skip-portainer --skip-crowdsec
+```
 
 
 ### ghost-migrate-crowdsec.sh
@@ -371,3 +385,27 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 - Admin: `/ghost` über `crowdsec-admin@docker`
 - API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
 - Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
+
+### redeploy-all-web.sh
+
+**Beschreibung:**  
+Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_domain_db` / `wp_domain_db`).
+
+**Syntax:**
+```bash
+# Alle Ghost + WordPress Domains redeployen
+./scripts/redeploy-all-web.sh
+
+# Nur prüfen (kein Redeploy)
+./scripts/redeploy-all-web.sh --check-only
+
+# Nur Ghost oder nur WordPress
+./scripts/redeploy-all-web.sh --only=ghost
+./scripts/redeploy-all-web.sh --only=wp
+
+# Parallelisiert (z. B. 4 gleichzeitige Redeploys)
+./scripts/redeploy-all-web.sh --parallel=4
+
+# Bei Fehlern weiterlaufen und am Ende gesammelt reporten
+./scripts/redeploy-all-web.sh --continue-on-error
+```

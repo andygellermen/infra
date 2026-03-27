@@ -88,9 +88,9 @@ for v in "${volumes_to_backup[@]}"; do
   backup_volume "$v" "$WORKDIR/volumes"
 done
 
-if [[ "$INCLUDE_MYSQL_DUMP" -eq 1 ]] && docker ps --format '{{.Names}}' | grep -qx 'ghost-mysql'; then
+if [[ "$INCLUDE_MYSQL_DUMP" -eq 1 ]] && docker ps --format '{{.Names}}' | grep -qx 'infra-mysql'; then
   info "Exportiere MySQL Dump (all databases)"
-  docker exec ghost-mysql sh -c 'exec mysqldump --no-tablespaces -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases --single-transaction --quick --lock-tables=false' > "$WORKDIR/mysql/all-databases.sql" || {
+  docker exec infra-mysql sh -c 'exec mysqldump --no-tablespaces -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases --single-transaction --quick --lock-tables=false' > "$WORKDIR/mysql/all-databases.sql" || {
     info "⚠️ MySQL-Dump fehlgeschlagen, fahre ohne Dump fort"
     rm -f "$WORKDIR/mysql/all-databases.sql"
   }

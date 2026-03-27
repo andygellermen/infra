@@ -182,12 +182,12 @@
     restart_policy: unless-stopped
     recreate: true
     networks:
-      - name: traefik
       - name: backend
+      - name: traefik
     volumes:
       - "wp_{{ domain | replace('.', '_') }}_html:/var/www/html"
     env:
-      WORDPRESS_DB_HOST: "ghost-mysql"
+      WORDPRESS_DB_HOST: "infra-mysql"
       WORDPRESS_DB_USER: "{{ wp_domain_usr }}"
       WORDPRESS_DB_PASSWORD: "{{ wp_domain_pwd }}"
       WORDPRESS_DB_NAME: "{{ wp_domain_db }}"

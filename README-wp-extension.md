@@ -76,7 +76,7 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 
 ## Container-Reuse / Wiederverwendung
 - **Traefik**: vollständig wiederverwendbar; 301-Redirects sind via RedirectRegex-Middleware möglich und in den WP-Labels vorgesehen.
-- **MySQL (`ghost-mysql`)**: sicher wiederverwendbar durch getrennte DBs/DB-User pro Instanz.
+- **MySQL (`infra-mysql`)**: sicher wiederverwendbar durch getrennte DBs/DB-User pro Instanz.
 - **Hostvars**: erweiterbar um zusätzliche Flags (z. B. Redirect-Strategien, Middleware-Wahl, optionale Traefik-Labels).
 
 ## Caching-Empfehlung (leichtgewichtig + robust)

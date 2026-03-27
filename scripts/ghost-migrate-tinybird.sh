@@ -143,7 +143,7 @@ fi
 
 if [[ "$RESTART_TRAEFIK" -eq 1 && "$REDEPLOY" -eq 1 && ${#changed_domains[@]} -gt 0 ]]; then
   info "Starte Traefik einmalig neu"
-  docker restart traefik >/dev/null
+  docker restart infra-traefik >/dev/null
   ok "Traefik neugestartet"
 fi
 

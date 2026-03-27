@@ -61,8 +61,8 @@ for alias in "${ALIASES[@]}"; do verify_domain_points_here "$alias"; done
 
 mkdir -p "$HOSTVARS_DIR"
 HOSTVARS_FILE="${HOSTVARS_DIR}/${DOMAIN}.yml"
-db_prefix="$(echo "$DOMAIN" | tr '.-' '__')"
 wp_hash="$(printf '%s' "$DOMAIN" | md5sum | awk '{print $1}')"
+wp_db="wp_${wp_hash:0:24}_db"
 wp_user="${wp_hash:0:24}_usr"
 wp_pwd="$(openssl rand -hex 16)"
 
@@ -79,7 +79,7 @@ wp_pwd="$(openssl rand -hex 16)"
     echo "    - www.${a}"
   done
   echo
-  echo "wp_domain_db: wp_${db_prefix}"
+  echo "wp_domain_db: ${wp_db}"
   echo "wp_domain_usr: ${wp_user}"
   echo "wp_domain_pwd: ${wp_pwd}"
   echo "wp_table_prefix: wp_"

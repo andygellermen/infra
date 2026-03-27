@@ -43,6 +43,6 @@ curl -sS -o /tmp/ghost-route-body.txt -D /tmp/ghost-route-headers.txt "https://$
 awk 'NR==1{print "   -> " $0}' /tmp/ghost-route-headers.txt || true
 
 info "5) Kürzlicher Traefik-Accesslog-Ausschnitt"
-docker logs --tail 50 traefik 2>&1 | rg "\.ghost/activitypub/v1/site/| GET / HTTP" || true
+docker logs --tail 50 infra-traefik 2>&1 | rg "\.ghost/activitypub/v1/site/| GET / HTTP" || true
 
 info "Fertig."
