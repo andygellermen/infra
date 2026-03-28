@@ -74,6 +74,13 @@ In `v1.2.2` wurde die Einfügelogik für `wp-config.php` weiter gehärtet:
 
 Dieser Fall war relevant, weil verspätet gesetzte URL-Konstanten WordPress-Redirect-Schleifen trotz korrekt restaurierter DB und Domain verursachen können.
 
+### Patch-Hinweis v1.2.3
+In `v1.2.3` wurde der Proxy-/HTTPS-Block in `wp-config.php` nochmals robuster gemacht:
+
+- Literal-Einfügung ohne fehleranfällige Shell-Interpolation von `$_SERVER[...]`
+- verhindert kaputte Zeilen wie `if (isset() && === 'https')`
+- schützt damit vor PHP-Parse-Errors in `wp-config.php`
+
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).
 
@@ -108,7 +115,7 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
 ## Versionspflege
-- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.2`
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.3`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
 - Empfohlenes Vorgehen:
   - Patch fertigstellen

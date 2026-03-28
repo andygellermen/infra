@@ -81,23 +81,49 @@ set_wp_config_table_prefix() {
 }
 
 ensure_wp_config_proxy_ssl_block() {
-  local file="$1"
+  local file="$1" tmp_file block
   [[ -f "$file" ]] || return 0
-
-  perl -0pi -e "s/\n*define\('FORCE_SSL_ADMIN',\s*true\);\nif\s*\(isset\(\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\)\s*&&\s*\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\s*===\s*'https'\)\s*\{\n\s*\$_SERVER\['HTTPS'\]\s*=\s*'on';\n\}\n*//sg" "$file"
-
-  if grep -Eq "^/\* That's all, stop editing! Happy (publishing|blogging)\. \*/" "$file"; then
-    perl -0pi -e "s#(/\* That's all, stop editing! Happy (?:publishing|blogging)\. \*/)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
-  elif grep -q "require_once(ABSPATH . 'wp-settings.php');" "$file"; then
-    perl -0pi -e "s#(require_once\(ABSPATH \. 'wp-settings\.php'\);)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
-  else
-    cat >> "$file" <<'EOF'
-
+  tmp_file="$(mktemp "${file}.proxy.XXXXXX")"
+  block="$(cat <<'EOF'
 define('FORCE_SSL_ADMIN', true);
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
 }
 EOF
+)"
+
+  awk '
+    BEGIN { skip = 0 }
+    /^define\('\''FORCE_SSL_ADMIN'\'',[[:space:]]*true\);$/ { skip = 1; next }
+    skip && /^if[[:space:]]*\(isset\(\$_SERVER\['\''HTTP_X_FORWARDED_PROTO'\''\]\)[[:space:]]*&&[[:space:]]*\$_SERVER\['\''HTTP_X_FORWARDED_PROTO'\''\][[:space:]]*===[[:space:]]*'\''https'\''\)[[:space:]]*\{$/ { next }
+    skip && /^[[:space:]]*\$_SERVER\['\''HTTPS'\''\][[:space:]]*=[[:space:]]*'\''on'\'';$/ { next }
+    skip && /^\}[[:space:]]*$/ { skip = 0; next }
+    { print }
+  ' "$file" > "$tmp_file"
+  mv "$tmp_file" "$file"
+
+  if grep -Eq "^/\* That's all, stop editing! Happy (publishing|blogging)\. \*/" "$file"; then
+    tmp_file="$(mktemp "${file}.proxy.XXXXXX")"
+    awk -v block="$block" '
+      /^\/\* That\x27s all, stop editing! Happy (publishing|blogging)\. \*\// {
+        print block
+        print ""
+      }
+      { print }
+    ' "$file" > "$tmp_file"
+    mv "$tmp_file" "$file"
+  elif grep -q "require_once(ABSPATH . 'wp-settings.php');" "$file"; then
+    tmp_file="$(mktemp "${file}.proxy.XXXXXX")"
+    awk -v block="$block" '
+      /require_once\(ABSPATH \. '\''wp-settings\.php'\''\);/ {
+        print block
+        print ""
+      }
+      { print }
+    ' "$file" > "$tmp_file"
+    mv "$tmp_file" "$file"
+  else
+    printf "\n%s\n" "$block" >> "$file"
   fi
 }
 
