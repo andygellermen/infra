@@ -68,6 +68,15 @@ set_wp_config_table_prefix() {
   fi
 }
 
+ensure_wp_config_proxy_ssl_block() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+
+  perl -0pi -e "s/\n*define\('FORCE_SSL_ADMIN',\s*true\);\nif\s*\(isset\(\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\)\s*&&\s*\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\s*===\s*'https'\)\s*\{\n\s*\$_SERVER\['HTTPS'\]\s*=\s*'on';\n\}\n*//sg" "$file"
+
+  perl -0pi -e "s#(/\* That's all, stop editing! Happy publishing\. \*/)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
+}
+
 extract_domain_from_sql() {
   local sql_file="$1"
   local line
@@ -355,6 +364,7 @@ if [[ -f "$DOCROOT/wp-config.php" ]]; then
   set_wp_config_constant "$DOCROOT/wp-config.php" "DB_PASSWORD" "$DB_PASS"
   set_wp_config_constant "$DOCROOT/wp-config.php" "DB_HOST" "infra-mysql"
   set_wp_config_table_prefix "$DOCROOT/wp-config.php" "$TABLE_PREFIX"
+  ensure_wp_config_proxy_ssl_block "$DOCROOT/wp-config.php"
 fi
 
 warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
