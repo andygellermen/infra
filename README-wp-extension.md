@@ -1,4 +1,4 @@
-# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.0)
+# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.4)
 
 ## Architektur-Entscheidung: „zentraler Kern“ richtig verstanden
 Wir fahren **einen zentral gehärteten Betriebsstandard**, aber **nicht einen einzigen WordPress-Container für alle Domains**.
@@ -81,6 +81,30 @@ In `v1.2.3` wurde der Proxy-/HTTPS-Block in `wp-config.php` nochmals robuster ge
 - verhindert kaputte Zeilen wie `if (isset() && === 'https')`
 - schützt damit vor PHP-Parse-Errors in `wp-config.php`
 
+### Patch-Hinweis v1.2.4
+In `v1.2.4` führt `wp-restore.sh` nach jedem erfolgreichen Restore einen automatisierten Selbsttest aus:
+
+- Syntaxcheck der laufenden `wp-config.php` via `php -l`
+- interner HTTP-Check direkt im Container mit `Host: <domain>` und `X-Forwarded-Proto: https`
+- explizite Erkennung einer WordPress-Canonical-Redirect-Schleife auf dieselbe Ziel-URL
+- zusätzlicher öffentlicher HTTPS-Check gegen `https://<domain>/`
+
+Dadurch werden die zuletzt aufgetretenen Fehlerbilder deutlich früher erkannt:
+
+- kaputte `wp-config.php`
+- fehlerhafte Proxy-/HTTPS-Erkennung hinter Traefik
+- Redirect-Loops direkt nach dem Restore
+
+## Post-Restore-Test-Szenario (neu in v1.2.4)
+Nach dem Restore wird die Zielinstanz automatisiert in dieser Reihenfolge geprüft:
+
+1. `wp-config.php` ist im laufenden Container syntaktisch gültig.
+2. WordPress beantwortet einen internen Request im Proxy-Kontext (`Host` + `X-Forwarded-Proto`) mit einem sinnvollen Status.
+3. Eine Selbst-Umleitung auf exakt dieselbe HTTPS-URL wird als Fehler gewertet.
+4. Ein zusätzlicher öffentlicher HTTPS-Check prüft die final erreichbare Ziel-URL.
+
+Der Restore bricht bei den kritischen Prüfungen bewusst ab, damit kein scheinbar „erfolgreicher“ Restore mit defekter Laufzeit-Konfiguration stehen bleibt.
+
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).
 
@@ -109,13 +133,27 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 - Domain-Redirects (inkl. 301) gehören in Traefik-Router/Middlewares, nicht in WordPress.
 - In dieser Erweiterung werden Alias-Domains per Redirect-Middleware dauerhaft (`permanent=true`) auf die Primärdomain geleitet.
 
+## Canonical Redirect in WordPress
+Der WordPress-Canonical-Redirect ist grundsätzlich sinnvoll:
+
+- normalisiert URLs (`http`/`https`, Slash-Varianten, Duplicate URLs)
+- hilft bei SEO und konsistenten internen Links
+
+Im Restore-Kontext gilt aber:
+
+- **Default-Empfehlung:** aktiviert lassen
+- **nicht** pauschal per MU-Plugin deaktivieren
+- nur temporär als Diagnose- oder Notfallmaßnahme einsetzen, wenn eine Redirect-Schleife isoliert werden muss
+
+Die eigentliche Zielsetzung der Restore-Härtung ist daher nicht, `redirect_canonical` abzuschalten, sondern WordPress nach dem Restore so konsistent zu konfigurieren, dass der Canonical-Redirect wieder korrekt arbeiten kann.
+
 ## Konsistenzprüfung der Methoden
 - Einheitliches Naming: `wp-<action>.sh` analog `ghost-<action>.sh`.
 - Einheitliches Datenmodell in Hostvars (`wp_domain_db`, `wp_domain_usr`, `wp_domain_pwd`, `wp_version`, `wp_traefik_middleware_*`).
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
 ## Versionspflege
-- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.3`
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.4`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
 - Empfohlenes Vorgehen:
   - Patch fertigstellen
