@@ -4,6 +4,9 @@ ansible/secrets/*
 
 # hostvars Yaml (Host specific Domains/Portainer etc.)
 ansible/hostvars/*.yml
+ansible/hostvars/*.yml.bak*
+ansible/hostvars/*.yaml.bak*
+ansible/hostvars/*~
 
 # Vault
 *.vault
@@ -12,6 +15,8 @@ ansible/hostvars/*.yml
 # Temporary
 *.retry
 *.log
+*.tmp
+*.bak
 
 # Docker volumes (falls lokal)
 data/
