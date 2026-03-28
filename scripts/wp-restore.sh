@@ -208,13 +208,19 @@ extract_domain_from_sql() {
   local sql_file="$1"
   local line
 
-  line="$(grep -Ei "(siteurl|home)" "$sql_file" | grep -Eo "https?://[^'\" )]+" | head -n1 || true)"
+  line="$(
+    sed -nE "/'(siteurl|home)'/ s/.*'(siteurl|home)'[[:space:]]*,[[:space:]]*'https?:\\/\\/([^'\\/:]+).*/\\2/p" "$sql_file" \
+      | head -n1 || true
+  )"
   if [[ -z "$line" ]]; then
-    line="$(grep -Eo "https?://[^'\" )]+" "$sql_file" | head -n1 || true)"
+    line="$(
+      grep -E "INSERT INTO \`[^\\\`]+_options\`" "$sql_file" \
+        | sed -nE "s/.*https?:\\/\\/([^'\\/:]+).*/\\1/p" \
+        | head -n1 || true
+    )"
   fi
   [[ -n "$line" ]] || return 0
-
-  printf '%s\n' "$line" | sed -E 's#https?://([^/:]+).*#\1#'
+  printf '%s\n' "$line"
 }
 
 ensure_hostvars_exists() {
@@ -530,7 +536,7 @@ cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" 
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
   if docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SHOW TABLES LIKE '${TABLE_PREFIX}options';" | grep -qx "${TABLE_PREFIX}options"; then
     info "Aktualisiere WordPress-Domain in DB (${TABLE_PREFIX}options)"
-    docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE ${TABLE_PREFIX}options SET option_value='https://${DOMAIN}' WHERE option_name IN ('siteurl','home');"
+    docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE ${TABLE_PREFIX}options SET option_value='https://${DOMAIN}', autoload='yes' WHERE option_name IN ('siteurl','home');"
   else
     warn "Tabelle ${TABLE_PREFIX}options nicht gefunden - überspringe Domain-Update in DB."
   fi

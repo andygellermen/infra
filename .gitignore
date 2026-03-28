@@ -26,7 +26,8 @@ volumes/
 data/*
 !data/.keep
 
-# huge backup-files
+# backup-folder and huge backup-files
+backups/
 *.zip
 *.tar.gz
 

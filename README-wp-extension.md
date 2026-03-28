@@ -1,4 +1,4 @@
-# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.6)
+# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.5.0)
 
 ## Architektur-Entscheidung: „zentraler Kern“ richtig verstanden
 Wir fahren **einen zentral gehärteten Betriebsstandard**, aber **nicht einen einzigen WordPress-Container für alle Domains**.
@@ -110,6 +110,24 @@ In `v1.2.6` wurde die Ignore-Liste für lokale/remote Arbeitskopien ergänzt:
 
 Damit sinkt das Risiko, versehentlich lokale Restore- oder Hostvars-Sicherungen ins Repository zu committen.
 
+### Patch-Hinweis v1.5.0
+In `v1.5.0` wurde die Domain-Erkennung beim WordPress-Restore präzisiert:
+
+- bevorzugte Ermittlung der Backup-Domain direkt aus den `siteurl`- und `home`-Einträgen des `${wp_table_prefix}options`-Dumps
+- keine beliebige URL-Erkennung mehr aus anderen Tabellenbereichen
+
+Zusätzlich setzt `wp-restore.sh` bei einer Domain-Migration in `${wp_table_prefix}options` jetzt bewusst:
+
+- `option_value='https://<ziel-domain>'`
+- `autoload='yes'`
+
+für die Optionen `siteurl` und `home`.
+
+Hinweis:
+- `autoload='yes'` ist der normale und saubere WordPress-Standard für diese Kernoptionen
+- ein falscher `autoload`-Wert ist nicht zwangsläufig die Hauptursache eines Redirect-Loops
+- er kann aber zusammen mit Cache-/Plugin-Effekten zu inkonsistentem Laufzeitverhalten beitragen und wird deshalb beim Restore auf den Sollzustand zurückgeführt
+
 ## Post-Restore-Test-Szenario (neu in v1.2.4)
 Nach dem Restore wird die Zielinstanz automatisiert in dieser Reihenfolge geprüft:
 
@@ -168,7 +186,7 @@ Die eigentliche Zielsetzung der Restore-Härtung ist daher nicht, `redirect_cano
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
 ## Versionspflege
-- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.6`
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
 - Empfohlenes Vorgehen:
   - Patch fertigstellen

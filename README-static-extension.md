@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.3.1)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.0)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -24,8 +24,51 @@ Damit lassen sich Inhalte bequem per SSH/SFTP pflegen, ohne im Container arbeite
 
 ## Skripte
 - `scripts/static-add.sh`: legt Hostvars an und deployt oder aktualisiert den Shared-Container
+- `scripts/static-backup.sh`: erstellt ein Backup des statischen Document-Roots inkl. optionaler Hostvars-Metadaten
 - `scripts/static-redeploy.sh`: DNS-Check und Redeploy der Shared-Static-Instanz, optional auch gesammelt via `--all`
 - `scripts/static-delete.sh`: entfernt die Domain aus den Hostvars und deployt die Shared-Instanz neu
+- `scripts/static-restore.sh`: stellt eine statische Site aus `.tar.gz`, `.tgz` oder `.zip` wieder her und führt danach einen HTTPS-Selbsttest aus
+
+## Backup einer statischen Site (neu in v1.5.0)
+Aufruf:
+
+```bash
+./scripts/static-backup.sh --create domain.de
+```
+
+Optional:
+
+```bash
+./scripts/static-backup.sh --create domain.de --output /pfad/zum/backup.tar.gz
+```
+
+Das Backup enthält:
+- den vollständigen statischen Document-Root
+- optional `_infra/hostvars.yml`, falls Hostvars vorhanden sind
+- ein kleines `_infra/manifest.env`
+
+## Restore einer statischen Site (neu in v1.4.0)
+Aufruf:
+
+```bash
+./scripts/static-restore.sh domain.de backup.zip
+```
+
+Optional:
+
+```bash
+./scripts/static-restore.sh domain.de backup.zip --restore-hostvars
+```
+
+Verhalten:
+- erkennt automatisch den statischen Document-Root im Archiv
+- schreibt die Inhalte nach `/srv/static/<domain>/`
+- erzeugt bei Bedarf minimale Hostvars für die statische Site
+- kann optional Hostvars aus dem Backup übernehmen
+- führt danach einen Shared-Static-Redeploy aus
+- prüft abschließend die öffentliche HTTPS-Erreichbarkeit
+
+Das Script ist bewusst einfacher als `wp-restore.sh`, weil bei reinen HTML-Sites weder Datenbank noch App-Migrationslogik nötig sind.
 
 ## Hostvars-Beispiel
 ```yaml
