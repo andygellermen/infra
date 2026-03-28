@@ -1,6 +1,7 @@
 ---
 - name: Deploy shared static sites container
   hosts: localhost
+  become: true
   connection: local
   gather_facts: false
 

@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.1)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.2)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -128,3 +128,10 @@ Empfohlener Workflow:
 - Der Shared-Container ist ideal für kleine, anspruchslose HTML-Sites.
 - Für 5 bis 10 statische Sites ist dieses Modell in der Regel sehr gut geeignet.
 - Falls später deutlich mehr Sonderlogik nötig wird, kann jederzeit auf dedizierte Container pro Domain umgestellt werden.
+- Das Deploy-/Redeploy-Playbook läuft mit `become: true`, weil die Shared-Static-Instanz gezielt Host-Pfade unter `/srv/` verwaltet.
+
+### Patch-Hinweis v1.5.2
+In `v1.5.2` wurde `deploy-static.yml` auf `become: true` umgestellt:
+
+- behebt Berechtigungsfehler beim Anlegen von `/srv/static-auth` und `/srv/static-nginx`
+- passt zur Architektur, weil die Shared-Static-Instanz Host-Verzeichnisse unter `/srv/` verwaltet
