@@ -5,14 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOSTVARS_DIR="$ROOT_DIR/ansible/hostvars"
 GHOST_REDEPLOY="$ROOT_DIR/scripts/ghost-redeploy.sh"
 WP_REDEPLOY="$ROOT_DIR/scripts/wp-redeploy.sh"
+STATIC_REDEPLOY="$ROOT_DIR/scripts/static-redeploy.sh"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp] [--parallel=<n>] [--continue-on-error]
+  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp|static] [--parallel=<n>] [--continue-on-error]
 
 Description:
-  Redeployt alle Web-Container (Ghost + WordPress) basierend auf Hostvars.
+  Redeployt alle Web-Container (Ghost + WordPress + Static) basierend auf Hostvars.
 USAGE
 }
 
@@ -37,23 +38,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$ONLY" =~ ^(all|ghost|wp)$ ]] || die "--only muss all|ghost|wp sein."
+[[ "$ONLY" =~ ^(all|ghost|wp|static)$ ]] || die "--only muss all|ghost|wp|static sein."
 [[ "$PARALLEL" =~ ^[0-9]+$ ]] || die "--parallel muss eine Zahl >= 1 sein."
 (( PARALLEL >= 1 )) || die "--parallel muss >= 1 sein."
 [[ -d "$HOSTVARS_DIR" ]] || die "Hostvars-Verzeichnis fehlt: $HOSTVARS_DIR"
 [[ -x "$GHOST_REDEPLOY" ]] || die "Script nicht ausführbar: $GHOST_REDEPLOY"
 [[ -x "$WP_REDEPLOY" ]] || die "Script nicht ausführbar: $WP_REDEPLOY"
+[[ -x "$STATIC_REDEPLOY" ]] || die "Script nicht ausführbar: $STATIC_REDEPLOY"
 
 mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
 
 ghost_domains=()
 wp_domains=()
+static_domains=()
 
 for file in "${HOSTVAR_FILES[@]}"; do
   domain="$(basename "$file" .yml)"
   grep -q '^ghost_domain_db:' "$file" && ghost_domains+=("$domain")
   grep -q '^wp_domain_db:' "$file" && wp_domains+=("$domain")
+  grep -q '^static_enabled:[[:space:]]*true' "$file" && static_domains+=("$domain")
 done
 
 run_redeploy() {
@@ -158,6 +162,19 @@ if [[ "$ONLY" == "all" || "$ONLY" == "wp" ]]; then
         [[ "$CONTINUE_ON_ERROR" -eq 1 ]] || exit 1
       fi
     done
+  fi
+fi
+
+if [[ "$ONLY" == "all" || "$ONLY" == "static" ]]; then
+  info "Static-Domains: ${#static_domains[@]}"
+  if [[ ${#static_domains[@]} -gt 0 ]]; then
+    info "Starte Shared Static-Redeploy"
+    if ! "$STATIC_REDEPLOY" --all $([[ "$CHECK_ONLY" -eq 1 ]] && printf '%s' '--check-only'); then
+      failed+=("static:shared")
+      [[ "$CONTINUE_ON_ERROR" -eq 1 ]] || exit 1
+    else
+      ok "Static erfolgreich: shared"
+    fi
   fi
 fi
 

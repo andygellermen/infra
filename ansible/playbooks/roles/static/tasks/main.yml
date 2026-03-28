@@ -1,0 +1,214 @@
+---
+- name: Collect static hostvars files
+  ansible.builtin.set_fact:
+    static_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+
+- name: Build static sites list
+  ansible.builtin.set_fact:
+    static_sites: "{{ (static_sites | default([])) + [ static_site_vars ] }}"
+  vars:
+    static_site_vars: "{{ lookup('file', item) | from_yaml }}"
+  loop: "{{ static_hostvar_files }}"
+  when: (lookup('file', item) | from_yaml).static_enabled | default(false)
+
+- name: Default static sites list when empty
+  ansible.builtin.set_fact:
+    static_sites: "{{ static_sites | default([]) }}"
+
+- name: Validate requested static domain exists
+  ansible.builtin.assert:
+    that:
+      - "target_domain in (static_sites | map(attribute='domain') | list)"
+    fail_msg: "Keine statische Site für {{ target_domain }} in ansible/hostvars gefunden."
+  when:
+    - target_domain is defined
+    - target_domain | length > 0
+
+- name: Remove shared static container when no sites are configured
+  community.docker.docker_container:
+    name: static-sites
+    state: absent
+  when: static_sites | length == 0
+
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: static_sites | length > 0
+
+- name: Ensure static base directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /srv/static
+    - /srv/static-auth
+    - /srv/static-nginx
+    - /srv/static-nginx/conf.d
+  when: static_sites | length > 0
+
+- name: Ensure static site directories exist
+  ansible.builtin.file:
+    path: "/srv/static/{{ item.domain }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ static_sites }}"
+  when: static_sites | length > 0
+
+- name: Create placeholder index.html for new static sites
+  ansible.builtin.copy:
+    dest: "/srv/static/{{ item.domain }}/index.html"
+    mode: "0644"
+    force: false
+    content: |
+      <!doctype html>
+      <html lang="de">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ item.domain }}</title>
+      </head>
+      <body>
+        <h1>{{ item.domain }}</h1>
+        <p>Statische Site bereit. Inhalte liegen unter /srv/static/{{ item.domain }}/</p>
+      </body>
+      </html>
+  loop: "{{ static_sites }}"
+  when: static_sites | length > 0
+
+- name: Check configured basic-auth files
+  ansible.builtin.stat:
+    path: >-
+      {{
+        item.1.auth_file
+        | default(
+            '/srv/static-auth/' ~ item.0.domain ~ '-' ~
+            (
+              (
+                item.1.path
+                | default('/private-folder/')
+                | regex_replace('^/', '')
+                | regex_replace('/$', '')
+                | regex_replace('[^A-Za-z0-9._-]+', '-')
+              ) or 'private'
+            ) ~ '.htpasswd',
+            true
+          )
+      }}
+  loop: "{{ query('subelements', static_sites, 'static_basic_auth_paths', {'skip_missing': True}) }}"
+  register: static_auth_file_stats
+  when: static_sites | length > 0
+
+- name: Ensure configured basic-auth files exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Basic-Auth-Datei fehlt: {{ item.stat.path }}. Bitte mit htpasswd anlegen, bevor die Site deployt wird."
+  loop: "{{ static_auth_file_stats.results | default([]) }}"
+  when: static_sites | length > 0
+
+- name: Render shared nginx sites config
+  ansible.builtin.template:
+    src: sites.conf.j2
+    dest: /srv/static-nginx/conf.d/sites.conf
+    mode: "0644"
+  vars:
+    static_sites_rendered: "{{ static_sites }}"
+  when: static_sites | length > 0
+
+- name: Validate generated nginx config
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - -v
+      - /srv/static:/usr/share/nginx/html:ro
+      - -v
+      - /srv/static-auth:/etc/nginx/static-auth:ro
+      - -v
+      - /srv/static-nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx:alpine
+      - nginx
+      - -t
+  changed_when: false
+  when: static_sites | length > 0
+
+- name: Initialize static Traefik labels
+  ansible.builtin.set_fact:
+    static_labels:
+      traefik.enable: "true"
+      traefik.docker.network: "traefik"
+      traefik.http.services.static-sites.loadbalancer.server.port: "80"
+  when: static_sites | length > 0
+
+- name: Build per-site Traefik labels
+  ansible.builtin.set_fact:
+    static_labels: "{{ static_labels | combine(static_site_labels) }}"
+  vars:
+    router_name: "static-{{ item.domain | replace('.', '-') }}"
+    static_aliases: "{{ (item.traefik.aliases | default([], true)) | difference([item.domain]) | unique }}"
+    primary_rule: "Host(`{{ item.domain }}`)"
+    alias_rule: "{{ static_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+    middleware_default: "{{ item.static_traefik_middleware_default | default('', true) }}"
+    static_site_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ router_name ~ '.rule'): primary_rule,
+          ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ router_name ~ '.service'): 'static-sites',
+          ('traefik.http.middlewares.' ~ router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): primary_rule,
+          ('traefik.http.routers.' ~ router_name ~ '-web.priority'): '200',
+          ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'noop@internal'
+        }
+        | combine(({ ('traefik.http.routers.' ~ router_name ~ '.middlewares'): middleware_default }) if (middleware_default | length > 0) else {})
+        | combine(
+            {
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-path.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-path.redirectregex.permanent'): 'true',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.entrypoints'): 'websecure',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias.priority'): '300',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls'): 'true',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.middlewares'): router_name ~ '-alias-redirect-url,' ~ router_name ~ '-alias-redirect-path',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.service'): 'noop@internal',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.entrypoints'): 'web',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.priority'): '300',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.middlewares'): router_name ~ '-alias-redirect-url,' ~ router_name ~ '-alias-redirect-path',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.service'): 'noop@internal'
+            }
+            if (static_aliases | length > 0) else {}
+          )
+      }}
+  loop: "{{ static_sites }}"
+  when: static_sites | length > 0
+
+- name: Deploy shared static sites container
+  community.docker.docker_container:
+    name: static-sites
+    image: nginx:alpine
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    volumes:
+      - /srv/static:/usr/share/nginx/html:ro
+      - /srv/static-auth:/etc/nginx/static-auth:ro
+      - /srv/static-nginx/conf.d:/etc/nginx/conf.d:ro
+    labels: "{{ static_labels }}"
+  when: static_sites | length > 0
