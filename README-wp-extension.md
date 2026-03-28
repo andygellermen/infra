@@ -65,6 +65,15 @@ Beim Restore werden daher aktiv gesetzt:
 
 Zusätzlich prüft `wp-restore.sh` nach dem Schreiben explizit, ob diese Werte wirklich in `wp-config.php` angekommen sind. Wenn nicht, bricht der Restore mit einer klaren Fehlermeldung ab, statt einen still fehlerhaften Zustand zu hinterlassen.
 
+### Patch-Hinweis v1.2.2
+In `v1.2.2` wurde die Einfügelogik für `wp-config.php` weiter gehärtet:
+
+- unterstützt jetzt auch ältere `wp-config.php`-Varianten mit Kommentar `Happy blogging.` statt `Happy publishing.`
+- fällt notfalls auf Einfügen direkt vor `require_once(ABSPATH . 'wp-settings.php');` zurück
+- verhindert damit, dass `WP_HOME` und `WP_SITEURL` zu spät in der Datei landen und erst nach dem WordPress-Bootstrap wirksam würden
+
+Dieser Fall war relevant, weil verspätet gesetzte URL-Konstanten WordPress-Redirect-Schleifen trotz korrekt restaurierter DB und Domain verursachen können.
+
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).
 
@@ -99,7 +108,7 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
 ## Versionspflege
-- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.0`
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.2`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
 - Empfohlenes Vorgehen:
   - Patch fertigstellen

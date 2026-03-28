@@ -52,8 +52,10 @@ set_wp_config_constant() {
   if grep -Eq "define\([[:space:]]*['\"]${constant}['\"]" "$file"; then
     sed -i -E "s|define\([[:space:]]*['\"]${constant}['\"][[:space:]]*,[[:space:]]*['\"][^'\"]*['\"][[:space:]]*\);|define('${constant}', '${escaped_value}');|" "$file"
   else
-    if grep -q "^/\* That's all, stop editing! Happy publishing\. \*/" "$file"; then
-      sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i define('${constant}', '${escaped_value}');" "$file"
+    if grep -Eq "^/\* That's all, stop editing! Happy (publishing|blogging)\. \*/" "$file"; then
+      sed -i -E "/^\/\* That's all, stop editing! Happy (publishing|blogging)\. \*\//i define('${constant}', '${escaped_value}');" "$file"
+    elif grep -q "require_once(ABSPATH . 'wp-settings.php');" "$file"; then
+      sed -i "/require_once(ABSPATH \. 'wp-settings\.php');/i define('${constant}', '${escaped_value}');" "$file"
     else
       printf "\ndefine('%s', '%s');\n" "$constant" "$value" >> "$file"
     fi
@@ -68,8 +70,10 @@ set_wp_config_table_prefix() {
   if grep -Eq "^[[:space:]]*\\\$table_prefix[[:space:]]*=" "$file"; then
     sed -i -E "s|^[[:space:]]*\\\$table_prefix[[:space:]]*=.*|\\\$table_prefix = '${escaped_value}';|" "$file"
   else
-    if grep -q "^/\* That's all, stop editing! Happy publishing\. \*/" "$file"; then
-      sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i \\\$table_prefix = '${escaped_value}';" "$file"
+    if grep -Eq "^/\* That's all, stop editing! Happy (publishing|blogging)\. \*/" "$file"; then
+      sed -i -E "/^\/\* That's all, stop editing! Happy (publishing|blogging)\. \*\//i \\\$table_prefix = '${escaped_value}';" "$file"
+    elif grep -q "require_once(ABSPATH . 'wp-settings.php');" "$file"; then
+      sed -i "/require_once(ABSPATH \. 'wp-settings\.php');/i \\\$table_prefix = '${escaped_value}';" "$file"
     else
       printf "\n\$table_prefix = '%s';\n" "$value" >> "$file"
     fi
@@ -82,7 +86,19 @@ ensure_wp_config_proxy_ssl_block() {
 
   perl -0pi -e "s/\n*define\('FORCE_SSL_ADMIN',\s*true\);\nif\s*\(isset\(\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\)\s*&&\s*\$_SERVER\['HTTP_X_FORWARDED_PROTO'\]\s*===\s*'https'\)\s*\{\n\s*\$_SERVER\['HTTPS'\]\s*=\s*'on';\n\}\n*//sg" "$file"
 
-  perl -0pi -e "s#(/\* That's all, stop editing! Happy publishing\. \*/)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
+  if grep -Eq "^/\* That's all, stop editing! Happy (publishing|blogging)\. \*/" "$file"; then
+    perl -0pi -e "s#(/\* That's all, stop editing! Happy (?:publishing|blogging)\. \*/)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
+  elif grep -q "require_once(ABSPATH . 'wp-settings.php');" "$file"; then
+    perl -0pi -e "s#(require_once\(ABSPATH \. 'wp-settings\.php'\);)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
+  else
+    cat >> "$file" <<'EOF'
+
+define('FORCE_SSL_ADMIN', true);
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+}
+EOF
+  fi
 }
 
 verify_wp_config_constant() {
