@@ -171,7 +171,7 @@ run_post_restore_checks() {
   for attempt in {1..20}; do
     headers="$(docker exec "$container" sh -lc "curl -sSI -H 'Host: ${domain}' -H 'X-Forwarded-Proto: https' http://127.0.0.1/" 2>/dev/null || true)"
     first_status="$(printf '%s\n' "$headers" | awk 'toupper($1) ~ /^HTTP/ {print $2; exit}')"
-    location="$(printf '%s\n' "$headers" | awk 'tolower($1)==\"location:\" {sub(/\r$/, \"\", $2); print $2; exit}')"
+    location="$(printf '%s\n' "$headers" | awk 'tolower($1)=="location:" {sub(/\r$/, "", $2); print $2; exit}')"
     [[ -n "$first_status" ]] && break
     sleep 2
   done

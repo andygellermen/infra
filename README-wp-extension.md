@@ -1,4 +1,4 @@
-# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.4)
+# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.5)
 
 ## Architektur-Entscheidung: „zentraler Kern“ richtig verstanden
 Wir fahren **einen zentral gehärteten Betriebsstandard**, aber **nicht einen einzigen WordPress-Container für alle Domains**.
@@ -95,6 +95,12 @@ Dadurch werden die zuletzt aufgetretenen Fehlerbilder deutlich früher erkannt:
 - fehlerhafte Proxy-/HTTPS-Erkennung hinter Traefik
 - Redirect-Loops direkt nach dem Restore
 
+### Patch-Hinweis v1.2.5
+In `v1.2.5` wurde die Header-Auswertung im Post-Restore-Selbsttest korrigiert:
+
+- robustere `awk`-Auswertung des `Location`-Headers
+- behebt einen Quoting-Fehler, der den Selbsttest trotz erfolgreichem Restore abbrechen konnte
+
 ## Post-Restore-Test-Szenario (neu in v1.2.4)
 Nach dem Restore wird die Zielinstanz automatisiert in dieser Reihenfolge geprüft:
 
@@ -153,7 +159,7 @@ Die eigentliche Zielsetzung der Restore-Härtung ist daher nicht, `redirect_cano
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
 ## Versionspflege
-- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.4`
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.5`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
 - Empfohlenes Vorgehen:
   - Patch fertigstellen
