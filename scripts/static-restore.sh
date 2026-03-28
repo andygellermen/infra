@@ -102,7 +102,14 @@ verify_static_hostvars() {
   local hostvars_file="$1" domain="$2"
   [[ -f "$hostvars_file" ]] || die "Hostvars fehlen: $hostvars_file"
   grep -q '^static_enabled:[[:space:]]*true' "$hostvars_file" || die "Hostvars gehören nicht zu einer statischen Site: $hostvars_file"
-  grep -Eq "^domain:[[:space:]]*${domain}$" "$hostvars_file" || die "Domain wurde in den Hostvars nicht korrekt gesetzt: ${domain}"
+  awk -F': ' -v expected="$domain" '
+    $1=="domain" {
+      gsub(/"/, "", $2)
+      gsub(/[[:space:]]+$/, "", $2)
+      if ($2 == expected) found=1
+    }
+    END { exit(found ? 0 : 1) }
+  ' "$hostvars_file" || die "Domain wurde in den Hostvars nicht korrekt gesetzt: ${domain}"
 }
 
 wait_for_container_running() {

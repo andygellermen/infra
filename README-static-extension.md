@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.0)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.1)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -69,6 +69,12 @@ Verhalten:
 - prüft abschließend die öffentliche HTTPS-Erreichbarkeit
 
 Das Script ist bewusst einfacher als `wp-restore.sh`, weil bei reinen HTML-Sites weder Datenbank noch App-Migrationslogik nötig sind.
+
+### Patch-Hinweis v1.5.1
+In `v1.5.1` wurde die Hostvars-Prüfung in `static-restore.sh` robuster gemacht:
+
+- akzeptiert jetzt sowohl unquotierte als auch quotierte `domain:`-Einträge
+- behebt einen Restore-Abbruch bei frisch erzeugten Minimal-Hostvars ohne Backup-Hostvars
 
 ## Hostvars-Beispiel
 ```yaml
