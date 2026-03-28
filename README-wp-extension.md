@@ -1,4 +1,4 @@
-# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.1.0)
+# WordPress Erweiterung (Infra Stack WP-Extension / Ziel: v1.2.0)
 
 ## Architektur-Entscheidung: „zentraler Kern“ richtig verstanden
 Wir fahren **einen zentral gehärteten Betriebsstandard**, aber **nicht einen einzigen WordPress-Container für alle Domains**.
@@ -17,7 +17,7 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
-- `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions- und Domain-Guard.
+- `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions-, Domain- und `wp-config.php`-Guard.
 - `scripts/wp-upgrade.sh`: Setzt `wp_version` in Hostvars und führt Redeploy aus.
 
 ## Backup-Format für WordPress
@@ -34,12 +34,36 @@ Erwartetes Backup-Format (neu):
 - ohne hostvars: Fallback-Domain-Ermittlung aus der ausgewählten SQL-Datei (siteurl/home)
 - Tabellenprefix wird aus der ausgewählten SQL-Datei erkannt und als `wp_table_prefix` in Hostvars übernommen
 - fehlen lokale Hostvars komplett, erzeugt `wp-restore.sh` minimale Hostvars automatisch und initialisiert DB/User aus `ansible/secrets/secrets.yml`
-- optional `WP_HOME/WP_SITEURL` in `wp-config.php`
+- `WP_HOME`/`WP_SITEURL` werden auf die bestätigte Ziel-Domain gesetzt
+- `wp-config.php` wird auf Restore-Sollwerte gehärtet (`DB_*`, `WP_HOME`, `WP_SITEURL`, `$table_prefix`, Proxy-/HTTPS-Block)
 
 Verhalten:
 - **Default:** interaktive Abfrage bei Domain-Mismatch, ob auf die neue Domain migriert werden soll (`yes`) oder die Backup-Domain verwendet wird (`NO`).
 - bei erlaubter Migration: `siteurl`/`home` in `${wp_table_prefix}options` werden auf `https://<ziel-domain>` gesetzt
+- bei jedem Restore werden `WP_HOME` und `WP_SITEURL` zusätzlich in `wp-config.php` auf `https://<ziel-domain>` gesetzt
 - existiert der Ziel-Container noch nicht, schreibt der Restore zunächst DB/Volume und führt danach automatisiert einen Redeploy aus
+
+## Restore-Härtung in `wp-config.php` (neu in v1.2.0)
+`wp-restore.sh` überschreibt mitgebrachte Legacy-Werte in `wp-config.php` bewusst mit den zur Ziel-Instanz passenden Werten. Das schützt vor klassischen Restore-Fehlern wie:
+
+- alte DB-Credentials aus dem Backup
+- `localhost:3306` statt `infra-mysql`
+- fehlende oder falsche `WP_HOME`/`WP_SITEURL`
+- falscher `$table_prefix`
+- fehlende HTTPS-Erkennung hinter Traefik
+
+Beim Restore werden daher aktiv gesetzt:
+
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST=infra-mysql`
+- `WP_HOME=https://<ziel-domain>`
+- `WP_SITEURL=https://<ziel-domain>`
+- `$table_prefix`
+- Proxy-/HTTPS-Block für `HTTP_X_FORWARDED_PROTO`
+
+Zusätzlich prüft `wp-restore.sh` nach dem Schreiben explizit, ob diese Werte wirklich in `wp-config.php` angekommen sind. Wenn nicht, bricht der Restore mit einer klaren Fehlermeldung ab, statt einen still fehlerhaften Zustand zu hinterlassen.
 
 ## Restore + Versionen ohne Datenverlust (wichtig bei mehreren WP-Versionen)
 `wp-restore.sh` prüft Quell- (`Backup`) und Zielversion (`hostvars`).
@@ -72,7 +96,15 @@ Wenn JS-MP3-Player erhalten bleiben muss, reicht ein „nur HTML“-Dump häufig
 ## Konsistenzprüfung der Methoden
 - Einheitliches Naming: `wp-<action>.sh` analog `ghost-<action>.sh`.
 - Einheitliches Datenmodell in Hostvars (`wp_domain_db`, `wp_domain_usr`, `wp_domain_pwd`, `wp_version`, `wp_traefik_middleware_*`).
-- Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore.
+- Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
+
+## Versionspflege
+- Aktueller Stand dieser WordPress-Erweiterung: `v1.2.0`
+- Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
+- Empfohlenes Vorgehen:
+  - Patch fertigstellen
+  - `VERSION` anheben
+  - relevante README kurz nachziehen
 
 ## Container-Reuse / Wiederverwendung
 - **Traefik**: vollständig wiederverwendbar; 301-Redirects sind via RedirectRegex-Middleware möglich und in den WP-Labels vorgesehen.

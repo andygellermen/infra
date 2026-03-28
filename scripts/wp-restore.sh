@@ -77,6 +77,20 @@ ensure_wp_config_proxy_ssl_block() {
   perl -0pi -e "s#(/\* That's all, stop editing! Happy publishing\. \*/)#define('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n    \$_SERVER['HTTPS'] = 'on';\n}\n\n\$1#s" "$file"
 }
 
+verify_wp_config_constant() {
+  local file="$1" constant="$2" expected_value="$3"
+  [[ -f "$file" ]] || die "wp-config.php fehlt: $file"
+  grep -Eq "define\([[:space:]]*['\"]${constant}['\"][[:space:]]*,[[:space:]]*['\"]${expected_value//\//\\/}['\"][[:space:]]*\);" "$file" \
+    || die "${constant} wurde in wp-config.php nicht korrekt gesetzt (erwartet: ${expected_value})"
+}
+
+verify_wp_config_table_prefix() {
+  local file="$1" expected_value="$2"
+  [[ -f "$file" ]] || die "wp-config.php fehlt: $file"
+  grep -Eq "^[[:space:]]*\\\$table_prefix[[:space:]]*=[[:space:]]*['\"]${expected_value//\//\\/}['\"][[:space:]]*;" "$file" \
+    || die "\$table_prefix wurde in wp-config.php nicht korrekt gesetzt (erwartet: ${expected_value})"
+}
+
 extract_domain_from_sql() {
   local sql_file="$1"
   local line
@@ -363,8 +377,17 @@ if [[ -f "$DOCROOT/wp-config.php" ]]; then
   set_wp_config_constant "$DOCROOT/wp-config.php" "DB_USER" "$DB_USER"
   set_wp_config_constant "$DOCROOT/wp-config.php" "DB_PASSWORD" "$DB_PASS"
   set_wp_config_constant "$DOCROOT/wp-config.php" "DB_HOST" "infra-mysql"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "WP_HOME" "https://${DOMAIN}"
+  set_wp_config_constant "$DOCROOT/wp-config.php" "WP_SITEURL" "https://${DOMAIN}"
   set_wp_config_table_prefix "$DOCROOT/wp-config.php" "$TABLE_PREFIX"
   ensure_wp_config_proxy_ssl_block "$DOCROOT/wp-config.php"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "DB_NAME" "$DB_NAME"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "DB_USER" "$DB_USER"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "DB_PASSWORD" "$DB_PASS"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "DB_HOST" "infra-mysql"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "WP_HOME" "https://${DOMAIN}"
+  verify_wp_config_constant "$DOCROOT/wp-config.php" "WP_SITEURL" "https://${DOMAIN}"
+  verify_wp_config_table_prefix "$DOCROOT/wp-config.php" "$TABLE_PREFIX"
 fi
 
 warn "Restore überschreibt WordPress DB + Files für $DOMAIN"
