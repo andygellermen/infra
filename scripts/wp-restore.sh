@@ -52,7 +52,11 @@ set_wp_config_constant() {
   if grep -Eq "define\([[:space:]]*['\"]${constant}['\"]" "$file"; then
     sed -i -E "s|define\([[:space:]]*['\"]${constant}['\"][[:space:]]*,[[:space:]]*['\"][^'\"]*['\"][[:space:]]*\);|define('${constant}', '${escaped_value}');|" "$file"
   else
-    sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i define('${constant}', '${escaped_value}');" "$file"
+    if grep -q "^/\* That's all, stop editing! Happy publishing\. \*/" "$file"; then
+      sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i define('${constant}', '${escaped_value}');" "$file"
+    else
+      printf "\ndefine('%s', '%s');\n" "$constant" "$value" >> "$file"
+    fi
   fi
 }
 
@@ -64,7 +68,11 @@ set_wp_config_table_prefix() {
   if grep -Eq "^[[:space:]]*\\\$table_prefix[[:space:]]*=" "$file"; then
     sed -i -E "s|^[[:space:]]*\\\$table_prefix[[:space:]]*=.*|\\\$table_prefix = '${escaped_value}';|" "$file"
   else
-    sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i \\\$table_prefix = '${escaped_value}';" "$file"
+    if grep -q "^/\* That's all, stop editing! Happy publishing\. \*/" "$file"; then
+      sed -i "/^\/\* That's all, stop editing! Happy publishing\. \*\//i \\\$table_prefix = '${escaped_value}';" "$file"
+    else
+      printf "\n\$table_prefix = '%s';\n" "$value" >> "$file"
+    fi
   fi
 }
 
@@ -80,7 +88,9 @@ ensure_wp_config_proxy_ssl_block() {
 verify_wp_config_constant() {
   local file="$1" constant="$2" expected_value="$3"
   [[ -f "$file" ]] || die "wp-config.php fehlt: $file"
-  grep -Eq "define\([[:space:]]*['\"]${constant}['\"][[:space:]]*,[[:space:]]*['\"]${expected_value//\//\\/}['\"][[:space:]]*\);" "$file" \
+  local expected_line
+  expected_line="define('${constant}', '${expected_value}');"
+  grep -Fqx "$expected_line" "$file" || grep -Fq "$expected_line" "$file" \
     || die "${constant} wurde in wp-config.php nicht korrekt gesetzt (erwartet: ${expected_value})"
 }
 
