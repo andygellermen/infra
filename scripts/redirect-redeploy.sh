@@ -77,12 +77,14 @@ import sys
 
 entries = json.loads(sys.argv[1])
 for item in entries:
-    source = item.get("source", "")
+    domains = [item.get("source", "")]
+    domains.extend(item.get("aliases") or [])
     target = item.get("target", "")
     permanent = "true" if item.get("permanent", True) else "false"
     scheme = item.get("target_scheme", "https")
-    if source and target:
-        print(f"{source}|{target}|{scheme}|{permanent}")
+    for source in domains:
+        if source and target:
+            print(f"{source}|{target}|{scheme}|{permanent}")
 PY
 )
 
@@ -129,28 +131,31 @@ def curl_meta(url: str):
 failures = []
 verified = 0
 for item in entries:
-    source = item.get("source", "")
     target = item.get("target", "")
-    if not source or not target:
+    domains = [item.get("source", "")]
+    domains.extend(item.get("aliases") or [])
+    domains = [domain for domain in domains if domain]
+    if not domains or not target:
         continue
     scheme = item.get("target_scheme", "https")
     permanent = item.get("permanent", True)
     expected_prefix = f"{scheme}://{target}/"
     expected_statuses = {"301", "308"} if permanent else {"302", "307"}
-    status = "000"
-    redirect_url = ""
-    for _ in range(6):
-        status, redirect_url = curl_meta(f"https://{source}/")
-        if status in expected_statuses and redirect_url.startswith(expected_prefix):
-            break
-        time.sleep(2)
-    if status not in expected_statuses:
-        failures.append(f"Redirect für {source} liefert Status {status} statt {'/'.join(sorted(expected_statuses))}")
-        continue
-    if not redirect_url.startswith(expected_prefix):
-        failures.append(f"Redirect-Ziel für {source} ist unerwartet: {redirect_url} (erwartet Präfix {expected_prefix})")
-        continue
-    verified += 1
+    for source in domains:
+        status = "000"
+        redirect_url = ""
+        for _ in range(6):
+            status, redirect_url = curl_meta(f"https://{source}/")
+            if status in expected_statuses and redirect_url.startswith(expected_prefix):
+                break
+            time.sleep(2)
+        if status not in expected_statuses:
+            failures.append(f"Redirect für {source} liefert Status {status} statt {'/'.join(sorted(expected_statuses))}")
+            continue
+        if not redirect_url.startswith(expected_prefix):
+            failures.append(f"Redirect-Ziel für {source} ist unerwartet: {redirect_url} (erwartet Präfix {expected_prefix})")
+            continue
+        verified += 1
 
 if failures:
     for message in failures:

@@ -8,6 +8,9 @@ ansible/hostvars/*.yml.bak*
 ansible/hostvars/*.yaml.bak*
 ansible/hostvars/*~
 
+# redirects
+ansible/redirects/*
+
 # Vault
 *.vault
 *.enc

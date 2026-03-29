@@ -9,5 +9,7 @@ redirects:
     permanent: true
 
   - source: studio-musik-therapie.de
+    aliases:
+      - www.studio-musik-therapie.de
     target: studio-musik-mediation.de
     permanent: true

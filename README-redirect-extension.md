@@ -21,9 +21,16 @@ redirects:
   - source: mf.mf2go.de
     target: mietfirma.de
     permanent: true
+
+  - source: studio-musik-therapie.de
+    aliases:
+      - www.studio-musik-therapie.de
+    target: studio-musik-mediation.de
+    permanent: true
 ```
 
 Optional:
+- `aliases`: zusätzliche Redirect-Domains wie `www`, die gemeinsam mit der Hauptdomain über denselben Router und dasselbe ACME-Verfahren laufen
 - `target_scheme`: Standard ist `https`
 - `permanent`: Standard ist `true`
 

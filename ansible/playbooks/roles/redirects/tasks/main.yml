@@ -30,6 +30,8 @@
     redirect_labels: "{{ redirect_labels | combine(redirect_entry_labels) }}"
   vars:
     router_name: "redirect-{{ item.source | replace('.', '-') }}"
+    alias_list: "{{ item.aliases | default([], true) }}"
+    host_rule: "Host(`{{ ([item.source] + alias_list) | join('`,`') }}`)"
     target_scheme: "{{ item.target_scheme | default('https', true) }}"
     permanent_flag: "{{ 'true' if (item.permanent | default(true)) else 'false' }}"
     redirect_entry_labels: >-
@@ -42,18 +44,28 @@
           ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.replacement'): target_scheme ~ '://' ~ item.target ~ '/$1',
           ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.permanent'): permanent_flag,
           ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ router_name ~ '.rule'): 'Host(`' ~ item.source ~ '`)',
+          ('traefik.http.routers.' ~ router_name ~ '.rule'): host_rule,
           ('traefik.http.routers.' ~ router_name ~ '.priority'): '400',
           ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ router_name ~ '.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
           ('traefik.http.routers.' ~ router_name ~ '.service'): 'domain-redirects',
           ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
-          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): 'Host(`' ~ item.source ~ '`)',
+          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): host_rule,
           ('traefik.http.routers.' ~ router_name ~ '-web.priority'): '400',
           ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
           ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'domain-redirects'
         }
+        | combine(
+            alias_list | length > 0
+            | ternary(
+                {
+                  ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].main'): item.source,
+                  ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].sans'): alias_list | join(',')
+                },
+                {}
+              )
+          )
       }}
   loop: "{{ redirect_entries }}"
   when: redirect_entries | length > 0
