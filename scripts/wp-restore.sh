@@ -143,6 +143,11 @@ verify_wp_config_table_prefix() {
     || die "\$table_prefix wurde in wp-config.php nicht korrekt gesetzt (erwartet: ${expected_value})"
 }
 
+hostvars_has_wp_frontend_auth() {
+  local hostvars_file="$1"
+  grep -Eq "^[[:space:]]*scope:[[:space:]]*['\"]?frontend['\"]?[[:space:]]*$" "$hostvars_file"
+}
+
 wait_for_container_running() {
   local container="$1" timeout="${2:-60}" waited=0
   while (( waited < timeout )); do
@@ -156,7 +161,7 @@ wait_for_container_running() {
 }
 
 run_post_restore_checks() {
-  local container="$1" domain="$2"
+  local container="$1" domain="$2" frontend_auth_expected="${3:-0}"
   local headers="" first_status="" location="" public_result="" public_status="" public_redirects=""
 
   info "Starte Post-Restore-Selbsttest"
@@ -194,6 +199,13 @@ run_post_restore_checks() {
     case "$public_status" in
       200|301|302|303|307|308)
         ok "Öffentlicher HTTPS-Check erfolgreich (Finalstatus ${public_status}, Redirects ${public_redirects})"
+        ;;
+      401)
+        if [[ "$frontend_auth_expected" == "1" ]]; then
+          ok "Öffentlicher HTTPS-Check bestätigt aktiven Frontend-Passwortschutz (Finalstatus 401, Redirects ${public_redirects})"
+        else
+          warn "Öffentlicher HTTPS-Check meldet Finalstatus ${public_status} (Redirects ${public_redirects})"
+        fi
         ;;
       *)
         warn "Öffentlicher HTTPS-Check meldet Finalstatus ${public_status} (Redirects ${public_redirects})"
@@ -564,16 +576,16 @@ if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
   docker start "$CONTAINER" >/dev/null || true
 fi
 
-if [[ "$FORCE_REDEPLOY" -eq 1 ]]; then
-  info "Führe gezielten Redeploy aus"
-  "$REDEPLOY_SCRIPT" "$DOMAIN"
-fi
+info "Führe WordPress-Redeploy inkl. Passwort-Schutz-Verwaltung und Selbsttest aus"
+"$REDEPLOY_SCRIPT" "$DOMAIN"
 
 if [[ "$TARGET_WP_VERSION" != "$SOURCE_WP_VERSION" ]]; then
   info "Versionen unterscheiden sich (Backup=$SOURCE_WP_VERSION, Ziel=$TARGET_WP_VERSION)."
   info "Empfehlung: kontrolliert mit ./scripts/wp-upgrade.sh ${DOMAIN} --version=<ziel> weiterziehen."
 fi
 
-run_post_restore_checks "$CONTAINER" "$DOMAIN"
+FRONTEND_AUTH_EXPECTED=0
+hostvars_has_wp_frontend_auth "$HOSTVARS" && FRONTEND_AUTH_EXPECTED=1
+run_post_restore_checks "$CONTAINER" "$DOMAIN" "$FRONTEND_AUTH_EXPECTED"
 
 ok "WordPress-Restore abgeschlossen"

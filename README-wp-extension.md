@@ -193,6 +193,42 @@ In `v1.6.5` wurde der Redeploy-/Restore-Ablauf der WordPress-Skripte beim Bedien
   `wp-config.php`-Syntax, interner Proxy-/HTTP-Check, Schleifen-Erkennung und öffentlicher HTTPS-Check
 - `wp-restore.sh` profitiert bei gezielten Folge-Deployments automatisch vom kompakteren Redeploy-Verhalten
 
+## Passwort-Schutz für WordPress-Bereiche (neu in v1.7.0)
+`wp-redeploy.sh` verwaltet optionalen Passwort-Schutz für typische WordPress-Bereiche jetzt interaktiv direkt über Traefik-Basic-Auth-Middlewares.
+
+Unterstützte Bereiche:
+- `frontend`: gesamte Website `/`
+- `admin`: `wp-admin` und `wp-login.php`
+- `api`: `wp-json`
+
+Ablauf:
+- vorhandene Schutz-Einträge werden erkannt und können geändert oder aufgehoben werden
+- neue Schutz-Einträge können interaktiv ergänzt werden
+- bei Auswahl von `frontend` erscheint eine ausdrückliche Warnung, weil damit die gesamte Website geschützt wird
+- Benutzername und Passwort-Hash werden in `wp_basic_auth_scopes` in den Hostvars hinterlegt
+- nach dem Redeploy prüft ein Selbsttest die aktivierten Bereiche automatisch
+
+Empfohlene Hostvars-Struktur:
+
+```yaml
+wp_basic_auth_scopes:
+  - scope: "admin"
+    realm: "Protected Admin"
+    username: "andy"
+    password_hash: ""
+```
+
+Praktischer Hinweis:
+- ein leerer `password_hash` ist als Platzhalter erlaubt
+- beim nächsten `wp-redeploy.sh <domain>` oder `wp-restore.sh <domain> <backup>` wird das Passwort dann interaktiv abgefragt und als Hash gespeichert
+- `wp-redeploy.sh --check-only` bleibt bewusst ohne interaktive Passwortverwaltung
+
+## Patch-Hinweis v1.7.1
+In `v1.7.1` wurde der öffentliche Restore-Selbsttest für WordPress an den neuen Frontend-Passwortschutz angepasst:
+
+- ein aktiver Frontend-Schutz darf den öffentlichen HTTPS-Check jetzt sauber mit `401` beantworten
+- `wp-restore.sh` bewertet diesen Fall deshalb nicht mehr als Fehlverdacht, sondern als bestätigten Passwortschutz
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.

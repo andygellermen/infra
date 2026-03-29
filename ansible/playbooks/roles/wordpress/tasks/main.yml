@@ -100,11 +100,42 @@
         else ''
       }}
 
-- name: Build optional middleware labels
+- name: Initialize WordPress basic-auth map
   ansible.builtin.set_fact:
-    wp_labels_middleware_default: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '.middlewares'): wp_middleware_default }) if (wp_middleware_default | length > 0) else {} }}"
-    wp_labels_middleware_admin: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-admin.middlewares'): wp_middleware_admin }) if (wp_middleware_admin | length > 0) else {} }}"
-    wp_labels_middleware_api: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-api.middlewares'): wp_middleware_api }) if (wp_middleware_api | length > 0) else {} }}"
+    wp_basic_auth_map: {}
+
+- name: Build WordPress basic-auth map
+  ansible.builtin.set_fact:
+    wp_basic_auth_map: "{{ wp_basic_auth_map | combine({ (item.scope): item }) }}"
+  loop: "{{ wp_basic_auth_scopes | default([], true) }}"
+  when:
+    - (item.scope | default('', true)) in ['frontend', 'admin', 'api']
+    - (item.username | default('', true) | length) > 0
+    - (item.password_hash | default('', true) | length) > 0
+
+- name: Resolve WordPress basic-auth scope entries
+  ansible.builtin.set_fact:
+    wp_basic_auth_frontend: "{{ wp_basic_auth_map.get('frontend', {}) }}"
+    wp_basic_auth_admin: "{{ wp_basic_auth_map.get('admin', {}) }}"
+    wp_basic_auth_api: "{{ wp_basic_auth_map.get('api', {}) }}"
+
+- name: Build effective router middleware chains
+  ansible.builtin.set_fact:
+    wp_router_middlewares_frontend: "{{ (([wp_middleware_default] if (wp_middleware_default | length > 0) else []) + ([wp_router_name ~ '-basic-auth-frontend'] if (wp_basic_auth_frontend | length > 0) else [])) | join(',') }}"
+    wp_router_middlewares_admin: "{{ (([wp_middleware_admin] if (wp_middleware_admin | length > 0) else []) + ([wp_router_name ~ '-basic-auth-admin'] if (wp_basic_auth_admin | length > 0) else [])) | join(',') }}"
+    wp_router_middlewares_api: "{{ (([wp_middleware_api] if (wp_middleware_api | length > 0) else []) + ([wp_router_name ~ '-basic-auth-api'] if (wp_basic_auth_api | length > 0) else [])) | join(',') }}"
+
+- name: Build router middleware labels
+  ansible.builtin.set_fact:
+    wp_labels_middleware_default: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '.middlewares'): wp_router_middlewares_frontend }) if (wp_router_middlewares_frontend | length > 0) else {} }}"
+    wp_labels_middleware_admin: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-admin.middlewares'): wp_router_middlewares_admin }) if (wp_router_middlewares_admin | length > 0) else {} }}"
+    wp_labels_middleware_api: "{{ ({ ('traefik.http.routers.' ~ wp_router_name ~ '-api.middlewares'): wp_router_middlewares_api }) if (wp_router_middlewares_api | length > 0) else {} }}"
+
+- name: Build optional basic-auth middleware labels
+  ansible.builtin.set_fact:
+    wp_labels_basic_auth_frontend: "{{ ({ ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-frontend.basicauth.realm'): (wp_basic_auth_frontend.realm | default('Protected Website', true)), ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-frontend.basicauth.users'): (wp_basic_auth_frontend.username ~ ':' ~ wp_basic_auth_frontend.password_hash) }) if (wp_basic_auth_frontend | length > 0) else {} }}"
+    wp_labels_basic_auth_admin: "{{ ({ ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-admin.basicauth.realm'): (wp_basic_auth_admin.realm | default('Protected Admin', true)), ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-admin.basicauth.users'): (wp_basic_auth_admin.username ~ ':' ~ wp_basic_auth_admin.password_hash) }) if (wp_basic_auth_admin | length > 0) else {} }}"
+    wp_labels_basic_auth_api: "{{ ({ ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-api.basicauth.realm'): (wp_basic_auth_api.realm | default('Protected API', true)), ('traefik.http.middlewares.' ~ wp_router_name ~ '-basic-auth-api.basicauth.users'): (wp_basic_auth_api.username ~ ':' ~ wp_basic_auth_api.password_hash) }) if (wp_basic_auth_api | length > 0) else {} }}"
 
 - name: Build optional alias router labels
   ansible.builtin.set_fact:
@@ -172,6 +203,9 @@
         | combine(wp_labels_middleware_default)
         | combine(wp_labels_middleware_admin)
         | combine(wp_labels_middleware_api)
+        | combine(wp_labels_basic_auth_frontend)
+        | combine(wp_labels_basic_auth_admin)
+        | combine(wp_labels_basic_auth_api)
         | combine(wp_labels_alias_redirect)
       }}
 
