@@ -1,13 +1,13 @@
 {% for site in static_sites_rendered | sort(attribute='domain') %}
-{% set root_auth = (
+{% set root_auth_candidates = (
   site.static_basic_auth_paths
   | default([], true)
   | selectattr('path', 'defined')
   | selectattr('path', 'equalto', '/')
   | selectattr('auth_file', 'defined')
   | list
-  | first
 ) %}
+{% set root_auth = root_auth_candidates[0] if (root_auth_candidates | length > 0) else {} %}
 server {
     listen 80;
     server_name {{ ([site.domain] + ((site.traefik.aliases | default([], true)) | difference([site.domain]) | unique)) | join(' ') }};

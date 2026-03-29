@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.8)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.9)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -280,3 +280,9 @@ In `v1.6.8` wurde der interaktive Dialog in `static-redeploy.sh` noch etwas sich
 - die Einstiegsfrage lautet jetzt klarer: `Soll ein Verzeichnis mit Passwort-Schutz aktiviert werden?`
 - bei Auswahl des Root-Pfads `/` folgt eine ausdrückliche Sicherheitsabfrage
 - wird diese verneint, kann der Pfad direkt korrigiert werden, statt versehentlich die ganze Website zu schützen
+
+### Patch-Hinweis v1.6.9
+In `v1.6.9` wurde das Nginx-Template für statische Sites beim Entfernen eines Root-Schutzes robuster gemacht:
+
+- der optionale Root-Auth-Block wird jetzt auch dann sauber verarbeitet, wenn kein `/`-Eintrag mehr vorhanden ist
+- dadurch scheitert das Rendern der gemeinsamen Nginx-Config nicht mehr mit `No first item, sequence was empty`
