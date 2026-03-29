@@ -98,7 +98,7 @@
             true
           )
       }}
-    mode: "0640"
+    mode: "0644"
     owner: root
     group: root
     content: "{{ item.1.username }}:{{ item.1.password_hash }}\n"

@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.2)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.3)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -236,3 +236,10 @@ In `v1.6.2` wurde die interaktive Eingabe in `static-redeploy.sh` auf `/dev/tty`
 
 - behebt `EOFError: EOF when reading a line` bei der Python-gestützten Auth-Verwaltung
 - erlaubt weiterhin die Einbettung des Python-Codes per Heredoc, ohne die Terminal-Interaktivität zu verlieren
+
+### Patch-Hinweis v1.6.3
+In `v1.6.3` wurden die Rechte für automatisch erzeugte Basic-Auth-Dateien im Static-Stack korrigiert:
+
+- `.htpasswd`-Dateien werden jetzt mit `0644` statt `0640` geschrieben
+- dadurch kann `nginx` die bind-gemounteten Auth-Dateien im Container zuverlässig lesen
+- das verhindert `500 Internal Server Error` auf korrekt konfigurierten geschützten Pfaden
