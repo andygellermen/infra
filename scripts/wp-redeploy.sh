@@ -369,6 +369,7 @@ def curl_status(url, username="", password=""):
 failures = []
 verified = 0
 warnings = []
+notes = []
 for entry in entries:
     scope = entry.get("scope", "")
     username = entry.get("username", "")
@@ -377,9 +378,11 @@ for entry in entries:
         continue
     matched_url = ""
     public_status = ""
+    attempted_statuses = []
     for probe_path in scope_probe_paths[scope]:
         candidate_url = f"https://{domain}{probe_path}"
         candidate_status = curl_status(candidate_url)
+        attempted_statuses.append((candidate_url, candidate_status))
         if candidate_status == "401":
             matched_url = candidate_url
             public_status = candidate_status
@@ -390,6 +393,8 @@ for entry in entries:
     if public_status != "401":
         if scope == "frontend":
             failures.append(f"Passwort-Schutz greift nicht wie erwartet für Bereich {scope} (zuletzt geprüft: {matched_url}, Status {public_status}, erwartet 401)")
+        elif attempted_statuses and all(status == "404" for _url, status in attempted_statuses):
+            notes.append(f"Automatischer Passwort-Schutz-Test für Bereich {scope} wurde übersprungen, weil alle Standardpfade `404` liefern. Der Login-/Bereichspfad ist vermutlich absichtlich verborgen.")
         else:
             warnings.append(f"Automatischer Passwort-Schutz-Test für Bereich {scope} nicht eindeutig (zuletzt geprüft: {matched_url}, Status {public_status}). Standardpfade sind ggf. verborgen oder umgeleitet.")
         continue
@@ -407,6 +412,9 @@ if failures:
 
 for message in warnings:
     print(f"⚠️  {message}")
+
+for message in notes:
+    print(f"ℹ️  {message}")
 
 print(f"✅ Passwort-Schutz-Selbsttest erfolgreich ({verified} Bereich{'e' if verified != 1 else ''})")
 PY

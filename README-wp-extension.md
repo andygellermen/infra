@@ -255,6 +255,12 @@ In `v1.7.5` wurde der öffentliche HTTPS-Check in den WordPress-Skripten browser
 - `wp-redeploy.sh` und `wp-restore.sh` verwenden dafür jetzt einen echten `GET` statt eines `HEAD`-ähnlichen Checks
 - dadurch entstehen weniger Fehlalarme mit `404`, obwohl die Website im Browser korrekt erreichbar ist
 
+## Patch-Hinweis v1.7.6
+In `v1.7.6` wurde die Rückmeldung des WordPress-Passwort-Schutz-Tests für versteckte Admin-/API-Pfade entschärft:
+
+- liefern alle üblichen Probe-Pfade eines Bereichs nur `404`, wird das jetzt als Hinweis statt als Warnung ausgegeben
+- dadurch klingt ein absichtlich versteckter Login-/Admin-Bereich nicht mehr wie ein möglicher Fehler
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
