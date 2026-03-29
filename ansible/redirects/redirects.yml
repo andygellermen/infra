@@ -1,0 +1,13 @@
+---
+redirects:
+  - source: md.mf2go.de
+    target: mietdachboxen.de
+    permanent: true
+
+  - source: mf.mf2go.de
+    target: mietfirma.de
+    permanent: true
+
+  - source: studio-musik-therapie.de
+    target: studio-musik-mediation.de
+    permanent: true

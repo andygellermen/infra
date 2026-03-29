@@ -6,14 +6,15 @@ HOSTVARS_DIR="$ROOT_DIR/ansible/hostvars"
 GHOST_REDEPLOY="$ROOT_DIR/scripts/ghost-redeploy.sh"
 WP_REDEPLOY="$ROOT_DIR/scripts/wp-redeploy.sh"
 STATIC_REDEPLOY="$ROOT_DIR/scripts/static-redeploy.sh"
+REDIRECT_REDEPLOY="$ROOT_DIR/scripts/redirect-redeploy.sh"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp|static] [--parallel=<n>] [--continue-on-error]
+  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp|static|redirect] [--parallel=<n>] [--continue-on-error]
 
 Description:
-  Redeployt alle Web-Container (Ghost + WordPress + Static) basierend auf Hostvars.
+  Redeployt alle Web-Container und Redirects (Ghost + WordPress + Static + Redirect) basierend auf Hostvars/Konfiguration.
 USAGE
 }
 
@@ -38,13 +39,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$ONLY" =~ ^(all|ghost|wp|static)$ ]] || die "--only muss all|ghost|wp|static sein."
+[[ "$ONLY" =~ ^(all|ghost|wp|static|redirect)$ ]] || die "--only muss all|ghost|wp|static|redirect sein."
 [[ "$PARALLEL" =~ ^[0-9]+$ ]] || die "--parallel muss eine Zahl >= 1 sein."
 (( PARALLEL >= 1 )) || die "--parallel muss >= 1 sein."
 [[ -d "$HOSTVARS_DIR" ]] || die "Hostvars-Verzeichnis fehlt: $HOSTVARS_DIR"
 [[ -x "$GHOST_REDEPLOY" ]] || die "Script nicht ausführbar: $GHOST_REDEPLOY"
 [[ -x "$WP_REDEPLOY" ]] || die "Script nicht ausführbar: $WP_REDEPLOY"
 [[ -x "$STATIC_REDEPLOY" ]] || die "Script nicht ausführbar: $STATIC_REDEPLOY"
+[[ -x "$REDIRECT_REDEPLOY" ]] || die "Script nicht ausführbar: $REDIRECT_REDEPLOY"
 
 mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
@@ -175,6 +177,16 @@ if [[ "$ONLY" == "all" || "$ONLY" == "static" ]]; then
     else
       ok "Static erfolgreich: shared"
     fi
+  fi
+fi
+
+if [[ "$ONLY" == "all" || "$ONLY" == "redirect" ]]; then
+  info "Redirect-Konfiguration"
+  if ! "$REDIRECT_REDEPLOY" $([[ "$CHECK_ONLY" -eq 1 ]] && printf '%s' '--check-only'); then
+    failed+=("redirect:shared")
+    [[ "$CONTINUE_ON_ERROR" -eq 1 ]] || exit 1
+  else
+    ok "Redirect erfolgreich: shared"
   fi
 fi
 

@@ -1,0 +1,11 @@
+---
+- name: Deploy shared redirect domains container
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - "../redirects/redirects.yml"
+
+  roles:
+    - redirects

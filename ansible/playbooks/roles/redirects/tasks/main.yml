@@ -1,0 +1,69 @@
+---
+- name: Default redirects list when undefined
+  ansible.builtin.set_fact:
+    redirect_entries: "{{ redirects | default([], true) }}"
+
+- name: Remove shared redirects container when no redirects are configured
+  community.docker.docker_container:
+    name: domain-redirects
+    state: absent
+  when: redirect_entries | length == 0
+
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: redirect_entries | length > 0
+
+- name: Initialize redirect labels
+  ansible.builtin.set_fact:
+    redirect_labels:
+      traefik.enable: "true"
+      traefik.docker.network: "traefik"
+  when: redirect_entries | length > 0
+
+- name: Build redirect labels
+  ansible.builtin.set_fact:
+    redirect_labels: "{{ redirect_labels | combine(redirect_entry_labels) }}"
+  vars:
+    router_name: "redirect-{{ item.source | replace('.', '-') }}"
+    target_scheme: "{{ item.target_scheme | default('https', true) }}"
+    permanent_flag: "{{ 'true' if (item.permanent | default(true)) else 'false' }}"
+    redirect_entry_labels: >-
+      {{
+        {
+          ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.replacement'): target_scheme ~ '://' ~ item.target ~ '/$1',
+          ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.permanent'): permanent_flag,
+          ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.regex'): '^/(.*)$',
+          ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.replacement'): target_scheme ~ '://' ~ item.target ~ '/$1',
+          ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.permanent'): permanent_flag,
+          ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ router_name ~ '.rule'): 'Host(`' ~ item.source ~ '`)',
+          ('traefik.http.routers.' ~ router_name ~ '.priority'): '400',
+          ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ router_name ~ '.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
+          ('traefik.http.routers.' ~ router_name ~ '.service'): 'noop@internal',
+          ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): 'Host(`' ~ item.source ~ '`)',
+          ('traefik.http.routers.' ~ router_name ~ '-web.priority'): '400',
+          ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
+          ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'noop@internal'
+        }
+      }}
+  loop: "{{ redirect_entries }}"
+  when: redirect_entries | length > 0
+
+- name: Deploy shared redirects container
+  community.docker.docker_container:
+    name: domain-redirects
+    image: nginx:alpine
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    labels: "{{ redirect_labels }}"
+  when: redirect_entries | length > 0
