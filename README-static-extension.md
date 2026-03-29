@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.3)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.4)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -159,6 +159,9 @@ Ablauf:
 - danach kann in einer Schleife jeweils ein weiteres Verzeichnis geschützt werden
 - Benutzername und Passwort-Hash werden in den Hostvars hinterlegt
 - die zugehörige `.htpasswd`-Datei wird beim Deploy automatisch erzeugt
+- nach dem Redeploy prüft das Script geschützte Pfade automatisch:
+  ohne Auth wird `401` erwartet, bei in diesem Lauf neu gesetzten Kennwörtern zusätzlich ein erfolgreicher authentifizierter Zugriff
+- im Erfolgsfall wird die Ansible-Ausgabe bewusst kompakter gehalten; bei Fehlern wird weiterhin das vollständige Log angezeigt
 
 Empfohlene Hostvars-Struktur:
 
@@ -243,3 +246,10 @@ In `v1.6.3` wurden die Rechte für automatisch erzeugte Basic-Auth-Dateien im St
 - `.htpasswd`-Dateien werden jetzt mit `0644` statt `0640` geschrieben
 - dadurch kann `nginx` die bind-gemounteten Auth-Dateien im Container zuverlässig lesen
 - das verhindert `500 Internal Server Error` auf korrekt konfigurierten geschützten Pfaden
+
+### Patch-Hinweis v1.6.4
+In `v1.6.4` wurde `static-redeploy.sh` beim Single-Domain-Redeploy um zwei Komfortfunktionen erweitert:
+
+- der erfolgreiche Ansible-Lauf wird in der Konsole kompakter zusammengefasst, statt das komplette Playbook-Log auszubreiten
+- geschützte Pfade werden nach dem Redeploy automatisch getestet:
+  ohne Auth wird `401 Unauthorized` erwartet, bei neu eingegebenen Kennwörtern zusätzlich ein erfolgreicher Zugriff mit Auth

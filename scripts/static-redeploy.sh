@@ -13,11 +13,12 @@ warn(){ echo "⚠️  $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 
 manage_static_auth() {
-  local hostvars_file="$1" domain="$2" site_dir="/srv/static/$2"
+  local hostvars_file="$1" domain="$2" auth_test_file="$3" site_dir="/srv/static/$2"
   [[ -d "$site_dir" ]] || { warn "Site-Verzeichnis fehlt noch: $site_dir. Überspringe Auth-Verwaltung für diesen Lauf."; return 0; }
 
-  python3 - "$hostvars_file" "$domain" "$site_dir" <<'PY'
+  python3 - "$hostvars_file" "$domain" "$site_dir" "$auth_test_file" <<'PY'
 import getpass
+import json
 import os
 from pathlib import Path
 import re
@@ -30,7 +31,7 @@ except Exception as exc:
     print(f"❌ PyYAML fehlt für die Auth-Verwaltung: {exc}", file=sys.stderr)
     sys.exit(1)
 
-hostvars_file, domain, site_dir = sys.argv[1:4]
+hostvars_file, domain, site_dir, auth_test_file = sys.argv[1:5]
 site_path = Path(site_dir)
 try:
     tty_in = open("/dev/tty", "r", encoding="utf-8", errors="replace")
@@ -142,7 +143,7 @@ def prompt_valid_path(current: str = "", used_paths=None) -> str:
             continue
         return selected
 
-def build_hash(username: str) -> str:
+def build_hash(username: str):
     while True:
         pw1 = getpass.getpass(f"Passwort für {username}: ")
         pw2 = getpass.getpass(f"Passwort für {username} wiederholen: ")
@@ -162,11 +163,12 @@ def build_hash(username: str) -> str:
         except FileNotFoundError:
             print("❌ Tool fehlt: htpasswd. Bitte installieren mit: sudo apt install apache2-utils", file=sys.stderr)
             sys.exit(1)
-        return result.stdout.strip().split(":", 1)[1]
+        return result.stdout.strip().split(":", 1)[1], pw1
 
 updated_entries = []
 used_paths = set()
 removed_messages = []
+auth_checks = []
 
 for entry in entries:
     if not isinstance(entry, dict):
@@ -196,13 +198,14 @@ for entry in entries:
 
     realm = prompt_nonempty("Realm", realm)
     username = prompt_nonempty("Benutzername", username)
+    password_plain = ""
 
     if password_hash:
         if prompt_yes_no(f"Soll das vorhandene Kennwort für https://{domain}{current_path} geändert werden?", default=False):
-            password_hash = build_hash(username)
+            password_hash, password_plain = build_hash(username)
     else:
         print(f"Für https://{domain}{current_path} ist noch kein Kennwort gesetzt.")
-        password_hash = build_hash(username)
+        password_hash, password_plain = build_hash(username)
 
     auth_file = derive_auth_file(current_path)
     updated_entries.append({
@@ -212,6 +215,11 @@ for entry in entries:
         "password_hash": password_hash,
         "auth_file": auth_file,
     })
+    auth_checks.append({
+        "path": current_path,
+        "username": username if password_plain else "",
+        "password": password_plain,
+    })
     used_paths.add(current_path)
 
 while prompt_yes_no("Soll ein weiteres Verzeichnis geschützt werden?", default=False):
@@ -219,7 +227,7 @@ while prompt_yes_no("Soll ein weiteres Verzeichnis geschützt werden?", default=
     new_path = prompt_valid_path(used_paths=used_paths)
     realm = prompt_nonempty("Realm", "Protected Area")
     username = prompt_nonempty("Benutzername")
-    password_hash = build_hash(username)
+    password_hash, password_plain = build_hash(username)
     updated_entries.append({
         "path": new_path,
         "realm": realm,
@@ -227,14 +235,111 @@ while prompt_yes_no("Soll ein weiteres Verzeichnis geschützt werden?", default=
         "password_hash": password_hash,
         "auth_file": derive_auth_file(new_path),
     })
+    auth_checks.append({
+        "path": new_path,
+        "username": username,
+        "password": password_plain,
+    })
     used_paths.add(new_path)
 
 data["static_basic_auth_paths"] = updated_entries
 with open(hostvars_file, "w", encoding="utf-8") as fh:
     yaml.safe_dump(data, fh, sort_keys=False, allow_unicode=True)
 
+if updated_entries:
+    known_checks = {item["path"]: item for item in auth_checks}
+    serialized_checks = []
+    for item in updated_entries:
+        base = {
+            "path": item["path"],
+            "username": "",
+            "password": "",
+        }
+        if item["path"] in known_checks:
+            base.update(known_checks[item["path"]])
+        serialized_checks.append(base)
+else:
+    serialized_checks = []
+
+with open(auth_test_file, "w", encoding="utf-8") as fh:
+    json.dump({"domain": domain, "entries": serialized_checks}, fh)
+
 for msg in removed_messages:
     print(f"✅ {msg}")
+PY
+}
+
+run_playbook_quiet() {
+  local success_message="$1"
+  shift
+  local log_file
+  log_file="$(mktemp)"
+
+  if ANSIBLE_DISPLAY_SKIPPED_HOSTS=false "$@" >"$log_file" 2>&1; then
+    local recap_line
+    recap_line="$(grep -E '^localhost[[:space:]]*:' "$log_file" | tail -n1 || true)"
+    [[ -n "$recap_line" ]] && info "$recap_line"
+    ok "$success_message"
+    rm -f "$log_file"
+    return 0
+  fi
+
+  cat "$log_file" >&2
+  rm -f "$log_file"
+  return 1
+}
+
+run_static_auth_checks() {
+  local auth_test_file="$1"
+  [[ -s "$auth_test_file" ]] || return 0
+
+  python3 - "$auth_test_file" <<'PY'
+import json
+import subprocess
+import sys
+
+auth_test_file = sys.argv[1]
+with open(auth_test_file, "r", encoding="utf-8") as fh:
+    payload = json.load(fh)
+
+domain = payload.get("domain", "")
+entries = payload.get("entries") or []
+if not domain or not entries:
+    sys.exit(0)
+
+def curl_status(url, username="", password=""):
+    cmd = ["curl", "-k", "-sS", "-o", "/dev/null", "-w", "%{http_code}"]
+    if username or password:
+        cmd.extend(["-u", f"{username}:{password}"])
+    cmd.append(url)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else "000"
+
+failures = []
+verified = 0
+for entry in entries:
+    path = entry.get("path", "")
+    username = entry.get("username", "")
+    password = entry.get("password", "")
+    url = f"https://{domain}{path}"
+
+    public_status = curl_status(url)
+    if public_status != "401":
+        failures.append(f"Passwort-Schutz greift nicht wie erwartet für {url} (ohne Auth: {public_status}, erwartet 401)")
+        continue
+    verified += 1
+
+    if username and password:
+        auth_status = curl_status(url, username=username, password=password)
+        if auth_status in {"401", "500", "000"}:
+            failures.append(f"Authentifizierter Check fehlgeschlagen für {url} ({auth_status})")
+
+if failures:
+    for message in failures:
+        print(f"❌ {message}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"✅ Passwort-Schutz-Selbsttest erfolgreich ({verified} Pfad{'e' if verified != 1 else ''})")
 PY
 }
 
@@ -267,10 +372,16 @@ if [[ "$CHECK_ONLY" -eq 1 ]]; then
 fi
 
 if [[ "$TARGET" == "--all" ]]; then
-  ansible-playbook -i "$INVENTORY" "$PLAYBOOK"
-  ok "Static-Redeploy für alle statischen Sites abgeschlossen"
+  run_playbook_quiet "Static-Redeploy für alle statischen Sites abgeschlossen" \
+    ansible-playbook -i "$INVENTORY" "$PLAYBOOK" \
+    || die "Static-Redeploy fehlgeschlagen"
 else
-  manage_static_auth "$HOSTVARS_FILE" "$DOMAIN"
-  ansible-playbook -i "$INVENTORY" -e "target_domain=${DOMAIN}" "$PLAYBOOK"
-  ok "Static-Redeploy abgeschlossen"
+  AUTH_TEST_FILE="$(mktemp)"
+  chmod 600 "$AUTH_TEST_FILE"
+  trap 'rm -f "$AUTH_TEST_FILE"' EXIT
+  manage_static_auth "$HOSTVARS_FILE" "$DOMAIN" "$AUTH_TEST_FILE"
+  run_playbook_quiet "Static-Redeploy abgeschlossen" \
+    ansible-playbook -i "$INVENTORY" -e "target_domain=${DOMAIN}" "$PLAYBOOK" \
+    || die "Static-Redeploy fehlgeschlagen"
+  run_static_auth_checks "$AUTH_TEST_FILE" || die "Passwort-Schutz-Selbsttest fehlgeschlagen"
 fi
