@@ -7,6 +7,7 @@ Für einfache Domain-Weiterleitungen gibt es eine zentrale Redirect-Konfiguratio
 - Traefik-Router pro Redirect-Domain
 - Weiterleitung per `301` oder optional temporär
 - TLS für die Redirect-Domain automatisch über `letsEncrypt`
+- eigener Traefik-Service auf Port `80`, damit Redirects zuverlässig statt `404` greifen
 
 ## Konfiguration
 Beispiel:
@@ -43,6 +44,7 @@ Nach dem Redeploy prüft das Script automatisch:
 - DNS der Redirect-Quellen zeigt auf den aktuellen Server
 - Redirect-Quelle liefert den erwarteten Redirect-Status
 - `Location` zeigt auf das erwartete Ziel
+- der Check wartet nach dem Deploy kurz auf Traefik-/Label-Übernahme, um Fehlalarme direkt nach dem Rollout zu vermeiden
 
 ## Integration
 - `redeploy-all-web.sh` unterstützt jetzt zusätzlich `--only=redirect`

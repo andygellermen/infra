@@ -22,6 +22,7 @@
     redirect_labels:
       traefik.enable: "true"
       traefik.docker.network: "traefik"
+      traefik.http.services.domain-redirects.loadbalancer.server.port: "80"
   when: redirect_entries | length > 0
 
 - name: Build redirect labels
@@ -46,12 +47,12 @@
           ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
           ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
           ('traefik.http.routers.' ~ router_name ~ '.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
-          ('traefik.http.routers.' ~ router_name ~ '.service'): 'noop@internal',
+          ('traefik.http.routers.' ~ router_name ~ '.service'): 'domain-redirects',
           ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
           ('traefik.http.routers.' ~ router_name ~ '-web.rule'): 'Host(`' ~ item.source ~ '`)',
           ('traefik.http.routers.' ~ router_name ~ '-web.priority'): '400',
           ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
-          ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'noop@internal'
+          ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'domain-redirects'
         }
       }}
   loop: "{{ redirect_entries }}"

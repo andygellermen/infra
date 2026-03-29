@@ -105,6 +105,7 @@ run_playbook_quiet "Redirect-Redeploy abgeschlossen" \
 
 python3 - "$REDIRECT_JSON" <<'PY'
 import json
+import time
 import subprocess
 import sys
 
@@ -135,8 +136,14 @@ for item in entries:
     scheme = item.get("target_scheme", "https")
     permanent = item.get("permanent", True)
     expected_prefix = f"{scheme}://{target}/"
-    status, redirect_url = curl_meta(f"https://{source}/")
     expected_statuses = {"301", "308"} if permanent else {"302", "307"}
+    status = "000"
+    redirect_url = ""
+    for _ in range(6):
+        status, redirect_url = curl_meta(f"https://{source}/")
+        if status in expected_statuses and redirect_url.startswith(expected_prefix):
+            break
+        time.sleep(2)
     if status not in expected_statuses:
         failures.append(f"Redirect für {source} liefert Status {status} statt {'/'.join(sorted(expected_statuses))}")
         continue
