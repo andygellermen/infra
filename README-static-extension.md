@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.1)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.2)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -230,3 +230,9 @@ In `v1.6.1` wurde die `htpasswd`-Prüfung in `static-redeploy.sh` entschärft:
 - `htpasswd` wird nicht mehr pauschal vor jedem Single-Domain-Redeploy verlangt
 - das Tool wird erst dann benötigt, wenn tatsächlich ein neues Kennwort bzw. ein neuer Hash erzeugt werden soll
 - bestehende geschützte Bereiche können damit auch ohne installiertes `apache2-utils` unverändert redeployed werden
+
+### Patch-Hinweis v1.6.2
+In `v1.6.2` wurde die interaktive Eingabe in `static-redeploy.sh` auf `/dev/tty` umgestellt:
+
+- behebt `EOFError: EOF when reading a line` bei der Python-gestützten Auth-Verwaltung
+- erlaubt weiterhin die Einbettung des Python-Codes per Heredoc, ohne die Terminal-Interaktivität zu verlieren

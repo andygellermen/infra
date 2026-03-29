@@ -32,6 +32,11 @@ except Exception as exc:
 
 hostvars_file, domain, site_dir = sys.argv[1:4]
 site_path = Path(site_dir)
+try:
+    tty_in = open("/dev/tty", "r", encoding="utf-8", errors="replace")
+except OSError:
+    print("❌ Kein interaktives Terminal verfügbar (/dev/tty).", file=sys.stderr)
+    sys.exit(1)
 
 with open(hostvars_file, "r", encoding="utf-8") as fh:
     data = yaml.safe_load(fh) or {}
@@ -82,7 +87,11 @@ def path_exists(web_path: str) -> bool:
 def prompt_yes_no(question: str, default: bool = False) -> bool:
     suffix = "[Y/n]" if default else "[y/N]"
     while True:
-        answer = input(f"{question} {suffix} ").strip().lower()
+        print(f"{question} {suffix} ", end="", flush=True)
+        answer = tty_in.readline()
+        if answer == "":
+            raise EOFError("EOF when reading from /dev/tty")
+        answer = answer.strip().lower()
         if not answer:
             return default
         if answer in {"y", "yes", "j", "ja"}:
@@ -97,7 +106,11 @@ def prompt_nonempty(question: str, default: str = "") -> str:
         if default:
             prompt += f" [{default}]"
         prompt += ": "
-        value = input(prompt).strip()
+        print(prompt, end="", flush=True)
+        value = tty_in.readline()
+        if value == "":
+            raise EOFError("EOF when reading from /dev/tty")
+        value = value.strip()
         if not value and default:
             return default
         if value:
@@ -112,7 +125,11 @@ def prompt_valid_path(current: str = "", used_paths=None) -> str:
         if current:
             prompt += f" [{current}]"
         prompt += ": "
-        raw = input(prompt).strip()
+        print(prompt, end="", flush=True)
+        raw = tty_in.readline()
+        if raw == "":
+            raise EOFError("EOF when reading from /dev/tty")
+        raw = raw.strip()
         selected = normalize_path(raw or current)
         if not selected:
             print("Bitte einen Pfad angeben.")
