@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.4)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.6)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -253,3 +253,16 @@ In `v1.6.4` wurde `static-redeploy.sh` beim Single-Domain-Redeploy um zwei Komfo
 - der erfolgreiche Ansible-Lauf wird in der Konsole kompakter zusammengefasst, statt das komplette Playbook-Log auszubreiten
 - geschützte Pfade werden nach dem Redeploy automatisch getestet:
   ohne Auth wird `401 Unauthorized` erwartet, bei neu eingegebenen Kennwörtern zusätzlich ein erfolgreicher Zugriff mit Auth
+
+### Patch-Hinweis v1.6.5
+In `v1.6.5` wurde der Restore-Ablauf der Static-Sites noch enger mit dem interaktiven Auth-Workflow verzahnt:
+
+- `static-restore.sh` ruft den Static-Redeploy jetzt ausdrücklich inkl. Auth-Verwaltung und Passwort-Schutz-Selbsttest auf
+- damit wird der Schutz geschützter Verzeichnisse direkt im Restore-Ablauf mit eingerichtet bzw. überprüft
+
+### Patch-Hinweis v1.6.6
+In `v1.6.6` wurde der Passwort-Schutz-Selbsttest für statische Sites praxistauglicher gemacht:
+
+- geschützte Verzeichnisse werden nicht mehr nur über den nackten Ordnerpfad geprüft
+- stattdessen verwendet der Selbsttest nach Möglichkeit eine reale Datei innerhalb des geschützten Pfades als Prüfziel
+- dadurch entstehen keine Fehlalarme mehr bei geschützten Asset-Ordnern ohne `index.html`

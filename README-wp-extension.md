@@ -185,6 +185,14 @@ Die eigentliche Zielsetzung der Restore-Härtung ist daher nicht, `redirect_cano
 - Einheitliches Datenmodell in Hostvars (`wp_domain_db`, `wp_domain_usr`, `wp_domain_pwd`, `wp_version`, `wp_traefik_middleware_*`).
 - Einheitliche Sicherheitslogik: DNS-Check vor Deploy/Redeploy, CrowdSec-Middleware für Frontend/Admin/API, Versions-Guard + Domain-Guard im Restore sowie Verifikation der kritischen `wp-config.php`-Werte nach dem Restore.
 
+## Patch-Hinweis v1.6.5
+In `v1.6.5` wurde der Redeploy-/Restore-Ablauf der WordPress-Skripte beim Bedienkomfort und bei der Verifikation nachgeschärft:
+
+- `wp-redeploy.sh` fasst erfolgreiche Ansible-Läufe jetzt kompakter zusammen
+- nach einem Redeploy wird direkt ein WordPress-Selbsttest ausgeführt:
+  `wp-config.php`-Syntax, interner Proxy-/HTTP-Check, Schleifen-Erkennung und öffentlicher HTTPS-Check
+- `wp-restore.sh` profitiert bei gezielten Folge-Deployments automatisch vom kompakteren Redeploy-Verhalten
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.

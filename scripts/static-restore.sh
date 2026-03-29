@@ -221,7 +221,7 @@ docker run --rm \
   -v /srv/static:/srv/static \
   alpine sh -c "set -eu; mkdir -p '/srv/static/${DOMAIN}'; find '/srv/static/${DOMAIN}' -mindepth 1 -delete; cp -a /src/. '/srv/static/${DOMAIN}/'; chown -R 33:33 '/srv/static/${DOMAIN}'; find '/srv/static/${DOMAIN}' -type d -exec chmod 755 {} +; find '/srv/static/${DOMAIN}' -type f -exec chmod 644 {} +"
 
-info "Führe Static-Redeploy aus"
+info "Führe Static-Redeploy inkl. Auth-Verwaltung und Passwort-Schutz-Selbsttest aus"
 "$REDEPLOY_SCRIPT" "$DOMAIN"
 
 run_post_restore_checks "$DOMAIN" "$TARGET_DIR"

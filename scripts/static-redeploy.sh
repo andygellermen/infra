@@ -85,6 +85,18 @@ def path_exists(web_path: str) -> bool:
     target = site_path / norm.lstrip("/")
     return target.is_dir()
 
+def find_probe_path(web_path: str) -> str:
+    norm = normalize_path(web_path)
+    target = site_path / norm.lstrip("/")
+    if not target.is_dir():
+        return norm
+    for current_root, _subdirs, files in os.walk(target):
+        files = sorted(files)
+        for name in files:
+            rel = os.path.relpath(Path(current_root) / name, site_path)
+            return "/" + rel.replace(os.sep, "/")
+    return norm
+
 def prompt_yes_no(question: str, default: bool = False) -> bool:
     suffix = "[Y/n]" if default else "[y/N]"
     while True:
@@ -217,6 +229,7 @@ for entry in entries:
     })
     auth_checks.append({
         "path": current_path,
+        "probe_path": find_probe_path(current_path),
         "username": username if password_plain else "",
         "password": password_plain,
     })
@@ -237,6 +250,7 @@ while prompt_yes_no("Soll ein weiteres Verzeichnis geschützt werden?", default=
     })
     auth_checks.append({
         "path": new_path,
+        "probe_path": find_probe_path(new_path),
         "username": username,
         "password": password_plain,
     })
@@ -252,6 +266,7 @@ if updated_entries:
     for item in updated_entries:
         base = {
             "path": item["path"],
+            "probe_path": find_probe_path(item["path"]),
             "username": "",
             "password": "",
         }
@@ -319,9 +334,10 @@ failures = []
 verified = 0
 for entry in entries:
     path = entry.get("path", "")
+    probe_path = entry.get("probe_path") or path
     username = entry.get("username", "")
     password = entry.get("password", "")
-    url = f"https://{domain}{path}"
+    url = f"https://{domain}{probe_path}"
 
     public_status = curl_status(url)
     if public_status != "401":
@@ -331,7 +347,7 @@ for entry in entries:
 
     if username and password:
         auth_status = curl_status(url, username=username, password=password)
-        if auth_status in {"401", "500", "000"}:
+        if auth_status not in {"200", "204", "301", "302", "303", "307", "308", "403", "404"}:
             failures.append(f"Authentifizierter Check fehlgeschlagen für {url} ({auth_status})")
 
 if failures:
