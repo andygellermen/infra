@@ -10,7 +10,7 @@ DEFAULT_GHOST_VERSION="latest"
 
 usage() {
   cat <<EOF
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|major.minor|major.minor.patch|latest>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>]
 
 Beispiele:
   $0 blog.example.com
@@ -59,11 +59,15 @@ if [[ $# -lt 1 ]]; then
 fi
 
 ghost_version="$DEFAULT_GHOST_VERSION"
+wildcard_domain=""
 args=()
 for arg in "$@"; do
   case "$arg" in
     --version=*)
       ghost_version="${arg#*=}"
+      ;;
+    --wildcard-domain=*)
+      wildcard_domain="${arg#*=}"
       ;;
     --version)
       die "Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
@@ -127,6 +131,10 @@ normalize_domain() {
 
 DOMAIN_PUNY="$(normalize_domain "$DOMAIN_RAW")" \
   || die "Ungültige Domain: '$DOMAIN_RAW'"
+if [[ -n "$wildcard_domain" ]]; then
+  wildcard_domain="$(normalize_domain "$wildcard_domain")" \
+    || die "Ungültige Wildcard-Domain: '$wildcard_domain'"
+fi
 
 # =========================
 # Aliase normalisieren
@@ -154,10 +162,16 @@ info "Erstelle oder aktualisiere Hostvars für ${DOMAIN_PUNY}"
 
 mkdir -p "$HOSTVARS_DIR"
 
-"$CREATE_HOSTVARS" \
-  "$DOMAIN_PUNY" \
-  "${ALIASES_PUNY[@]}" \
+create_hostvars_args=(
+  "$DOMAIN_PUNY"
+  "${ALIASES_PUNY[@]}"
   "--version=${ghost_version}"
+)
+if [[ -n "$wildcard_domain" ]]; then
+  create_hostvars_args+=("--wildcard-domain=${wildcard_domain}")
+fi
+
+"$CREATE_HOSTVARS" "${create_hostvars_args[@]}"
 
 HOSTVARS_FILE="${HOSTVARS_DIR}/${DOMAIN_PUNY}.yml"
 

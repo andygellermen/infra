@@ -1,0 +1,12 @@
+---
+wildcard_distribution:
+  - wildcard_domain: example.com
+    targets:
+      - host: staging-1.example.net
+        user: deploy
+        remote_dir: /etc/ssl/example.com
+        port: 22
+      - host: staging-2.example.net
+        user: deploy
+        remote_dir: /etc/ssl/example.com
+        port: 22

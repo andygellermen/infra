@@ -3,6 +3,8 @@
   hosts: localhost
   #become: true
   #gather_facts: false
+  vars_files:
+    - "../secrets/secrets.yml"
 
 #  roles:
 #    - role: traefik

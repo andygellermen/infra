@@ -193,13 +193,34 @@
     primary_rule: "Host(`{{ item.domain }}`)"
     alias_rule: "{{ static_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
     middleware_default: "{{ item.static_traefik_middleware_default | default('', true) }}"
+    tls_mode: "{{ item.tls_mode | default('standard', true) }}"
+    tls_wildcard_domain: "{{ item.tls_wildcard_domain | default('', true) }}"
+    tls_certresolver: "{{ 'letsEncryptDns' if ((item.tls_mode | default('standard', true)) == 'wildcard' and (item.tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+    tls_domain_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].main'): tls_wildcard_domain,
+          ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].sans'): '*.' ~ tls_wildcard_domain
+        }
+        if (tls_mode == 'wildcard' and (tls_wildcard_domain | length) > 0)
+        else {}
+      }}
+    tls_domain_labels_alias: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '-alias.tls.domains[0].main'): tls_wildcard_domain,
+          ('traefik.http.routers.' ~ router_name ~ '-alias.tls.domains[0].sans'): '*.' ~ tls_wildcard_domain
+        }
+        if (tls_mode == 'wildcard' and (tls_wildcard_domain | length) > 0 and (static_aliases | length > 0))
+        else {}
+      }}
     static_site_labels: >-
       {{
         {
           ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ router_name ~ '.rule'): primary_rule,
           ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
-          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): tls_certresolver,
           ('traefik.http.routers.' ~ router_name ~ '.service'): 'static-sites',
           ('traefik.http.middlewares.' ~ router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
           ('traefik.http.middlewares.' ~ router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
@@ -222,7 +243,7 @@
               ('traefik.http.routers.' ~ router_name ~ '-alias.rule'): alias_rule,
               ('traefik.http.routers.' ~ router_name ~ '-alias.priority'): '300',
               ('traefik.http.routers.' ~ router_name ~ '-alias.tls'): 'true',
-              ('traefik.http.routers.' ~ router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls.certresolver'): tls_certresolver,
               ('traefik.http.routers.' ~ router_name ~ '-alias.middlewares'): router_name ~ '-alias-redirect-url,' ~ router_name ~ '-alias-redirect-path',
               ('traefik.http.routers.' ~ router_name ~ '-alias.service'): 'noop@internal',
               ('traefik.http.routers.' ~ router_name ~ '-alias-web.entrypoints'): 'web',
@@ -231,8 +252,10 @@
               ('traefik.http.routers.' ~ router_name ~ '-alias-web.middlewares'): router_name ~ '-alias-redirect-url,' ~ router_name ~ '-alias-redirect-path',
               ('traefik.http.routers.' ~ router_name ~ '-alias-web.service'): 'noop@internal'
             }
+            | combine(tls_domain_labels_alias)
             if (static_aliases | length > 0) else {}
           )
+        | combine(tls_domain_labels)
       }}
   loop: "{{ static_sites }}"
   when: static_sites | length > 0

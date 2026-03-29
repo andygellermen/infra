@@ -7,7 +7,7 @@ HOSTVARS_DIR="./ansible/hostvars"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/static-add.sh <domain> [alias1 alias2 ...] [--protected-path=/private-folder/] [--protected-realm="Protected Area"]
+Usage: ./scripts/static-add.sh <domain> [alias1 alias2 ...] [--protected-path=/private-folder/] [--protected-realm="Protected Area"] [--wildcard-domain=<apex-domain>]
 USAGE
 }
 
@@ -39,12 +39,14 @@ verify_domain_points_here() {
 
 PROTECTED_PATH=""
 PROTECTED_REALM="Protected Area"
+WILDCARD_DOMAIN=""
 args=()
 
 for arg in "$@"; do
   case "$arg" in
     --protected-path=*) PROTECTED_PATH="${arg#*=}" ;;
     --protected-realm=*) PROTECTED_REALM="${arg#*=}" ;;
+    --wildcard-domain=*) WILDCARD_DOMAIN="${arg#*=}" ;;
     --help|-h) usage; exit 0 ;;
     *) args+=("$arg") ;;
   esac
@@ -55,6 +57,13 @@ command -v dig >/dev/null 2>&1 || die "Tool fehlt: dig"
 command -v curl >/dev/null 2>&1 || die "Tool fehlt: curl"
 
 DOMAIN="$(normalize_domain "${args[0]}")"
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  WILDCARD_DOMAIN="$(normalize_domain "$WILDCARD_DOMAIN")"
+fi
+TLS_MODE="standard"
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  TLS_MODE="wildcard"
+fi
 ALIASES=()
 for a in "${args[@]:1}"; do
   ALIASES+=("$(normalize_domain "$a")")
@@ -81,6 +90,8 @@ HOSTVARS_FILE="${HOSTVARS_DIR}/${DOMAIN}.yml"
   echo
   echo "static_enabled: true"
   echo "static_traefik_middleware_default: \"crowdsec-default@docker\""
+  echo "tls_mode: \"${TLS_MODE}\""
+  echo "tls_wildcard_domain: \"${WILDCARD_DOMAIN}\""
   if [[ -n "$PROTECTED_PATH" ]]; then
     echo "static_basic_auth_paths:"
     echo "  - path: \"${PROTECTED_PATH}\""

@@ -47,6 +47,34 @@
     wp_host_rule_primary: "Host(`{{ domain }}`)"
     wp_host_rule_aliases: "{{ wp_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
 
+- name: Build WordPress TLS settings
+  ansible.builtin.set_fact:
+    wp_tls_mode: "{{ tls_mode | default('standard', true) }}"
+    wp_tls_wildcard_domain: "{{ tls_wildcard_domain | default('', true) }}"
+    wp_tls_certresolver: "{{ 'letsEncryptDns' if ((tls_mode | default('standard', true)) == 'wildcard' and (tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+    wp_tls_domain_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ wp_router_name ~ '.tls.domains[0].main'): wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '.tls.domains[0].sans'): '*.' ~ wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls.domains[0].main'): wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls.domains[0].sans'): '*.' ~ wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls.domains[0].main'): wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls.domains[0].sans'): '*.' ~ wp_tls_wildcard_domain
+        }
+        if (wp_tls_mode == 'wildcard' and (wp_tls_wildcard_domain | length) > 0)
+        else {}
+      }}
+    wp_tls_domain_labels_alias: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls.domains[0].main'): wp_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls.domains[0].sans'): '*.' ~ wp_tls_wildcard_domain
+        }
+        if (wp_tls_mode == 'wildcard' and (wp_tls_wildcard_domain | length) > 0 and (wp_aliases | length > 0))
+        else {}
+      }}
+
 - name: Build WordPress middleware settings
   ansible.builtin.set_fact:
     wp_requested_middleware_default: "{{ wp_traefik_middleware_default | default('', true) }}"
@@ -152,7 +180,7 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias.rule'): wp_host_rule_aliases,
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias.priority'): '300',
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls'): 'true',
-          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-alias.tls.certresolver'): wp_tls_certresolver,
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias.middlewares'): wp_router_name ~ '-alias-redirect-url,' ~ wp_router_name ~ '-alias-redirect-path',
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias.service'): 'noop@internal',
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.entrypoints'): 'web',
@@ -161,6 +189,7 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.middlewares'): wp_router_name ~ '-alias-redirect-url,' ~ wp_router_name ~ '-alias-redirect-path',
           ('traefik.http.routers.' ~ wp_router_name ~ '-alias-web.service'): 'noop@internal'
         }
+        | combine(wp_tls_domain_labels_alias)
         if (wp_aliases | length > 0) else {}
       }}
 
@@ -174,7 +203,7 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ wp_router_name ~ '.rule'): wp_host_rule_primary,
           ('traefik.http.routers.' ~ wp_router_name ~ '.tls'): 'true',
-          ('traefik.http.routers.' ~ wp_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '.tls.certresolver'): wp_tls_certresolver,
           ('traefik.http.routers.' ~ wp_router_name ~ '.service'): wp_service_name,
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
@@ -188,14 +217,14 @@
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.rule'): '(' ~ wp_host_rule_primary ~ ') && (PathPrefix(`/wp-admin`) || Path(`/wp-login.php`))',
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.priority'): '220',
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls'): 'true',
-          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-admin.tls.certresolver'): wp_tls_certresolver,
           ('traefik.http.routers.' ~ wp_router_name ~ '-admin.service'): wp_service_name,
 
           ('traefik.http.routers.' ~ wp_router_name ~ '-api.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ wp_router_name ~ '-api.rule'): '(' ~ wp_host_rule_primary ~ ') && PathPrefix(`/wp-json`)',
           ('traefik.http.routers.' ~ wp_router_name ~ '-api.priority'): '210',
           ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls'): 'true',
-          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-api.tls.certresolver'): wp_tls_certresolver,
           ('traefik.http.routers.' ~ wp_router_name ~ '-api.service'): wp_service_name,
 
           ('traefik.http.services.' ~ wp_service_name ~ '.loadbalancer.server.port'): '80'
@@ -206,6 +235,7 @@
         | combine(wp_labels_basic_auth_frontend)
         | combine(wp_labels_basic_auth_admin)
         | combine(wp_labels_basic_auth_api)
+        | combine(wp_tls_domain_labels)
         | combine(wp_labels_alias_redirect)
       }}
 

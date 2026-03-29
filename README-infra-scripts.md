@@ -82,6 +82,26 @@ Zentraler Löschbefehl für Domains. Erkennt Ghost-, WordPress-, Static- und Red
 - erstellt Backups von `redirects.yml` und `acme.json`
 - startet Traefik nach der ACME-Bereinigung neu
 
+### wildcard-export.sh
+
+**Beschreibung:**  
+Exportiert ein vorhandenes Wildcard-Zertifikat für eine Apex-Domain aus Traefiks `acme.json`.
+
+**Syntax:**
+```bash
+./scripts/wildcard-export.sh example.com [--output-dir /tmp/wildcard-export]
+```
+
+### wildcard-distribute.sh
+
+**Beschreibung:**  
+Verteilt ein exportiertes Wildcard-Zertifikat an definierte Zielserver, z. B. für Staging-Systeme.
+
+**Syntax:**
+```bash
+./scripts/wildcard-distribute.sh example.com [--config ./ansible/wildcards/distribution.example.yml]
+```
+
 ### create-hostvars.sh
 
 **Beschreibung:**  

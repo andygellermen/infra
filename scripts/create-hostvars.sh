@@ -5,9 +5,10 @@
 set -e
 
 ghost_version="latest"
+wildcard_domain=""
 
 usage() {
-    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|major.minor|major.minor.patch|latest>]"
+    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>]"
 }
 
 main_domain=""
@@ -16,6 +17,9 @@ for arg in "$@"; do
     case "$arg" in
         --version=*)
             ghost_version="${arg#*=}"
+            ;;
+        --wildcard-domain=*)
+            wildcard_domain="${arg#*=}"
             ;;
         --version)
             echo "Fehler: Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
@@ -54,6 +58,14 @@ fi
 
 # --- Domains ---
 main_domain=$(idn --quiet "$main_domain")
+if [[ -n "$wildcard_domain" ]]; then
+    wildcard_domain=$(idn --quiet "$wildcard_domain")
+fi
+
+tls_mode="standard"
+if [[ -n "$wildcard_domain" ]]; then
+    tls_mode="wildcard"
+fi
 
 alias_domains=()
 alias_domains+=("www.${main_domain}")
@@ -110,6 +122,9 @@ ghost_traefik_middleware_admin: "crowdsec-admin@docker"
 ghost_traefik_middleware_api: "crowdsec-api@docker"
 ghost_traefik_middleware_dotghost: "crowdsec-api@docker"
 ghost_traefik_middleware_members_api: "crowdsec-api@docker"
+
+tls_mode: "${tls_mode}"
+tls_wildcard_domain: "${wildcard_domain}"
 
 # Tinybird analytics defaults
 tinybird_enabled: true

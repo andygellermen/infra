@@ -8,7 +8,7 @@ DEFAULT_WP_VERSION="latest"
 
 usage() {
   cat <<USAGE
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<tag|latest>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<tag|latest>] [--wildcard-domain=<apex-domain>]
 USAGE
 }
 
@@ -37,16 +37,25 @@ verify_domain_points_here() {
 
 [[ $# -ge 1 ]] || { usage; exit 1; }
 wp_version="$DEFAULT_WP_VERSION"
+wildcard_domain=""
 args=()
 for arg in "$@"; do
   case "$arg" in
     --version=*) wp_version="${arg#*=}" ;;
+    --wildcard-domain=*) wildcard_domain="${arg#*=}" ;;
     --help|-h) usage; exit 0 ;;
     *) args+=("$arg") ;;
   esac
 done
 
 DOMAIN="$(normalize_domain "${args[0]}")"
+if [[ -n "$wildcard_domain" ]]; then
+  wildcard_domain="$(normalize_domain "$wildcard_domain")"
+fi
+tls_mode="standard"
+if [[ -n "$wildcard_domain" ]]; then
+  tls_mode="wildcard"
+fi
 ALIASES=()
 for a in "${args[@]:1}"; do
   ALIASES+=("$(normalize_domain "$a")")
@@ -87,6 +96,8 @@ wp_pwd="$(openssl rand -hex 16)"
   echo "wp_traefik_middleware_default: \"crowdsec-default@docker\""
   echo "wp_traefik_middleware_admin: \"crowdsec-admin@docker\""
   echo "wp_traefik_middleware_api: \"crowdsec-api@docker\""
+  echo "tls_mode: \"${tls_mode}\""
+  echo "tls_wildcard_domain: \"${wildcard_domain}\""
 } > "$HOSTVARS_FILE"
 
 info "Hostvars geschrieben: $HOSTVARS_FILE"

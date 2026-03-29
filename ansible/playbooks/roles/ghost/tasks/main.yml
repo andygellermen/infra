@@ -61,6 +61,40 @@
         | join(' || ')
       }}
 
+- name: Build Ghost TLS settings
+  ansible.builtin.set_fact:
+    ghost_tls_mode: "{{ tls_mode | default('standard', true) }}"
+    ghost_tls_wildcard_domain: "{{ tls_wildcard_domain | default('', true) }}"
+    ghost_tls_certresolver: "{{ 'letsEncryptDns' if ((tls_mode | default('standard', true)) == 'wildcard' and (tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+    ghost_tls_domain_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain
+        }
+        if (ghost_tls_mode == 'wildcard' and (ghost_tls_wildcard_domain | length) > 0)
+        else {}
+      }}
+    ghost_tls_domain_labels_alias: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain
+        }
+        if (ghost_tls_mode == 'wildcard' and (ghost_tls_wildcard_domain | length) > 0 and (ghost_aliases | length > 0))
+        else {}
+      }}
+
 - name: Build Ghost middleware settings
   ansible.builtin.set_fact:
     ghost_middleware_default: "{{ ghost_traefik_middleware_default | default('') }}"
@@ -92,7 +126,7 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.rule'): ghost_host_rule_aliases,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.priority'): '300',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.middlewares'): ghost_router_name ~ '-alias-redirect-url,' ~ ghost_router_name ~ '-alias-redirect-path',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias.service'): 'noop@internal',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.entrypoints'): 'web',
@@ -101,6 +135,7 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.middlewares'): ghost_router_name ~ '-alias-redirect-url,' ~ ghost_router_name ~ '-alias-redirect-path',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-alias-web.service'): 'noop@internal'
         }
+        | combine(ghost_tls_domain_labels_alias)
         if (ghost_aliases | length > 0) else {}
       }}
 
@@ -117,14 +152,14 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '.rule'): ghost_host_rule_primary,
           ('traefik.http.routers.' ~ ghost_router_name ~ '.priority'): '100',
           ('traefik.http.routers.' ~ ghost_router_name ~ '.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.rule'): ghost_host_rule_primary,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.priority'): '1',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-fallback.service'): ghost_service_name,
 
           ('traefik.http.middlewares.' ~ ghost_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
@@ -139,28 +174,28 @@
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/ghost`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.priority'): '200',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-admin.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/ghost/api`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.priority'): '220',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-api.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-api.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/.ghost`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.priority'): '230',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-dotghost.service'): ghost_service_name,
 
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/members/api`)',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.priority'): '210',
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls'): 'true',
-          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.tls.certresolver'): ghost_tls_certresolver,
           ('traefik.http.routers.' ~ ghost_router_name ~ '-members-api.service'): ghost_service_name,
 
           ('traefik.http.services.' ~ ghost_service_name ~ '.loadbalancer.server.port'): '2368'
@@ -170,6 +205,7 @@
         | combine(ghost_labels_middleware_api)
         | combine(ghost_labels_middleware_dotghost)
         | combine(ghost_labels_middleware_members_api)
+        | combine(ghost_tls_domain_labels)
         | combine(ghost_labels_alias_redirect)
       }}
 

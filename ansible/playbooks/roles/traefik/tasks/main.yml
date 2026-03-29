@@ -6,6 +6,21 @@
     driver: bridge
     state: present
 
+- name: Ensure Traefik runtime directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "/home/andy/infra/data/traefik", mode: "0755" }
+    - { path: "/home/andy/infra/data/traefik/acme", mode: "0700" }
+
+- name: Ensure Traefik ACME storage exists
+  ansible.builtin.file:
+    path: /home/andy/infra/data/traefik/acme/acme.json
+    state: touch
+    mode: "0600"
+
 - name: Create traefik container
   community.docker.docker_container:
     name: infra-traefik
@@ -20,6 +35,16 @@
       - "/home/andy/infra/data/traefik:/etc/traefik/dynamic"
     networks:
       - name: traefik
+    env:
+      AUTODNS_API_USER: "{{ traefik_autodns_user | default('', true) }}"
+      AUTODNS_API_PASSWORD: "{{ traefik_autodns_password | default('', true) }}"
+      AUTODNS_CONTEXT: "{{ traefik_autodns_context | default('4', true) | string }}"
+      AUTODNS_ENDPOINT: "{{ traefik_autodns_endpoint | default('https://api.autodns.com/v1/', true) }}"
+      AUTODNS_USER_AGENT: "{{ traefik_autodns_user_agent | default('infra-traefik-wildcard/1.0', true) }}"
+      AUTODNS_HTTP_TIMEOUT: "{{ traefik_autodns_http_timeout | default('30', true) | string }}"
+      AUTODNS_POLLING_INTERVAL: "{{ traefik_autodns_polling_interval | default('2', true) | string }}"
+      AUTODNS_PROPAGATION_TIMEOUT: "{{ traefik_autodns_propagation_timeout | default('180', true) | string }}"
+      AUTODNS_TTL: "{{ traefik_autodns_ttl | default('600', true) | string }}"
     labels:
       traefik.enable: "true"
       traefik.http.middlewares.crowdsec-default.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
@@ -38,5 +63,10 @@
       - "--certificatesresolvers.letsEncrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsEncrypt.acme.email=andy@geller.men"
       - "--certificatesresolvers.letsEncrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.letsEncryptDns.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsEncryptDns.acme.dnschallenge.provider=autodns"
+      - "--certificatesresolvers.letsEncryptDns.acme.dnschallenge.delaybeforecheck={{ traefik_dns_delay_before_check | default(30) }}"
+      - "--certificatesresolvers.letsEncryptDns.acme.email=andy@geller.men"
+      - "--certificatesresolvers.letsEncryptDns.acme.storage=/etc/traefik/acme/acme.json"
       - "--log.level=INFO"
       - "--accesslog=true"
