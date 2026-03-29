@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.0)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.1)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -223,3 +223,10 @@ In `v1.6.0` wurde die Static-Auth-Verwaltung deutlich ausgebaut:
 - Schutz kann aufgehoben oder mit neuem Kennwort versehen werden
 - zusätzliche geschützte Verzeichnisse können in einer Schleife ergänzt werden
 - `.htpasswd`-Dateien werden aus den Hostvars automatisch erzeugt
+
+### Patch-Hinweis v1.6.1
+In `v1.6.1` wurde die `htpasswd`-Prüfung in `static-redeploy.sh` entschärft:
+
+- `htpasswd` wird nicht mehr pauschal vor jedem Single-Domain-Redeploy verlangt
+- das Tool wird erst dann benötigt, wenn tatsächlich ein neues Kennwort bzw. ein neuer Hash erzeugt werden soll
+- bestehende geschützte Bereiche können damit auch ohne installiertes `apache2-utils` unverändert redeployed werden

@@ -135,12 +135,16 @@ def build_hash(username: str) -> str:
         if pw1 != pw2:
             print("Die Passwörter stimmen nicht überein. Bitte erneut eingeben.")
             continue
-        result = subprocess.run(
-            ["htpasswd", "-nbB", username, pw1],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["htpasswd", "-nbB", username, pw1],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            print("❌ Tool fehlt: htpasswd. Bitte installieren mit: sudo apt install apache2-utils", file=sys.stderr)
+            sys.exit(1)
         return result.stdout.strip().split(":", 1)[1]
 
 updated_entries = []
@@ -249,7 +253,6 @@ if [[ "$TARGET" == "--all" ]]; then
   ansible-playbook -i "$INVENTORY" "$PLAYBOOK"
   ok "Static-Redeploy für alle statischen Sites abgeschlossen"
 else
-  require_cmd htpasswd
   manage_static_auth "$HOSTVARS_FILE" "$DOMAIN"
   ansible-playbook -i "$INVENTORY" -e "target_domain=${DOMAIN}" "$PLAYBOOK"
   ok "Static-Redeploy abgeschlossen"
