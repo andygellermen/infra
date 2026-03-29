@@ -311,7 +311,7 @@ run_post_redeploy_checks() {
   fi
   ok "Interner Proxy-/HTTP-Check erfolgreich (Status ${first_status}${location:+, Location ${location}})"
 
-  if public_result="$(curl -k -sSIL --max-redirs 10 -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null)"; then
+  if public_result="$(curl -k -sSL --max-redirs 10 -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null)"; then
     public_status="${public_result%% *}"
     public_redirects="${public_result##* }"
     case "$public_status" in

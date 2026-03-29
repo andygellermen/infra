@@ -249,6 +249,12 @@ In `v1.7.4` wurde ein Quoting-Fehler im WordPress-Selbsttest behoben:
 - die `Location`-Header-Auswertung in `wp-redeploy.sh` verwendet jetzt wieder korrektes `awk`-Quoting
 - dadurch verschwinden die kosmetischen `awk`-Fehlmeldungen nach einem erfolgreichen Redeploy
 
+## Patch-Hinweis v1.7.5
+In `v1.7.5` wurde der öffentliche HTTPS-Check in den WordPress-Skripten browsernäher gemacht:
+
+- `wp-redeploy.sh` und `wp-restore.sh` verwenden dafür jetzt einen echten `GET` statt eines `HEAD`-ähnlichen Checks
+- dadurch entstehen weniger Fehlalarme mit `404`, obwohl die Website im Browser korrekt erreichbar ist
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
