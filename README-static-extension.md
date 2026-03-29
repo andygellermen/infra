@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.6)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.8)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -266,3 +266,17 @@ In `v1.6.6` wurde der Passwort-Schutz-Selbsttest für statische Sites praxistaug
 - geschützte Verzeichnisse werden nicht mehr nur über den nackten Ordnerpfad geprüft
 - stattdessen verwendet der Selbsttest nach Möglichkeit eine reale Datei innerhalb des geschützten Pfades als Prüfziel
 - dadurch entstehen keine Fehlalarme mehr bei geschützten Asset-Ordnern ohne `index.html`
+
+### Patch-Hinweis v1.6.7
+In `v1.6.7` wurde der Root-Pfad `/` als geschützter Bereich im Nginx-Template korrekt unterstützt:
+
+- ein Schutz für `/` wird jetzt in den allgemeinen `location /`-Block integriert
+- dadurch entsteht kein doppelter `location /`-Block mehr
+- das behebt `duplicate location "/"` beim Redeploy von statischen Sites mit Root-Schutz
+
+### Patch-Hinweis v1.6.8
+In `v1.6.8` wurde der interaktive Dialog in `static-redeploy.sh` noch etwas sicherer und verständlicher gemacht:
+
+- die Einstiegsfrage lautet jetzt klarer: `Soll ein Verzeichnis mit Passwort-Schutz aktiviert werden?`
+- bei Auswahl des Root-Pfads `/` folgt eine ausdrückliche Sicherheitsabfrage
+- wird diese verneint, kann der Pfad direkt korrigiert werden, statt versehentlich die ganze Website zu schützen

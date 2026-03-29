@@ -153,6 +153,11 @@ def prompt_valid_path(current: str = "", used_paths=None) -> str:
         if selected not in dirs or not path_exists(selected):
             print(f"Der Pfad {selected} existiert nicht.")
             continue
+        if selected == "/":
+            if prompt_yes_no(f"Der Root-Pfad / schützt die gesamte Website unter https://{domain}/. Wirklich fortfahren?", default=False):
+                return selected
+            print("Bitte einen spezifischeren Pfad wählen oder die Eingabe anpassen.")
+            continue
         return selected
 
 def build_hash(username: str):
@@ -235,7 +240,7 @@ for entry in entries:
     })
     used_paths.add(current_path)
 
-while prompt_yes_no("Soll ein weiteres Verzeichnis geschützt werden?", default=False):
+while prompt_yes_no("Soll ein Verzeichnis mit Passwort-Schutz aktiviert werden?", default=False):
     print("")
     new_path = prompt_valid_path(used_paths=used_paths)
     realm = prompt_nonempty("Realm", "Protected Area")
