@@ -52,6 +52,9 @@
     wp_tls_mode: "{{ tls_mode | default('standard', true) }}"
     wp_tls_wildcard_domain: "{{ tls_wildcard_domain | default('', true) }}"
     wp_tls_certresolver: "{{ 'letsEncryptDns' if ((tls_mode | default('standard', true)) == 'wildcard' and (tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+
+- name: Build WordPress TLS label maps
+  ansible.builtin.set_fact:
     wp_tls_domain_labels: >-
       {{
         {

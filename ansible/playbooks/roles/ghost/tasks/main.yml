@@ -66,6 +66,9 @@
     ghost_tls_mode: "{{ tls_mode | default('standard', true) }}"
     ghost_tls_wildcard_domain: "{{ tls_wildcard_domain | default('', true) }}"
     ghost_tls_certresolver: "{{ 'letsEncryptDns' if ((tls_mode | default('standard', true)) == 'wildcard' and (tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+
+- name: Build Ghost TLS label maps
+  ansible.builtin.set_fact:
     ghost_tls_domain_labels: >-
       {{
         {
