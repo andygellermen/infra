@@ -352,10 +352,10 @@ entries = payload.get("entries") or []
 if not domain or not entries:
     sys.exit(0)
 
-scope_paths = {
-    "frontend": "/",
-    "admin": "/wp-login.php",
-    "api": "/wp-json",
+scope_probe_paths = {
+    "frontend": ["/"],
+    "admin": ["/wp-login.php", "/wp-admin/", "/wp-admin"],
+    "api": ["/wp-json", "/?rest_route=/"],
 }
 
 def curl_status(url, username="", password=""):
@@ -372,20 +372,29 @@ for entry in entries:
     scope = entry.get("scope", "")
     username = entry.get("username", "")
     password = entry.get("password", "")
-    if scope not in scope_paths:
+    if scope not in scope_probe_paths:
         continue
-    url = f"https://{domain}{scope_paths[scope]}"
-
-    public_status = curl_status(url)
+    matched_url = ""
+    public_status = ""
+    for probe_path in scope_probe_paths[scope]:
+        candidate_url = f"https://{domain}{probe_path}"
+        candidate_status = curl_status(candidate_url)
+        if candidate_status == "401":
+            matched_url = candidate_url
+            public_status = candidate_status
+            break
+        if not public_status:
+            public_status = candidate_status
+            matched_url = candidate_url
     if public_status != "401":
-        failures.append(f"Passwort-Schutz greift nicht wie erwartet für {url} (ohne Auth: {public_status}, erwartet 401)")
+        failures.append(f"Passwort-Schutz greift nicht wie erwartet für Bereich {scope} (zuletzt geprüft: {matched_url}, Status {public_status}, erwartet 401)")
         continue
     verified += 1
 
     if username and password:
-        auth_status = curl_status(url, username=username, password=password)
+        auth_status = curl_status(matched_url, username=username, password=password)
         if auth_status not in {"200", "204", "301", "302", "303", "307", "308", "403", "404"}:
-            failures.append(f"Authentifizierter Check fehlgeschlagen für {url} ({auth_status})")
+            failures.append(f"Authentifizierter Check fehlgeschlagen für {matched_url} ({auth_status})")
 
 if failures:
     for message in failures:

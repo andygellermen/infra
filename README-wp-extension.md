@@ -229,6 +229,13 @@ In `v1.7.1` wurde der öffentliche Restore-Selbsttest für WordPress an den neue
 - ein aktiver Frontend-Schutz darf den öffentlichen HTTPS-Check jetzt sauber mit `401` beantworten
 - `wp-restore.sh` bewertet diesen Fall deshalb nicht mehr als Fehlverdacht, sondern als bestätigten Passwortschutz
 
+## Patch-Hinweis v1.7.2
+In `v1.7.2` wurde der Passwort-Schutz-Selbsttest für WordPress-Bereiche robuster gemacht:
+
+- Admin- und API-Schutz werden nicht mehr nur über genau einen einzelnen Endpunkt geprüft
+- stattdessen testet `wp-redeploy.sh` mehrere passende Probe-Pfade je Bereich
+- dadurch entstehen weniger Fehlalarme bei Installationen mit abweichendem Login-/API-Verhalten
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
