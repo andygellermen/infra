@@ -136,19 +136,19 @@ run_post_restore_checks() {
   wait_for_container_running "$container" 60 || die "Shared Static-Container läuft nicht: $container"
   ok "Shared Static-Container läuft"
 
-  if public_result="$(curl -k -sSIL --max-redirs 10 -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null)"; then
+  if public_result="$(curl -k -sSL --max-redirs 10 -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null)"; then
     public_status="${public_result%% *}"
     public_redirects="${public_result##* }"
     case "$public_status" in
-      200|301|302|303|307|308)
+      200)
         ok "Öffentlicher HTTPS-Check erfolgreich (Finalstatus ${public_status}, Redirects ${public_redirects})"
         ;;
       *)
-        die "Öffentlicher HTTPS-Check fehlgeschlagen (Finalstatus ${public_status}, Redirects ${public_redirects})"
+        warn "Öffentlicher HTTPS-Check meldet Finalstatus ${public_status} (Redirects ${public_redirects}). Browser-/Manuelltest empfohlen."
         ;;
     esac
   else
-    die "Öffentlicher HTTPS-Check konnte nicht ausgeführt werden"
+    warn "Öffentlicher HTTPS-Check konnte nicht ausgeführt werden"
   fi
 }
 

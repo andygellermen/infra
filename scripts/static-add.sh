@@ -82,12 +82,11 @@ HOSTVARS_FILE="${HOSTVARS_DIR}/${DOMAIN}.yml"
   echo "static_enabled: true"
   echo "static_traefik_middleware_default: \"crowdsec-default@docker\""
   if [[ -n "$PROTECTED_PATH" ]]; then
-    sanitized_path="$(printf '%s' "$PROTECTED_PATH" | sed -E 's#^/##; s#/$##; s#[^A-Za-z0-9._-]+#-#g')"
-    [[ -n "$sanitized_path" ]] || sanitized_path="private"
     echo "static_basic_auth_paths:"
     echo "  - path: \"${PROTECTED_PATH}\""
     echo "    realm: \"${PROTECTED_REALM}\""
-    echo "    auth_file: \"/srv/static-auth/${DOMAIN}-${sanitized_path}.htpasswd\""
+    echo "    username: \"\""
+    echo "    password_hash: \"\""
   else
     echo "static_basic_auth_paths: []"
   fi

@@ -1,4 +1,4 @@
-# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.5.2)
+# Static Sites Erweiterung (Infra Stack Static-Extension / Ziel: v1.6.0)
 
 ## Zielbild
 Für kleine reine HTML-Seiten wird eine gemeinsame, leichtgewichtige Nginx-Instanz betrieben:
@@ -25,7 +25,7 @@ Damit lassen sich Inhalte bequem per SSH/SFTP pflegen, ohne im Container arbeite
 ## Skripte
 - `scripts/static-add.sh`: legt Hostvars an und deployt oder aktualisiert den Shared-Container
 - `scripts/static-backup.sh`: erstellt ein Backup des statischen Document-Roots inkl. optionaler Hostvars-Metadaten
-- `scripts/static-redeploy.sh`: DNS-Check und Redeploy der Shared-Static-Instanz, optional auch gesammelt via `--all`
+- `scripts/static-redeploy.sh`: DNS-Check und Redeploy der Shared-Static-Instanz, optional auch gesammelt via `--all`, inkl. interaktiver Verwaltung geschützter Verzeichnisse
 - `scripts/static-delete.sh`: entfernt die Domain aus den Hostvars und deployt die Shared-Instanz neu
 - `scripts/static-restore.sh`: stellt eine statische Site aus `.tar.gz`, `.tgz` oder `.zip` wieder her und führt danach einen HTTPS-Selbsttest aus
 
@@ -90,8 +90,44 @@ static_traefik_middleware_default: "crowdsec-default@docker"
 static_basic_auth_paths:
   - path: "/private-folder/"
     realm: "Protected Area"
+    username: "editor"
+    password_hash: "$2y$..."
     auth_file: "/srv/static-auth/example.com-private-folder.htpasswd"
 ```
+
+## Hostvars-Beispiel mit Alias-Domains und geschütztem Bereich
+Für eine produktivere Konfiguration kann eine statische Site z. B. so aussehen:
+
+```yaml
+domain: faz-pfalz.de
+
+traefik:
+  domain: faz-pfalz.de
+  aliases:
+    - www.faz-pfalz.de
+    - faz-pfalz.com
+    - www.faz-pfalz.com
+
+static_enabled: true
+static_traefik_middleware_default: "crowdsec-default@docker"
+static_basic_auth_paths:
+  - path: "/private-folder/"
+    realm: "Interner Bereich"
+    username: "andy"
+    password_hash: "$2y$..."
+    auth_file: "/srv/static-auth/faz-pfalz.de-private-folder.htpasswd"
+```
+
+Das bewirkt:
+- `faz-pfalz.de` ist die Primärdomain der Site
+- `www.faz-pfalz.de`, `faz-pfalz.com` und `www.faz-pfalz.com` werden per Traefik auf die Primärdomain umgeleitet
+- für alle in `traefik.aliases` eingetragenen Domains werden beim Redeploy ebenfalls TLS-Router mit `letsEncrypt` konfiguriert
+- der Pfad `/private-folder/` wird per Nginx Basic Auth geschützt
+
+Wichtig in der Praxis:
+- jede Alias-Domain braucht einen funktionierenden DNS-A-Record auf den Server
+- `username` und `password_hash` können direkt in den Hostvars gepflegt werden
+- die eigentlichen HTML-Dateien liegen weiterhin unter `/srv/static/faz-pfalz.de/`
 
 ## Passwortgeschützte Unterverzeichnisse
 Ein privater Bereich wie `/private-folder/` wird direkt in Nginx über Basic Auth geschützt.
@@ -103,13 +139,41 @@ Vorteile:
 
 Wichtig:
 - die `.htpasswd`-Datei liegt **nicht** im Webroot
-- sie muss vor dem Deploy existieren
+- sie kann automatisch aus `username` und `password_hash` in den Hostvars erzeugt werden
+- alternativ kann weiterhin eine vorhandene `auth_file` genutzt werden
 
 Beispiel zum Anlegen:
 ```bash
 sudo apt install apache2-utils
 sudo htpasswd -cB /srv/static-auth/example.com-private-folder.htpasswd andy
 ```
+
+## Interaktive Auth-Verwaltung per `static-redeploy.sh`
+Bei einem Redeploy einer einzelnen statischen Site unterstützt `static-redeploy.sh` jetzt die interaktive Verwaltung geschützter Verzeichnisse.
+
+Ablauf:
+- vorhandene geschützte Pfade werden nacheinander geprüft
+- existiert ein eingetragener Pfad nicht, zeigt das Script die vorhandene Ordnerstruktur an und fordert direkt zur Korrektur auf
+- für bestehende geschützte Pfade kann der Schutz aufgehoben werden, ohne den Ordnerinhalt anzutasten
+- alternativ kann das Kennwort für einen bestehenden Schutz neu gesetzt werden
+- danach kann in einer Schleife jeweils ein weiteres Verzeichnis geschützt werden
+- Benutzername und Passwort-Hash werden in den Hostvars hinterlegt
+- die zugehörige `.htpasswd`-Datei wird beim Deploy automatisch erzeugt
+
+Empfohlene Hostvars-Struktur:
+
+```yaml
+static_basic_auth_paths:
+  - path: "/private-folder/"
+    realm: "Secure-Example"
+    username: "andy"
+    password_hash: ""
+```
+
+Praktischer Hinweis:
+- ein leerer `password_hash` ist als Platzhalter erlaubt
+- beim nächsten `static-redeploy.sh <domain>` wird das Passwort dann interaktiv abgefragt und als Hash gespeichert
+- `static-redeploy.sh --all` führt bewusst **keine** interaktive Passwortverwaltung aus
 
 ## DNS und Redirects
 - `http -> https` erfolgt über Traefik
@@ -135,3 +199,27 @@ In `v1.5.2` wurde `deploy-static.yml` auf `become: true` umgestellt:
 
 - behebt Berechtigungsfehler beim Anlegen von `/srv/static-auth` und `/srv/static-nginx`
 - passt zur Architektur, weil die Shared-Static-Instanz Host-Verzeichnisse unter `/srv/` verwaltet
+
+### Patch-Hinweis v1.5.3
+In `v1.5.3` wurde der öffentliche HTTPS-Selbsttest in `static-restore.sh` entschärft:
+
+- nutzt jetzt einen echten `GET` statt `HEAD`
+- bewertet abweichende Finalstatus nur noch als Warnung statt als Restore-Abbruch
+- reduziert Fehlalarme bei statischen Seiten, die im Browser korrekt funktionieren
+
+### Patch-Hinweis v1.5.4
+In `v1.5.4` wurde die Static-README um ein ausführlicheres Hostvars-Beispiel ergänzt:
+
+- Primärdomain plus mehrere Alias-Domains
+- automatischer TLS-/Redirect-Kontext für Aliase
+- geschützter `/private-folder/` mit Basic Auth
+
+### Patch-Hinweis v1.6.0
+In `v1.6.0` wurde die Static-Auth-Verwaltung deutlich ausgebaut:
+
+- `static-add.sh` legt bei Bedarf Auth-Platzhalter mit `username` und `password_hash` an
+- `static-redeploy.sh` verwaltet geschützte Pfade interaktiv
+- vorhandene Ordner werden als Hilfestellung angezeigt und auf Gültigkeit geprüft
+- Schutz kann aufgehoben oder mit neuem Kennwort versehen werden
+- zusätzliche geschützte Verzeichnisse können in einer Schleife ergänzt werden
+- `.htpasswd`-Dateien werden aus den Hostvars automatisch erzeugt

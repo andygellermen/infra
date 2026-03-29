@@ -79,6 +79,36 @@
   loop: "{{ static_sites }}"
   when: static_sites | length > 0
 
+- name: Render managed basic-auth files from hostvars
+  ansible.builtin.copy:
+    dest: >-
+      {{
+        item.1.auth_file
+        | default(
+            '/srv/static-auth/' ~ item.0.domain ~ '-' ~
+            (
+              (
+                item.1.path
+                | default('/private-folder/')
+                | regex_replace('^/', '')
+                | regex_replace('/$', '')
+                | regex_replace('[^A-Za-z0-9._-]+', '-')
+              ) or 'private'
+            ) ~ '.htpasswd',
+            true
+          )
+      }}
+    mode: "0640"
+    owner: root
+    group: root
+    content: "{{ item.1.username }}:{{ item.1.password_hash }}\n"
+  loop: "{{ query('subelements', static_sites, 'static_basic_auth_paths', {'skip_missing': True}) }}"
+  when:
+    - static_sites | length > 0
+    - (item.1.path | default('', true) | length) > 0
+    - (item.1.username | default('', true) | length) > 0
+    - (item.1.password_hash | default('', true) | length) > 0
+
 - name: Check configured basic-auth files
   ansible.builtin.stat:
     path: >-
@@ -100,7 +130,16 @@
       }}
   loop: "{{ query('subelements', static_sites, 'static_basic_auth_paths', {'skip_missing': True}) }}"
   register: static_auth_file_stats
-  when: static_sites | length > 0
+  when:
+    - static_sites | length > 0
+    - (item.1.path | default('', true) | length) > 0
+    - (
+        (
+          (item.1.username | default('', true) | length) > 0
+          and (item.1.password_hash | default('', true) | length) > 0
+        )
+        or (item.1.auth_file | default('', true) | length) > 0
+      )
 
 - name: Ensure configured basic-auth files exist
   ansible.builtin.assert:
