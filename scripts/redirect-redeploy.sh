@@ -43,7 +43,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_cmd curl
-require_cmd dig
 require_cmd python3
 require_cmd ansible-playbook
 
@@ -88,12 +87,43 @@ for item in entries:
 PY
 )
 
-for line in "${REDIRECT_LINES[@]}"; do
-  source="${line%%|*}"
-  dns_ip="$(dig +short A "$source" | head -n1)"
-  [[ -n "$dns_ip" ]] || die "DNS/IP Prüfung fehlgeschlagen für Redirect-Quelle: $source"
-  [[ "$dns_ip" == "$HOST_IP" ]] || die "DNS mismatch: $source -> $dns_ip (erwartet $HOST_IP)"
-done
+python3 - "$HOST_IP" "${REDIRECT_LINES[@]}" <<'PY'
+import ipaddress
+import socket
+import sys
+
+host_ip = sys.argv[1]
+entries = sys.argv[2:]
+
+def resolve_ipv4(domain: str):
+    try:
+        infos = socket.getaddrinfo(domain, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return []
+    addresses = []
+    for info in infos:
+        try:
+            addr = info[4][0]
+            ipaddress.IPv4Address(addr)
+        except Exception:
+            continue
+        if addr not in addresses:
+            addresses.append(addr)
+    return addresses
+
+for line in entries:
+    source = line.split("|", 1)[0]
+    addresses = resolve_ipv4(source)
+    if not addresses:
+        print(f"❌ DNS/IP Prüfung fehlgeschlagen für Redirect-Quelle: {source}", file=sys.stderr)
+        sys.exit(1)
+    if host_ip not in addresses:
+        print(
+            f"❌ DNS mismatch: {source} -> {', '.join(addresses)} (erwartet {host_ip})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+PY
 ok "DNS OK für ${#REDIRECT_LINES[@]} Redirect-Domain(s)"
 
 if [[ "$CHECK_ONLY" -eq 1 ]]; then

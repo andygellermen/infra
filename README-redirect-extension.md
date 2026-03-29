@@ -52,6 +52,7 @@ Nach dem Redeploy prüft das Script automatisch:
 - Redirect-Quelle liefert den erwarteten Redirect-Status
 - `Location` zeigt auf das erwartete Ziel
 - der Check wartet nach dem Deploy kurz auf Traefik-/Label-Übernahme, um Fehlalarme direkt nach dem Rollout zu vermeiden
+- die DNS-Prüfung nutzt den System-Resolver und funktioniert damit robuster für Punycode-/IDN-Domains und CNAME-Ketten
 
 ## Integration
 - `redeploy-all-web.sh` unterstützt jetzt zusätzlich `--only=redirect`

@@ -64,6 +64,24 @@ Dieses Skript entfernt eine bestehende Ghost-Instanz inklusive Datenbank und Hos
 - Log-Eintrag in `/logs`
 - Interaktive Bestätigung bei gefährlichen Operationen
 
+### delete-domain.sh
+
+**Beschreibung:**  
+Zentraler Löschbefehl für Domains. Erkennt Ghost-, WordPress-, Static- und Redirect-Konfigurationen, entfernt die jeweilige Domain und bereinigt anschließend verwaiste ACME-Zertifikatseinträge aus Traefiks `acme.json`.
+
+**Syntax:**
+```bash
+./scripts/delete-domain.sh DOMAIN [--yes]
+```
+
+**Features:**
+- erkennt den Domain-Typ über `ansible/hostvars/DOMAIN.yml`
+- ruft passend `ghost-delete.sh`, `wp-delete.sh` oder `static-delete.sh` auf
+- entfernt Redirect-Einträge aus `ansible/redirects/redirects.yml`
+- bereinigt passende Zertifikats-Einträge aus `/home/andy/infra/data/traefik/acme/acme.json`
+- erstellt Backups von `redirects.yml` und `acme.json`
+- startet Traefik nach der ACME-Bereinigung neu
+
 ### create-hostvars.sh
 
 **Beschreibung:**  
