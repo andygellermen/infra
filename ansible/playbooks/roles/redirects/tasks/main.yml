@@ -34,6 +34,15 @@
     host_rule: "Host(`{{ ([item.source] + alias_list) | join('`,`') }}`)"
     target_scheme: "{{ item.target_scheme | default('https', true) }}"
     permanent_flag: "{{ 'true' if (item.permanent | default(true)) else 'false' }}"
+    alias_tls_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].main'): item.source,
+          ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].sans'): alias_list | join(',')
+        }
+        if ((alias_list | length) > 0)
+        else {}
+      }}
     redirect_entry_labels: >-
       {{
         {
@@ -56,16 +65,7 @@
           ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-url,' ~ router_name ~ '-path',
           ('traefik.http.routers.' ~ router_name ~ '-web.service'): 'domain-redirects'
         }
-        | combine(
-            alias_list | length > 0
-            | ternary(
-                {
-                  ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].main'): item.source,
-                  ('traefik.http.routers.' ~ router_name ~ '.tls.domains[0].sans'): alias_list | join(',')
-                },
-                {}
-              )
-          )
+        | combine(alias_tls_labels)
       }}
   loop: "{{ redirect_entries }}"
   when: redirect_entries | length > 0
