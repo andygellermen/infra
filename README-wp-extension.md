@@ -243,6 +243,12 @@ In `v1.7.3` wurde der Passwort-Schutz-Selbsttest für WordPress bei `admin` und 
 - bei `admin` und `api` führen versteckte oder umgeleitete Standardpfade nicht mehr automatisch zum Abbruch
 - stattdessen gibt `wp-redeploy.sh` in solchen Fällen eine klare Warnung aus, wenn der automatische Test nicht eindeutig verifiziert werden kann
 
+## Patch-Hinweis v1.7.4
+In `v1.7.4` wurde ein Quoting-Fehler im WordPress-Selbsttest behoben:
+
+- die `Location`-Header-Auswertung in `wp-redeploy.sh` verwendet jetzt wieder korrektes `awk`-Quoting
+- dadurch verschwinden die kosmetischen `awk`-Fehlmeldungen nach einem erfolgreichen Redeploy
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.
