@@ -236,6 +236,13 @@ In `v1.7.2` wurde der Passwort-Schutz-Selbsttest für WordPress-Bereiche robuste
 - stattdessen testet `wp-redeploy.sh` mehrere passende Probe-Pfade je Bereich
 - dadurch entstehen weniger Fehlalarme bei Installationen mit abweichendem Login-/API-Verhalten
 
+## Patch-Hinweis v1.7.3
+In `v1.7.3` wurde der Passwort-Schutz-Selbsttest für WordPress bei `admin` und `api` noch praxisnäher gemacht:
+
+- `frontend` bleibt ein harter Test und erwartet weiterhin eindeutig `401`
+- bei `admin` und `api` führen versteckte oder umgeleitete Standardpfade nicht mehr automatisch zum Abbruch
+- stattdessen gibt `wp-redeploy.sh` in solchen Fällen eine klare Warnung aus, wenn der automatische Test nicht eindeutig verifiziert werden kann
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.

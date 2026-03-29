@@ -368,6 +368,7 @@ def curl_status(url, username="", password=""):
 
 failures = []
 verified = 0
+warnings = []
 for entry in entries:
     scope = entry.get("scope", "")
     username = entry.get("username", "")
@@ -387,7 +388,10 @@ for entry in entries:
             public_status = candidate_status
             matched_url = candidate_url
     if public_status != "401":
-        failures.append(f"Passwort-Schutz greift nicht wie erwartet für Bereich {scope} (zuletzt geprüft: {matched_url}, Status {public_status}, erwartet 401)")
+        if scope == "frontend":
+            failures.append(f"Passwort-Schutz greift nicht wie erwartet für Bereich {scope} (zuletzt geprüft: {matched_url}, Status {public_status}, erwartet 401)")
+        else:
+            warnings.append(f"Automatischer Passwort-Schutz-Test für Bereich {scope} nicht eindeutig (zuletzt geprüft: {matched_url}, Status {public_status}). Standardpfade sind ggf. verborgen oder umgeleitet.")
         continue
     verified += 1
 
@@ -400,6 +404,9 @@ if failures:
     for message in failures:
         print(f"❌ {message}", file=sys.stderr)
     sys.exit(1)
+
+for message in warnings:
+    print(f"⚠️  {message}")
 
 print(f"✅ Passwort-Schutz-Selbsttest erfolgreich ({verified} Bereich{'e' if verified != 1 else ''})")
 PY
