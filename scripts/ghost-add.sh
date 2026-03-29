@@ -10,7 +10,7 @@ DEFAULT_GHOST_VERSION="latest"
 
 usage() {
   cat <<EOF
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 
 Beispiele:
   $0 blog.example.com
@@ -60,6 +60,7 @@ fi
 
 ghost_version="$DEFAULT_GHOST_VERSION"
 wildcard_domain=""
+dns_account=""
 args=()
 for arg in "$@"; do
   case "$arg" in
@@ -68,6 +69,9 @@ for arg in "$@"; do
       ;;
     --wildcard-domain=*)
       wildcard_domain="${arg#*=}"
+      ;;
+    --dns-account=*)
+      dns_account="${arg#*=}"
       ;;
     --version)
       die "Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
@@ -169,6 +173,9 @@ create_hostvars_args=(
 )
 if [[ -n "$wildcard_domain" ]]; then
   create_hostvars_args+=("--wildcard-domain=${wildcard_domain}")
+fi
+if [[ -n "$dns_account" ]]; then
+  create_hostvars_args+=("--dns-account=${dns_account}")
 fi
 
 "$CREATE_HOSTVARS" "${create_hostvars_args[@]}"

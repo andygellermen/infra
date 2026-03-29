@@ -16,7 +16,9 @@ Diese Erweiterung bereitet den Stack für automatisch erneuerbare Wildcard-Zerti
 - [distribution.example.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/distribution.example.yml)
 
 ## Secrets
-Die AutoDNS-Zugangsdaten liegen unsynced in `ansible/secrets/secrets.yml`:
+Die AutoDNS-Zugangsdaten liegen unsynced in `ansible/secrets/secrets.yml`.
+
+Ein einzelner Legacy-/Fallback-Account bleibt möglich:
 
 ```yaml
 traefik_autodns_user: "tech-user"
@@ -30,12 +32,40 @@ traefik_autodns_propagation_timeout: "180"
 traefik_autodns_ttl: "600"
 ```
 
+Für mehrere betreute Schlundtech-/AutoDNS-Accounts ist diese Struktur empfohlen:
+
+```yaml
+traefik_autodns_default_account: "account-a"
+
+traefik_autodns_accounts:
+  account-a:
+    user: "tech-user-a"
+    password: "secret-a"
+    context: "4"
+    endpoint: "https://api.autodns.com/v1/"
+    user_agent: "infra-traefik-wildcard/1.0"
+    http_timeout: "30"
+    polling_interval: "2"
+    propagation_timeout: "180"
+    ttl: "600"
+
+  account-b:
+    user: "tech-user-b"
+    password: "secret-b"
+    context: "4"
+```
+
+Wichtig:
+- pro Wildcard-Nutzung kann derselbe Traefik-Prozess aktuell nur genau einen `tls_dns_account` gleichzeitig aktiv bedienen
+- wenn mehrere verschiedene Wildcard-Accounts parallel aktiv wären, bricht der Traefik-Deploy mit einer klaren Fehlermeldung ab
+
 ## Hostvars
 Für Ghost-, WordPress- und Static-Domains kann Wildcard-TLS direkt in den Hostvars aktiviert werden:
 
 ```yaml
 tls_mode: "wildcard"
 tls_wildcard_domain: "example.com"
+tls_dns_account: "account-a"
 ```
 
 Dann verwenden die Deployments automatisch den Resolver `letsEncryptDns`.
@@ -44,12 +74,19 @@ Dann verwenden die Deployments automatisch den Resolver `letsEncryptDns`.
 Beim Anlegen neuer Domains kann die Wildcard direkt mitgegeben werden:
 
 ```bash
-./scripts/ghost-add.sh blog.example.com --wildcard-domain=example.com
-./scripts/wp-add.sh app.example.com --wildcard-domain=example.com
-./scripts/static-add.sh docs.example.com --wildcard-domain=example.com
+./scripts/ghost-add.sh blog.example.com --wildcard-domain=example.com --dns-account=account-a
+./scripts/wp-add.sh app.example.com --wildcard-domain=example.com --dns-account=account-a
+./scripts/static-add.sh docs.example.com --wildcard-domain=example.com --dns-account=account-a
 ```
 
 Bestehende Restore- und Redeploy-Skripte übernehmen die Wildcard-Konfiguration automatisch, sobald sie in den Hostvars steht.
+Die Restore-Skripte können sie jetzt auch direkt setzen:
+
+```bash
+./scripts/wp-restore.sh app.example.com backup.zip --wildcard-domain=example.com --dns-account=account-a
+./scripts/static-restore.sh docs.example.com backup.zip --wildcard-domain=example.com --dns-account=account-a
+./scripts/ghost-restore.sh blog.example.com backup.zip --wildcard-domain=example.com --dns-account=account-a --redeploy
+```
 
 ## Redirects
 Redirect-Einträge unterstützen optional ebenfalls:
@@ -63,6 +100,7 @@ redirects:
     permanent: true
     tls_mode: wildcard
     tls_wildcard_domain: example.com
+    tls_dns_account: account-a
 ```
 
 ## Export und Verteilung

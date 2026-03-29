@@ -102,6 +102,9 @@ Verteilt ein exportiertes Wildcard-Zertifikat an definierte Zielserver, z. B. f�
 ./scripts/wildcard-distribute.sh example.com [--config ./ansible/wildcards/distribution.example.yml]
 ```
 
+Hinweis:
+- Wildcard-Restores für WordPress, Static und Ghost unterstützen zusätzlich `--wildcard-domain=<apex-domain>` und `--dns-account=<key>`.
+
 ### create-hostvars.sh
 
 **Beschreibung:**  

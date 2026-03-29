@@ -6,9 +6,10 @@ set -e
 
 ghost_version="latest"
 wildcard_domain=""
+dns_account=""
 
 usage() {
-    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>]"
+    echo "Usage: $0 <main-domain> [alias-domain1] [alias-domain2] [--version=<major|major.minor|major.minor.patch|latest>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]"
 }
 
 main_domain=""
@@ -20,6 +21,9 @@ for arg in "$@"; do
             ;;
         --wildcard-domain=*)
             wildcard_domain="${arg#*=}"
+            ;;
+        --dns-account=*)
+            dns_account="${arg#*=}"
             ;;
         --version)
             echo "Fehler: Bitte --version=<major|major.minor|major.minor.patch|latest> verwenden (z. B. --version=4 oder --version=latest)."
@@ -125,6 +129,7 @@ ghost_traefik_middleware_members_api: "crowdsec-api@docker"
 
 tls_mode: "${tls_mode}"
 tls_wildcard_domain: "${wildcard_domain}"
+tls_dns_account: "${dns_account}"
 
 # Tinybird analytics defaults
 tinybird_enabled: true

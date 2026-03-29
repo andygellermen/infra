@@ -8,7 +8,7 @@ DEFAULT_WP_VERSION="latest"
 
 usage() {
   cat <<USAGE
-Usage: $0 <domain> [alias1 alias2 ...] [--version=<tag|latest>] [--wildcard-domain=<apex-domain>]
+Usage: $0 <domain> [alias1 alias2 ...] [--version=<tag|latest>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 USAGE
 }
 
@@ -38,11 +38,13 @@ verify_domain_points_here() {
 [[ $# -ge 1 ]] || { usage; exit 1; }
 wp_version="$DEFAULT_WP_VERSION"
 wildcard_domain=""
+dns_account=""
 args=()
 for arg in "$@"; do
   case "$arg" in
     --version=*) wp_version="${arg#*=}" ;;
     --wildcard-domain=*) wildcard_domain="${arg#*=}" ;;
+    --dns-account=*) dns_account="${arg#*=}" ;;
     --help|-h) usage; exit 0 ;;
     *) args+=("$arg") ;;
   esac
@@ -98,6 +100,7 @@ wp_pwd="$(openssl rand -hex 16)"
   echo "wp_traefik_middleware_api: \"crowdsec-api@docker\""
   echo "tls_mode: \"${tls_mode}\""
   echo "tls_wildcard_domain: \"${wildcard_domain}\""
+  echo "tls_dns_account: \"${dns_account}\""
 } > "$HOSTVARS_FILE"
 
 info "Hostvars geschrieben: $HOSTVARS_FILE"

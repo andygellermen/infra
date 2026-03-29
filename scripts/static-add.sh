@@ -7,7 +7,7 @@ HOSTVARS_DIR="./ansible/hostvars"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/static-add.sh <domain> [alias1 alias2 ...] [--protected-path=/private-folder/] [--protected-realm="Protected Area"] [--wildcard-domain=<apex-domain>]
+Usage: ./scripts/static-add.sh <domain> [alias1 alias2 ...] [--protected-path=/private-folder/] [--protected-realm="Protected Area"] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 USAGE
 }
 
@@ -40,6 +40,7 @@ verify_domain_points_here() {
 PROTECTED_PATH=""
 PROTECTED_REALM="Protected Area"
 WILDCARD_DOMAIN=""
+DNS_ACCOUNT=""
 args=()
 
 for arg in "$@"; do
@@ -47,6 +48,7 @@ for arg in "$@"; do
     --protected-path=*) PROTECTED_PATH="${arg#*=}" ;;
     --protected-realm=*) PROTECTED_REALM="${arg#*=}" ;;
     --wildcard-domain=*) WILDCARD_DOMAIN="${arg#*=}" ;;
+    --dns-account=*) DNS_ACCOUNT="${arg#*=}" ;;
     --help|-h) usage; exit 0 ;;
     *) args+=("$arg") ;;
   esac
@@ -92,6 +94,7 @@ HOSTVARS_FILE="${HOSTVARS_DIR}/${DOMAIN}.yml"
   echo "static_traefik_middleware_default: \"crowdsec-default@docker\""
   echo "tls_mode: \"${TLS_MODE}\""
   echo "tls_wildcard_domain: \"${WILDCARD_DOMAIN}\""
+  echo "tls_dns_account: \"${DNS_ACCOUNT}\""
   if [[ -n "$PROTECTED_PATH" ]]; then
     echo "static_basic_auth_paths:"
     echo "  - path: \"${PROTECTED_PATH}\""

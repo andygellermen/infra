@@ -6,6 +6,63 @@
     driver: bridge
     state: present
 
+- name: Collect hostvars files for wildcard account detection
+  ansible.builtin.set_fact:
+    traefik_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+
+- name: Build hostvars payload list for wildcard account detection
+  ansible.builtin.set_fact:
+    traefik_hostvar_payloads: "{{ (traefik_hostvar_payloads | default([])) + [ lookup('file', item) | from_yaml ] }}"
+  loop: "{{ traefik_hostvar_files }}"
+
+- name: Load redirect configuration for wildcard account detection
+  ansible.builtin.set_fact:
+    traefik_redirect_entries: "{{ ((lookup('file', playbook_dir ~ '/../redirects/redirects.yml') | from_yaml).redirects | default([], true)) if ((query('fileglob', playbook_dir ~ '/../redirects/redirects.yml') | length) > 0) else [] }}"
+
+- name: Build wildcard DNS account list from hostvars
+  ansible.builtin.set_fact:
+    traefik_wildcard_account_keys_hostvars: "{{ ((traefik_hostvar_payloads | default([])) | selectattr('tls_mode', 'defined') | selectattr('tls_mode', 'equalto', 'wildcard') | map(attribute='tls_dns_account') | reject('equalto', None) | reject('equalto', '') | list | unique) }}"
+
+- name: Build wildcard DNS account list from redirects
+  ansible.builtin.set_fact:
+    traefik_wildcard_account_keys_redirects: "{{ ((traefik_redirect_entries | default([])) | selectattr('tls_mode', 'defined') | selectattr('tls_mode', 'equalto', 'wildcard') | map(attribute='tls_dns_account') | reject('equalto', None) | reject('equalto', '') | list | unique) }}"
+
+- name: Combine requested wildcard DNS account keys
+  ansible.builtin.set_fact:
+    traefik_wildcard_account_keys: "{{ ((traefik_wildcard_account_keys_hostvars | default([])) + (traefik_wildcard_account_keys_redirects | default([]))) | unique }}"
+
+- name: Select active AutoDNS account key
+  ansible.builtin.set_fact:
+    traefik_active_autodns_account_key: "{{ (traefik_wildcard_account_keys | first) if ((traefik_wildcard_account_keys | length) == 1) else (traefik_autodns_default_account | default('', true)) }}"
+
+- name: Guard against multiple active wildcard DNS accounts
+  ansible.builtin.assert:
+    that:
+      - "(traefik_wildcard_account_keys | length) <= 1"
+    fail_msg: >-
+      Mehrere verschiedene tls_dns_account-Schlüssel gleichzeitig aktiv:
+      {{ traefik_wildcard_account_keys | join(', ') }}.
+      Ein einzelner Traefik-Prozess kann den AutoDNS-Provider derzeit nur mit genau einem Account gleichzeitig betreiben.
+
+- name: Resolve active AutoDNS account payload
+  ansible.builtin.set_fact:
+    traefik_active_autodns_account: "{{ (traefik_autodns_accounts | default({}, true)).get(traefik_active_autodns_account_key, {}) }}"
+
+- name: Guard against missing configured AutoDNS account
+  ansible.builtin.assert:
+    that:
+      - "(traefik_active_autodns_account_key | length) == 0 or (traefik_active_autodns_account | length) > 0"
+    fail_msg: >-
+      Der angeforderte tls_dns_account '{{ traefik_active_autodns_account_key }}' fehlt in ansible/secrets/secrets.yml unter traefik_autodns_accounts.
+
+- name: Guard against missing AutoDNS credentials for active wildcard usage
+  ansible.builtin.assert:
+    that:
+      - "(traefik_wildcard_account_keys | length) == 0 or ((traefik_active_autodns_account.user | default(traefik_autodns_user | default('', true), true) | length) > 0)"
+      - "(traefik_wildcard_account_keys | length) == 0 or ((traefik_active_autodns_account.password | default(traefik_autodns_password | default('', true), true) | length) > 0)"
+    fail_msg: >-
+      Wildcard-TLS ist aktiv, aber es fehlen AutoDNS-Zugangsdaten in ansible/secrets/secrets.yml.
+
 - name: Ensure Traefik runtime directories exist
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -36,15 +93,15 @@
     networks:
       - name: traefik
     env:
-      AUTODNS_API_USER: "{{ traefik_autodns_user | default('', true) }}"
-      AUTODNS_API_PASSWORD: "{{ traefik_autodns_password | default('', true) }}"
-      AUTODNS_CONTEXT: "{{ traefik_autodns_context | default('4', true) | string }}"
-      AUTODNS_ENDPOINT: "{{ traefik_autodns_endpoint | default('https://api.autodns.com/v1/', true) }}"
-      AUTODNS_USER_AGENT: "{{ traefik_autodns_user_agent | default('infra-traefik-wildcard/1.0', true) }}"
-      AUTODNS_HTTP_TIMEOUT: "{{ traefik_autodns_http_timeout | default('30', true) | string }}"
-      AUTODNS_POLLING_INTERVAL: "{{ traefik_autodns_polling_interval | default('2', true) | string }}"
-      AUTODNS_PROPAGATION_TIMEOUT: "{{ traefik_autodns_propagation_timeout | default('180', true) | string }}"
-      AUTODNS_TTL: "{{ traefik_autodns_ttl | default('600', true) | string }}"
+      AUTODNS_API_USER: "{{ traefik_active_autodns_account.user | default(traefik_autodns_user | default('', true), true) }}"
+      AUTODNS_API_PASSWORD: "{{ traefik_active_autodns_account.password | default(traefik_autodns_password | default('', true), true) }}"
+      AUTODNS_CONTEXT: "{{ traefik_active_autodns_account.context | default(traefik_autodns_context | default('4', true), true) | string }}"
+      AUTODNS_ENDPOINT: "{{ traefik_active_autodns_account.endpoint | default(traefik_autodns_endpoint | default('https://api.autodns.com/v1/', true), true) }}"
+      AUTODNS_USER_AGENT: "{{ traefik_active_autodns_account.user_agent | default(traefik_autodns_user_agent | default('infra-traefik-wildcard/1.0', true), true) }}"
+      AUTODNS_HTTP_TIMEOUT: "{{ traefik_active_autodns_account.http_timeout | default(traefik_autodns_http_timeout | default('30', true), true) | string }}"
+      AUTODNS_POLLING_INTERVAL: "{{ traefik_active_autodns_account.polling_interval | default(traefik_autodns_polling_interval | default('2', true), true) | string }}"
+      AUTODNS_PROPAGATION_TIMEOUT: "{{ traefik_active_autodns_account.propagation_timeout | default(traefik_autodns_propagation_timeout | default('180', true), true) | string }}"
+      AUTODNS_TTL: "{{ traefik_active_autodns_account.ttl | default(traefik_autodns_ttl | default('600', true), true) | string }}"
     labels:
       traefik.enable: "true"
       traefik.http.middlewares.crowdsec-default.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"

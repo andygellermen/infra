@@ -15,7 +15,7 @@ extract_secret(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]
 usage() {
   cat <<USAGE
 Usage:
-  $0 <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--allow-version-downgrade] [--php-version=<major.minor>] [--redeploy]
+  $0 <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--allow-version-downgrade] [--php-version=<major.minor>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--redeploy]
 USAGE
 }
 
@@ -383,6 +383,8 @@ RESTORE_HOSTVARS=0
 ALLOW_DOWNGRADE=0
 FORCE_REDEPLOY=0
 PHP_VERSION=""
+WILDCARD_DOMAIN=""
+DNS_ACCOUNT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -390,13 +392,24 @@ while [[ $# -gt 0 ]]; do
     --allow-version-downgrade) ALLOW_DOWNGRADE=1; shift ;;
     --redeploy) FORCE_REDEPLOY=1; shift ;;
     --php-version=*) PHP_VERSION="${1#*=}"; shift ;;
+    --wildcard-domain=*) WILDCARD_DOMAIN="${1#*=}"; shift ;;
+    --dns-account=*) DNS_ACCOUNT="${1#*=}"; shift ;;
     *) die "Unbekannte Option: $1" ;;
   esac
 done
 
 require_cmd curl
 require_cmd docker
+require_cmd idn
 [[ -f "$BACKUP_FILE" ]] || die "Backup fehlt: $BACKUP_FILE"
+
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  if [[ "$WILDCARD_DOMAIN" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+    WILDCARD_DOMAIN="$(printf '%s' "$WILDCARD_DOMAIN" | tr '[:upper:]' '[:lower:]')"
+  else
+    WILDCARD_DOMAIN="$(idn --quiet --uts46 "$WILDCARD_DOMAIN")"
+  fi
+fi
 
 MYSQL_CONTAINER="infra-mysql"
 HOSTVARS="$ROOT_DIR/ansible/hostvars/${DOMAIN}.yml"
@@ -462,6 +475,17 @@ if [[ ! -f "$HOSTVARS" && -n "$SOURCE_HOSTVARS" ]]; then
 fi
 
 ensure_hostvars_exists "$HOSTVARS" "$DOMAIN" "${DETECTED_TABLE_PREFIX:-wp_}"
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  set_hostvar_value "tls_mode" "wildcard" "$HOSTVARS"
+  set_hostvar_value "tls_wildcard_domain" "$WILDCARD_DOMAIN" "$HOSTVARS"
+  [[ -n "$DNS_ACCOUNT" ]] && set_hostvar_value "tls_dns_account" "$DNS_ACCOUNT" "$HOSTVARS"
+  FORCE_REDEPLOY=1
+  info "Wildcard-TLS aktiviert: *.${WILDCARD_DOMAIN}${DNS_ACCOUNT:+ via DNS-Account ${DNS_ACCOUNT}}"
+elif [[ -n "$DNS_ACCOUNT" ]]; then
+  set_hostvar_value "tls_dns_account" "$DNS_ACCOUNT" "$HOSTVARS"
+  FORCE_REDEPLOY=1
+  info "DNS-Account in Hostvars gesetzt: ${DNS_ACCOUNT}"
+fi
 ensure_db_and_user_exists "$HOSTVARS"
 
 DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"

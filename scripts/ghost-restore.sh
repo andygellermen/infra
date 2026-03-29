@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 usage() {
   cat <<USAGE
 Usage:
   $0 --list
-  $0 <domain> <backup.zip> [--dry-run] [--yes] [--allow-major-mismatch] [--content-only]
+  $0 <domain> <backup.zip> [--dry-run] [--yes] [--allow-major-mismatch] [--content-only] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--redeploy]
 
 Beispiele:
   $0 --list
@@ -73,6 +75,9 @@ DRY_RUN=0
 ASSUME_YES=0
 ALLOW_MAJOR_MISMATCH=0
 CONTENT_ONLY=0
+WILDCARD_DOMAIN=""
+DNS_ACCOUNT=""
+FORCE_REDEPLOY=0
 
 if [[ $# -eq 0 ]]; then
   usage
@@ -100,6 +105,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --content-only)
       CONTENT_ONLY=1
+      shift
+      ;;
+    --wildcard-domain=*)
+      WILDCARD_DOMAIN="${1#*=}"
+      shift
+      ;;
+    --dns-account=*)
+      DNS_ACCOUNT="${1#*=}"
+      shift
+      ;;
+    --redeploy)
+      FORCE_REDEPLOY=1
       shift
       ;;
     --help|-h)
@@ -130,6 +147,7 @@ require_cmd unzip
 require_cmd awk
 require_cmd sed
 require_cmd grep
+require_cmd idn
 
 HOSTVARS_FILE="./ansible/hostvars/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
@@ -341,9 +359,51 @@ info "Starte Ghost-Container"
 docker start "$CONTAINER_NAME" >/dev/null
 sleep 2
 
+if [[ "$FORCE_REDEPLOY" -eq 1 ]]; then
+  info "Führe Ghost-Redeploy für TLS-/DNS-Änderungen aus"
+  "$ROOT_DIR/scripts/ghost-redeploy.sh" "$DOMAIN"
+fi
+
 ok "Restore abgeschlossen"
 echo "📄 Safety-Backups: $SAFETY_DIR"
 echo "🔎 Logs prüfen: docker logs --tail=150 $CONTAINER_NAME"
 if [[ "$JSON_IMPORT_REQUIRED" -eq 1 ]]; then
   echo "📝 Hinweis: JSON-Inhalte jetzt im Ghost-Admin importieren (Settings -> Labs -> Import content)."
+fi
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  if [[ "$WILDCARD_DOMAIN" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+    WILDCARD_DOMAIN="$(printf '%s' "$WILDCARD_DOMAIN" | tr '[:upper:]' '[:lower:]')"
+  else
+    WILDCARD_DOMAIN="$(idn --quiet --uts46 "$WILDCARD_DOMAIN")"
+  fi
+fi
+
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  if grep -q '^tls_mode:' "$HOSTVARS_FILE"; then
+    sed -i -E 's|^tls_mode:.*|tls_mode: "wildcard"|' "$HOSTVARS_FILE"
+  else
+    printf 'tls_mode: "wildcard"\n' >> "$HOSTVARS_FILE"
+  fi
+  if grep -q '^tls_wildcard_domain:' "$HOSTVARS_FILE"; then
+    sed -i -E "s|^tls_wildcard_domain:.*|tls_wildcard_domain: \"${WILDCARD_DOMAIN}\"|" "$HOSTVARS_FILE"
+  else
+    printf 'tls_wildcard_domain: "%s"\n' "$WILDCARD_DOMAIN" >> "$HOSTVARS_FILE"
+  fi
+  if [[ -n "$DNS_ACCOUNT" ]]; then
+    if grep -q '^tls_dns_account:' "$HOSTVARS_FILE"; then
+      sed -i -E "s|^tls_dns_account:.*|tls_dns_account: \"${DNS_ACCOUNT}\"|" "$HOSTVARS_FILE"
+    else
+      printf 'tls_dns_account: "%s"\n' "$DNS_ACCOUNT" >> "$HOSTVARS_FILE"
+    fi
+  fi
+  FORCE_REDEPLOY=1
+  info "Wildcard-TLS aktiviert: *.${WILDCARD_DOMAIN}${DNS_ACCOUNT:+ via DNS-Account ${DNS_ACCOUNT}}"
+elif [[ -n "$DNS_ACCOUNT" ]]; then
+  if grep -q '^tls_dns_account:' "$HOSTVARS_FILE"; then
+    sed -i -E "s|^tls_dns_account:.*|tls_dns_account: \"${DNS_ACCOUNT}\"|" "$HOSTVARS_FILE"
+  else
+    printf 'tls_dns_account: "%s"\n' "$DNS_ACCOUNT" >> "$HOSTVARS_FILE"
+  fi
+  FORCE_REDEPLOY=1
+  info "DNS-Account in Hostvars gesetzt: ${DNS_ACCOUNT}"
 fi

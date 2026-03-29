@@ -14,7 +14,7 @@ require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/static-restore.sh <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--redeploy]
+  ./scripts/static-restore.sh <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--redeploy]
 USAGE
 }
 
@@ -161,10 +161,14 @@ shift 2
 
 RESTORE_HOSTVARS=0
 FORCE_REDEPLOY=0
+WILDCARD_DOMAIN=""
+DNS_ACCOUNT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --restore-hostvars) RESTORE_HOSTVARS=1; shift ;;
+    --wildcard-domain=*) WILDCARD_DOMAIN="${1#*=}"; shift ;;
+    --dns-account=*) DNS_ACCOUNT="${1#*=}"; shift ;;
     --redeploy) FORCE_REDEPLOY=1; shift ;;
     *) die "Unbekannte Option: $1" ;;
   esac
@@ -176,6 +180,7 @@ require_cmd tar
 require_cmd idn
 
 DOMAIN="$(normalize_domain "$DOMAIN_RAW")"
+[[ -n "$WILDCARD_DOMAIN" ]] && WILDCARD_DOMAIN="$(normalize_domain "$WILDCARD_DOMAIN")"
 [[ -f "$BACKUP_FILE" ]] || die "Backup fehlt: $BACKUP_FILE"
 
 HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
@@ -204,6 +209,17 @@ fi
 
 ensure_static_hostvars_exists "$HOSTVARS_FILE" "$DOMAIN"
 set_hostvar_value "domain" "$DOMAIN" "$HOSTVARS_FILE"
+if [[ -n "$WILDCARD_DOMAIN" ]]; then
+  set_hostvar_value "tls_mode" "wildcard" "$HOSTVARS_FILE"
+  set_hostvar_value "tls_wildcard_domain" "$WILDCARD_DOMAIN" "$HOSTVARS_FILE"
+  [[ -n "$DNS_ACCOUNT" ]] && set_hostvar_value "tls_dns_account" "$DNS_ACCOUNT" "$HOSTVARS_FILE"
+  FORCE_REDEPLOY=1
+  info "Wildcard-TLS aktiviert: *.${WILDCARD_DOMAIN}${DNS_ACCOUNT:+ via DNS-Account ${DNS_ACCOUNT}}"
+elif [[ -n "$DNS_ACCOUNT" ]]; then
+  set_hostvar_value "tls_dns_account" "$DNS_ACCOUNT" "$HOSTVARS_FILE"
+  FORCE_REDEPLOY=1
+  info "DNS-Account in Hostvars gesetzt: ${DNS_ACCOUNT}"
+fi
 if grep -q '^static_enabled:' "$HOSTVARS_FILE"; then
   sed -i -E 's|^static_enabled:.*|static_enabled: true|' "$HOSTVARS_FILE"
 else
