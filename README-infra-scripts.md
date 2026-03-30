@@ -364,7 +364,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Ghost Content-Volume (`ghost_<domain>_content`)
 - Hostvars der Domain
 - **Keine** TLS-Zertifikate (`acme.json`) im Backup: Zertifikate werden nach Restore von Traefik/Let's Encrypt neu ausgestellt
-- Optional Kopie von `data/crowdsec`
+- Optionaler best-effort Snapshot von `data/crowdsec` (`crowdsec.tar.gz`), ohne das Backup bei Root-/Permission-Dateien scheitern zu lassen
 
 
 **Restore-Modi:**

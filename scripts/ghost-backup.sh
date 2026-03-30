@@ -51,6 +51,31 @@ backup_volume() {
   docker run --rm -v "${volume}:/src:ro" -v "${out}:/backup" alpine sh -c 'tar czf /backup/content.tar.gz -C /src .'
 }
 
+backup_optional_crowdsec() {
+  local src="$1" out="$2"
+  [[ -d "$src" ]] || return 0
+
+  if docker run --rm -v "${src}:/src:ro" -v "${out}:/backup" alpine \
+    sh -c 'tar czf /backup/crowdsec.tar.gz -C /src .' >/dev/null 2>&1; then
+    info "Optionaler CrowdSec-Snapshot gesichert"
+  else
+    warn "CrowdSec-Dateien konnten nicht vollständig gelesen werden. Überspringe optionalen CrowdSec-Anteil im Ghost-Backup."
+  fi
+}
+
+restore_optional_crowdsec() {
+  local archive="$1" target_root="$2"
+  [[ -f "$archive" ]] || return 0
+  mkdir -p "$target_root/crowdsec"
+
+  if docker run --rm -u "$(id -u):$(id -g)" -v "${target_root}:/target" -v "$(dirname "$archive"):/backup:ro" alpine \
+    sh -c 'tar xzf /backup/crowdsec.tar.gz -C /target/crowdsec' >/dev/null 2>&1; then
+    info "Optionaler CrowdSec-Snapshot wiederhergestellt"
+  else
+    warn "Optionaler CrowdSec-Snapshot konnte nicht automatisch wiederhergestellt werden. Bitte bei Bedarf manuell prüfen."
+  fi
+}
+
 restore_volume() {
   local volume="$1" archive="$2"
   docker volume create "$volume" >/dev/null
@@ -109,7 +134,7 @@ case "$ACTION" in
     backup_volume "$VOLUME" "$WORKDIR/data"
 
     cp -a "$HOSTVARS" "$WORKDIR/files/hostvars.yml"
-    [[ -d "$ROOT_DIR/data/crowdsec" ]] && cp -a "$ROOT_DIR/data/crowdsec" "$WORKDIR/files/crowdsec"
+    backup_optional_crowdsec "$ROOT_DIR/data/crowdsec" "$WORKDIR/files"
 
 
     {
@@ -214,7 +239,11 @@ WHERE table_schema='${DB_NAME}';"
 
     if [[ "$CONTENT_ONLY" -eq 0 && "$RESTORE_HOSTVARS" -eq 1 ]]; then
       info "Stelle CrowdSec Files optional wieder her (TLS-Zertifikate werden nicht aus Backup importiert)"
-      [[ -d "$WORKDIR/files/crowdsec" ]] && cp -a "$WORKDIR/files/crowdsec" "$ROOT_DIR/data/"
+      if [[ -f "$WORKDIR/files/crowdsec.tar.gz" ]]; then
+        restore_optional_crowdsec "$WORKDIR/files/crowdsec.tar.gz" "$ROOT_DIR/data"
+      elif [[ -d "$WORKDIR/files/crowdsec" ]]; then
+        cp -a "$WORKDIR/files/crowdsec" "$ROOT_DIR/data/" || warn "Legacy-CrowdSec-Dateien konnten nicht vollständig wiederhergestellt werden."
+      fi
     else
       info "CrowdSec/Host-Konfiguration bleibt unverändert (nur mit --restore-hostvars wird sie aus Backup übernommen)"
     fi
