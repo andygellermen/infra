@@ -258,6 +258,26 @@ EOF
   info "Hostvars neu erzeugt: $hostvars_file"
 }
 
+prepare_sql_dump_for_restore() {
+  local input_file="$1" output_file="$2"
+
+  if grep -Eqi 'DEFINER=|SQL SECURITY DEFINER|^(CREATE|ALTER) USER|^GRANT |^REVOKE |^SET PASSWORD |^FLUSH PRIVILEGES|GTID_PURGED' "$input_file"; then
+    warn "SQL-Dump enthält privilegierte oder servergebundene Anweisungen. Bereinige Restore-Import für Zielsystem."
+  fi
+
+  sed -E \
+    -e 's:/\*![0-9]{5}[[:space:]]+DEFINER=`[^`]+`@`[^`]+`[[:space:]]+SQL SECURITY DEFINER[[:space:]]+\*/:/* restore-sanitized definers removed */:g' \
+    -e 's/[[:space:]]+DEFINER=`[^`]+`@`[^`]+`//g' \
+    -e 's/SQL SECURITY DEFINER/SQL SECURITY INVOKER/g' \
+    -e '/^[[:space:]]*(CREATE|ALTER)[[:space:]]+USER\b/I d' \
+    -e '/^[[:space:]]*GRANT\b/I d' \
+    -e '/^[[:space:]]*REVOKE\b/I d' \
+    -e '/^[[:space:]]*SET[[:space:]]+PASSWORD\b/I d' \
+    -e '/^[[:space:]]*FLUSH[[:space:]]+PRIVILEGES\b/I d' \
+    -e '/GTID_PURGED/d' \
+    "$input_file" > "$output_file"
+}
+
 ensure_db_and_user_exists() {
   local hostvars_file="$1"
   local db_name db_user db_pwd secrets_file mysql_root_password
@@ -565,9 +585,12 @@ fi
 
 info "Leere DB und importiere Dump"
 MYSQL_ROOT_PASSWORD="$(get_mysql_root_password)"
+SANITIZED_SQL_FILE="$(mktemp /tmp/wp-restore-sql-${DOMAIN}.XXXXXX.sql)"
+trap 'rm -rf "$WORKDIR"; rm -f "$SANITIZED_SQL_FILE"' EXIT
+prepare_sql_dump_for_restore "$SELECTED_SQL_FILE" "$SANITIZED_SQL_FILE"
 docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`;"
 docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot -e "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%'; FLUSH PRIVILEGES;"
-cat "$SELECTED_SQL_FILE" | docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+cat "$SANITIZED_SQL_FILE" | docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER" mysql -uroot "$DB_NAME"
 
 if [[ -n "$SOURCE_DOMAIN" && "$SOURCE_DOMAIN" != "$DOMAIN" ]]; then
   if docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -Nse "SHOW TABLES LIKE '${TABLE_PREFIX}options';" | grep -qx "${TABLE_PREFIX}options"; then
