@@ -265,6 +265,12 @@ prepare_sql_dump_for_restore() {
     warn "SQL-Dump enthält privilegierte oder servergebundene Anweisungen. Bereinige Restore-Import für Zielsystem."
   fi
 
+  {
+    printf 'SET FOREIGN_KEY_CHECKS=0;\n'
+    printf 'SET UNIQUE_CHECKS=0;\n'
+    printf 'SET SQL_NOTES=0;\n'
+  } > "$output_file"
+
   sed -E \
     -e 's:/\*![0-9]{5}[[:space:]]+DEFINER=`[^`]+`@`[^`]+`[[:space:]]+SQL SECURITY DEFINER[[:space:]]+\*/:/* restore-sanitized definers removed */:g' \
     -e 's/[[:space:]]+DEFINER=`[^`]+`@`[^`]+`//g' \
@@ -275,7 +281,13 @@ prepare_sql_dump_for_restore() {
     -e '/^[[:space:]]*SET[[:space:]]+PASSWORD\b/I d' \
     -e '/^[[:space:]]*FLUSH[[:space:]]+PRIVILEGES\b/I d' \
     -e '/GTID_PURGED/d' \
-    "$input_file" > "$output_file"
+    "$input_file" >> "$output_file"
+
+  {
+    printf '\nSET SQL_NOTES=1;\n'
+    printf 'SET UNIQUE_CHECKS=1;\n'
+    printf 'SET FOREIGN_KEY_CHECKS=1;\n'
+  } >> "$output_file"
 }
 
 ensure_db_and_user_exists() {

@@ -148,7 +148,7 @@ Zusätzlich:
 - **Default:** Schutz vor unbeabsichtigtem Downgrade (Abbruch, wenn Zielversion kleiner als Backup-Version).
 - `--restore-hostvars`: übernimmt Hostvars aus Backup (inkl. damaliger `wp_version`).
 
-Beim SQL-Import bereinigt `wp-restore.sh` Legacy-Dumps jetzt zusätzlich um problematische `DEFINER`-, `SQL SECURITY DEFINER`-, `GRANT`-, `CREATE USER`- und ähnliche servergebundene Anweisungen und spielt den bereinigten Dump über MySQL-`root` ein. Das macht Restores deutlich robuster bei Backups aus fremden Hosting-Umgebungen.
+Beim SQL-Import bereinigt `wp-restore.sh` Legacy-Dumps jetzt zusätzlich um problematische `DEFINER`-, `SQL SECURITY DEFINER`-, `GRANT`-, `CREATE USER`- und ähnliche servergebundene Anweisungen, deaktiviert für den Import temporär `FOREIGN_KEY_CHECKS`/`UNIQUE_CHECKS` und spielt den bereinigten Dump über MySQL-`root` ein. Das macht Restores deutlich robuster bei Backups aus fremden Hosting-Umgebungen.
 - `--allow-version-downgrade`: explizite Freigabe eines Downgrades (nur bewusst einsetzen).
 - `--php-version=<major.minor>`: setzt `wp_image_tag` im Hostvars und triggert optionalen Redeploy.
 
