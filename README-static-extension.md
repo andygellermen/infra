@@ -258,6 +258,12 @@ In `v1.6.4` wurde `static-redeploy.sh` beim Single-Domain-Redeploy um zwei Komfo
 In `v1.6.5` wurde der Restore-Ablauf der Static-Sites noch enger mit dem interaktiven Auth-Workflow verzahnt:
 
 - `static-restore.sh` ruft den Static-Redeploy jetzt ausdrücklich inkl. Auth-Verwaltung und Passwort-Schutz-Selbsttest auf
+
+### Patch-Hinweis v1.10.6
+In `v1.10.6` wurde der Passwort-Schutz für statische Unterverzeichnisse an zwei Stellen robuster gemacht:
+
+- der Selbsttest ignoriert versteckte Dateien wie `.htaccess` jetzt bewusst und bevorzugt sichtbare Dateien wie `index.html`
+- geschützte Unterverzeichnisse reagieren auch bei einem Aufruf ohne abschließenden Slash stabil und leiten auf den kanonischen Pfad mit Slash weiter
 - damit wird der Schutz geschützter Verzeichnisse direkt im Restore-Ablauf mit eingerichtet bzw. überprüft
 
 ### Patch-Hinweis v1.6.6

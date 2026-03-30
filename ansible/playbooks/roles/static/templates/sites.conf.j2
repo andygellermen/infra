@@ -17,7 +17,13 @@ server {
     autoindex off;
 
 {% for auth in site.static_basic_auth_paths | default([], true) if (auth.path | default('', true) | length > 0) and (auth.path | default('', true) != '/') and (((auth.username | default('', true) | length > 0) and (auth.password_hash | default('', true) | length > 0)) or (auth.auth_file | default('', true) | length > 0)) %}
-    location ^~ {{ auth.path | default('/private-folder/') }} {
+{% set auth_path = auth.path | default('/private-folder/') %}
+{% set auth_path_slashless = auth_path | regex_replace('/$', '') %}
+    location = {{ auth_path_slashless }} {
+        return 301 {{ auth_path }};
+    }
+
+    location ^~ {{ auth_path }} {
         auth_basic "{{ auth.realm | default('Protected Area') }}";
         auth_basic_user_file /etc/nginx/static-auth/{{ (auth.auth_file | default('/srv/static-auth/' ~ site.domain ~ '-' ~ (((auth.path | default('/private-folder/')) | regex_replace('^/', '') | regex_replace('/$', '') | regex_replace('[^A-Za-z0-9._-]+', '-')) or 'private') ~ '.htpasswd', true)) | basename }};
         try_files $uri $uri/ =404;

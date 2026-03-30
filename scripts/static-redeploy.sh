@@ -90,9 +90,17 @@ def find_probe_path(web_path: str) -> str:
     target = site_path / norm.lstrip("/")
     if not target.is_dir():
         return norm
+    preferred = ["index.html", "index.htm", "default.html", "default.htm"]
+    for name in preferred:
+        candidate = target / name
+        if candidate.is_file():
+            rel = os.path.relpath(candidate, site_path)
+            return "/" + rel.replace(os.sep, "/")
     for current_root, _subdirs, files in os.walk(target):
         files = sorted(files)
         for name in files:
+            if name.startswith("."):
+                continue
             rel = os.path.relpath(Path(current_root) / name, site_path)
             return "/" + rel.replace(os.sep, "/")
     return norm
