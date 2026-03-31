@@ -25,6 +25,15 @@ SHEET_HELPER_ADDR=:8080
 SHEET_HELPER_DB_PATH=./sheet-helper.db
 SHEET_HELPER_SEED_FILE=./testdata/seed.json
 SHEET_HELPER_COOKIE_SECRET=dev-only-change-me
+SHEET_HELPER_TENANT=localhost
+SHEET_HELPER_SYNC_TOKEN=replace-me
+SHEET_HELPER_SHEET_ID=
+SHEET_HELPER_PUBLISHED_URL=
+SHEET_HELPER_ROUTES_SHEET=routes
+SHEET_HELPER_VCARDS_SHEET=vcard_entries
+SHEET_HELPER_TEXTS_SHEET=text_entries
+SHEET_HELPER_LIST_PREFIX=list_
+SHEET_HELPER_STARTUP_SYNC=false
 ```
 
 ## Architekturstand heute
@@ -32,8 +41,60 @@ SHEET_HELPER_COOKIE_SECRET=dev-only-change-me
 - HTTP-Server mit Go-Standardbibliothek
 - SQLite als lokaler Cache und Event-Speicher
 - Seed-Sync fuer lokale Entwicklung
+- Public-Google-Sheet-Sync ueber feste Blattnamen
 - Modi: `link`, `text`, `vcard`, `list`
 - einfacher Cookie-basierter Passwortschutz fuer unsensible Inhalte
+- geschuetzter Sync-Endpunkt unter `/internal/sync/{tenant}`
+
+## Erster echter Sheet-Test
+
+Mit deinem echten Google Sheet laeuft der lokale Test jetzt ohne Seed-Datei.
+
+Beispiel fuer `geller.men`:
+
+```bash
+cd apps/sheet-helper
+SHEET_HELPER_ADDR=:8080 \
+SHEET_HELPER_DB_PATH=./sheet-helper.db \
+SHEET_HELPER_COOKIE_SECRET=dev-only-change-me \
+SHEET_HELPER_TENANT=geller.men \
+SHEET_HELPER_SYNC_TOKEN=replace-me \
+SHEET_HELPER_SHEET_ID=1oqfAB0CtF2RT6zBlP8voWtLqfQeCTLscI4Q5lxmnUUQ \
+SHEET_HELPER_PUBLISHED_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSp5LbYzjAz1wgHFbfTUvflGc1YRarHgn_KpNEIf4uo5GEcDEdyGeZ32e52_btzCFzD1XuvFyXa5gw5/pubhtml' \
+SHEET_HELPER_ROUTES_SHEET=routes \
+SHEET_HELPER_VCARDS_SHEET=vcard_entries \
+SHEET_HELPER_TEXTS_SHEET=text_entries \
+SHEET_HELPER_LIST_PREFIX=list_ \
+SHEET_HELPER_STARTUP_SYNC=true \
+go run ./cmd/server
+```
+
+Danach lokal testen:
+
+- `http://localhost:8080/api`
+- `http://localhost:8080/andy`
+- `http://localhost:8080/agileebooks`
+
+Fuer lokales Routing gegen `geller.men` kannst du vorerst mit `curl` den `Host`-Header setzen:
+
+```bash
+curl -i -H 'Host: geller.men' http://127.0.0.1:8080/api
+curl -i -H 'Host: geller.men' http://127.0.0.1:8080/andy
+```
+
+Der Sync-Endpunkt fuer das Apps Script sieht dann so aus:
+
+```bash
+curl -i \
+  -X POST \
+  -H 'X-Sheet-Helper-Token: replace-me' \
+  http://127.0.0.1:8080/internal/sync/geller.men
+```
+
+Hinweis:
+
+- Fuer den oeffentlichen Import ist aktuell `SHEET_HELPER_PUBLISHED_URL` der entscheidende Wert.
+- Die App liest daraus automatisch die Blattnamen und zugehoerigen `gid`-Werte aus, nutzt nach aussen aber weiter deine Namenskonvention.
 
 ## Container
 

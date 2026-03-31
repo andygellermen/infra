@@ -30,13 +30,23 @@ func main() {
 		log.Fatalf("init schema: %v", err)
 	}
 
+	var syncer httpapp.Syncer
+	if cfg.SheetID != "" {
+		syncer = sheetsync.NewPublicSheetSyncer(cfg, store)
+		if cfg.StartupSync {
+			if err := syncer.Sync(context.Background()); err != nil {
+				log.Fatalf("startup sheet sync: %v", err)
+			}
+		}
+	}
+
 	if cfg.SeedFile != "" {
 		if err := sheetsync.SeedFromFile(context.Background(), store, cfg.SeedFile); err != nil {
 			log.Fatalf("seed data: %v", err)
 		}
 	}
 
-	app := httpapp.New(cfg, store)
+	app := httpapp.New(cfg, store, syncer)
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           app.Handler(),

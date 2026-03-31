@@ -17,17 +17,23 @@ import (
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/storage"
 )
 
-type App struct {
-	cfg   config.Config
-	store *storage.Store
-	mux   *http.ServeMux
+type Syncer interface {
+	Sync(ctx context.Context) error
 }
 
-func New(cfg config.Config, store *storage.Store) *App {
+type App struct {
+	cfg    config.Config
+	store  *storage.Store
+	syncer Syncer
+	mux    *http.ServeMux
+}
+
+func New(cfg config.Config, store *storage.Store, syncer Syncer) *App {
 	app := &App{
-		cfg:   cfg,
-		store: store,
-		mux:   http.NewServeMux(),
+		cfg:    cfg,
+		store:  store,
+		syncer: syncer,
+		mux:    http.NewServeMux(),
 	}
 	app.routes()
 	return app
@@ -39,12 +45,46 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) routes() {
 	a.mux.HandleFunc("/healthz", a.handleHealth)
+	a.mux.HandleFunc("/internal/sync/", a.handleSync)
 	a.mux.HandleFunc("/", a.handleRoot)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = w.Write([]byte("ok\n"))
+}
+
+func (a *App) handleSync(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if a.syncer == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if a.cfg.SyncToken == "" {
+		http.Error(w, "sync token not configured", http.StatusForbidden)
+		return
+	}
+	if r.Header.Get("X-Sheet-Helper-Token") != a.cfg.SyncToken {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	tenant := strings.TrimPrefix(r.URL.Path, "/internal/sync/")
+	if tenant == "" || tenant != a.cfg.Tenant {
+		http.Error(w, "unknown tenant", http.StatusNotFound)
+		return
+	}
+
+	if err := a.syncer.Sync(r.Context()); err != nil {
+		http.Error(w, "sync failed: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
