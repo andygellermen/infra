@@ -65,7 +65,8 @@ Beispiele:
 
 ```bash
 ./scripts/sheethelper-add.sh geller.men
-./scripts/sheethelper-add.sh geller.men --sheet-id=abc123 --routes-gid=0 --vcards-gid=123456789 --texts-gid=987654321
+./scripts/sheethelper-add.sh geller.men --sheet-id=abc123
+./scripts/sheethelper-add.sh geller.men --sheet-id=abc123 --routes-sheet=routes --vcards-sheet=vcard_entries --texts-sheet=text_entries --list-prefix=list_
 ./scripts/sheethelper-add.sh team.example team.example.net --wildcard-domain=example
 ```
 

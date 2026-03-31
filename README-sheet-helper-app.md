@@ -255,6 +255,10 @@ Beispiel:
 sheet_helper_domains:
   - domain: geller.men
     sheet_id: "abc123"
+    routes_sheet: "routes"
+    vcards_sheet: "vcard_entries"
+    texts_sheet: "text_entries"
+    default_list_prefix: "list_"
     public_sheet: true
     sync_mode: "hybrid"
     theme: "clean"
@@ -444,6 +448,32 @@ Warum diese Reihenfolge gut ist:
 
 So laesst sich jeder Fehler deutlich schneller isolieren.
 
+## Namenskonvention fuer Tabellenblaetter
+
+Fuer die taegliche Bedienung wuerde ich Blattnamen gegenueber nackten `gid`-Werten klar bevorzugen.
+
+Empfohlene feste Blattnamen:
+
+- `routes`
+- `vcard_entries`
+- `text_entries`
+- `list_<slug>`
+
+Beispiele:
+
+- `list_agileebooks`
+- `list_downloads`
+- `list_partnerlinks`
+
+Vorteile:
+
+- leichter manuell anzulegen
+- leichter in `routes.ListSheet` zu referenzieren
+- weniger Copy-Paste-Fehler
+- besser lesbar in Readmes und Doku
+
+Die `gid` bleibt ein technischer Google-internen Identifikator, ist fuer den Bedienweg aber nicht mehr der bevorzugte Einstieg.
+
 ## Startbeispiel fuer `geller.men`
 
 ### Blatt `routes`
@@ -504,5 +534,5 @@ Ich wuerde jetzt so vorgehen:
 
 1. Du legst das neue Google Sheet fuer `geller.men` an.
 2. Du uebernimmst die obigen Tabellenblaetter.
-3. Wir tragen danach die echte `sheet_id` und die `gid`-Werte in die Hostvars ein.
+3. Wir tragen danach die echte `sheet_id` und die Blattnamen in die Hostvars ein.
 4. Anschliessend bauen wir den echten Sync-Endpunkt in der Go-App und ziehen die erste Domain hoch.

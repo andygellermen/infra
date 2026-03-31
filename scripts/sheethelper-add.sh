@@ -5,7 +5,7 @@ HOSTVARS_DIR="./ansible/hostvars"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--routes-gid=<gid>] [--vcards-gid=<gid>] [--texts-gid=<gid>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
+Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--routes-sheet=<name>] [--vcards-sheet=<name>] [--texts-sheet=<name>] [--list-prefix=<prefix>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 USAGE
 }
 
@@ -25,9 +25,10 @@ normalize_domain() {
 [[ $# -ge 1 ]] || { usage; exit 1; }
 
 SHEET_ID=""
-ROUTES_GID=""
-VCARDS_GID=""
-TEXTS_GID=""
+ROUTES_SHEET="routes"
+VCARDS_SHEET="vcard_entries"
+TEXTS_SHEET="text_entries"
+LIST_PREFIX="list_"
 THEME="clean"
 WILDCARD_DOMAIN=""
 DNS_ACCOUNT=""
@@ -36,9 +37,10 @@ args=()
 for arg in "$@"; do
   case "$arg" in
     --sheet-id=*) SHEET_ID="${arg#*=}" ;;
-    --routes-gid=*) ROUTES_GID="${arg#*=}" ;;
-    --vcards-gid=*) VCARDS_GID="${arg#*=}" ;;
-    --texts-gid=*) TEXTS_GID="${arg#*=}" ;;
+    --routes-sheet=*) ROUTES_SHEET="${arg#*=}" ;;
+    --vcards-sheet=*) VCARDS_SHEET="${arg#*=}" ;;
+    --texts-sheet=*) TEXTS_SHEET="${arg#*=}" ;;
+    --list-prefix=*) LIST_PREFIX="${arg#*=}" ;;
     --theme=*) THEME="${arg#*=}" ;;
     --wildcard-domain=*) WILDCARD_DOMAIN="${arg#*=}" ;;
     --dns-account=*) DNS_ACCOUNT="${arg#*=}" ;;
@@ -87,10 +89,10 @@ fi
   echo "sheet_helper_enabled: true"
   echo "sheet_helper_mode: \"public_csv\""
   echo "sheet_helper_sheet_id: \"${SHEET_ID}\""
-  echo "sheet_helper_routes_gid: \"${ROUTES_GID}\""
-  echo "sheet_helper_vcards_gid: \"${VCARDS_GID}\""
-  echo "sheet_helper_texts_gid: \"${TEXTS_GID}\""
-  echo "sheet_helper_default_list_prefix: \"list_\""
+  echo "sheet_helper_routes_sheet: \"${ROUTES_SHEET}\""
+  echo "sheet_helper_vcards_sheet: \"${VCARDS_SHEET}\""
+  echo "sheet_helper_texts_sheet: \"${TEXTS_SHEET}\""
+  echo "sheet_helper_default_list_prefix: \"${LIST_PREFIX}\""
   echo "sheet_helper_theme: \"${THEME}\""
   echo "sheet_helper_sync_mode: \"hybrid\""
   echo "sheet_helper_sync_interval: \"15m\""
@@ -109,5 +111,5 @@ fi
 } > "$HOSTVARS_FILE"
 
 info "Hostvars geschrieben: $HOSTVARS_FILE"
-info "Naechster Schritt: Sheet-IDs/GIDs pruefen und spaeter die Deploy-Integration aktivieren."
+info "Naechster Schritt: Blattnamen pruefen und spaeter die Deploy-Integration aktivieren."
 ok "Sheet-Helper-Hostvars fuer ${DOMAIN} vorbereitet"
