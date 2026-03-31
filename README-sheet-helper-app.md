@@ -425,3 +425,84 @@ Fuer einen sauberen MVP wuerde ich heute exakt so starten:
 - lokales Click-Tracking nur fuer `link`
 
 Damit bleibt das Ganze klein, klar und betrieblich angenehm, ohne deine spaeteren Optionen zu verbauen.
+
+## Erste Live-Domain: empfohlener Fahrplan
+
+Fuer die erste echte Domain `geller.men` wuerde ich bewusst in dieser Reihenfolge vorgehen:
+
+1. Neues Google Sheet nach dem neuen Modell anlegen.
+2. Inhalte fuer `geller.men` in `routes`, `vcard_entries`, `text_entries` und `list_agileebooks` eintragen.
+3. Google-Apps-Script-Trigger vorbereiten, aber noch nicht produktiv an die Live-Domain koppeln.
+4. Die Go-App lokal oder auf einer Test-URL mit denselben Daten pruefen.
+5. Erst danach Hostvars fuer `geller.men` anlegen und die Domain an den zentralen Dienst haengen.
+
+Warum diese Reihenfolge gut ist:
+
+- erst Datenmodell pruefen
+- dann Sync pruefen
+- dann Routing und Domainbetrieb pruefen
+
+So laesst sich jeder Fehler deutlich schneller isolieren.
+
+## Startbeispiel fuer `geller.men`
+
+### Blatt `routes`
+
+| Domain | Path | Type | Passphrase | Target | Title | Description | ListSheet | Enabled |
+|--------|------|------|------------|--------|-------|-------------|-----------|---------|
+| geller.men | / | link |  | https://andy.geller.men/ | Geller Start | Standard-Weiterleitung |  | true |
+| geller.men | /api | text |  | api-demo-key-001 | API-Key | Dein persoenlicher API-Schluessel |  | true |
+| geller.men | /andy | vcard |  | Andy Gellermann, Agile & Change Management Consultant & Coach | Andy Gellermann | Dit bin ick! |  | true |
+| geller.men | /tabelle | link |  | https://pad.tchncs.de/sheet/#/3/sheet/edit/e095063826d81dc248a7cc8de125530a/ | Tabelle | Gemeinsame Online-Tabelle |  | true |
+| geller.men | /agileebooks | list | scrum | eBook Downloads | Agile eBooks | eBook-Sammlung "Agilisten 2022" | list_agileebooks | true |
+
+### Blatt `vcard_entries`
+
+| Domain | Path | FullName | Organization | JobTitle | Email | PhoneMobile | Address | Website | ImageURL | Note | Enabled |
+|--------|------|----------|--------------|----------|-------|-------------|---------|---------|----------|------|---------|
+| geller.men | /andy | Andy Gellermann | Geller.men | Agile Coach | andy@gellermann.berlin | 00491732159150 | Peter-Hille-Str. 109A, 12587 Berlin, Germany | https://geller.men | https://www.gravatar.com/avatar/example | Agile & Change Management Consultant & Coach | true |
+
+### Blatt `text_entries`
+
+| Domain | Path | ContentType | Content | CopyHint | ExpiresAt | Enabled |
+|--------|------|-------------|---------|----------|-----------|---------|
+| geller.men | /api | text/plain | G2Y5DKY-QJW%X9)4NZMbs8Og9FirzFC)QRdZvyUL | API-Key fuer Demo-Zwecke |  | true |
+
+### Blatt `list_agileebooks`
+
+| Sort | Label | URL | Description | Category | Password | Enabled |
+|------|-------|-----|-------------|----------|----------|---------|
+| 10 | Scrum Pocket Guide | https://example.org/downloads/scrum-pocket-guide.pdf | Kompakter Einstieg in Scrum | Scrum |  | true |
+| 20 | Kanban Basics | https://example.org/downloads/kanban-basics.pdf | Uebersicht fuer Einsteiger | Kanban |  | true |
+| 30 | Agile Retrospektiven | https://example.org/downloads/retrospektiven.pdf | Sammlung mit Moderationsideen | Facilitation |  | true |
+
+## Trigger-Vorbereitung
+
+Fuer den Start reicht ein kleines Google-Apps-Script, das nach manuellen Aenderungen einen internen Sync-Endpunkt der Go-App anstoesst.
+
+Ablage im Repo:
+
+- [sync-trigger.js](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/sync-trigger.js)
+
+Empfohlene Script-Properties:
+
+- `SHEET_HELPER_SYNC_URL`
+- `SHEET_HELPER_SYNC_TOKEN`
+- `SHEET_HELPER_TENANT`
+
+Beispiel fuer `geller.men`:
+
+```text
+SHEET_HELPER_SYNC_URL=https://sheet-helper.example.org
+SHEET_HELPER_SYNC_TOKEN=replace-me
+SHEET_HELPER_TENANT=geller.men
+```
+
+## Mein empfohlener naechster Schritt
+
+Ich wuerde jetzt so vorgehen:
+
+1. Du legst das neue Google Sheet fuer `geller.men` an.
+2. Du uebernimmst die obigen Tabellenblaetter.
+3. Wir tragen danach die echte `sheet_id` und die `gid`-Werte in die Hostvars ein.
+4. Anschliessend bauen wir den echten Sync-Endpunkt in der Go-App und ziehen die erste Domain hoch.

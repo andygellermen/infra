@@ -71,6 +71,12 @@ Beispiele:
 
 Das Skript erzeugt aktuell nur die Hostvars-Datei. Die eigentliche Ansible-Deploy-Rolle fuer den zentralen Sheet-Helper folgt als naechster Schritt.
 
+## Google-Sheets-Trigger vorbereiten
+
+Fuer spaetere Sync-Callbacks liegt eine Google-Apps-Script-Vorlage unter [sync-trigger.js](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/sync-trigger.js).
+
+Die zugehoerige Kurzanleitung findest du in [google-apps-script/README.md](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/README.md).
+
 ## Naechste Schritte
 
 - Google-Sheets-Import statt JSON-Seed
