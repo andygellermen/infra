@@ -24,16 +24,7 @@ Danach im Browser testen:
 SHEET_HELPER_ADDR=:8080
 SHEET_HELPER_DB_PATH=./sheet-helper.db
 SHEET_HELPER_SEED_FILE=./testdata/seed.json
-SHEET_HELPER_COOKIE_SECRET=dev-only-change-me
-SHEET_HELPER_TENANT=localhost
-SHEET_HELPER_SYNC_TOKEN=replace-me
-SHEET_HELPER_SHEET_ID=
-SHEET_HELPER_PUBLISHED_URL=
-SHEET_HELPER_ROUTES_SHEET=routes
-SHEET_HELPER_VCARDS_SHEET=vcard_entries
-SHEET_HELPER_TEXTS_SHEET=text_entries
-SHEET_HELPER_LIST_PREFIX=list_
-SHEET_HELPER_STARTUP_SYNC=false
+SHEET_HELPER_TENANT_DIR=./tenants
 ```
 
 ## Architekturstand heute
@@ -56,17 +47,23 @@ Beispiel fuer `geller.men`:
 cd apps/sheet-helper
 SHEET_HELPER_ADDR=:8080 \
 SHEET_HELPER_DB_PATH=./sheet-helper.db \
-SHEET_HELPER_COOKIE_SECRET=dev-only-change-me \
-SHEET_HELPER_TENANT=geller.men \
-SHEET_HELPER_SYNC_TOKEN=replace-me \
-SHEET_HELPER_SHEET_ID=1oqfAB0CtF2RT6zBlP8voWtLqfQeCTLscI4Q5lxmnUUQ \
-SHEET_HELPER_PUBLISHED_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSp5LbYzjAz1wgHFbfTUvflGc1YRarHgn_KpNEIf4uo5GEcDEdyGeZ32e52_btzCFzD1XuvFyXa5gw5/pubhtml' \
-SHEET_HELPER_ROUTES_SHEET=routes \
-SHEET_HELPER_VCARDS_SHEET=vcard_entries \
-SHEET_HELPER_TEXTS_SHEET=text_entries \
-SHEET_HELPER_LIST_PREFIX=list_ \
-SHEET_HELPER_STARTUP_SYNC=true \
+SHEET_HELPER_TENANT_DIR=./tenants \
 go run ./cmd/server
+```
+
+Beispielinhalt fuer `./tenants/geller.men.env`:
+
+```bash
+SHEET_HELPER_TENANT=geller.men
+SHEET_HELPER_COOKIE_SECRET=dev-only-change-me
+SHEET_HELPER_SYNC_TOKEN=replace-me
+SHEET_HELPER_SHEET_ID=1oqfAB0CtF2RT6zBlP8voWtLqfQeCTLscI4Q5lxmnUUQ
+SHEET_HELPER_PUBLISHED_URL=https://docs.google.com/spreadsheets/d/e/2PACX-1vSp5LbYzjAz1wgHFbfTUvflGc1YRarHgn_KpNEIf4uo5GEcDEdyGeZ32e52_btzCFzD1XuvFyXa5gw5/pubhtml
+SHEET_HELPER_ROUTES_SHEET=routes
+SHEET_HELPER_VCARDS_SHEET=vcard_entries
+SHEET_HELPER_TEXTS_SHEET=text_entries
+SHEET_HELPER_LIST_PREFIX=list_
+SHEET_HELPER_STARTUP_SYNC=true
 ```
 
 Danach lokal testen:
@@ -95,6 +92,7 @@ Hinweis:
 
 - Fuer den oeffentlichen Import ist aktuell `SHEET_HELPER_PUBLISHED_URL` der entscheidende Wert.
 - Die App liest daraus automatisch die Blattnamen und zugehoerigen `gid`-Werte aus, nutzt nach aussen aber weiter deine Namenskonvention.
+- Im Mehrdomain-Betrieb kommen tenant-spezifische Werte aus `SHEET_HELPER_TENANT_DIR`.
 
 ## Container
 

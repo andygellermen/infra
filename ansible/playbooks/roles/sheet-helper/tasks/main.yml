@@ -31,20 +31,31 @@
   loop:
     - /srv/sheet-helper
     - /srv/sheet-helper/data
+    - /srv/sheet-helper/tenants
   when: sheet_helper_sites | length > 0
 
-- name: Render sheet-helper env files
+- name: Render shared sheet-helper global env file
   ansible.builtin.copy:
-    dest: "/srv/sheet-helper/{{ item.domain }}.env"
+    dest: "/srv/sheet-helper/sheet-helper.env"
     mode: "0640"
     owner: root
     group: root
     content: |
       SHEET_HELPER_ADDR=:8080
-      SHEET_HELPER_DB_PATH=/data/{{ item.domain }}.db
+      SHEET_HELPER_DB_PATH=/data/sheet-helper.db
+      SHEET_HELPER_TENANT_DIR=/config/tenants
+  when: sheet_helper_sites | length > 0
+
+- name: Render per-tenant sheet-helper env files
+  ansible.builtin.copy:
+    dest: "/srv/sheet-helper/tenants/{{ item.domain }}.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      SHEET_HELPER_TENANT={{ item.domain }}
       SHEET_HELPER_COOKIE_SECRET={{ item.sheet_helper_cookie_secret | default('change-me', true) }}
       SHEET_HELPER_SYNC_TOKEN={{ item.sheet_helper_sync_token | default('replace-me', true) }}
-      SHEET_HELPER_TENANT={{ item.domain }}
       SHEET_HELPER_SHEET_ID={{ item.sheet_helper_sheet_id | default('', true) }}
       SHEET_HELPER_PUBLISHED_URL={{ item.sheet_helper_published_url | default('', true) }}
       SHEET_HELPER_ROUTES_SHEET={{ item.sheet_helper_routes_sheet | default('routes', true) }}
@@ -115,11 +126,7 @@
     volumes:
       - /srv/sheet-helper/data:/data
       - /srv/sheet-helper:/config:ro
-    env_file: >-
-      {{
-        (sheet_helper_sites | length > 0)
-        | ternary('/srv/sheet-helper/' ~ sheet_helper_sites[0].domain ~ '.env', omit)
-      }}
+    env_file: /srv/sheet-helper/sheet-helper.env
     labels: "{{ sheet_helper_labels }}"
     state: started
   when: sheet_helper_sites | length > 0

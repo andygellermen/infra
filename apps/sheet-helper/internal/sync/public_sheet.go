@@ -19,7 +19,7 @@ import (
 
 type PublicSheetSyncer struct {
 	client *http.Client
-	cfg    config.Config
+	cfg    config.TenantConfig
 	store  *storage.Store
 }
 
@@ -28,7 +28,7 @@ type publishedSheetRef struct {
 	GID  string
 }
 
-func NewPublicSheetSyncer(cfg config.Config, store *storage.Store) *PublicSheetSyncer {
+func NewPublicSheetSyncer(cfg config.TenantConfig, store *storage.Store) *PublicSheetSyncer {
 	return &PublicSheetSyncer{
 		client: &http.Client{Timeout: 30 * time.Second},
 		cfg:    cfg,

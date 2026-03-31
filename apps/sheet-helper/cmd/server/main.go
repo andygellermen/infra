@@ -30,12 +30,16 @@ func main() {
 		log.Fatalf("init schema: %v", err)
 	}
 
-	var syncer httpapp.Syncer
-	if cfg.SheetID != "" {
-		syncer = sheetsync.NewPublicSheetSyncer(cfg, store)
-		if cfg.StartupSync {
+	syncers := map[string]httpapp.Syncer{}
+	for _, tenant := range cfg.SortedTenants() {
+		if tenant.SheetID == "" || tenant.PublishedURL == "" {
+			continue
+		}
+		syncer := sheetsync.NewPublicSheetSyncer(tenant, store)
+		syncers[tenant.Domain] = syncer
+		if tenant.StartupSync {
 			if err := syncer.Sync(context.Background()); err != nil {
-				log.Fatalf("startup sheet sync: %v", err)
+				log.Fatalf("startup sheet sync for %s: %v", tenant.Domain, err)
 			}
 		}
 	}
@@ -46,7 +50,7 @@ func main() {
 		}
 	}
 
-	app := httpapp.New(cfg, store, syncer)
+	app := httpapp.New(cfg, store, syncers)
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           app.Handler(),

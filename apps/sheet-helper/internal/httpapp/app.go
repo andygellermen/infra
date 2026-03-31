@@ -22,18 +22,18 @@ type Syncer interface {
 }
 
 type App struct {
-	cfg    config.Config
-	store  *storage.Store
-	syncer Syncer
-	mux    *http.ServeMux
+	cfg     config.Config
+	store   *storage.Store
+	syncers map[string]Syncer
+	mux     *http.ServeMux
 }
 
-func New(cfg config.Config, store *storage.Store, syncer Syncer) *App {
+func New(cfg config.Config, store *storage.Store, syncers map[string]Syncer) *App {
 	app := &App{
-		cfg:    cfg,
-		store:  store,
-		syncer: syncer,
-		mux:    http.NewServeMux(),
+		cfg:     cfg,
+		store:   store,
+		syncers: syncers,
+		mux:     http.NewServeMux(),
 	}
 	app.routes()
 	return app
@@ -59,26 +59,28 @@ func (a *App) handleSync(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if a.syncer == nil {
+
+	tenant := strings.TrimPrefix(r.URL.Path, "/internal/sync/")
+	tenantCfg, ok := a.cfg.Tenants[tenant]
+	if tenant == "" || !ok {
+		http.Error(w, "unknown tenant", http.StatusNotFound)
+		return
+	}
+	syncer, ok := a.syncers[tenant]
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	if a.cfg.SyncToken == "" {
+	if tenantCfg.SyncToken == "" {
 		http.Error(w, "sync token not configured", http.StatusForbidden)
 		return
 	}
-	if r.Header.Get("X-Sheet-Helper-Token") != a.cfg.SyncToken {
+	if r.Header.Get("X-Sheet-Helper-Token") != tenantCfg.SyncToken {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
-	tenant := strings.TrimPrefix(r.URL.Path, "/internal/sync/")
-	if tenant == "" || tenant != a.cfg.Tenant {
-		http.Error(w, "unknown tenant", http.StatusNotFound)
-		return
-	}
-
-	if err := a.syncer.Sync(r.Context()); err != nil {
+	if err := syncer.Sync(r.Context()); err != nil {
 		http.Error(w, "sync failed: "+err.Error(), http.StatusBadGateway)
 		return
 	}
@@ -234,7 +236,13 @@ func (a *App) hasAccess(r *http.Request, route model.Route) bool {
 }
 
 func (a *App) signRoute(route model.Route) string {
-	mac := hmac.New(sha256.New, []byte(a.cfg.CookieSecret))
+	tenant, ok := a.cfg.Tenants[route.Domain]
+	secret := "dev-only-change-me"
+	if ok && tenant.CookieSecret != "" {
+		secret = tenant.CookieSecret
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(route.Domain))
 	_, _ = mac.Write([]byte("|"))
 	_, _ = mac.Write([]byte(route.Path))
