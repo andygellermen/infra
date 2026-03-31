@@ -5,7 +5,7 @@ HOSTVARS_DIR="./ansible/hostvars"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--routes-sheet=<name>] [--vcards-sheet=<name>] [--texts-sheet=<name>] [--list-prefix=<prefix>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
+Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--published-url=<url>] [--routes-sheet=<name>] [--vcards-sheet=<name>] [--texts-sheet=<name>] [--list-prefix=<prefix>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 USAGE
 }
 
@@ -25,6 +25,7 @@ normalize_domain() {
 [[ $# -ge 1 ]] || { usage; exit 1; }
 
 SHEET_ID=""
+PUBLISHED_URL=""
 ROUTES_SHEET="routes"
 VCARDS_SHEET="vcard_entries"
 TEXTS_SHEET="text_entries"
@@ -37,6 +38,7 @@ args=()
 for arg in "$@"; do
   case "$arg" in
     --sheet-id=*) SHEET_ID="${arg#*=}" ;;
+    --published-url=*) PUBLISHED_URL="${arg#*=}" ;;
     --routes-sheet=*) ROUTES_SHEET="${arg#*=}" ;;
     --vcards-sheet=*) VCARDS_SHEET="${arg#*=}" ;;
     --texts-sheet=*) TEXTS_SHEET="${arg#*=}" ;;
@@ -89,6 +91,7 @@ fi
   echo "sheet_helper_enabled: true"
   echo "sheet_helper_mode: \"public_csv\""
   echo "sheet_helper_sheet_id: \"${SHEET_ID}\""
+  echo "sheet_helper_published_url: \"${PUBLISHED_URL}\""
   echo "sheet_helper_routes_sheet: \"${ROUTES_SHEET}\""
   echo "sheet_helper_vcards_sheet: \"${VCARDS_SHEET}\""
   echo "sheet_helper_texts_sheet: \"${TEXTS_SHEET}\""

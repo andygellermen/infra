@@ -1,0 +1,6 @@
+---
+- name: Deploy Sheet Helper
+  hosts: all
+  become: true
+  roles:
+    - sheet-helper

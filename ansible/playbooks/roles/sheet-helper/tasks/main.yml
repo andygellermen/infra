@@ -1,0 +1,125 @@
+---
+- name: Collect sheet-helper hostvars files
+  ansible.builtin.set_fact:
+    sheet_helper_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+
+- name: Build sheet-helper sites list
+  ansible.builtin.set_fact:
+    sheet_helper_sites: "{{ (sheet_helper_sites | default([])) + [ sheet_helper_site_vars ] }}"
+  vars:
+    sheet_helper_site_vars: "{{ lookup('file', item) | from_yaml }}"
+  loop: "{{ sheet_helper_hostvar_files }}"
+  when: (lookup('file', item) | from_yaml).sheet_helper_enabled | default(false)
+
+- name: Default sheet-helper sites list when empty
+  ansible.builtin.set_fact:
+    sheet_helper_sites: "{{ sheet_helper_sites | default([]) }}"
+
+- name: Ensure traefik docker network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: sheet_helper_sites | length > 0
+
+- name: Ensure sheet-helper base directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /srv/sheet-helper
+    - /srv/sheet-helper/data
+  when: sheet_helper_sites | length > 0
+
+- name: Render sheet-helper env files
+  ansible.builtin.copy:
+    dest: "/srv/sheet-helper/{{ item.domain }}.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      SHEET_HELPER_ADDR=:8080
+      SHEET_HELPER_DB_PATH=/data/{{ item.domain }}.db
+      SHEET_HELPER_COOKIE_SECRET={{ item.sheet_helper_cookie_secret | default('change-me', true) }}
+      SHEET_HELPER_SYNC_TOKEN={{ item.sheet_helper_sync_token | default('replace-me', true) }}
+      SHEET_HELPER_TENANT={{ item.domain }}
+      SHEET_HELPER_SHEET_ID={{ item.sheet_helper_sheet_id | default('', true) }}
+      SHEET_HELPER_PUBLISHED_URL={{ item.sheet_helper_published_url | default('', true) }}
+      SHEET_HELPER_ROUTES_SHEET={{ item.sheet_helper_routes_sheet | default('routes', true) }}
+      SHEET_HELPER_VCARDS_SHEET={{ item.sheet_helper_vcards_sheet | default('vcard_entries', true) }}
+      SHEET_HELPER_TEXTS_SHEET={{ item.sheet_helper_texts_sheet | default('text_entries', true) }}
+      SHEET_HELPER_LIST_PREFIX={{ item.sheet_helper_default_list_prefix | default('list_', true) }}
+      SHEET_HELPER_STARTUP_SYNC=true
+  loop: "{{ sheet_helper_sites }}"
+  when: sheet_helper_sites | length > 0
+
+- name: Initialize sheet-helper Traefik labels
+  ansible.builtin.set_fact:
+    sheet_helper_labels:
+      traefik.enable: "true"
+      traefik.docker.network: "traefik"
+      traefik.http.services.sheet-helper.loadbalancer.server.port: "8080"
+  when: sheet_helper_sites | length > 0
+
+- name: Build per-domain Traefik labels for sheet-helper
+  ansible.builtin.set_fact:
+    sheet_helper_labels: "{{ sheet_helper_labels | combine(sheet_helper_site_labels) }}"
+  vars:
+    router_name: "sheet-helper-{{ item.domain | replace('.', '-') }}"
+    sheet_helper_aliases: "{{ (item.traefik.aliases | default([], true)) | difference([item.domain]) | unique }}"
+    primary_rule: "Host(`{{ item.domain }}`)"
+    alias_rule: "{{ sheet_helper_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+    sheet_helper_site_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ router_name ~ '.rule'): primary_rule,
+          ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ router_name ~ '.service'): 'sheet-helper',
+          ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): primary_rule,
+          ('traefik.http.middlewares.' ~ router_name ~ '-https.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ router_name ~ '-https.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-https'
+        }
+        | combine(
+            {
+              ('traefik.http.routers.' ~ router_name ~ '-alias.entrypoints'): 'websecure',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls'): 'true',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.service'): 'sheet-helper',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.entrypoints'): 'web',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.middlewares'): router_name ~ '-https'
+            }
+            if (sheet_helper_aliases | length > 0)
+            else {}
+          )
+      }}
+  loop: "{{ sheet_helper_sites }}"
+  when: sheet_helper_sites | length > 0
+
+- name: Deploy shared sheet-helper container
+  community.docker.docker_container:
+    name: sheet-helper
+    image: "sheet-helper:latest"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    volumes:
+      - /srv/sheet-helper/data:/data
+      - /srv/sheet-helper:/config:ro
+    env_file: >-
+      {{
+        (sheet_helper_sites | length > 0)
+        | ternary('/srv/sheet-helper/' ~ sheet_helper_sites[0].domain ~ '.env', omit)
+      }}
+    labels: "{{ sheet_helper_labels }}"
+    state: started
+  when: sheet_helper_sites | length > 0
