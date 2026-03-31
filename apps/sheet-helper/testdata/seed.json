@@ -1,0 +1,97 @@
+{
+  "routes": [
+    {
+      "domain": "localhost",
+      "path": "/",
+      "type": "link",
+      "passphrase": "",
+      "target": "https://andy.geller.men/",
+      "title": "Geller Start",
+      "description": "Standard-Weiterleitung",
+      "list_sheet": "",
+      "enabled": true
+    },
+    {
+      "domain": "localhost",
+      "path": "/api",
+      "type": "text",
+      "passphrase": "",
+      "target": "api-demo-key-001",
+      "title": "API-Key",
+      "description": "Dein persoenlicher API-Schluessel",
+      "list_sheet": "",
+      "enabled": true
+    },
+    {
+      "domain": "localhost",
+      "path": "/andy",
+      "type": "vcard",
+      "passphrase": "",
+      "target": "Andy Gellermann, Agile & Change Management Consultant & Coach",
+      "title": "Andy Gellermann",
+      "description": "Dit bin ick!",
+      "list_sheet": "",
+      "enabled": true
+    },
+    {
+      "domain": "localhost",
+      "path": "/agileebooks",
+      "type": "list",
+      "passphrase": "scrum",
+      "target": "eBook Downloads",
+      "title": "Agile eBooks",
+      "description": "eBook-Sammlung Agilisten 2022",
+      "list_sheet": "list_agileebooks",
+      "enabled": true
+    }
+  ],
+  "vcards": [
+    {
+      "domain": "localhost",
+      "path": "/andy",
+      "full_name": "Andy Gellermann",
+      "organization": "Geller.men",
+      "job_title": "Agile Coach",
+      "email": "andy@gellermann.berlin",
+      "phone_mobile": "00491732159150",
+      "address": "Peter-Hille-Str. 109A, 12587 Berlin, Germany",
+      "website": "https://geller.men",
+      "image_url": "https://www.gravatar.com/avatar/example",
+      "note": "Agile & Change Management Consultant & Coach",
+      "enabled": true
+    }
+  ],
+  "texts": [
+    {
+      "domain": "localhost",
+      "path": "/api",
+      "content_type": "text/plain",
+      "content": "G2Y5DKY-QJW%X9)4NZMbs8Og9FirzFC)QRdZvyUL",
+      "copy_hint": "API-Key fuer Demo-Zwecke",
+      "expires_at": "",
+      "enabled": true
+    }
+  ],
+  "list_items": [
+    {
+      "sheet_name": "list_agileebooks",
+      "sort": 10,
+      "label": "Scrum Pocket Guide",
+      "url": "https://example.org/downloads/scrum-pocket-guide.pdf",
+      "description": "Kompakter Einstieg in Scrum",
+      "category": "Scrum",
+      "password": "",
+      "enabled": true
+    },
+    {
+      "sheet_name": "list_agileebooks",
+      "sort": 20,
+      "label": "Kanban Basics",
+      "url": "https://example.org/downloads/kanban-basics.pdf",
+      "description": "Uebersicht fuer Einsteiger",
+      "category": "Kanban",
+      "password": "",
+      "enabled": true
+    }
+  ]
+}

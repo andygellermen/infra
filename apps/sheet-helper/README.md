@@ -1,0 +1,79 @@
+# Sheet Helper App
+
+Kleine Go-Anwendung fuer mehrzweckartige Web-Helferlein auf Basis von Google-Sheet-Daten mit lokalem SQLite-Cache.
+
+## Lokales Testen
+
+Die App laeuft lokal mit Seed-Daten aus [testdata/seed.json](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/testdata/seed.json).
+
+```bash
+cd apps/sheet-helper
+go run ./cmd/server
+```
+
+Danach im Browser testen:
+
+- `http://localhost:8080/` -> Redirect
+- `http://localhost:8080/api` -> Textseite
+- `http://localhost:8080/andy` -> VCard-Seite
+- `http://localhost:8080/agileebooks` -> passwortgeschuetzte Liste, Passphrase `scrum`
+
+## Wichtige Umgebungsvariablen
+
+```bash
+SHEET_HELPER_ADDR=:8080
+SHEET_HELPER_DB_PATH=./sheet-helper.db
+SHEET_HELPER_SEED_FILE=./testdata/seed.json
+SHEET_HELPER_COOKIE_SECRET=dev-only-change-me
+```
+
+## Architekturstand heute
+
+- HTTP-Server mit Go-Standardbibliothek
+- SQLite als lokaler Cache und Event-Speicher
+- Seed-Sync fuer lokale Entwicklung
+- Modi: `link`, `text`, `vcard`, `list`
+- einfacher Cookie-basierter Passwortschutz fuer unsensible Inhalte
+
+## Container
+
+Es gibt ein erstes Container-Grundgeruest in [Dockerfile](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/Dockerfile).
+
+Beispiel:
+
+```bash
+cd apps/sheet-helper
+docker build -t sheet-helper:dev .
+docker run --rm -p 8080:8080 sheet-helper:dev
+```
+
+## Hostvars-Vorlage
+
+Eine erste Vorlage fuer spaetere Domain-spezifische Ansible-Hostvars liegt unter [sheet-helper-hostvars.j2](/Users/andygellermann/Documents/Projects/infra/infra/ansible/hostvars/templates/sheet-helper-hostvars.j2).
+
+Die Idee dahinter:
+
+- Infrastrukturwerte bleiben in Hostvars
+- Inhalte bleiben in Google Sheets
+- die App wird spaeter zentral betrieben und pro Domain konfiguriert
+
+## Hostvars bequem anlegen
+
+Mit [sheethelper-add.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/sheethelper-add.sh) kannst du eine neue Hostvars-Datei mit sinnvollen Defaults erzeugen.
+
+Beispiele:
+
+```bash
+./scripts/sheethelper-add.sh geller.men
+./scripts/sheethelper-add.sh geller.men --sheet-id=abc123 --routes-gid=0 --vcards-gid=123456789 --texts-gid=987654321
+./scripts/sheethelper-add.sh team.example team.example.net --wildcard-domain=example
+```
+
+Das Skript erzeugt aktuell nur die Hostvars-Datei. Die eigentliche Ansible-Deploy-Rolle fuer den zentralen Sheet-Helper folgt als naechster Schritt.
+
+## Naechste Schritte
+
+- Google-Sheets-Import statt JSON-Seed
+- Domain-spezifische Konfiguration via Hostvars oder ENV
+- Aggregation und Ruecksync von Klicks
+- Containerisierung und Ansible-Rolle

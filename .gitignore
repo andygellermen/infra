@@ -37,3 +37,8 @@ backups/
 secrets/
 secrets/*.yml
 !secrets/README.md
+
+# Sheet Helper local build/cache data
+apps/sheet-helper/.gocache/
+apps/sheet-helper/.gomodcache/
+apps/sheet-helper/*.db

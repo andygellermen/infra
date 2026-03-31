@@ -1,0 +1,26 @@
+# Hostvars fuer {{ domain }} (Sheet Helper)
+domain: {{ domain }}
+
+traefik:
+  domain: {{ domain }}
+  aliases:
+    - www.{{ domain }}
+
+sheet_helper_enabled: true
+sheet_helper_mode: "public_csv"
+sheet_helper_sheet_id: ""
+sheet_helper_routes_gid: ""
+sheet_helper_vcards_gid: ""
+sheet_helper_texts_gid: ""
+sheet_helper_default_list_prefix: "list_"
+sheet_helper_theme: "clean"
+sheet_helper_sync_mode: "hybrid"
+sheet_helper_sync_interval: "15m"
+sheet_helper_click_sync_interval: "24h"
+sheet_helper_allow_text: true
+sheet_helper_allow_vcard: true
+sheet_helper_allow_list: true
+sheet_helper_allow_link: true
+sheet_helper_require_rate_limit: true
+sheet_helper_container_name: "sheet-helper"
+sheet_helper_data_dir: "/srv/sheet-helper"
