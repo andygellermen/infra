@@ -12,14 +12,12 @@ Folgende Script-Properties muessen im Google-Apps-Script-Projekt gesetzt werden:
 
 - `SHEET_HELPER_SYNC_URL`
 - `SHEET_HELPER_SYNC_TOKEN`
-- `SHEET_HELPER_TENANT`
 
 Beispielwerte:
 
 ```text
-SHEET_HELPER_SYNC_URL=https://sheet-helper.example.org
-SHEET_HELPER_SYNC_TOKEN=replace-me
-SHEET_HELPER_TENANT=geller.men
+SHEET_HELPER_SYNC_URL=https://geller.men
+SHEET_HELPER_SYNC_TOKEN=s0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ```
 
 ## Trigger-Empfehlung
@@ -33,3 +31,4 @@ Hinweis:
 
 - Der Trigger selbst ist nur ein Signalgeber.
 - Die eigentliche Logik fuer Authentifizierung, Sync und Normalisierung lebt in der Go-App.
+- Der Sync-Token wird als erster URL-Pfad verwendet, zum Beispiel `https://geller.men/<token>`.

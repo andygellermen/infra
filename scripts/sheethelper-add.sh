@@ -13,6 +13,15 @@ die(){ echo "❌ Fehler: $*" >&2; exit 1; }
 info(){ echo "ℹ️  $*"; }
 ok(){ echo "✅ $*"; }
 
+generate_sync_token() {
+  printf 's%s\n' "$(openssl rand -hex 32)"
+}
+
+validate_sync_token() {
+  local token="$1"
+  [[ "$token" =~ ^s[0-9a-f]{64}$ ]]
+}
+
 normalize_domain() {
   local d="$1"
   if [[ "$d" =~ ^[a-zA-Z0-9.-]+$ ]]; then
@@ -61,8 +70,10 @@ if [[ -z "$COOKIE_SECRET" ]] && command -v openssl >/dev/null 2>&1; then
   COOKIE_SECRET="$(openssl rand -hex 24)"
 fi
 if [[ -z "$SYNC_TOKEN" ]] && command -v openssl >/dev/null 2>&1; then
-  SYNC_TOKEN="$(openssl rand -hex 24)"
+  SYNC_TOKEN="$(generate_sync_token)"
 fi
+[[ -n "$SYNC_TOKEN" ]] || die "sync token fehlt und konnte nicht automatisch erzeugt werden."
+validate_sync_token "$SYNC_TOKEN" || die "sync token muss dem Format s + 64 Hex-Zeichen entsprechen."
 
 DOMAIN="$(normalize_domain "${args[0]}")"
 ALIASES=()

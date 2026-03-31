@@ -8,7 +8,6 @@
  * 4. Set the script properties:
  *    - SHEET_HELPER_SYNC_URL
  *    - SHEET_HELPER_SYNC_TOKEN
- *    - SHEET_HELPER_TENANT
  * 5. Create an installable trigger for onEdit or call manualSync() manually.
  *
  * This script is intentionally simple and aimed at unsensitive content only.
@@ -41,7 +40,6 @@ function triggerSheetHelperSync_(reason, details) {
   var props = PropertiesService.getScriptProperties();
   var baseUrl = props.getProperty('SHEET_HELPER_SYNC_URL');
   var token = props.getProperty('SHEET_HELPER_SYNC_TOKEN');
-  var tenant = props.getProperty('SHEET_HELPER_TENANT');
 
   if (!baseUrl) {
     throw new Error('Missing script property: SHEET_HELPER_SYNC_URL');
@@ -49,12 +47,8 @@ function triggerSheetHelperSync_(reason, details) {
   if (!token) {
     throw new Error('Missing script property: SHEET_HELPER_SYNC_TOKEN');
   }
-  if (!tenant) {
-    throw new Error('Missing script property: SHEET_HELPER_TENANT');
-  }
 
   var payload = {
-    tenant: tenant,
     reason: reason,
     spreadsheetId: SpreadsheetApp.getActiveSpreadsheet().getId(),
     spreadsheetName: SpreadsheetApp.getActiveSpreadsheet().getName(),
@@ -62,14 +56,11 @@ function triggerSheetHelperSync_(reason, details) {
     details: details || {}
   };
 
-  var url = buildSyncUrl_(baseUrl, tenant);
+  var url = buildSyncUrl_(baseUrl, token);
   var response = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
     muteHttpExceptions: true,
-    headers: {
-      'X-Sheet-Helper-Token': token
-    },
     payload: JSON.stringify(payload)
   });
 
@@ -79,7 +70,7 @@ function triggerSheetHelperSync_(reason, details) {
   }
 }
 
-function buildSyncUrl_(baseUrl, tenant) {
+function buildSyncUrl_(baseUrl, token) {
   var normalized = baseUrl.replace(/\/+$/, '');
-  return normalized + '/internal/sync/' + encodeURIComponent(tenant);
+  return normalized + '/' + encodeURIComponent(token);
 }

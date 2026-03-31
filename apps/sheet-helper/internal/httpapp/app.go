@@ -93,6 +93,9 @@ func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	domain := stripPort(r.Host)
 	path := normalizedPath(r.URL.Path)
+	if a.handleSyncByPath(w, r, domain, path) {
+		return
+	}
 
 	route, found, err := a.store.LookupRoute(ctx, domain, path)
 	if err != nil {
@@ -126,6 +129,42 @@ func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "unsupported route type", http.StatusBadRequest)
 	}
+}
+
+func (a *App) handleSyncByPath(w http.ResponseWriter, r *http.Request, domain, path string) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+
+	token, ok := syncTokenFromPath(path)
+	if !ok {
+		return false
+	}
+
+	tenantCfg, ok := a.cfg.Tenants[domain]
+	if !ok || tenantCfg.SyncToken == "" {
+		http.NotFound(w, r)
+		return true
+	}
+	if tenantCfg.SyncToken != token {
+		http.NotFound(w, r)
+		return true
+	}
+
+	syncer, ok := a.syncers[domain]
+	if !ok {
+		http.NotFound(w, r)
+		return true
+	}
+
+	if err := syncer.Sync(r.Context()); err != nil {
+		http.Error(w, "sync failed", http.StatusBadGateway)
+		return true
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+	return true
 }
 
 func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request, route model.Route) {
@@ -283,6 +322,20 @@ func normalizedPath(path string) string {
 func accessCookieName(route model.Route) string {
 	hash := sha256.Sum256([]byte(route.Domain + "|" + route.Path))
 	return "sh_auth_" + hex.EncodeToString(hash[:8])
+}
+
+func syncTokenFromPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/")
+	if strings.Contains(trimmed, "/") || len(trimmed) != 65 {
+		return "", false
+	}
+	if trimmed[0] != 's' {
+		return "", false
+	}
+	if _, err := hex.DecodeString(trimmed[1:]); err != nil {
+		return "", false
+	}
+	return trimmed, true
 }
 
 func buildVCF(entry model.VCardEntry) string {
