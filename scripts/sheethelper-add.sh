@@ -5,7 +5,7 @@ HOSTVARS_DIR="./ansible/hostvars"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--published-url=<url>] [--routes-sheet=<name>] [--vcards-sheet=<name>] [--texts-sheet=<name>] [--list-prefix=<prefix>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
+Usage: ./scripts/sheethelper-add.sh <domain> [alias1 alias2 ...] [--sheet-id=<id>] [--published-url=<url>] [--cookie-secret=<secret>] [--sync-token=<token>] [--routes-sheet=<name>] [--vcards-sheet=<name>] [--texts-sheet=<name>] [--list-prefix=<prefix>] [--theme=<name>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
 USAGE
 }
 
@@ -26,6 +26,8 @@ normalize_domain() {
 
 SHEET_ID=""
 PUBLISHED_URL=""
+COOKIE_SECRET=""
+SYNC_TOKEN=""
 ROUTES_SHEET="routes"
 VCARDS_SHEET="vcard_entries"
 TEXTS_SHEET="text_entries"
@@ -39,6 +41,8 @@ for arg in "$@"; do
   case "$arg" in
     --sheet-id=*) SHEET_ID="${arg#*=}" ;;
     --published-url=*) PUBLISHED_URL="${arg#*=}" ;;
+    --cookie-secret=*) COOKIE_SECRET="${arg#*=}" ;;
+    --sync-token=*) SYNC_TOKEN="${arg#*=}" ;;
     --routes-sheet=*) ROUTES_SHEET="${arg#*=}" ;;
     --vcards-sheet=*) VCARDS_SHEET="${arg#*=}" ;;
     --texts-sheet=*) TEXTS_SHEET="${arg#*=}" ;;
@@ -52,6 +56,13 @@ for arg in "$@"; do
 done
 
 command -v idn >/dev/null 2>&1 || die "Tool fehlt: idn"
+
+if [[ -z "$COOKIE_SECRET" ]] && command -v openssl >/dev/null 2>&1; then
+  COOKIE_SECRET="$(openssl rand -hex 24)"
+fi
+if [[ -z "$SYNC_TOKEN" ]] && command -v openssl >/dev/null 2>&1; then
+  SYNC_TOKEN="$(openssl rand -hex 24)"
+fi
 
 DOMAIN="$(normalize_domain "${args[0]}")"
 ALIASES=()
@@ -92,6 +103,8 @@ fi
   echo "sheet_helper_mode: \"public_csv\""
   echo "sheet_helper_sheet_id: \"${SHEET_ID}\""
   echo "sheet_helper_published_url: \"${PUBLISHED_URL}\""
+  echo "sheet_helper_cookie_secret: \"${COOKIE_SECRET}\""
+  echo "sheet_helper_sync_token: \"${SYNC_TOKEN}\""
   echo "sheet_helper_routes_sheet: \"${ROUTES_SHEET}\""
   echo "sheet_helper_vcards_sheet: \"${VCARDS_SHEET}\""
   echo "sheet_helper_texts_sheet: \"${TEXTS_SHEET}\""

@@ -125,17 +125,39 @@ Beispiele:
 ```bash
 ./scripts/sheethelper-add.sh geller.men
 ./scripts/sheethelper-add.sh geller.men --sheet-id=abc123
+./scripts/sheethelper-add.sh geller.men --sheet-id=abc123 --published-url='https://docs.google.com/spreadsheets/d/e/example/pubhtml'
 ./scripts/sheethelper-add.sh geller.men --sheet-id=abc123 --routes-sheet=routes --vcards-sheet=vcard_entries --texts-sheet=text_entries --list-prefix=list_
 ./scripts/sheethelper-add.sh team.example team.example.net --wildcard-domain=example
 ```
 
 Das Skript erzeugt aktuell nur die Hostvars-Datei. Die eigentliche Ansible-Deploy-Rolle fuer den zentralen Sheet-Helper folgt als naechster Schritt.
 
+Wenn `openssl` verfuegbar ist, erzeugt das Skript automatisch Werte fuer:
+
+- `sheet_helper_cookie_secret`
+- `sheet_helper_sync_token`
+
 ## Google-Sheets-Trigger vorbereiten
 
 Fuer spaetere Sync-Callbacks liegt eine Google-Apps-Script-Vorlage unter [sync-trigger.js](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/sync-trigger.js).
 
 Die zugehoerige Kurzanleitung findest du in [google-apps-script/README.md](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/README.md).
+
+## Deploy
+
+Fuer den gemeinsamen Container gibt es jetzt ein eigenes Redeploy-Skript:
+
+```bash
+./scripts/sheethelper-redeploy.sh geller.men
+./scripts/sheethelper-redeploy.sh --build-only
+./scripts/redeploy-all-web.sh --only=sheethelper
+```
+
+Der aktuelle Ablauf ist:
+
+1. Hostvars fuer mindestens eine `sheet_helper_enabled: true`-Domain anlegen
+2. lokales Docker-Image `sheet-helper:latest` bauen
+3. gemeinsames Ansible-Playbook `deploy-sheet-helper.yml` ausfuehren
 
 ## Naechste Schritte
 
