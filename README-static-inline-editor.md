@@ -273,7 +273,7 @@ Alternativ:
 
 Fuer den MVP reicht:
 
-- passwortgeschuetzter Login
+- Magic-Link per E-Mail
 - Session-Cookie
 - Rate-Limiting
 
@@ -422,7 +422,7 @@ Die statische Site unter `domain.de` bleibt unveraendert und wird weiterhin durc
 
 Die Edit-App unter `bearbeitung.domain.de` uebernimmt:
 
-- Login
+- Magic-Link-Login
 - Session
 - Laden der Seite fuer den Edit-Modus
 - Validierung und Vorschau
@@ -454,8 +454,9 @@ Fuer den MVP wuerde ich den Service in diese Module teilen:
 
 `auth`
 
-- Login-Pruefung
-- Passwortvergleich
+- Magic-Link anfordern
+- E-Mail-Allowlist pruefen
+- Token pruefen
 
 `session`
 
@@ -503,10 +504,22 @@ editor_login_domain: bearbeitung.example.org
 editor_static_root: /srv/static/example.org
 editor_backup_root: /srv/static-backups/example.org
 editor_repo_root: /srv/static/example.org
-editor_username: admin
-editor_password_hash: <hash>
 editor_cookie_secret: <secret>
+editor_allowed_emails:
+  - andy@example.org
 editor_main_selector: main
+```
+
+Zusaetzlich global:
+
+```yaml
+smtp_host: email-smtp.eu-central-1.amazonaws.com
+smtp_port: 587
+smtp_username: <ses-smtp-user>
+smtp_password: <ses-smtp-password>
+smtp_from_email: no-reply@example.org
+smtp_from_name: Static Editor
+magic_link_ttl: 15m
 ```
 
 Optional spaeter:
@@ -517,26 +530,23 @@ Optional spaeter:
 
 ## Session-Modell
 
-Fuer den MVP reicht ein serverseitig signiertes Session-Cookie.
+Fuer den MVP reicht ein serverseitig erzeugtes Session-Cookie plus ein serverseitig gespeicherter Magic-Link-Token.
 
 Empfehlung:
 
-- Login via `POST /auth/login`
+- Magic-Link-Anforderung via `POST /auth/request-link`
+- Magic-Link-Pruefung via `GET /auth/verify`
 - Cookie `editor_session`
 - `HttpOnly`
 - `Secure`
 - `SameSite=Lax`
 
-Fuer den MVP kann die Session entweder:
-
-- signiert und zustandslos sein
-- oder in SQLite abgelegt werden
-
-Ich wuerde fuer den Start SQLite bevorzugen, weil:
+Fuer den ersten lauffaehigen Zuschnitt ist auch ein file-basierter Store okay. Mittelfristig wuerde ich fuer Sessions und Tokens trotzdem SQLite bevorzugen, weil:
 
 - einfacher Logout
 - einfache Ablaufzeiten
 - spaeter besser fuer Edit-Logs
+- einfache One-Time-Token-Invalidierung
 
 ## HTTP-Endpunkte des MVP
 
@@ -544,11 +554,18 @@ Ich wuerde fuer den Start SQLite bevorzugen, weil:
 
 `GET /login`
 
-- Login-Formular
+- Formular fuer Magic-Link-Anforderung
 
-`POST /auth/login`
+`POST /auth/request-link`
 
-- prueft Login
+- prueft E-Mail-Allowlist
+- erzeugt Magic-Link-Token
+- versendet E-Mail via SMTP
+- liefert generische Erfolgsmeldung
+
+`GET /auth/verify`
+
+- prueft Magic-Link-Token
 - setzt Session-Cookie
 - Redirect auf Bearbeitungsstart
 
@@ -964,19 +981,32 @@ Fuer spaetere Robustheit waere ein Hash-Modell moeglich, aber fuer den MVP reich
 
 Response:
 
-- HTML-Seite mit Login-Formular
+- HTML-Seite mit Magic-Link-Formular
 
-### `POST /auth/login`
+### `POST /auth/request-link`
 
 Request:
 
 ```application/x-www-form-urlencoded
-username=admin
-password=secret
+email=andy@example.org
 ```
 
 Response:
 
+- generische Erfolgsantwort ohne Leaken der Freigabeliste
+- bei freigegebener Adresse:
+  - Magic-Link-Token erzeugen
+  - E-Mail via SMTP versenden
+
+### `GET /auth/verify`
+
+Request:
+
+- `token` als Query-Parameter
+
+Response:
+
+- Magic-Link pruefen
 - Session setzen
 - Redirect auf `/`
 
@@ -1303,8 +1333,7 @@ STATIC_EDITOR_ALIASES=www.example.org
 STATIC_EDITOR_STATIC_ROOT=/srv/static/example.org
 STATIC_EDITOR_BACKUP_ROOT=/srv/static-backups/example.org
 STATIC_EDITOR_REPO_ROOT=/srv/static/example.org
-STATIC_EDITOR_USERNAME=admin
-STATIC_EDITOR_PASSWORD_HASH=$2y$...
+STATIC_EDITOR_ALLOWED_EMAILS=andy@example.org,redaktion@example.org
 STATIC_EDITOR_COOKIE_SECRET=replace-me
 STATIC_EDITOR_MAIN_SELECTOR=main
 STATIC_EDITOR_ALLOWED_BLOCK_TAGS=h1,h2,h3,h4,h5,p,ul,ol,li
@@ -1320,8 +1349,7 @@ Bedeutung:
 - `STATIC_EDITOR_STATIC_ROOT`: Root der statischen Dateien
 - `STATIC_EDITOR_BACKUP_ROOT`: Backup-Verzeichnis
 - `STATIC_EDITOR_REPO_ROOT`: Git-Repo-Wurzel
-- `STATIC_EDITOR_USERNAME`: Login-Name fuer den MVP
-- `STATIC_EDITOR_PASSWORD_HASH`: Passwort-Hash
+- `STATIC_EDITOR_ALLOWED_EMAILS`: freigegebene E-Mail-Adressen fuer Magic-Links
 - `STATIC_EDITOR_COOKIE_SECRET`: Signatur-Secret fuer Sessions
 - `STATIC_EDITOR_MAIN_SELECTOR`: editierbarer Hauptbereich
 - `STATIC_EDITOR_ALLOWED_BLOCK_TAGS`: erlaubte Block-Tags

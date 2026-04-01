@@ -17,6 +17,13 @@ type Config struct {
 	TenantDir     string
 	SessionTTL    string
 	SecureCookies bool
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUsername  string
+	SMTPPassword  string
+	SMTPFromEmail string
+	SMTPFromName  string
+	MagicLinkTTL  string
 	Tenants       map[string]model.Tenant
 }
 
@@ -27,6 +34,13 @@ func Load() (Config, error) {
 		TenantDir:     getenv("STATIC_EDITOR_TENANT_DIR", "./tenants"),
 		SessionTTL:    getenv("STATIC_EDITOR_SESSION_TTL", "12h"),
 		SecureCookies: getenvBool("STATIC_EDITOR_SECURE_COOKIES", true),
+		SMTPHost:      getenv("STATIC_EDITOR_SMTP_HOST", ""),
+		SMTPPort:      getenvInt("STATIC_EDITOR_SMTP_PORT", 587),
+		SMTPUsername:  getenv("STATIC_EDITOR_SMTP_USERNAME", ""),
+		SMTPPassword:  getenv("STATIC_EDITOR_SMTP_PASSWORD", ""),
+		SMTPFromEmail: getenv("STATIC_EDITOR_SMTP_FROM_EMAIL", ""),
+		SMTPFromName:  getenv("STATIC_EDITOR_SMTP_FROM_NAME", "Static Inline Editor"),
+		MagicLinkTTL:  getenv("STATIC_EDITOR_MAGIC_LINK_TTL", "15m"),
 		Tenants:       map[string]model.Tenant{},
 	}
 
@@ -71,9 +85,8 @@ func loadTenantsFromDir(dir string) (map[string]model.Tenant, error) {
 			StaticRoot:        strings.TrimSpace(values["STATIC_EDITOR_STATIC_ROOT"]),
 			BackupRoot:        strings.TrimSpace(values["STATIC_EDITOR_BACKUP_ROOT"]),
 			RepoRoot:          strings.TrimSpace(values["STATIC_EDITOR_REPO_ROOT"]),
-			Username:          firstNonEmpty(values["STATIC_EDITOR_USERNAME"], "admin"),
-			PasswordHash:      strings.TrimSpace(values["STATIC_EDITOR_PASSWORD_HASH"]),
 			CookieSecret:      strings.TrimSpace(values["STATIC_EDITOR_COOKIE_SECRET"]),
+			AllowedEmails:     parseCSV(values["STATIC_EDITOR_ALLOWED_EMAILS"]),
 			MainSelector:      firstNonEmpty(values["STATIC_EDITOR_MAIN_SELECTOR"], "main"),
 			AllowedBlockTags:  parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_BLOCK_TAGS"], "h1,h2,h3,h4,h5,p,ul,ol,li")),
 			AllowedInlineTags: parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], "strong,em,a,br")),
@@ -158,6 +171,18 @@ func getenvBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func getenvInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	var parsed int
+	if _, err := fmt.Sscanf(value, "%d", &parsed); err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func firstNonEmpty(value, fallback string) string {

@@ -9,16 +9,18 @@ Aktuell enthalten:
 - globale App-Konfiguration
 - tenant-spezifische `.env`-Dateien
 - Go-Config-Loader
+- SMTP-/Magic-Link-Konfigurationsrahmen
 - Basismodell fuer bearbeitbare Domains
+- file-basierten Magic-Link- und Session-Store
+- Magic-Link-Anforderung und Verifikation
+- Session-Cookie
+- einfache Login- und Startseite
+- erster Edit-Endpunkt mit HTML-Markierung
 - minimaler HTTP-Server
 - Healthcheck und Tenant-Debug-Endpunkt
 
 Noch nicht enthalten:
 
-- Login
-- Session-Management
-- Edit-Modus
-- HTML-Markierung mit `data-editor-id`
 - Preview und Save
 - Backup und Git-Commit
 
@@ -40,8 +42,7 @@ STATIC_EDITOR_ALIASES=www.example.org
 STATIC_EDITOR_STATIC_ROOT=/srv/static/example.org
 STATIC_EDITOR_BACKUP_ROOT=/srv/static-backups/example.org
 STATIC_EDITOR_REPO_ROOT=/srv/static/example.org
-STATIC_EDITOR_USERNAME=admin
-STATIC_EDITOR_PASSWORD_HASH=$2y$example
+STATIC_EDITOR_ALLOWED_EMAILS=andy@example.org
 STATIC_EDITOR_COOKIE_SECRET=replace-me
 STATIC_EDITOR_MAIN_SELECTOR=main
 STATIC_EDITOR_ALLOWED_BLOCK_TAGS=h1,h2,h3,h4,h5,p,ul,ol,li
@@ -49,18 +50,28 @@ STATIC_EDITOR_ALLOWED_INLINE_TAGS=strong,em,a,br
 STATIC_EDITOR_START_PATH=/index.html
 EOF
 
-STATIC_EDITOR_TENANT_DIR=./tenants go run ./cmd/server
+STATIC_EDITOR_SMTP_HOST=email-smtp.eu-central-1.amazonaws.com \
+STATIC_EDITOR_SMTP_PORT=587 \
+STATIC_EDITOR_SMTP_USERNAME=replace-me \
+STATIC_EDITOR_SMTP_PASSWORD=replace-me \
+STATIC_EDITOR_SMTP_FROM_EMAIL=no-reply@example.org \
+STATIC_EDITOR_MAGIC_LINK_TTL=15m \
+STATIC_EDITOR_TENANT_DIR=./tenants \
+go run ./cmd/server
 ```
 
 Dann pruefen:
 
 - `http://localhost:8090/healthz`
 - `http://localhost:8090/debug/tenants`
+- `http://localhost:8090/login`
+- `curl -H 'Host: bearbeitung.example.org' -X POST http://localhost:8090/auth/request-link -d 'email=andy@example.org'`
+- nach erfolgreichem Magic-Link: `http://localhost:8090/edit?path=/index.html`
 
 ## Naechste Schritte
 
-1. Login und Session-Cookie
-2. `GET /edit?path=/index.html`
-3. HTML-Parsing und `data-editor-id`
-4. `POST /api/preview`
-5. `POST /api/save`
+1. ContentTools im Edit-Modus nur nach Session laden
+2. Preview- und Save-Endpunkte
+3. Backup vor dem Schreiben
+4. Git-Workflow nach erfolgreichem Save
+5. Dateiliste oder Start-Dashboard fuer mehrere Seiten
