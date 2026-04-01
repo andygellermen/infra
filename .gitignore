@@ -42,3 +42,7 @@ secrets/*.yml
 apps/sheet-helper/.gocache/
 apps/sheet-helper/.gomodcache/
 apps/sheet-helper/*.db
+
+# Go specific temp files
+.gocache/
+.gomodcache/
