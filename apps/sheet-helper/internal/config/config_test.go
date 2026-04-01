@@ -40,3 +40,28 @@ SHEET_HELPER_STARTUP_SYNC=true
 		t.Fatalf("expected startup sync to be true")
 	}
 }
+
+func TestLoadIgnoresSeedFileInTenantDirMode(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+SHEET_HELPER_TENANT=geller.men
+SHEET_HELPER_COOKIE_SECRET=secret-1
+SHEET_HELPER_SYNC_TOKEN=s0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+SHEET_HELPER_SHEET_ID=sheet-1
+SHEET_HELPER_PUBLISHED_URL=https://example.invalid/pubhtml
+`
+	if err := os.WriteFile(filepath.Join(dir, "geller.men.env"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write tenant env: %v", err)
+	}
+
+	t.Setenv("SHEET_HELPER_TENANT_DIR", dir)
+	t.Setenv("SHEET_HELPER_SEED_FILE", "/app/testdata/seed.json")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.SeedFile != "" {
+		t.Fatalf("expected seed file to be disabled in tenant dir mode, got %q", cfg.SeedFile)
+	}
+}

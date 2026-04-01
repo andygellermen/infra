@@ -51,7 +51,10 @@ func Load() (Config, error) {
 		}
 		cfg.Tenants = tenants
 		if len(cfg.Tenants) > 0 {
-			cfg.SeedFile = strings.TrimSpace(getenv("SHEET_HELPER_SEED_FILE", ""))
+			// In multi-tenant runtime mode we should never fall back to the
+			// baked-in seed file from the container image, otherwise successful
+			// sheet sync data gets overwritten with localhost demo content.
+			cfg.SeedFile = ""
 			return cfg, nil
 		}
 	}
