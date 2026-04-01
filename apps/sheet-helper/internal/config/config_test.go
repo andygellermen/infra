@@ -10,6 +10,7 @@ func TestLoadTenantsFromDir(t *testing.T) {
 	dir := t.TempDir()
 	content := `
 SHEET_HELPER_TENANT=geller.men
+SHEET_HELPER_ALIASES=www.geller.men, gellermen.de
 SHEET_HELPER_COOKIE_SECRET=secret-1
 SHEET_HELPER_SYNC_TOKEN=sync-1
 SHEET_HELPER_SHEET_ID=sheet-1
@@ -35,6 +36,9 @@ SHEET_HELPER_STARTUP_SYNC=true
 	}
 	if tenant.CookieSecret != "secret-1" {
 		t.Fatalf("expected cookie secret to be parsed, got %q", tenant.CookieSecret)
+	}
+	if got := len(tenant.Aliases); got != 2 {
+		t.Fatalf("expected 2 aliases, got %d", got)
 	}
 	if !tenant.StartupSync {
 		t.Fatalf("expected startup sync to be true")

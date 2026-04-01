@@ -54,6 +54,7 @@
     group: root
     content: |
       SHEET_HELPER_TENANT={{ item.domain }}
+      SHEET_HELPER_ALIASES={{ (item.traefik.aliases | default([], true)) | join(',') }}
       SHEET_HELPER_COOKIE_SECRET={{ item.sheet_helper_cookie_secret | default('change-me', true) }}
       SHEET_HELPER_SYNC_TOKEN={{ item.sheet_helper_sync_token | default('replace-me', true) }}
       SHEET_HELPER_SHEET_ID={{ item.sheet_helper_sheet_id | default('', true) }}

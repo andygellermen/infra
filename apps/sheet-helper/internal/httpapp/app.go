@@ -91,7 +91,7 @@ func (a *App) handleSync(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	domain := stripPort(r.Host)
+	domain := a.canonicalDomain(stripPort(r.Host))
 	path := normalizedPath(r.URL.Path)
 	if a.handleSyncByPath(w, r, domain, path) {
 		return
@@ -129,6 +129,20 @@ func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "unsupported route type", http.StatusBadRequest)
 	}
+}
+
+func (a *App) canonicalDomain(host string) string {
+	if _, ok := a.cfg.Tenants[host]; ok {
+		return host
+	}
+	for domain, tenant := range a.cfg.Tenants {
+		for _, alias := range tenant.Aliases {
+			if alias == host {
+				return domain
+			}
+		}
+	}
+	return host
 }
 
 func (a *App) handleSyncByPath(w http.ResponseWriter, r *http.Request, domain, path string) bool {

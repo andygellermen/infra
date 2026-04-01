@@ -11,6 +11,7 @@ import (
 
 type TenantConfig struct {
 	Domain          string
+	Aliases         []string
 	CookieSecret    string
 	SyncToken       string
 	SheetID         string
@@ -96,6 +97,7 @@ func loadTenantsFromDir(dir string) (map[string]TenantConfig, error) {
 
 		tenant := TenantConfig{
 			Domain:          domain,
+			Aliases:         parseCSV(values["SHEET_HELPER_ALIASES"]),
 			CookieSecret:    firstNonEmpty(values["SHEET_HELPER_COOKIE_SECRET"], "dev-only-change-me"),
 			SyncToken:       strings.TrimSpace(values["SHEET_HELPER_SYNC_TOKEN"]),
 			SheetID:         strings.TrimSpace(values["SHEET_HELPER_SHEET_ID"]),
@@ -116,6 +118,7 @@ func loadTenantsFromDir(dir string) (map[string]TenantConfig, error) {
 func loadTenantFromEnv() TenantConfig {
 	return TenantConfig{
 		Domain:          getenv("SHEET_HELPER_TENANT", "localhost"),
+		Aliases:         parseCSV(getenv("SHEET_HELPER_ALIASES", "")),
 		CookieSecret:    getenv("SHEET_HELPER_COOKIE_SECRET", "dev-only-change-me"),
 		SyncToken:       getenv("SHEET_HELPER_SYNC_TOKEN", ""),
 		SheetID:         getenv("SHEET_HELPER_SHEET_ID", ""),
@@ -197,4 +200,25 @@ func firstNonEmpty(value, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func parseCSV(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
