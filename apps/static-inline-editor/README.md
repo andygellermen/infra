@@ -19,12 +19,13 @@ Aktuell enthalten:
 - ContentTools nur im geschuetzten Edit-Fall
 - Preview- und Save-Endpunkte
 - Backup vor dem Schreiben
+- Git-Commit nach erfolgreichem Save
 - minimaler HTTP-Server
 - Healthcheck und Tenant-Debug-Endpunkt
 
 Noch nicht enthalten:
 
-- Git-Commit
+- Push/Remote-Workflow
 
 ## Lokales Testen
 
@@ -58,6 +59,7 @@ STATIC_EDITOR_SMTP_USERNAME=replace-me \
 STATIC_EDITOR_SMTP_PASSWORD=replace-me \
 STATIC_EDITOR_SMTP_FROM_EMAIL=no-reply@example.org \
 STATIC_EDITOR_MAGIC_LINK_TTL=15m \
+STATIC_EDITOR_GIT_AUTHOR_NAME='Static Inline Editor' \
 STATIC_EDITOR_TENANT_DIR=./tenants \
 go run ./cmd/server
 ```
@@ -72,7 +74,7 @@ Dann pruefen:
 
 ## Naechste Schritte
 
-1. Git-Workflow nach erfolgreichem Save
+1. Push/Remote-Workflow nach erfolgreichem Commit
 2. Dateiliste oder Start-Dashboard fuer mehrere Seiten
 3. bessere Preview-Abnahme ohne Browser-Alert
 4. feinere Sanitization-Regeln fuer Links und Spezialfaelle

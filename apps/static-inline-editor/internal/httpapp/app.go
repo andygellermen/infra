@@ -14,6 +14,7 @@ import (
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/auth"
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/config"
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/editor"
+	"github.com/andygellermann/infra/apps/static-inline-editor/internal/gitops"
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/model"
 )
 
@@ -416,12 +417,18 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not write updated file", http.StatusInternalServerError)
 		return
 	}
+	commitHash, err := gitops.CommitFile(tenant.RepoRoot, fullPath, a.cfg.GitAuthorName, session.Email, gitCommitMessage(tenant.Domain, path, session.Email))
+	if err != nil {
+		http.Error(w, "file saved but git commit failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(model.SaveResponse{
 		OK:         true,
 		Message:    "Datei gespeichert",
 		BackupPath: backupPath,
+		CommitHash: commitHash,
 	})
 	_ = req
 }
@@ -756,4 +763,8 @@ func writeFileAtomically(path string, content []byte, mode os.FileMode) error {
 		return fmt.Errorf("rename temp file: %w", err)
 	}
 	return nil
+}
+
+func gitCommitMessage(domain, targetPath, email string) string {
+	return fmt.Sprintf("edit(%s): %s by %s", domain, targetPath, email)
 }

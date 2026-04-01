@@ -26,6 +26,7 @@ type Config struct {
 	MagicLinkTTL       string
 	ContentToolsCSSURL string
 	ContentToolsJSURL  string
+	GitAuthorName      string
 	Tenants            map[string]model.Tenant
 }
 
@@ -45,6 +46,7 @@ func Load() (Config, error) {
 		MagicLinkTTL:       getenv("STATIC_EDITOR_MAGIC_LINK_TTL", "15m"),
 		ContentToolsCSSURL: getenv("STATIC_EDITOR_CONTENTTOOLS_CSS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.css"),
 		ContentToolsJSURL:  getenv("STATIC_EDITOR_CONTENTTOOLS_JS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.js"),
+		GitAuthorName:      getenv("STATIC_EDITOR_GIT_AUTHOR_NAME", "Static Inline Editor"),
 		Tenants:            map[string]model.Tenant{},
 	}
 

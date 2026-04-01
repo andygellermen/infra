@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -151,20 +152,45 @@ func TestEditRequiresSessionAndMarksDocument(t *testing.T) {
 }
 
 func TestPreviewAndSaveFlow(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
 	baseDir := t.TempDir()
 	staticRoot := filepath.Join(baseDir, "static")
 	backupRoot := filepath.Join(baseDir, "backups")
+	repoRoot := filepath.Join(baseDir, "repo")
 	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
 		t.Fatalf("mkdir static root: %v", err)
 	}
 	if err := os.MkdirAll(backupRoot, 0o755); err != nil {
 		t.Fatalf("mkdir backup root: %v", err)
 	}
+	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir repo root: %v", err)
+	}
 
-	targetFile := filepath.Join(staticRoot, "index.html")
+	if out, err := exec.Command("git", "-C", repoRoot, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init failed: %v: %s", err, out)
+	}
+
+	targetFile := filepath.Join(repoRoot, "index.html")
 	originalHTML := `<!doctype html><html><body><main><h1>Hallo</h1><p>Welt</p></main></body></html>`
 	if err := os.WriteFile(targetFile, []byte(originalHTML), 0o644); err != nil {
 		t.Fatalf("write html fixture: %v", err)
+	}
+	if out, err := exec.Command("git", "-C", repoRoot, "add", "--", "index.html").CombinedOutput(); err != nil {
+		t.Fatalf("git add failed: %v: %s", err, out)
+	}
+	commit := exec.Command("git", "-C", repoRoot, "commit", "--message", "initial")
+	commit.Env = append(commit.Environ(),
+		"GIT_AUTHOR_NAME=Tester",
+		"GIT_AUTHOR_EMAIL=tester@example.org",
+		"GIT_COMMITTER_NAME=Tester",
+		"GIT_COMMITTER_EMAIL=tester@example.org",
+	)
+	if out, err := commit.CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %v: %s", err, out)
 	}
 
 	cfg := config.Config{
@@ -173,14 +199,16 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 		SessionTTL:    "12h",
 		MagicLinkTTL:  "15m",
 		SecureCookies: false,
+		GitAuthorName: "Static Inline Editor",
 		Tenants: map[string]model.Tenant{
 			"example.org": {
 				Domain:            "example.org",
 				LoginDomain:       "bearbeitung.example.org",
 				AllowedEmails:     []string{"andy@example.org"},
 				StartPath:         "/index.html",
-				StaticRoot:        staticRoot,
+				StaticRoot:        repoRoot,
 				BackupRoot:        backupRoot,
+				RepoRoot:          repoRoot,
 				MainSelector:      "main",
 				AllowedBlockTags:  []string{"h1", "p", "ul", "ol", "li"},
 				AllowedInlineTags: []string{"strong", "em", "a", "br"},
@@ -260,6 +288,9 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	if !saveResp.OK || saveResp.BackupPath == "" {
 		t.Fatalf("expected backup path in save response")
 	}
+	if strings.TrimSpace(saveResp.CommitHash) == "" {
+		t.Fatalf("expected commit hash in save response")
+	}
 
 	updated, err := os.ReadFile(targetFile)
 	if err != nil {
@@ -270,5 +301,12 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	}
 	if _, err := os.Stat(saveResp.BackupPath); err != nil {
 		t.Fatalf("expected backup file to exist: %v", err)
+	}
+	logOut, err := exec.Command("git", "-C", repoRoot, "log", "-1", "--pretty=%s").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log failed: %v: %s", err, logOut)
+	}
+	if !strings.Contains(string(logOut), "edit(example.org): /index.html by andy@example.org") {
+		t.Fatalf("expected git commit message to mention edited file, got %q", string(logOut))
 	}
 }
