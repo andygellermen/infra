@@ -12,6 +12,7 @@ type PreparedDocument struct {
 	HTML         string
 	EditableIDs  []string
 	EditableTags []string
+	RegionName   string
 }
 
 func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (PreparedDocument, error) {
@@ -29,6 +30,9 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 	var ids []string
 	var tags []string
 	var seq int
+	regionName := "main-content"
+	setAttr(root, "data-editable", "")
+	setAttr(root, "data-name", regionName)
 
 	var walk func(*html.Node)
 	walk = func(node *html.Node) {
@@ -59,6 +63,7 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 		HTML:         buf.String(),
 		EditableIDs:  ids,
 		EditableTags: tags,
+		RegionName:   regionName,
 	}, nil
 }
 

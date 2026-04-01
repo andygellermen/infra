@@ -12,36 +12,40 @@ import (
 )
 
 type Config struct {
-	Addr          string
-	DataDir       string
-	TenantDir     string
-	SessionTTL    string
-	SecureCookies bool
-	SMTPHost      string
-	SMTPPort      int
-	SMTPUsername  string
-	SMTPPassword  string
-	SMTPFromEmail string
-	SMTPFromName  string
-	MagicLinkTTL  string
-	Tenants       map[string]model.Tenant
+	Addr               string
+	DataDir            string
+	TenantDir          string
+	SessionTTL         string
+	SecureCookies      bool
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUsername       string
+	SMTPPassword       string
+	SMTPFromEmail      string
+	SMTPFromName       string
+	MagicLinkTTL       string
+	ContentToolsCSSURL string
+	ContentToolsJSURL  string
+	Tenants            map[string]model.Tenant
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		Addr:          getenv("STATIC_EDITOR_ADDR", ":8090"),
-		DataDir:       getenv("STATIC_EDITOR_DATA_DIR", "./data"),
-		TenantDir:     getenv("STATIC_EDITOR_TENANT_DIR", "./tenants"),
-		SessionTTL:    getenv("STATIC_EDITOR_SESSION_TTL", "12h"),
-		SecureCookies: getenvBool("STATIC_EDITOR_SECURE_COOKIES", true),
-		SMTPHost:      getenv("STATIC_EDITOR_SMTP_HOST", ""),
-		SMTPPort:      getenvInt("STATIC_EDITOR_SMTP_PORT", 587),
-		SMTPUsername:  getenv("STATIC_EDITOR_SMTP_USERNAME", ""),
-		SMTPPassword:  getenv("STATIC_EDITOR_SMTP_PASSWORD", ""),
-		SMTPFromEmail: getenv("STATIC_EDITOR_SMTP_FROM_EMAIL", ""),
-		SMTPFromName:  getenv("STATIC_EDITOR_SMTP_FROM_NAME", "Static Inline Editor"),
-		MagicLinkTTL:  getenv("STATIC_EDITOR_MAGIC_LINK_TTL", "15m"),
-		Tenants:       map[string]model.Tenant{},
+		Addr:               getenv("STATIC_EDITOR_ADDR", ":8090"),
+		DataDir:            getenv("STATIC_EDITOR_DATA_DIR", "./data"),
+		TenantDir:          getenv("STATIC_EDITOR_TENANT_DIR", "./tenants"),
+		SessionTTL:         getenv("STATIC_EDITOR_SESSION_TTL", "12h"),
+		SecureCookies:      getenvBool("STATIC_EDITOR_SECURE_COOKIES", true),
+		SMTPHost:           getenv("STATIC_EDITOR_SMTP_HOST", ""),
+		SMTPPort:           getenvInt("STATIC_EDITOR_SMTP_PORT", 587),
+		SMTPUsername:       getenv("STATIC_EDITOR_SMTP_USERNAME", ""),
+		SMTPPassword:       getenv("STATIC_EDITOR_SMTP_PASSWORD", ""),
+		SMTPFromEmail:      getenv("STATIC_EDITOR_SMTP_FROM_EMAIL", ""),
+		SMTPFromName:       getenv("STATIC_EDITOR_SMTP_FROM_NAME", "Static Inline Editor"),
+		MagicLinkTTL:       getenv("STATIC_EDITOR_MAGIC_LINK_TTL", "15m"),
+		ContentToolsCSSURL: getenv("STATIC_EDITOR_CONTENTTOOLS_CSS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.css"),
+		ContentToolsJSURL:  getenv("STATIC_EDITOR_CONTENTTOOLS_JS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.js"),
+		Tenants:            map[string]model.Tenant{},
 	}
 
 	tenants, err := loadTenantsFromDir(cfg.TenantDir)

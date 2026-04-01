@@ -16,6 +16,11 @@ import (
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/model"
 )
 
+const (
+	defaultContentToolsCSSURL = "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.css"
+	defaultContentToolsJSURL  = "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.js"
+)
+
 type App struct {
 	cfg    config.Config
 	mux    *http.ServeMux
@@ -24,6 +29,12 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
+	if strings.TrimSpace(cfg.ContentToolsCSSURL) == "" {
+		cfg.ContentToolsCSSURL = defaultContentToolsCSSURL
+	}
+	if strings.TrimSpace(cfg.ContentToolsJSURL) == "" {
+		cfg.ContentToolsJSURL = defaultContentToolsJSURL
+	}
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		log.Printf("static-inline-editor: create data dir %s: %v", cfg.DataDir, err)
 	}
@@ -334,7 +345,7 @@ func (a *App) handleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeHTML(w, http.StatusOK, renderEditPage(tenant, session, targetPath, prepared))
+	writeHTML(w, http.StatusOK, renderEditPage(tenant, session, targetPath, prepared, a.cfg.ContentToolsCSSURL, a.cfg.ContentToolsJSURL))
 }
 
 func (a *App) tenantForHost(host string) model.Tenant {
@@ -439,13 +450,14 @@ func resolveStaticPath(root, target string) (string, error) {
 	return fullPath, nil
 }
 
-func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string, prepared editor.PreparedDocument) string {
+func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string, prepared editor.PreparedDocument, contentToolsCSSURL, contentToolsJSURL string) string {
 	return fmt.Sprintf(`<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit %s</title>
+  <link rel="stylesheet" href="%s">
   <style>
     :root { --ink:#2d241d; --paper:#f7f0e6; --accent:#8a3c1a; --line:#d7c8b7; }
     * { box-sizing: border-box; }
@@ -459,6 +471,9 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     .canvas { max-width: 1100px; margin: 1rem auto 3rem; padding: 0 1rem 2rem; }
     .frame { background: white; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(84,56,28,0.08); }
     [data-editor-id] { outline: 2px dashed rgba(138,60,26,0.24); outline-offset: 0.16rem; }
+    [data-editable] { position: relative; }
+    [data-editable]::before { content: "Editable region"; position: absolute; top: 0.35rem; right: 0.5rem; font: 600 0.72rem/1 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #8a3c1a; background: rgba(255,247,239,0.92); border: 1px solid rgba(138,60,26,0.24); border-radius: 999px; padding: 0.28rem 0.5rem; }
+    .ct-app .ct-widget.ct-ignition { top: 5.6rem; left: 1rem; }
   </style>
 </head>
 <body>
@@ -480,6 +495,26 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
   <div class="canvas">
     <div class="frame">%s</div>
   </div>
+  <script src="%s"></script>
+  <script>
+    window.addEventListener('load', function () {
+      if (!window.ContentTools) {
+        console.warn('ContentTools konnte nicht geladen werden');
+        return;
+      }
+
+      var editor = ContentTools.EditorApp.get();
+      editor.init('[data-editable]', 'data-name');
+      editor.addEventListener('saved', function (ev) {
+        var regions = ev.detail().regions || {};
+        if (Object.keys(regions).length === 0) {
+          return;
+        }
+        new ContentTools.FlashUI('no');
+        window.alert('Preview und Speichern folgen im naechsten Schritt. Der Edit-Modus ist bereits aktiv.');
+      });
+    });
+  </script>
 </body>
-</html>`, htmlEscape(targetPath), htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs), prepared.HTML)
+</html>`, htmlEscape(targetPath), htmlEscape(contentToolsCSSURL), htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs), prepared.HTML, htmlEscape(contentToolsJSURL))
 }
