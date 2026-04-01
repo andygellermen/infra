@@ -225,6 +225,10 @@ func (a *App) handleVCard(w http.ResponseWriter, r *http.Request, route model.Ro
 		return
 	}
 
+	if entry.ImageURL == "" {
+		entry.ImageURL = gravatarURL(entry.Email)
+	}
+
 	if r.URL.Query().Get("download") == "vcf" {
 		filename := strings.ReplaceAll(strings.ToLower(entry.FullName), " ", "-")
 		w.Header().Set("Content-Type", "text/vcard; charset=utf-8")
@@ -354,6 +358,15 @@ func buildVCF(entry model.VCardEntry) string {
 		"END:VCARD",
 	}
 	return strings.Join(lines, "\r\n") + "\r\n"
+}
+
+func gravatarURL(email string) string {
+	address := strings.TrimSpace(strings.ToLower(email))
+	if address == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(address))
+	return "https://gravatar.com/avatar/" + hex.EncodeToString(sum[:])
 }
 
 func fallback(value, alt string) string {
