@@ -422,6 +422,16 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file saved but git commit failed", http.StatusInternalServerError)
 		return
 	}
+	pushed := false
+	pushTarget := ""
+	if a.cfg.GitPushOnSave {
+		pushTarget, err = gitops.Push(tenant.RepoRoot, a.cfg.GitRemoteName, a.cfg.GitBranch)
+		if err != nil {
+			http.Error(w, "file saved and committed, but git push failed", http.StatusInternalServerError)
+			return
+		}
+		pushed = true
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(model.SaveResponse{
@@ -429,6 +439,8 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		Message:    "Datei gespeichert",
 		BackupPath: backupPath,
 		CommitHash: commitHash,
+		Pushed:     pushed,
+		PushTarget: pushTarget,
 	})
 	_ = req
 }

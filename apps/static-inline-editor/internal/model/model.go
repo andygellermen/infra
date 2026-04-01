@@ -45,4 +45,6 @@ type SaveResponse struct {
 	Message    string `json:"message,omitempty"`
 	BackupPath string `json:"backup_path,omitempty"`
 	CommitHash string `json:"commit_hash,omitempty"`
+	Pushed     bool   `json:"pushed,omitempty"`
+	PushTarget string `json:"push_target,omitempty"`
 }

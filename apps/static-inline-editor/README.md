@@ -20,12 +20,13 @@ Aktuell enthalten:
 - Preview- und Save-Endpunkte
 - Backup vor dem Schreiben
 - Git-Commit nach erfolgreichem Save
+- optionaler Git-Push nach erfolgreichem Save
 - minimaler HTTP-Server
 - Healthcheck und Tenant-Debug-Endpunkt
 
 Noch nicht enthalten:
 
-- Push/Remote-Workflow
+- bewusst gesteuerter Push erst bei "Bearbeitung beenden"
 
 ## Lokales Testen
 
@@ -60,6 +61,8 @@ STATIC_EDITOR_SMTP_PASSWORD=replace-me \
 STATIC_EDITOR_SMTP_FROM_EMAIL=no-reply@example.org \
 STATIC_EDITOR_MAGIC_LINK_TTL=15m \
 STATIC_EDITOR_GIT_AUTHOR_NAME='Static Inline Editor' \
+STATIC_EDITOR_GIT_PUSH_ON_SAVE=true \
+STATIC_EDITOR_GIT_REMOTE=origin \
 STATIC_EDITOR_TENANT_DIR=./tenants \
 go run ./cmd/server
 ```
@@ -74,7 +77,7 @@ Dann pruefen:
 
 ## Naechste Schritte
 
-1. Push/Remote-Workflow nach erfolgreichem Commit
+1. optionaler "Bearbeitung beenden"-Knopf statt sofortigem Push
 2. Dateiliste oder Start-Dashboard fuer mehrere Seiten
 3. bessere Preview-Abnahme ohne Browser-Alert
 4. feinere Sanitization-Regeln fuer Links und Spezialfaelle

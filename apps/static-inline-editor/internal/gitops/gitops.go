@@ -42,6 +42,29 @@ func CommitFile(repoRoot, fullPath, authorName, authorEmail, message string) (st
 	return strings.TrimSpace(hash), nil
 }
 
+func Push(repoRoot, remoteName, branch string) (string, error) {
+	if strings.TrimSpace(repoRoot) == "" {
+		return "", nil
+	}
+	if strings.TrimSpace(remoteName) == "" {
+		remoteName = "origin"
+	}
+	if strings.TrimSpace(branch) == "" {
+		currentBranch, err := outputGit(repoRoot, "branch", "--show-current")
+		if err != nil {
+			return "", err
+		}
+		branch = strings.TrimSpace(currentBranch)
+	}
+	if branch == "" {
+		return "", fmt.Errorf("could not detect git branch for push")
+	}
+	if err := runGit(repoRoot, "push", remoteName, branch); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/%s", remoteName, branch), nil
+}
+
 func runGit(repoRoot string, args ...string) error {
 	return runGitWithEnv(repoRoot, nil, args...)
 }

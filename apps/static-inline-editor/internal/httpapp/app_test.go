@@ -160,6 +160,7 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	staticRoot := filepath.Join(baseDir, "static")
 	backupRoot := filepath.Join(baseDir, "backups")
 	repoRoot := filepath.Join(baseDir, "repo")
+	remoteRoot := filepath.Join(baseDir, "remote.git")
 	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
 		t.Fatalf("mkdir static root: %v", err)
 	}
@@ -169,9 +170,15 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
 		t.Fatalf("mkdir repo root: %v", err)
 	}
+	if out, err := exec.Command("git", "init", "--bare", remoteRoot).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v: %s", err, out)
+	}
 
 	if out, err := exec.Command("git", "-C", repoRoot, "init").CombinedOutput(); err != nil {
 		t.Fatalf("git init failed: %v: %s", err, out)
+	}
+	if out, err := exec.Command("git", "-C", repoRoot, "remote", "add", "origin", remoteRoot).CombinedOutput(); err != nil {
+		t.Fatalf("git remote add failed: %v: %s", err, out)
 	}
 
 	targetFile := filepath.Join(repoRoot, "index.html")
@@ -200,6 +207,8 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 		MagicLinkTTL:  "15m",
 		SecureCookies: false,
 		GitAuthorName: "Static Inline Editor",
+		GitPushOnSave: true,
+		GitRemoteName: "origin",
 		Tenants: map[string]model.Tenant{
 			"example.org": {
 				Domain:            "example.org",
@@ -291,6 +300,9 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	if strings.TrimSpace(saveResp.CommitHash) == "" {
 		t.Fatalf("expected commit hash in save response")
 	}
+	if !saveResp.Pushed || strings.TrimSpace(saveResp.PushTarget) == "" {
+		t.Fatalf("expected save response to report successful push")
+	}
 
 	updated, err := os.ReadFile(targetFile)
 	if err != nil {
@@ -308,5 +320,17 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	}
 	if !strings.Contains(string(logOut), "edit(example.org): /index.html by andy@example.org") {
 		t.Fatalf("expected git commit message to mention edited file, got %q", string(logOut))
+	}
+	branchOut, err := exec.Command("git", "-C", repoRoot, "branch", "--show-current").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git branch --show-current failed: %v: %s", err, branchOut)
+	}
+	branch := strings.TrimSpace(string(branchOut))
+	remoteHashOut, err := exec.Command("git", "--git-dir", remoteRoot, "rev-parse", "--verify", "refs/heads/"+branch).CombinedOutput()
+	if err != nil {
+		t.Fatalf("remote rev-parse failed: %v: %s", err, remoteHashOut)
+	}
+	if strings.TrimSpace(string(remoteHashOut)) != saveResp.CommitHash {
+		t.Fatalf("expected remote hash to match saved commit")
 	}
 }
