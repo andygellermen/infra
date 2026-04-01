@@ -1,0 +1,6 @@
+---
+- name: Deploy Static Inline Editor
+  hosts: all
+  become: true
+  roles:
+    - static-inline-editor

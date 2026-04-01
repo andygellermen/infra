@@ -1,0 +1,149 @@
+---
+- name: Collect static-inline-editor hostvars files
+  ansible.builtin.set_fact:
+    static_editor_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+
+- name: Build static-inline-editor sites list
+  ansible.builtin.set_fact:
+    static_editor_sites: "{{ (static_editor_sites | default([])) + [ static_editor_site_vars ] }}"
+  vars:
+    static_editor_site_vars: "{{ lookup('file', item) | from_yaml }}"
+  loop: "{{ static_editor_hostvar_files }}"
+  when: (lookup('file', item) | from_yaml).static_editor_enabled | default(false)
+
+- name: Default static-inline-editor sites list when empty
+  ansible.builtin.set_fact:
+    static_editor_sites: "{{ static_editor_sites | default([]) }}"
+
+- name: Ensure traefik docker network exists for static-inline-editor
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: static_editor_sites | length > 0
+
+- name: Ensure static-inline-editor base directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /srv/static-inline-editor
+    - /srv/static-inline-editor/data
+    - /srv/static-inline-editor/tenants
+  when: static_editor_sites | length > 0
+
+- name: Render shared static-inline-editor global env file
+  ansible.builtin.copy:
+    dest: "/srv/static-inline-editor/static-inline-editor.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      STATIC_EDITOR_ADDR=:8080
+      STATIC_EDITOR_DATA_DIR=/data
+      STATIC_EDITOR_TENANT_DIR=/config/tenants
+      STATIC_EDITOR_SESSION_TTL=12h
+      STATIC_EDITOR_MAGIC_LINK_TTL=15m
+      STATIC_EDITOR_GIT_AUTHOR_NAME={{ (static_editor_sites | map(attribute='static_editor_git_author_name') | list | first | default('Static Inline Editor', true)) }}
+      STATIC_EDITOR_GIT_PUSH_ON_SAVE={{ (static_editor_sites | map(attribute='static_editor_git_push_on_save') | list | first | default(false, true)) | ternary('true', 'false') }}
+      STATIC_EDITOR_GIT_REMOTE={{ (static_editor_sites | map(attribute='static_editor_git_remote') | list | first | default('origin', true)) }}
+      STATIC_EDITOR_GIT_BRANCH={{ (static_editor_sites | map(attribute='static_editor_git_branch') | list | first | default('', true)) }}
+      STATIC_EDITOR_SMTP_HOST={{ (static_editor_sites | map(attribute='static_editor_smtp_host') | list | first | default('', true)) }}
+      STATIC_EDITOR_SMTP_PORT={{ (static_editor_sites | map(attribute='static_editor_smtp_port') | list | first | default(587, true)) }}
+      STATIC_EDITOR_SMTP_USERNAME={{ (static_editor_sites | map(attribute='static_editor_smtp_username') | list | first | default('', true)) }}
+      STATIC_EDITOR_SMTP_PASSWORD={{ (static_editor_sites | map(attribute='static_editor_smtp_password') | list | first | default('', true)) }}
+      STATIC_EDITOR_SMTP_FROM_EMAIL={{ (static_editor_sites | map(attribute='static_editor_smtp_from_email') | list | first | default('', true)) }}
+      STATIC_EDITOR_SMTP_FROM_NAME={{ (static_editor_sites | map(attribute='static_editor_smtp_from_name') | list | first | default('Static Inline Editor', true)) }}
+  when: static_editor_sites | length > 0
+
+- name: Render per-tenant static-inline-editor env files
+  ansible.builtin.copy:
+    dest: "/srv/static-inline-editor/tenants/{{ item.domain }}.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      STATIC_EDITOR_TENANT={{ item.domain }}
+      STATIC_EDITOR_LOGIN_DOMAIN={{ item.static_editor_login_domain | default('bearbeitung.' ~ item.domain, true) }}
+      STATIC_EDITOR_ALIASES={{ (item.static_editor_aliases | default([], true)) | join(',') }}
+      STATIC_EDITOR_STATIC_ROOT={{ item.static_editor_static_root | default('/srv/static/' ~ item.domain, true) }}
+      STATIC_EDITOR_BACKUP_ROOT={{ item.static_editor_backup_root | default('/srv/static-backups/' ~ item.domain, true) }}
+      STATIC_EDITOR_REPO_ROOT={{ item.static_editor_repo_root | default('/srv/static/' ~ item.domain, true) }}
+      STATIC_EDITOR_ALLOWED_EMAILS={{ (item.static_editor_allowed_emails | default([], true)) | join(',') }}
+      STATIC_EDITOR_COOKIE_SECRET={{ item.static_editor_cookie_secret | default('change-me', true) }}
+      STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main', true) }}
+      STATIC_EDITOR_ALLOWED_BLOCK_TAGS={{ item.static_editor_allowed_block_tags | default('h1,h2,h3,h4,h5,p,ul,ol,li', true) }}
+      STATIC_EDITOR_ALLOWED_INLINE_TAGS={{ item.static_editor_allowed_inline_tags | default('strong,em,a,br', true) }}
+      STATIC_EDITOR_START_PATH={{ item.static_editor_start_path | default('/index.html', true) }}
+  loop: "{{ static_editor_sites }}"
+  when: static_editor_sites | length > 0
+
+- name: Initialize static-inline-editor Traefik labels
+  ansible.builtin.set_fact:
+    static_editor_labels:
+      traefik.enable: "true"
+      traefik.docker.network: "traefik"
+      traefik.http.services.static-inline-editor.loadbalancer.server.port: "8080"
+  when: static_editor_sites | length > 0
+
+- name: Build per-domain Traefik labels for static-inline-editor
+  ansible.builtin.set_fact:
+    static_editor_labels: "{{ static_editor_labels | combine(static_editor_site_labels) }}"
+  vars:
+    router_name: "static-inline-editor-{{ item.domain | replace('.', '-') }}"
+    login_domain: "{{ item.static_editor_login_domain | default('bearbeitung.' ~ item.domain, true) }}"
+    editor_aliases: "{{ (item.static_editor_aliases | default([], true)) | unique }}"
+    primary_rule: "Host(`{{ login_domain }}`)"
+    alias_rule: "{{ editor_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+    static_editor_site_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ router_name ~ '.rule'): primary_rule,
+          ('traefik.http.routers.' ~ router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ router_name ~ '.service'): 'static-inline-editor',
+          ('traefik.http.routers.' ~ router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ router_name ~ '-web.rule'): primary_rule,
+          ('traefik.http.middlewares.' ~ router_name ~ '-https.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ router_name ~ '-https.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ router_name ~ '-web.middlewares'): router_name ~ '-https'
+        }
+        | combine(
+            {
+              ('traefik.http.routers.' ~ router_name ~ '-alias.entrypoints'): 'websecure',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls'): 'true',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.tls.certresolver'): 'letsEncrypt',
+              ('traefik.http.routers.' ~ router_name ~ '-alias.service'): 'static-inline-editor',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.entrypoints'): 'web',
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.rule'): alias_rule,
+              ('traefik.http.routers.' ~ router_name ~ '-alias-web.middlewares'): router_name ~ '-https'
+            }
+            if (editor_aliases | length > 0)
+            else {}
+          )
+      }}
+  loop: "{{ static_editor_sites }}"
+  when: static_editor_sites | length > 0
+
+- name: Deploy shared static-inline-editor container
+  community.docker.docker_container:
+    name: static-inline-editor
+    image: "static-inline-editor:latest"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    volumes:
+      - /srv/static-inline-editor/data:/data
+      - /srv/static-inline-editor:/config:ro
+      - /srv/static:/srv/static
+      - /srv/static-backups:/srv/static-backups
+    env_file: /srv/static-inline-editor/static-inline-editor.env
+    labels: "{{ static_editor_labels }}"
+    state: started
+  when: static_editor_sites | length > 0

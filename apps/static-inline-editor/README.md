@@ -75,6 +75,32 @@ Dann pruefen:
 - `curl -H 'Host: bearbeitung.example.org' -X POST http://localhost:8090/auth/request-link -d 'email=andy@example.org'`
 - nach erfolgreichem Magic-Link: `http://localhost:8090/edit?path=/index.html`
 
+## Betriebsgeruest
+
+Neu vorbereitet sind ausserdem:
+
+- Dockerfile fuer `static-inline-editor:latest`
+- Ansible-Playbook `ansible/playbooks/deploy-static-inline-editor.yml`
+- Ansible-Rolle `ansible/playbooks/roles/static-inline-editor/tasks/main.yml`
+- Hostvars-Vorlage `ansible/hostvars/templates/static-inline-editor-hostvars.j2`
+- Helferskript `scripts/staticeditor-print-hostvars.sh`
+- Redeploy-Skript `scripts/staticeditor-redeploy.sh`
+
+Fuer bestehende statische Domains ist der einfachste Weg:
+
+1. Hostvars-Block erzeugen:
+   `./scripts/staticeditor-print-hostvars.sh example.org andy@example.org`
+2. Den ausgegebenen Block in `ansible/hostvars/example.org.yml` uebernehmen.
+3. Danach das gemeinsame Editor-Image deployen:
+   `./scripts/staticeditor-redeploy.sh example.org`
+
+Wichtig:
+
+- `static_editor_login_domain` sollte auf die Bearbeitungsdomain zeigen, zum Beispiel `bearbeitung.example.org`
+- `static_editor_repo_root` sollte auf das Git-Repo der statischen Seite zeigen
+- `static_editor_static_root` und `static_editor_repo_root` duerfen identisch sein
+- fuer Bitbucket reicht im ersten Schritt ein konfiguriertes `origin`-Remote im Repo
+
 ## Naechste Schritte
 
 1. optionaler "Bearbeitung beenden"-Knopf statt sofortigem Push
