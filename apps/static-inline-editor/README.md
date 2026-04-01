@@ -16,13 +16,15 @@ Aktuell enthalten:
 - Session-Cookie
 - einfache Login- und Startseite
 - erster Edit-Endpunkt mit HTML-Markierung
+- ContentTools nur im geschuetzten Edit-Fall
+- Preview- und Save-Endpunkte
+- Backup vor dem Schreiben
 - minimaler HTTP-Server
 - Healthcheck und Tenant-Debug-Endpunkt
 
 Noch nicht enthalten:
 
-- Preview und Save
-- Backup und Git-Commit
+- Git-Commit
 
 ## Lokales Testen
 
@@ -70,8 +72,8 @@ Dann pruefen:
 
 ## Naechste Schritte
 
-1. ContentTools im Edit-Modus nur nach Session laden
-2. Preview- und Save-Endpunkte
-3. Backup vor dem Schreiben
-4. Git-Workflow nach erfolgreichem Save
-5. Dateiliste oder Start-Dashboard fuer mehrere Seiten
+1. Git-Workflow nach erfolgreichem Save
+2. Dateiliste oder Start-Dashboard fuer mehrere Seiten
+3. bessere Preview-Abnahme ohne Browser-Alert
+4. feinere Sanitization-Regeln fuer Links und Spezialfaelle
+5. Rollback aus vorhandenen Backups

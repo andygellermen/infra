@@ -23,3 +23,25 @@ type MagicLinkRequestResult struct {
 	OK      bool   `json:"ok"`
 	Message string `json:"message"`
 }
+
+type PreviewRequest struct {
+	Path    string            `json:"path"`
+	Regions map[string]string `json:"regions"`
+}
+
+type PreviewResponse struct {
+	OK          bool   `json:"ok"`
+	Message     string `json:"message,omitempty"`
+	PreviewHTML string `json:"preview_html,omitempty"`
+}
+
+type SaveRequest struct {
+	Path    string            `json:"path"`
+	Regions map[string]string `json:"regions"`
+}
+
+type SaveResponse struct {
+	OK         bool   `json:"ok"`
+	Message    string `json:"message,omitempty"`
+	BackupPath string `json:"backup_path,omitempty"`
+}

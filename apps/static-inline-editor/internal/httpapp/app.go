@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/auth"
 	"github.com/andygellermann/infra/apps/static-inline-editor/internal/config"
@@ -61,6 +62,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/auth/verify", a.handleVerify)
 	a.mux.HandleFunc("/auth/logout", a.handleLogout)
 	a.mux.HandleFunc("/edit", a.handleEdit)
+	a.mux.HandleFunc("/preview", a.handlePreview)
+	a.mux.HandleFunc("/save", a.handleSave)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -348,6 +351,81 @@ func (a *App) handleEdit(w http.ResponseWriter, r *http.Request) {
 	writeHTML(w, http.StatusOK, renderEditPage(tenant, session, targetPath, prepared, a.cfg.ContentToolsCSSURL, a.cfg.ContentToolsJSURL))
 }
 
+func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tenant, session, ok := a.requireTenantSession(w, r)
+	if !ok {
+		return
+	}
+	_ = session
+
+	req, path, _, source, regionHTML, ok := a.loadEditableRequest(w, r, tenant)
+	if !ok {
+		return
+	}
+
+	updatedHTML, err := editor.ApplyRegionHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regionHTML)
+	if err != nil {
+		http.Error(w, "could not build preview", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(model.PreviewResponse{
+		OK:          true,
+		Message:     "Preview erstellt",
+		PreviewHTML: updatedHTML,
+	})
+	_ = req
+	_ = path
+}
+
+func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tenant, session, ok := a.requireTenantSession(w, r)
+	if !ok {
+		return
+	}
+	_ = session
+
+	req, path, fullPath, source, regionHTML, ok := a.loadEditableRequest(w, r, tenant)
+	if !ok {
+		return
+	}
+
+	updatedHTML, err := editor.ApplyRegionHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regionHTML)
+	if err != nil {
+		http.Error(w, "could not save document", http.StatusBadRequest)
+		return
+	}
+
+	backupPath, err := backupFile(tenant.BackupRoot, path, []byte(source))
+	if err != nil {
+		http.Error(w, "could not create backup", http.StatusInternalServerError)
+		return
+	}
+	if err := writeFileAtomically(fullPath, []byte(updatedHTML), 0o644); err != nil {
+		http.Error(w, "could not write updated file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(model.SaveResponse{
+		OK:         true,
+		Message:    "Datei gespeichert",
+		BackupPath: backupPath,
+	})
+	_ = req
+}
+
 func (a *App) tenantForHost(host string) model.Tenant {
 	host = stripPort(host)
 	for _, domain := range a.cfg.SortedTenantDomains() {
@@ -470,6 +548,10 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     .hint { max-width: 1100px; margin: 1rem auto 0; padding: 0 1rem; color: #64584c; }
     .canvas { max-width: 1100px; margin: 1rem auto 3rem; padding: 0 1rem 2rem; }
     .frame { background: white; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(84,56,28,0.08); }
+    .preview { position: fixed; right: 1rem; bottom: 1rem; width: min(46rem, calc(100vw - 2rem)); max-height: 70vh; display: none; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fffdf8; box-shadow: 0 22px 48px rgba(46,36,29,0.18); z-index: 30; }
+    .preview.is-open { display: flex; }
+    .preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--line); background: #fbf3e8; }
+    .preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
     [data-editor-id] { outline: 2px dashed rgba(138,60,26,0.24); outline-offset: 0.16rem; }
     [data-editable] { position: relative; }
     [data-editable]::before { content: "Editable region"; position: absolute; top: 0.35rem; right: 0.5rem; font: 600 0.72rem/1 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #8a3c1a; background: rgba(255,247,239,0.92); border: 1px solid rgba(138,60,26,0.24); border-radius: 999px; padding: 0.28rem 0.5rem; }
@@ -484,6 +566,8 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     </div>
     <div class="actions">
       <a href="/">Start</a>
+      <button type="button" id="preview-close" hidden>Vorschau schliessen</button>
+      <button type="button" id="save-button" hidden>Speichern</button>
       <form method="post" action="/auth/logout" style="margin:0">
         <button type="submit">Abmelden</button>
       </form>
@@ -495,6 +579,13 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
   <div class="canvas">
     <div class="frame">%s</div>
   </div>
+  <div class="preview" id="preview-panel" aria-live="polite">
+    <div class="preview-head">
+      <strong>Vorschau</strong>
+      <span id="preview-status">Noch keine Vorschau erzeugt.</span>
+    </div>
+    <iframe id="preview-frame" class="preview-frame" title="Preview"></iframe>
+  </div>
   <script src="%s"></script>
   <script>
     window.addEventListener('load', function () {
@@ -503,6 +594,13 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
         return;
       }
 
+      var editPath = %q;
+      var previewPanel = document.getElementById('preview-panel');
+      var previewFrame = document.getElementById('preview-frame');
+      var previewStatus = document.getElementById('preview-status');
+      var closeButton = document.getElementById('preview-close');
+      var saveButton = document.getElementById('save-button');
+      var latestRegions = null;
       var editor = ContentTools.EditorApp.get();
       editor.init('[data-editable]', 'data-name');
       editor.addEventListener('saved', function (ev) {
@@ -510,11 +608,152 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
         if (Object.keys(regions).length === 0) {
           return;
         }
-        new ContentTools.FlashUI('no');
-        window.alert('Preview und Speichern folgen im naechsten Schritt. Der Edit-Modus ist bereits aktiv.');
+        latestRegions = regions;
+        fetch('/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ path: editPath, regions: regions })
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('Preview fehlgeschlagen');
+            }
+            return response.json();
+          })
+          .then(function (payload) {
+            previewPanel.classList.add('is-open');
+            closeButton.hidden = false;
+            saveButton.hidden = false;
+            previewStatus.textContent = payload.message || 'Preview erstellt';
+            previewFrame.srcdoc = payload.preview_html || '';
+            new ContentTools.FlashUI('ok');
+          })
+          .catch(function (error) {
+            console.error(error);
+            previewStatus.textContent = 'Preview fehlgeschlagen';
+            new ContentTools.FlashUI('no');
+          });
+      });
+
+      closeButton.addEventListener('click', function () {
+        previewPanel.classList.remove('is-open');
+        closeButton.hidden = true;
+        saveButton.hidden = true;
+      });
+
+      saveButton.addEventListener('click', function () {
+        if (!latestRegions) {
+          window.alert('Bitte zuerst ueber den ContentTools-Save-Button eine Vorschau erzeugen.');
+          return;
+        }
+        fetch('/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ path: editPath, regions: latestRegions })
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('Speichern fehlgeschlagen');
+            }
+            return response.json();
+          })
+          .then(function (payload) {
+            previewStatus.textContent = payload.message || 'Datei gespeichert';
+            new ContentTools.FlashUI('ok');
+            window.alert('Gespeichert. Backup: ' + (payload.backup_path || 'angelegt'));
+          })
+          .catch(function (error) {
+            console.error(error);
+            previewStatus.textContent = 'Speichern fehlgeschlagen';
+            new ContentTools.FlashUI('no');
+          });
       });
     });
   </script>
 </body>
-</html>`, htmlEscape(targetPath), htmlEscape(contentToolsCSSURL), htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs), prepared.HTML, htmlEscape(contentToolsJSURL))
+</html>`, htmlEscape(targetPath), htmlEscape(contentToolsCSSURL), htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs), prepared.HTML, htmlEscape(contentToolsJSURL), targetPath)
+}
+
+func (a *App) requireTenantSession(w http.ResponseWriter, r *http.Request) (model.Tenant, auth.Session, bool) {
+	tenant := a.tenantForHost(r.Host)
+	if tenant.Domain == "" {
+		http.Error(w, "unknown tenant host", http.StatusNotFound)
+		return model.Tenant{}, auth.Session{}, false
+	}
+
+	session, ok := a.currentSession(r)
+	if !ok || session.Tenant != tenant.Domain {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return model.Tenant{}, auth.Session{}, false
+	}
+
+	return tenant, session, true
+}
+
+func (a *App) loadEditableRequest(w http.ResponseWriter, r *http.Request, tenant model.Tenant) (model.PreviewRequest, string, string, string, string, bool) {
+	var req model.PreviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return model.PreviewRequest{}, "", "", "", "", false
+	}
+
+	targetPath := strings.TrimSpace(req.Path)
+	if targetPath == "" {
+		targetPath = tenant.StartPath
+	}
+	fullPath, err := resolveStaticPath(tenant.StaticRoot, targetPath)
+	if err != nil {
+		http.Error(w, "invalid edit path", http.StatusBadRequest)
+		return model.PreviewRequest{}, "", "", "", "", false
+	}
+
+	sourceBytes, err := os.ReadFile(fullPath)
+	if err != nil {
+		http.Error(w, "could not read html file", http.StatusNotFound)
+		return model.PreviewRequest{}, "", "", "", "", false
+	}
+
+	regionHTML, ok := req.Regions["main-content"]
+	if !ok {
+		http.Error(w, "missing editable region", http.StatusBadRequest)
+		return model.PreviewRequest{}, "", "", "", "", false
+	}
+
+	return req, targetPath, fullPath, string(sourceBytes), regionHTML, true
+}
+
+func backupFile(backupRoot, targetPath string, content []byte) (string, error) {
+	if strings.TrimSpace(backupRoot) == "" {
+		return "", fmt.Errorf("empty backup root")
+	}
+	if err := os.MkdirAll(backupRoot, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir backup root: %w", err)
+	}
+
+	base := strings.Trim(strings.ReplaceAll(targetPath, "/", "_"), "_")
+	if base == "" {
+		base = "index.html"
+	}
+	filename := fmt.Sprintf("%s_%s", time.Now().UTC().Format("2006-01-02T15-04-05"), base)
+	fullPath := filepath.Join(backupRoot, filename)
+	if err := os.WriteFile(fullPath, content, 0o644); err != nil {
+		return "", fmt.Errorf("write backup file: %w", err)
+	}
+	return fullPath, nil
+}
+
+func writeFileAtomically(path string, content []byte, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("mkdir target dir: %w", err)
+	}
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, content, mode); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("rename temp file: %w", err)
+	}
+	return nil
 }

@@ -1,6 +1,8 @@
 package httpapp
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -145,5 +147,128 @@ func TestEditRequiresSessionAndMarksDocument(t *testing.T) {
 	}
 	if !strings.Contains(body, "Edit-Modus") {
 		t.Fatalf("expected edit chrome in response")
+	}
+}
+
+func TestPreviewAndSaveFlow(t *testing.T) {
+	baseDir := t.TempDir()
+	staticRoot := filepath.Join(baseDir, "static")
+	backupRoot := filepath.Join(baseDir, "backups")
+	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
+		t.Fatalf("mkdir static root: %v", err)
+	}
+	if err := os.MkdirAll(backupRoot, 0o755); err != nil {
+		t.Fatalf("mkdir backup root: %v", err)
+	}
+
+	targetFile := filepath.Join(staticRoot, "index.html")
+	originalHTML := `<!doctype html><html><body><main><h1>Hallo</h1><p>Welt</p></main></body></html>`
+	if err := os.WriteFile(targetFile, []byte(originalHTML), 0o644); err != nil {
+		t.Fatalf("write html fixture: %v", err)
+	}
+
+	cfg := config.Config{
+		Addr:          ":8090",
+		DataDir:       filepath.Join(baseDir, "data"),
+		SessionTTL:    "12h",
+		MagicLinkTTL:  "15m",
+		SecureCookies: false,
+		Tenants: map[string]model.Tenant{
+			"example.org": {
+				Domain:            "example.org",
+				LoginDomain:       "bearbeitung.example.org",
+				AllowedEmails:     []string{"andy@example.org"},
+				StartPath:         "/index.html",
+				StaticRoot:        staticRoot,
+				BackupRoot:        backupRoot,
+				MainSelector:      "main",
+				AllowedBlockTags:  []string{"h1", "p", "ul", "ol", "li"},
+				AllowedInlineTags: []string{"strong", "em", "a", "br"},
+			},
+		},
+	}
+
+	app := New(cfg)
+	mailer := &fakeMailer{}
+	app.mailer = mailer
+
+	loginReq := httptest.NewRequest(http.MethodPost, "http://bearbeitung.example.org/auth/request-link", strings.NewReader(url.Values{
+		"email": []string{"andy@example.org"},
+	}.Encode()))
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginReq.Header.Set("Host", "bearbeitung.example.org")
+	loginRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(loginRec, loginReq)
+
+	verifyReq := httptest.NewRequest(http.MethodGet, mailer.url, nil)
+	verifyReq.Host = "bearbeitung.example.org"
+	verifyRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(verifyRec, verifyReq)
+	sessionCookie := verifyRec.Result().Cookies()[0]
+
+	payload := model.PreviewRequest{
+		Path: "/index.html",
+		Regions: map[string]string{
+			"main-content": `<h1>Neu</h1><p>Hallo <strong>Welt</strong></p>`,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal preview payload: %v", err)
+	}
+
+	previewReq := httptest.NewRequest(http.MethodPost, "http://bearbeitung.example.org/preview", bytes.NewReader(body))
+	previewReq.Header.Set("Content-Type", "application/json")
+	previewReq.Header.Set("Host", "bearbeitung.example.org")
+	previewReq.AddCookie(sessionCookie)
+	previewRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(previewRec, previewReq)
+
+	if previewRec.Code != http.StatusOK {
+		t.Fatalf("expected preview to return 200, got %d", previewRec.Code)
+	}
+	var previewResp model.PreviewResponse
+	if err := json.Unmarshal(previewRec.Body.Bytes(), &previewResp); err != nil {
+		t.Fatalf("decode preview response: %v", err)
+	}
+	if !previewResp.OK || !strings.Contains(previewResp.PreviewHTML, "<h1>Neu</h1>") {
+		t.Fatalf("expected preview html to contain updated content")
+	}
+
+	current, err := os.ReadFile(targetFile)
+	if err != nil {
+		t.Fatalf("read target file: %v", err)
+	}
+	if string(current) != originalHTML {
+		t.Fatalf("preview must not write file before save")
+	}
+
+	saveReq := httptest.NewRequest(http.MethodPost, "http://bearbeitung.example.org/save", bytes.NewReader(body))
+	saveReq.Header.Set("Content-Type", "application/json")
+	saveReq.Header.Set("Host", "bearbeitung.example.org")
+	saveReq.AddCookie(sessionCookie)
+	saveRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(saveRec, saveReq)
+
+	if saveRec.Code != http.StatusOK {
+		t.Fatalf("expected save to return 200, got %d", saveRec.Code)
+	}
+	var saveResp model.SaveResponse
+	if err := json.Unmarshal(saveRec.Body.Bytes(), &saveResp); err != nil {
+		t.Fatalf("decode save response: %v", err)
+	}
+	if !saveResp.OK || saveResp.BackupPath == "" {
+		t.Fatalf("expected backup path in save response")
+	}
+
+	updated, err := os.ReadFile(targetFile)
+	if err != nil {
+		t.Fatalf("read updated target file: %v", err)
+	}
+	if !strings.Contains(string(updated), "<h1>Neu</h1>") {
+		t.Fatalf("expected saved file to contain updated content")
+	}
+	if _, err := os.Stat(saveResp.BackupPath); err != nil {
+		t.Fatalf("expected backup file to exist: %v", err)
 	}
 }
