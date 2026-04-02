@@ -8,13 +8,13 @@
  * 4. Set the script properties:
  *    - SHEET_HELPER_SYNC_URL
  *    - SHEET_HELPER_SYNC_TOKEN
- * 5. Create an installable trigger for onEdit or call manualSync() manually.
+ * 5. Create an installable trigger for onEdit or onChange, or call manualSync() manually.
  *
  * This script is intentionally simple and aimed at unsensitive content only.
  */
 
 function onEdit(e) {
-  if (!e) {
+  if (!e || !e.range || typeof e.range.getSheet !== 'function') {
     return;
   }
 
@@ -30,6 +30,27 @@ function onEdit(e) {
     sheetName: sheetName,
     a1Notation: e.range.getA1Notation()
   });
+}
+
+function onChange(e) {
+  var spreadsheet = e && e.source ? e.source : SpreadsheetApp.getActiveSpreadsheet();
+  var activeSheet = spreadsheet && typeof spreadsheet.getActiveSheet === 'function'
+    ? spreadsheet.getActiveSheet()
+    : null;
+
+  var details = {
+    changeType: e && e.changeType ? e.changeType : 'UNKNOWN'
+  };
+
+  if (activeSheet && typeof activeSheet.getName === 'function') {
+    var sheetName = activeSheet.getName();
+    if (sheetName === '_meta' || sheetName === '_stats') {
+      return;
+    }
+    details.sheetName = sheetName;
+  }
+
+  triggerSheetHelperSync_('onChange', details);
 }
 
 function manualSync() {

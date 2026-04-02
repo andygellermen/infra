@@ -25,6 +25,7 @@ SHEET_HELPER_SYNC_TOKEN=s0123456789abcdef0123456789abcdef0123456789abcdef0123456
 Fuer den Start reicht:
 
 - installierbarer `On edit`-Trigger fuer `onEdit`
+- optional installierbarer `On change`-Trigger fuer `onChange`
 - zusaetzlich taeglicher Vollsync serverseitig
 
 Hinweis:
@@ -32,3 +33,4 @@ Hinweis:
 - Der Trigger selbst ist nur ein Signalgeber.
 - Die eigentliche Logik fuer Authentifizierung, Sync und Normalisierung lebt in der Go-App.
 - Der Sync-Token wird als erster URL-Pfad verwendet, zum Beispiel `https://geller.men/<token>`.
+- `onEdit` darf nicht mit dem Trigger-Typ `change` verdrahtet werden, sonst fehlt `e.range`.
