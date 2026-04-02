@@ -2,6 +2,7 @@ package httpapp
 
 const baseStyles = `
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Narrow:wght@400;500;600;700&display=swap');
   :root {
     color-scheme: light;
     --bg: #f4efe7;
@@ -14,7 +15,7 @@ const baseStyles = `
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-family: "Roboto Narrow", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: var(--ink);
     background:
       radial-gradient(circle at top left, rgba(179,92,46,0.10), transparent 32%),
@@ -45,6 +46,8 @@ const baseStyles = `
     padding: 0.8rem 1.1rem;
     text-decoration: none;
     cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
   }
   input {
     width: 100%;
@@ -60,6 +63,20 @@ const baseStyles = `
     border-radius: 14px;
     padding: 1rem;
     overflow-x: auto;
+  }
+  .text-shell {
+    position: relative;
+  }
+  .text-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.75rem;
+  }
+  .text-code {
+    font-family: "Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.65;
   }
   ul {
     list-style: none;
@@ -134,10 +151,33 @@ const textPageTemplate = `<!doctype html>
       <div class="pill">Text</div>
       <h1>{{ .Title }}</h1>
       <p class="muted">{{ .Description }}</p>
-      <pre>{{ .Content }}</pre>
+      <div class="text-shell">
+        <div class="text-actions">
+          <button type="button" id="copy-button">Kopieren</button>
+        </div>
+        <pre id="text-content" class="text-code">{{ .Content }}</pre>
+      </div>
       <p class="muted">{{ .CopyHint }}</p>
     </section>
   </main>
+  <script>
+    (function () {
+      var button = document.getElementById('copy-button');
+      var text = document.getElementById('text-content');
+      if (!button || !text || !navigator.clipboard) {
+        return;
+      }
+      var originalLabel = button.textContent;
+      button.addEventListener('click', function () {
+        navigator.clipboard.writeText(text.textContent || '').then(function () {
+          button.textContent = 'Kopiert';
+          window.setTimeout(function () {
+            button.textContent = originalLabel;
+          }, 1600);
+        });
+      });
+    }());
+  </script>
 </body>
 </html>`
 
