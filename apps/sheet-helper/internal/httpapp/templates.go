@@ -164,17 +164,45 @@ const textPageTemplate = `<!doctype html>
     (function () {
       var button = document.getElementById('copy-button');
       var text = document.getElementById('text-content');
-      if (!button || !text || !navigator.clipboard) {
+      if (!button || !text) {
         return;
       }
       var originalLabel = button.textContent;
+      function showCopied() {
+        button.textContent = 'Kopiert';
+        window.setTimeout(function () {
+          button.textContent = originalLabel;
+        }, 1600);
+      }
+      function fallbackCopy() {
+        var range = document.createRange();
+        range.selectNodeContents(text);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        var ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (err) {
+          ok = false;
+        }
+        selection.removeAllRanges();
+        return ok;
+      }
       button.addEventListener('click', function () {
-        navigator.clipboard.writeText(text.textContent || '').then(function () {
-          button.textContent = 'Kopiert';
-          window.setTimeout(function () {
-            button.textContent = originalLabel;
-          }, 1600);
-        });
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(text.textContent || '').then(function () {
+            showCopied();
+          }).catch(function () {
+            if (fallbackCopy()) {
+              showCopied();
+            }
+          });
+          return;
+        }
+        if (fallbackCopy()) {
+          showCopied();
+        }
       });
     }());
   </script>
