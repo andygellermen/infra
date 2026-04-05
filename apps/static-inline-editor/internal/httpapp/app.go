@@ -417,7 +417,7 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not write updated file", http.StatusInternalServerError)
 		return
 	}
-	commitHash, err := gitops.CommitFile(tenant.RepoRoot, fullPath, a.cfg.GitAuthorName, session.Email, gitCommitMessage(tenant.Domain, path, session.Email))
+	commitHash, err := gitops.CommitFile(tenant.RepoRoot, fullPath, a.cfg.GitAuthorName, a.gitAuthorEmail(session.Email), gitCommitMessage(tenant.Domain, path, session.Email))
 	if err != nil {
 		http.Error(w, "file saved but git commit failed", http.StatusInternalServerError)
 		return
@@ -425,7 +425,10 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 	pushed := false
 	pushTarget := ""
 	if a.cfg.GitPushOnSave {
-		pushTarget, err = gitops.Push(tenant.RepoRoot, a.cfg.GitRemoteName, a.cfg.GitBranch)
+		pushTarget, err = gitops.Push(tenant.RepoRoot, a.cfg.GitRemoteName, a.cfg.GitBranch, gitops.PushAuth{
+			HTTPUsername: a.cfg.GitHTTPUsername,
+			HTTPPassword: a.cfg.GitHTTPPassword,
+		})
 		if err != nil {
 			http.Error(w, "file saved and committed, but git push failed", http.StatusInternalServerError)
 			return
@@ -521,6 +524,13 @@ func htmlEscape(value string) string {
 		"'", "&#39;",
 	)
 	return replacer.Replace(value)
+}
+
+func (a *App) gitAuthorEmail(sessionEmail string) string {
+	if configured := strings.TrimSpace(a.cfg.GitAuthorEmail); configured != "" {
+		return configured
+	}
+	return sessionEmail
 }
 
 func resolveStaticPath(root, target string) (string, error) {

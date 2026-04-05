@@ -2,11 +2,17 @@ package gitops
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
+
+type PushAuth struct {
+	HTTPUsername string
+	HTTPPassword string
+}
 
 func CommitFile(repoRoot, fullPath, authorName, authorEmail, message string) (string, error) {
 	if strings.TrimSpace(repoRoot) == "" {
@@ -42,7 +48,7 @@ func CommitFile(repoRoot, fullPath, authorName, authorEmail, message string) (st
 	return strings.TrimSpace(hash), nil
 }
 
-func Push(repoRoot, remoteName, branch string) (string, error) {
+func Push(repoRoot, remoteName, branch string, auth PushAuth) (string, error) {
 	if strings.TrimSpace(repoRoot) == "" {
 		return "", nil
 	}
@@ -59,18 +65,29 @@ func Push(repoRoot, remoteName, branch string) (string, error) {
 	if branch == "" {
 		return "", fmt.Errorf("could not detect git branch for push")
 	}
-	if err := runGit(repoRoot, "push", remoteName, branch); err != nil {
+	if err := runGitWithAuth(repoRoot, auth, "push", remoteName, branch); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s/%s", remoteName, branch), nil
 }
 
 func runGit(repoRoot string, args ...string) error {
-	return runGitWithEnv(repoRoot, nil, args...)
+	return runGitWithOptions(repoRoot, nil, nil, args...)
+}
+
+func runGitWithAuth(repoRoot string, auth PushAuth, args ...string) error {
+	return runGitWithOptions(repoRoot, gitAuthConfigArgs(auth), nil, args...)
 }
 
 func runGitWithEnv(repoRoot string, env []string, args ...string) error {
-	cmd := exec.Command("git", append([]string{"-C", repoRoot}, args...)...)
+	return runGitWithOptions(repoRoot, nil, env, args...)
+}
+
+func runGitWithOptions(repoRoot string, configArgs, env []string, args ...string) error {
+	cmdArgs := []string{"-C", repoRoot}
+	cmdArgs = append(cmdArgs, configArgs...)
+	cmdArgs = append(cmdArgs, args...)
+	cmd := exec.Command("git", cmdArgs...)
 	if len(env) > 0 {
 		cmd.Env = append(cmd.Environ(), env...)
 	}
@@ -92,4 +109,15 @@ func outputGit(repoRoot string, args ...string) (string, error) {
 		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
 	return stdout.String(), nil
+}
+
+func gitAuthConfigArgs(auth PushAuth) []string {
+	username := strings.TrimSpace(auth.HTTPUsername)
+	password := strings.TrimSpace(auth.HTTPPassword)
+	if username == "" || password == "" {
+		return nil
+	}
+
+	token := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+	return []string{"-c", "http.extraHeader=Authorization: Basic " + token}
 }

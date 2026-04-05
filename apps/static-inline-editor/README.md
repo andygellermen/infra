@@ -61,8 +61,11 @@ STATIC_EDITOR_SMTP_PASSWORD=replace-me \
 STATIC_EDITOR_SMTP_FROM_EMAIL=no-reply@example.org \
 STATIC_EDITOR_MAGIC_LINK_TTL=15m \
 STATIC_EDITOR_GIT_AUTHOR_NAME='Static Inline Editor' \
+STATIC_EDITOR_GIT_AUTHOR_EMAIL=18n1ylzby6v4t2pmwufj6jsoeeomh9@bots.bitbucket.org \
 STATIC_EDITOR_GIT_PUSH_ON_SAVE=true \
 STATIC_EDITOR_GIT_REMOTE=origin \
+STATIC_EDITOR_GIT_HTTP_USERNAME=x-token-auth \
+STATIC_EDITOR_GIT_HTTP_PASSWORD=replace-me \
 STATIC_EDITOR_TENANT_DIR=./tenants \
 go run ./cmd/server
 ```
@@ -99,7 +102,8 @@ Wichtig:
 - `static_editor_login_domain` sollte auf die Bearbeitungsdomain zeigen, zum Beispiel `bearbeitung.example.org`
 - `static_editor_repo_root` sollte auf das Git-Repo der statischen Seite zeigen
 - `static_editor_static_root` und `static_editor_repo_root` duerfen identisch sein
-- fuer Bitbucket reicht im ersten Schritt ein konfiguriertes `origin`-Remote im Repo
+- fuer Bitbucket-Repository-Tokens kann `origin` als normale HTTPS-URL bestehen bleiben; der Editor sendet Username und Token ueber `STATIC_EDITOR_GIT_HTTP_USERNAME` und `STATIC_EDITOR_GIT_HTTP_PASSWORD`
+- fuer Bitbucket sollte `STATIC_EDITOR_GIT_AUTHOR_EMAIL` auf die von Bitbucket ausgegebene Bot-Adresse gesetzt werden
 
 ## Naechste Schritte
 

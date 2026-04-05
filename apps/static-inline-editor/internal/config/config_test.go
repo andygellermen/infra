@@ -48,3 +48,24 @@ STATIC_EDITOR_START_PATH=/index.html
 		t.Fatalf("expected 3 allowed block tags, got %d", got)
 	}
 }
+
+func TestLoadReadsGitAuthConfigFromEnv(t *testing.T) {
+	t.Setenv("STATIC_EDITOR_GIT_AUTHOR_EMAIL", "bot@example.org")
+	t.Setenv("STATIC_EDITOR_GIT_HTTP_USERNAME", "x-token-auth")
+	t.Setenv("STATIC_EDITOR_GIT_HTTP_PASSWORD", "secret-token")
+	t.Setenv("STATIC_EDITOR_TENANT_DIR", filepath.Join(t.TempDir(), "missing"))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.GitAuthorEmail != "bot@example.org" {
+		t.Fatalf("unexpected git author email %q", cfg.GitAuthorEmail)
+	}
+	if cfg.GitHTTPUsername != "x-token-auth" {
+		t.Fatalf("unexpected git http username %q", cfg.GitHTTPUsername)
+	}
+	if cfg.GitHTTPPassword != "secret-token" {
+		t.Fatalf("unexpected git http password %q", cfg.GitHTTPPassword)
+	}
+}

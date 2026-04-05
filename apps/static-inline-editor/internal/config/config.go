@@ -27,9 +27,12 @@ type Config struct {
 	ContentToolsCSSURL string
 	ContentToolsJSURL  string
 	GitAuthorName      string
+	GitAuthorEmail     string
 	GitPushOnSave      bool
 	GitRemoteName      string
 	GitBranch          string
+	GitHTTPUsername    string
+	GitHTTPPassword    string
 	Tenants            map[string]model.Tenant
 }
 
@@ -50,9 +53,12 @@ func Load() (Config, error) {
 		ContentToolsCSSURL: getenv("STATIC_EDITOR_CONTENTTOOLS_CSS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.css"),
 		ContentToolsJSURL:  getenv("STATIC_EDITOR_CONTENTTOOLS_JS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.js"),
 		GitAuthorName:      getenv("STATIC_EDITOR_GIT_AUTHOR_NAME", "Static Inline Editor"),
+		GitAuthorEmail:     getenv("STATIC_EDITOR_GIT_AUTHOR_EMAIL", ""),
 		GitPushOnSave:      getenvBool("STATIC_EDITOR_GIT_PUSH_ON_SAVE", false),
 		GitRemoteName:      getenv("STATIC_EDITOR_GIT_REMOTE", "origin"),
 		GitBranch:          getenv("STATIC_EDITOR_GIT_BRANCH", ""),
+		GitHTTPUsername:    getenv("STATIC_EDITOR_GIT_HTTP_USERNAME", ""),
+		GitHTTPPassword:    getenv("STATIC_EDITOR_GIT_HTTP_PASSWORD", ""),
 		Tenants:            map[string]model.Tenant{},
 	}
 

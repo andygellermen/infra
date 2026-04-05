@@ -60,7 +60,7 @@ func TestPush(t *testing.T) {
 		t.Fatalf("CommitFile returned error: %v", err)
 	}
 
-	pushTarget, err := Push(repoRoot, "origin", "")
+	pushTarget, err := Push(repoRoot, "origin", "", PushAuth{})
 	if err != nil {
 		t.Fatalf("Push returned error: %v", err)
 	}
@@ -79,5 +79,21 @@ func TestPush(t *testing.T) {
 	}
 	if strings.TrimSpace(string(remoteHashOut)) != hash {
 		t.Fatalf("expected remote hash %q, got %q", hash, strings.TrimSpace(string(remoteHashOut)))
+	}
+}
+
+func TestGitAuthConfigArgs(t *testing.T) {
+	args := gitAuthConfigArgs(PushAuth{
+		HTTPUsername: "x-token-auth",
+		HTTPPassword: "secret-token",
+	})
+	if got := len(args); got != 2 {
+		t.Fatalf("expected 2 auth args, got %d", got)
+	}
+	if !strings.Contains(args[1], "Authorization: Basic ") {
+		t.Fatalf("expected http.extraHeader config, got %q", args[1])
+	}
+	if strings.Contains(args[1], "secret-token") {
+		t.Fatalf("expected token to be encoded, got %q", args[1])
 	}
 }
