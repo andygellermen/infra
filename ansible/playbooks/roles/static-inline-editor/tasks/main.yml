@@ -47,9 +47,12 @@
       STATIC_EDITOR_SESSION_TTL=12h
       STATIC_EDITOR_MAGIC_LINK_TTL=15m
       STATIC_EDITOR_GIT_AUTHOR_NAME={{ (static_editor_sites | map(attribute='static_editor_git_author_name') | list | first | default('Static Inline Editor', true)) }}
+      STATIC_EDITOR_GIT_AUTHOR_EMAIL={{ (static_editor_sites | map(attribute='static_editor_git_author_email') | list | first | default('', true)) }}
       STATIC_EDITOR_GIT_PUSH_ON_SAVE={{ (static_editor_sites | map(attribute='static_editor_git_push_on_save') | list | first | default(false, true)) | ternary('true', 'false') }}
       STATIC_EDITOR_GIT_REMOTE={{ (static_editor_sites | map(attribute='static_editor_git_remote') | list | first | default('origin', true)) }}
       STATIC_EDITOR_GIT_BRANCH={{ (static_editor_sites | map(attribute='static_editor_git_branch') | list | first | default('', true)) }}
+      STATIC_EDITOR_GIT_HTTP_USERNAME={{ (static_editor_sites | map(attribute='static_editor_git_http_username') | list | first | default('', true)) }}
+      STATIC_EDITOR_GIT_HTTP_PASSWORD={{ (static_editor_sites | map(attribute='static_editor_git_http_password') | list | first | default('', true)) }}
       STATIC_EDITOR_SMTP_HOST={{ (static_editor_sites | map(attribute='static_editor_smtp_host') | list | first | default('', true)) }}
       STATIC_EDITOR_SMTP_PORT={{ (static_editor_sites | map(attribute='static_editor_smtp_port') | list | first | default(587, true)) }}
       STATIC_EDITOR_SMTP_USERNAME={{ (static_editor_sites | map(attribute='static_editor_smtp_username') | list | first | default('', true)) }}
