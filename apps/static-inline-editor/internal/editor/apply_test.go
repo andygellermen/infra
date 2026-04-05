@@ -26,3 +26,16 @@ func TestApplyRegionHTMLReplacesMainContentWithSanitizedMarkup(t *testing.T) {
 		t.Fatalf("expected nested allowed block to be preserved")
 	}
 }
+
+func TestApplyRegionHTMLSupportsSelectorFallbackList(t *testing.T) {
+	source := `<!doctype html><html><body><article class="content"><p>Alt</p></article></body></html>`
+	regionHTML := `<p>Neu</p>`
+
+	out, err := ApplyRegionHTML(source, "main, .content, body", []string{"p"}, []string{"strong", "em", "a", "br"}, regionHTML)
+	if err != nil {
+		t.Fatalf("ApplyRegionHTML returned error: %v", err)
+	}
+	if !strings.Contains(out, "<p>Neu</p>") {
+		t.Fatalf("expected updated paragraph in output")
+	}
+}

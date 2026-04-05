@@ -34,3 +34,15 @@ func TestPrepareDocumentSupportsClassSelector(t *testing.T) {
 		t.Fatalf("expected 1 editable id, got %d", len(doc.EditableIDs))
 	}
 }
+
+func TestPrepareDocumentSupportsSelectorFallbackList(t *testing.T) {
+	source := `<!doctype html><html><body><article class="content"><p>Hallo</p></article></body></html>`
+
+	doc, err := PrepareDocument(source, "main, .content, body", []string{"p"})
+	if err != nil {
+		t.Fatalf("PrepareDocument returned error: %v", err)
+	}
+	if len(doc.EditableIDs) != 1 {
+		t.Fatalf("expected 1 editable id, got %d", len(doc.EditableIDs))
+	}
+}

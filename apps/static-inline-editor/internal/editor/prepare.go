@@ -68,46 +68,68 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 }
 
 func findMainRoot(doc *html.Node, selector string) *html.Node {
-	selector = strings.TrimSpace(selector)
-	if selector == "" {
-		selector = "main"
+	selectors := splitSelectors(selector)
+	if len(selectors) == 0 {
+		selectors = []string{"main"}
 	}
 
-	var match func(*html.Node) bool
+	for _, selector := range selectors {
+		match := selectorMatcher(selector)
+		if match == nil {
+			continue
+		}
+		var found *html.Node
+		var walk func(*html.Node)
+		walk = func(node *html.Node) {
+			if found != nil {
+				return
+			}
+			if match(node) {
+				found = node
+				return
+			}
+			for child := node.FirstChild; child != nil; child = child.NextSibling {
+				walk(child)
+			}
+		}
+		walk(doc)
+		if found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func splitSelectors(selector string) []string {
+	raw := strings.Split(selector, ",")
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func selectorMatcher(selector string) func(*html.Node) bool {
 	switch {
 	case strings.HasPrefix(selector, "."):
 		className := strings.TrimPrefix(selector, ".")
-		match = func(node *html.Node) bool {
+		return func(node *html.Node) bool {
 			return hasClass(node, className)
 		}
 	case strings.HasPrefix(selector, "#"):
 		id := strings.TrimPrefix(selector, "#")
-		match = func(node *html.Node) bool {
+		return func(node *html.Node) bool {
 			return attr(node, "id") == id
 		}
 	default:
 		tagName := strings.ToLower(selector)
-		match = func(node *html.Node) bool {
+		return func(node *html.Node) bool {
 			return node.Type == html.ElementNode && strings.ToLower(node.Data) == tagName
 		}
 	}
-
-	var found *html.Node
-	var walk func(*html.Node)
-	walk = func(node *html.Node) {
-		if found != nil {
-			return
-		}
-		if match(node) {
-			found = node
-			return
-		}
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			walk(child)
-		}
-	}
-	walk(doc)
-	return found
 }
 
 func attr(node *html.Node, key string) string {
