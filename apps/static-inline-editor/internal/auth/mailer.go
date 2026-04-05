@@ -65,7 +65,9 @@ func (m *mailer) SendMagicLink(email, verifyURL string) error {
 		smtpAuth = smtp.PlainAuth("", m.username, m.password, m.host)
 	}
 	if err := smtp.SendMail(addr, smtpAuth, m.fromEmail, []string{email}, msg.Bytes()); err != nil {
+		log.Printf("static-inline-editor: smtp send failed host=%s port=%d from=%s to=%s: %v", m.host, m.port, m.fromEmail, email, err)
 		return fmt.Errorf("send smtp mail: %w", err)
 	}
+	log.Printf("static-inline-editor: magic link sent via smtp host=%s from=%s to=%s", m.host, m.fromEmail, email)
 	return nil
 }

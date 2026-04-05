@@ -228,6 +228,7 @@ func (a *App) handleRequestLink(w http.ResponseWriter, r *http.Request) {
 		}
 		verifyURL := a.verifyURL(r, tenant, token)
 		if err := a.mailer.SendMagicLink(strings.TrimSpace(req.Email), verifyURL); err != nil {
+			log.Printf("static-inline-editor: request-link failed tenant=%s email=%s: %v", tenant.Domain, strings.TrimSpace(req.Email), err)
 			http.Error(w, "could not send magic link", http.StatusInternalServerError)
 			return
 		}
