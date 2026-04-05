@@ -74,9 +74,61 @@ func TestRequestLinkAndVerifyFlow(t *testing.T) {
 	if verifyRec.Code != http.StatusSeeOther {
 		t.Fatalf("expected verify to redirect, got %d", verifyRec.Code)
 	}
+	if got := verifyRec.Result().Header.Get("Location"); got != "/edit?path=%2Findex.html" {
+		t.Fatalf("expected verify redirect to edit start page, got %q", got)
+	}
 	cookies := verifyRec.Result().Cookies()
 	if len(cookies) == 0 || cookies[0].Name != "static_editor_session" {
 		t.Fatalf("expected session cookie to be set")
+	}
+}
+
+func TestHomeLinksToEditStartPage(t *testing.T) {
+	cfg := config.Config{
+		Addr:          ":8090",
+		DataDir:       t.TempDir(),
+		SessionTTL:    "12h",
+		MagicLinkTTL:  "15m",
+		SecureCookies: false,
+		Tenants: map[string]model.Tenant{
+			"example.org": {
+				Domain:        "example.org",
+				LoginDomain:   "bearbeitung.example.org",
+				AllowedEmails: []string{"andy@example.org"},
+				StartPath:     "/index.html",
+			},
+		},
+	}
+
+	app := New(cfg)
+	mailer := &fakeMailer{}
+	app.mailer = mailer
+
+	loginReq := httptest.NewRequest(http.MethodPost, "http://bearbeitung.example.org/auth/request-link", strings.NewReader(url.Values{
+		"email": []string{"andy@example.org"},
+	}.Encode()))
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginReq.Header.Set("Host", "bearbeitung.example.org")
+	loginRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(loginRec, loginReq)
+
+	verifyReq := httptest.NewRequest(http.MethodGet, mailer.url, nil)
+	verifyReq.Host = "bearbeitung.example.org"
+	verifyRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(verifyRec, verifyReq)
+	sessionCookie := verifyRec.Result().Cookies()[0]
+
+	homeReq := httptest.NewRequest(http.MethodGet, "http://bearbeitung.example.org/", nil)
+	homeReq.Host = "bearbeitung.example.org"
+	homeReq.AddCookie(sessionCookie)
+	homeRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(homeRec, homeReq)
+
+	if homeRec.Code != http.StatusOK {
+		t.Fatalf("expected home route to return 200, got %d", homeRec.Code)
+	}
+	if !strings.Contains(homeRec.Body.String(), `href="/edit?path=%2Findex.html"`) {
+		t.Fatalf("expected home to link to edit start page, got %q", homeRec.Body.String())
 	}
 }
 

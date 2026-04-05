@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,14 +108,14 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
   <div class="card">
     <h1>Bearbeitung freigeschaltet</h1>
     <p>Angemeldet fuer <strong>%s</strong> auf <strong>%s</strong>.</p>
-    <p>Der eigentliche Edit-Modus kommt als naechster Schritt. Der Auth-Flow steht jetzt bereits auf Magic-Link-Basis.</p>
-    <p><a href="%s">Vorgesehener Startpfad</a></p>
+    <p>Der Edit-Modus ist bereit. Ueber den folgenden Link oeffnest du direkt die konfigurierte Startseite im Editor.</p>
+    <p><a href="%s">Startseite im Editor oeffnen</a></p>
     <form method="post" action="/auth/logout">
       <button type="submit">Abmelden</button>
     </form>
   </div>
 </body>
-</html>`, htmlEscape(session.Email), htmlEscape(tenant.Domain), htmlEscape(tenant.StartPath)))
+</html>`, htmlEscape(session.Email), htmlEscape(tenant.Domain), htmlEscape(a.startEditURL(tenant.StartPath))))
 }
 
 func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +285,11 @@ func (a *App) handleVerify(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.cfg.SecureCookies,
 	})
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	startPath := "/index.html"
+	if tenant, ok := a.cfg.Tenants[magicLink.Tenant]; ok {
+		startPath = tenant.StartPath
+	}
+	http.Redirect(w, r, a.startEditURL(startPath), http.StatusSeeOther)
 }
 
 func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -532,6 +537,14 @@ func (a *App) gitAuthorEmail(sessionEmail string) string {
 		return configured
 	}
 	return sessionEmail
+}
+
+func (a *App) startEditURL(targetPath string) string {
+	cleanTarget := strings.TrimSpace(targetPath)
+	if cleanTarget == "" {
+		cleanTarget = "/index.html"
+	}
+	return "/edit?path=" + url.QueryEscape(cleanTarget)
 }
 
 func resolveStaticPath(root, target string) (string, error) {
