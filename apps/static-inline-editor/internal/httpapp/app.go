@@ -75,7 +75,7 @@ func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		http.NotFound(w, r)
+		a.handleStaticAsset(w, r)
 		return
 	}
 
@@ -116,6 +116,35 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
   </div>
 </body>
 </html>`, htmlEscape(session.Email), htmlEscape(tenant.Domain), htmlEscape(a.startEditURL(tenant.StartPath))))
+}
+
+func (a *App) handleStaticAsset(w http.ResponseWriter, r *http.Request) {
+	tenant := a.tenantForHost(r.Host)
+	if tenant.Domain == "" {
+		http.Error(w, "unknown tenant host", http.StatusNotFound)
+		return
+	}
+
+	resolvedPath, err := resolveStaticPath(tenant.StaticRoot, r.URL.Path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if info.IsDir() {
+		resolvedPath = filepath.Join(resolvedPath, "index.html")
+		if _, err := os.Stat(resolvedPath); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+	}
+
+	http.ServeFile(w, r, resolvedPath)
 }
 
 func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -617,7 +646,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     </div>
   </div>
   <div class="hint">
-    Der erste Edit-Call markiert bereits erlaubte Textcontainer mit <code>data-editor-id</code>. Als naechstes haengen wir den eigentlichen Inline-Editor, Vorschau und Speichern daran.
+    Erlaubte Textcontainer sind markiert und direkt inline bearbeitbar. Ueber den ContentTools-Save-Button erzeugst du zuerst die Vorschau und kannst danach speichern.
   </div>
   <div class="canvas">
     <div class="frame">%s</div>

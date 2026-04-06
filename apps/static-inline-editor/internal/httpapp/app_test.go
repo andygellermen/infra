@@ -203,6 +203,45 @@ func TestEditRequiresSessionAndMarksDocument(t *testing.T) {
 	}
 }
 
+func TestStaticAssetFallbackServesStylesheetFromTenantRoot(t *testing.T) {
+	staticRoot := filepath.Join(t.TempDir(), "static")
+	if err := os.MkdirAll(filepath.Join(staticRoot, "assets"), 0o755); err != nil {
+		t.Fatalf("mkdir static root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(staticRoot, "assets", "site.css"), []byte("body{color:red}"), 0o644); err != nil {
+		t.Fatalf("write stylesheet fixture: %v", err)
+	}
+
+	cfg := config.Config{
+		Addr:          ":8090",
+		DataDir:       t.TempDir(),
+		SessionTTL:    "12h",
+		MagicLinkTTL:  "15m",
+		SecureCookies: false,
+		Tenants: map[string]model.Tenant{
+			"example.org": {
+				Domain:      "example.org",
+				LoginDomain: "bearbeitung.example.org",
+				StaticRoot:  staticRoot,
+			},
+		},
+	}
+
+	app := New(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "http://bearbeitung.example.org/assets/site.css", nil)
+	req.Host = "bearbeitung.example.org"
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected stylesheet request to return 200, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "body{color:red}") {
+		t.Fatalf("expected stylesheet content to be served")
+	}
+}
+
 func TestPreviewAndSaveFlow(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
