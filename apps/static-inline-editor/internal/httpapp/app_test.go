@@ -201,6 +201,12 @@ func TestEditRequiresSessionAndMarksDocument(t *testing.T) {
 	if !strings.Contains(body, "Edit-Modus") {
 		t.Fatalf("expected edit chrome in response")
 	}
+	if strings.Contains(body, `class="frame"`) {
+		t.Fatalf("expected original document to be edited in place, not embedded in wrapper frame")
+	}
+	if !strings.Contains(body, `static-inline-editor-bar`) {
+		t.Fatalf("expected editor chrome to be injected into original document")
+	}
 }
 
 func TestStaticAssetFallbackServesStylesheetFromTenantRoot(t *testing.T) {

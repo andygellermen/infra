@@ -601,42 +601,31 @@ func resolveStaticPath(root, target string) (string, error) {
 }
 
 func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string, prepared editor.PreparedDocument, contentToolsCSSURL, contentToolsJSURL string) string {
-	return fmt.Sprintf(`<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Edit %s</title>
+	headInjection := fmt.Sprintf(`
   <link rel="stylesheet" href="%s">
   <style>
-    :root { --ink:#2d241d; --paper:#f7f0e6; --accent:#8a3c1a; --line:#d7c8b7; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Georgia, serif; color: var(--ink); background: linear-gradient(180deg, #fcfaf6 0%%, #f1e8da 100%%); }
-    .bar { position: sticky; top: 0; z-index: 9; display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); background: rgba(255,252,246,0.96); backdrop-filter: blur(8px); }
-    .meta { font-size: 0.95rem; }
-    .meta strong { color: var(--accent); }
-    .actions { display: flex; gap: 0.75rem; align-items: center; }
-    .actions a, .actions button { font: inherit; padding: 0.7rem 0.95rem; border-radius: 999px; border: 1px solid var(--accent); background: #fff7ef; color: var(--accent); text-decoration: none; cursor: pointer; }
-    .hint { max-width: 1100px; margin: 1rem auto 0; padding: 0 1rem; color: #64584c; }
-    .canvas { max-width: 1100px; margin: 1rem auto 3rem; padding: 0 1rem 2rem; }
-    .frame { background: white; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(84,56,28,0.08); }
-    .preview { position: fixed; right: 1rem; bottom: 1rem; width: min(46rem, calc(100vw - 2rem)); max-height: 70vh; display: none; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fffdf8; box-shadow: 0 22px 48px rgba(46,36,29,0.18); z-index: 30; }
-    .preview.is-open { display: flex; }
-    .preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--line); background: #fbf3e8; }
-    .preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
-    [data-editor-id] { outline: 2px dashed rgba(138,60,26,0.24); outline-offset: 0.16rem; }
+    body.static-inline-editor-active { padding-top: 5.5rem !important; }
+    .static-inline-editor-bar { position: fixed; inset: 0 0 auto 0; z-index: 9999; display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.9rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: rgba(255,252,246,0.96); backdrop-filter: blur(8px); font: 14px/1.35 Georgia, serif; color: #2d241d; box-shadow: 0 10px 24px rgba(46,36,29,0.1); }
+    .static-inline-editor-meta strong { color: #8a3c1a; }
+    .static-inline-editor-actions { display: flex; gap: 0.75rem; align-items: center; }
+    .static-inline-editor-actions a, .static-inline-editor-actions button { font: inherit; padding: 0.65rem 0.9rem; border-radius: 999px; border: 1px solid #8a3c1a; background: #fff7ef; color: #8a3c1a; text-decoration: none; cursor: pointer; }
+    .static-inline-editor-preview { position: fixed; right: 1rem; bottom: 1rem; width: min(46rem, calc(100vw - 2rem)); max-height: 70vh; display: none; flex-direction: column; border: 1px solid rgba(121,91,61,0.24); border-radius: 18px; overflow: hidden; background: #fffdf8; box-shadow: 0 22px 48px rgba(46,36,29,0.18); z-index: 9999; }
+    .static-inline-editor-preview.is-open { display: flex; }
+    .static-inline-editor-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: #fbf3e8; font: 14px/1.35 Georgia, serif; }
+    .static-inline-editor-preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
+    [data-editor-id] { outline: 2px dashed rgba(138,60,26,0.28); outline-offset: 0.16rem; }
     [data-editable] { position: relative; }
     [data-editable]::before { content: "Editable region"; position: absolute; top: 0.35rem; right: 0.5rem; font: 600 0.72rem/1 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #8a3c1a; background: rgba(255,247,239,0.92); border: 1px solid rgba(138,60,26,0.24); border-radius: 999px; padding: 0.28rem 0.5rem; }
-    .ct-app .ct-widget.ct-ignition { top: 5.6rem; left: 1rem; }
-  </style>
-</head>
-<body>
-  <div class="bar">
-    <div class="meta">
+    .ct-app .ct-widget.ct-ignition { top: 6rem; left: 1rem; z-index: 10000; }
+  </style>`, htmlEscape(contentToolsCSSURL))
+
+	bodyPrefix := fmt.Sprintf(`
+  <div class="static-inline-editor-bar">
+    <div class="static-inline-editor-meta">
       <strong>Edit-Modus</strong> fuer %s
       <div>Datei: <code>%s</code> | Nutzer: <code>%s</code> | Markierte Knoten: <code>%d</code></div>
     </div>
-    <div class="actions">
+    <div class="static-inline-editor-actions">
       <a href="/">Start</a>
       <button type="button" id="preview-close" hidden>Vorschau schliessen</button>
       <button type="button" id="save-button" hidden>Speichern</button>
@@ -644,23 +633,20 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
         <button type="submit">Abmelden</button>
       </form>
     </div>
-  </div>
-  <div class="hint">
-    Erlaubte Textcontainer sind markiert und direkt inline bearbeitbar. Ueber den ContentTools-Save-Button erzeugst du zuerst die Vorschau und kannst danach speichern.
-  </div>
-  <div class="canvas">
-    <div class="frame">%s</div>
-  </div>
-  <div class="preview" id="preview-panel" aria-live="polite">
-    <div class="preview-head">
+  </div>`, htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs))
+
+	bodySuffix := fmt.Sprintf(`
+  <div class="static-inline-editor-preview" id="preview-panel" aria-live="polite">
+    <div class="static-inline-editor-preview-head">
       <strong>Vorschau</strong>
       <span id="preview-status">Noch keine Vorschau erzeugt.</span>
     </div>
-    <iframe id="preview-frame" class="preview-frame" title="Preview"></iframe>
+    <iframe id="preview-frame" class="static-inline-editor-preview-frame" title="Preview"></iframe>
   </div>
   <script src="%s"></script>
   <script>
     window.addEventListener('load', function () {
+      document.body.classList.add('static-inline-editor-active');
       if (!window.ContentTools) {
         console.warn('ContentTools konnte nicht geladen werden');
         return;
@@ -744,8 +730,46 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
       });
     });
   </script>
-</body>
-</html>`, htmlEscape(targetPath), htmlEscape(contentToolsCSSURL), htmlEscape(tenant.Domain), htmlEscape(targetPath), htmlEscape(session.Email), len(prepared.EditableIDs), prepared.HTML, htmlEscape(contentToolsJSURL), targetPath)
+</body>`, htmlEscape(contentToolsJSURL), targetPath)
+
+	page := prepared.HTML
+	page = injectIntoHead(page, headInjection)
+	page = injectAfterBodyStart(page, bodyPrefix)
+	page = injectBeforeBodyEnd(page, bodySuffix)
+	return page
+}
+
+func injectIntoHead(source, snippet string) string {
+	lower := strings.ToLower(source)
+	if idx := strings.Index(lower, "</head>"); idx >= 0 {
+		return source[:idx] + snippet + source[idx:]
+	}
+	if idx := strings.Index(lower, "<body"); idx >= 0 {
+		return source[:idx] + "<head>" + snippet + "\n</head>\n" + source[idx:]
+	}
+	return "<head>" + snippet + "\n</head>\n" + source
+}
+
+func injectAfterBodyStart(source, snippet string) string {
+	lower := strings.ToLower(source)
+	idx := strings.Index(lower, "<body")
+	if idx < 0 {
+		return "<body>" + snippet + source + "</body>"
+	}
+	end := strings.Index(lower[idx:], ">")
+	if end < 0 {
+		return source + snippet
+	}
+	insertPos := idx + end + 1
+	return source[:insertPos] + snippet + source[insertPos:]
+}
+
+func injectBeforeBodyEnd(source, snippet string) string {
+	lower := strings.ToLower(source)
+	if idx := strings.LastIndex(lower, "</body>"); idx >= 0 {
+		return source[:idx] + snippet + source[idx:]
+	}
+	return source + snippet
 }
 
 func (a *App) requireTenantSession(w http.ResponseWriter, r *http.Request) (model.Tenant, auth.Session, bool) {
