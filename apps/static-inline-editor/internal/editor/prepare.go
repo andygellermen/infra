@@ -53,6 +53,7 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 		}
 	}
 	walk(root)
+	removeScriptNodes(doc)
 
 	var buf bytes.Buffer
 	if err := html.Render(&buf, doc); err != nil {
@@ -98,6 +99,19 @@ func findMainRoot(doc *html.Node, selector string) *html.Node {
 		}
 	}
 	return nil
+}
+
+func removeScriptNodes(node *html.Node) {
+	for child := node.FirstChild; child != nil; {
+		next := child.NextSibling
+		if child.Type == html.ElementNode && strings.EqualFold(child.Data, "script") {
+			node.RemoveChild(child)
+			child = next
+			continue
+		}
+		removeScriptNodes(child)
+		child = next
+	}
 }
 
 func splitSelectors(selector string) []string {

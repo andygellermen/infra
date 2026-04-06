@@ -46,3 +46,15 @@ func TestPrepareDocumentSupportsSelectorFallbackList(t *testing.T) {
 		t.Fatalf("expected 1 editable id, got %d", len(doc.EditableIDs))
 	}
 }
+
+func TestPrepareDocumentRemovesScriptTagsFromEditView(t *testing.T) {
+	source := `<!doctype html><html><head><script src="/app.js"></script></head><body><main><p>Hallo</p><script>alert(1)</script></main></body></html>`
+
+	doc, err := PrepareDocument(source, "main", []string{"p"})
+	if err != nil {
+		t.Fatalf("PrepareDocument returned error: %v", err)
+	}
+	if strings.Contains(strings.ToLower(doc.HTML), "<script") {
+		t.Fatalf("expected scripts to be removed from edit view html")
+	}
+}
