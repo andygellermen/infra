@@ -27,6 +27,7 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 	}
 
 	allowed := toSet(allowedBlockTags)
+	root = refineEditableRoot(root, allowed)
 	var ids []string
 	var tags []string
 	var seq int
@@ -112,6 +113,79 @@ func removeScriptNodes(node *html.Node) {
 		removeScriptNodes(child)
 		child = next
 	}
+}
+
+func refineEditableRoot(root *html.Node, allowed map[string]struct{}) *html.Node {
+	if root == nil {
+		return nil
+	}
+	if !strings.EqualFold(root.Data, "body") {
+		return root
+	}
+
+	best := findBestEditableContainer(root, allowed)
+	if best != nil {
+		return best
+	}
+	return root
+}
+
+func findBestEditableContainer(root *html.Node, allowed map[string]struct{}) *html.Node {
+	var best *html.Node
+	bestScore := 0
+
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if node == nil {
+			return
+		}
+		if node.Type == html.ElementNode && node != root {
+			score := editableContainerScore(node, allowed)
+			if score > bestScore {
+				best = node
+				bestScore = score
+			}
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(root)
+	return best
+}
+
+func editableContainerScore(node *html.Node, allowed map[string]struct{}) int {
+	tag := strings.ToLower(node.Data)
+	switch tag {
+	case "script", "style", "noscript", "head":
+		return 0
+	}
+
+	score := 0
+	switch tag {
+	case "main":
+		score += 100
+	case "article":
+		score += 80
+	case "section":
+		score += 60
+	case "div":
+		score += 40
+	}
+
+	var walk func(*html.Node)
+	walk = func(current *html.Node) {
+		if current.Type == html.ElementNode {
+			if _, ok := allowed[strings.ToLower(current.Data)]; ok {
+				score += 10
+			}
+		}
+		for child := current.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(node)
+	return score
 }
 
 func splitSelectors(selector string) []string {

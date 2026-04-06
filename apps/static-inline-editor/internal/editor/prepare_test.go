@@ -58,3 +58,18 @@ func TestPrepareDocumentRemovesScriptTagsFromEditView(t *testing.T) {
 		t.Fatalf("expected scripts to be removed from edit view html")
 	}
 }
+
+func TestPrepareDocumentRefinesBodyFallbackToContentContainer(t *testing.T) {
+	source := `<!doctype html><html><body><header><p>Navigation</p></header><article class="content"><h1>Hallo</h1><p>Welt</p></article><footer><p>Footer</p></footer></body></html>`
+
+	doc, err := PrepareDocument(source, "body", []string{"h1", "p"})
+	if err != nil {
+		t.Fatalf("PrepareDocument returned error: %v", err)
+	}
+	if !strings.Contains(doc.HTML, `<article class="content" data-editable="" data-name="main-content">`) {
+		t.Fatalf("expected article content container to become editable root, got %q", doc.HTML)
+	}
+	if strings.Contains(doc.HTML, `<body data-editable=""`) {
+		t.Fatalf("expected body not to remain editable root")
+	}
+}

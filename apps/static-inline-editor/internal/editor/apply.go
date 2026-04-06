@@ -19,6 +19,7 @@ func ApplyRegionHTML(source, mainSelector string, allowedBlockTags, allowedInlin
 	if root == nil {
 		return "", fmt.Errorf("main selector %q not found", mainSelector)
 	}
+	root = refineEditableRoot(root, toSet(allowedBlockTags))
 
 	sanitized, err := sanitizeRegionHTML(regionHTML, allowedBlockTags, allowedInlineTags)
 	if err != nil {
