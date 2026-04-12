@@ -216,6 +216,9 @@
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
     image: "ghost:{{ ghost_version | default('latest') }}"
+    # Floating tags like `latest` or `6` need an explicit pull, otherwise Docker
+    # can keep serving an older locally cached image.
+    pull: true
     restart_policy: unless-stopped
     recreate: true
     networks:
