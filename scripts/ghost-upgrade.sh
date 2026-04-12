@@ -39,6 +39,7 @@ domain=""
 target_version=""
 force_major_jump="false"
 dry_run="false"
+version_unchanged="false"
 
 for arg in "$@"; do
   case "$arg" in
@@ -88,8 +89,8 @@ info "Aktuelle Version für ${domain}: ${current_version}"
 info "Zielversion: ${target_version}"
 
 if [[ "$current_version" == "$target_version" ]]; then
-  info "Die Zielversion ist bereits gesetzt. Es ist nichts zu tun."
-  exit 0
+  version_unchanged="true"
+  info "Die Zielversion ist bereits gesetzt. Es wird ein Redeploy ausgelost, damit das Deployment trotzdem erneut ausgefuhrt wird."
 fi
 
 current_major=""
@@ -110,20 +111,26 @@ if [[ -n "$current_major" ]] && [[ -n "$target_major" ]]; then
   fi
 fi
 
-backup_file="${hostvars_file}.bak.$(date +%Y%m%d%H%M%S)"
-cp "$hostvars_file" "$backup_file"
-info "Backup erstellt: $backup_file"
+if [[ "$version_unchanged" != "true" ]]; then
+  backup_file="${hostvars_file}.bak.$(date +%Y%m%d%H%M%S)"
+  cp "$hostvars_file" "$backup_file"
+  info "Backup erstellt: $backup_file"
 
-if grep -q '^ghost_version:' "$hostvars_file"; then
-  sed -i -E "s/^ghost_version: .*/ghost_version: \"${target_version}\"/" "$hostvars_file"
-else
-  printf '\nghost_version: "%s"\n' "$target_version" >> "$hostvars_file"
+  if grep -q '^ghost_version:' "$hostvars_file"; then
+    sed -i -E "s/^ghost_version: .*/ghost_version: \"${target_version}\"/" "$hostvars_file"
+  else
+    printf '\nghost_version: "%s"\n' "$target_version" >> "$hostvars_file"
+  fi
+
+  success "ghost_version in ${hostvars_file} auf ${target_version} gesetzt."
 fi
 
-success "ghost_version in ${hostvars_file} auf ${target_version} gesetzt."
-
 if [[ "$dry_run" == "true" ]]; then
-  info "Dry-Run aktiv: ansible-playbook wird nicht ausgeführt."
+  if [[ "$version_unchanged" == "true" ]]; then
+    info "Dry-Run aktiv: hostvars bleiben unveraendert, ein Redeploy wurde nur simuliert."
+  else
+    info "Dry-Run aktiv: ansible-playbook wird nicht ausgefuhrt."
+  fi
   exit 0
 fi
 

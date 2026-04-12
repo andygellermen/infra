@@ -25,7 +25,7 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 ### ghost-upgrade.sh
 
 **Beschreibung:**  
-Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_version` in den Hostvars angepasst und anschließend das Deployment neu ausgeführt wird.
+Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_version` in den Hostvars angepasst und anschließend das Deployment neu ausgeführt wird. Ist die Zielversion bereits gesetzt, wird trotzdem ein Redeploy ausgelöst, damit z. B. `latest`-Instanzen aktualisiert werden können.
 
 **Syntax:**
 ```bash
@@ -42,6 +42,7 @@ Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_versio
 - Liest und validiert die aktuelle `ghost_version`
 - Verhindert standardmäßig große Versionssprünge (z. B. 4 → 6)
 - Erstellt automatisch ein Backup der Hostvars-Datei (`.bak.<timestamp>`)
+- Führt auch bei unveränderter Zielversion ein Redeploy aus, damit Floating-Tags wie `latest` neu gezogen werden
 - Führt danach ein reguläres `ansible-playbook` Deployment aus
 
 ### ghost-delete.sh
