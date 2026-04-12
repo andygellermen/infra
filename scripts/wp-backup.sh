@@ -52,13 +52,21 @@ DB_PASS="$(extract_hostvar wp_domain_pwd "$HOSTVARS")"
 WP_VERSION="$(extract_hostvar wp_version "$HOSTVARS")"
 [[ -n "$DB_NAME" && -n "$DB_USER" && -n "$DB_PASS" ]] || die "DB-Zugangsdaten unvollständig in Hostvars"
 [[ -n "$WP_VERSION" ]] || WP_VERSION="latest"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
 
 WORKDIR="$(mktemp -d /tmp/wp-backup-${DOMAIN}.XXXXXX)"; trap 'rm -rf "$WORKDIR"' EXIT
 EXPORT_ROOT="$WORKDIR/export-root"
 mkdir -p "$EXPORT_ROOT"
 
 info "Sichere vollständigen WordPress-Document-Root"
-docker run --rm -v "${VOLUME}:/src:ro" -v "${EXPORT_ROOT}:/backup" alpine sh -c 'cp -a /src/. /backup/'
+docker run --rm \
+  -e HOST_UID="$HOST_UID" \
+  -e HOST_GID="$HOST_GID" \
+  -v "${VOLUME}:/src:ro" \
+  -v "${EXPORT_ROOT}:/backup" \
+  alpine \
+  sh -c 'cp -a /src/. /backup/ && chown -R "$HOST_UID:$HOST_GID" /backup'
 
 info "Dump DB: $DB_NAME"
 docker exec -e MYSQL_PWD="$DB_PASS" "$MYSQL_CONTAINER" mysqldump --no-tablespaces -u"$DB_USER" "$DB_NAME" > "$EXPORT_ROOT/db.sql"
