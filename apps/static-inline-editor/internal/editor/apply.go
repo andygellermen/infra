@@ -15,12 +15,14 @@ func ApplyRegionsHTML(source, mainSelector string, allowedBlockTags, allowedInli
 		return "", fmt.Errorf("parse source html: %w", err)
 	}
 
-	root := findMainRoot(doc, mainSelector)
+	root, matchedSelector := findMainRoot(doc, mainSelector)
 	if root == nil {
 		return "", fmt.Errorf("main selector %q not found", mainSelector)
 	}
 	allowedBlocks := toSet(allowedBlockTags)
-	root = refineEditableRoot(root, allowedBlocks)
+	if matchedSelector != "body" {
+		root = refineEditableRoot(root, allowedBlocks)
+	}
 	assignEditableIDs(root, allowedBlocks)
 
 	for id, regionHTML := range regions {

@@ -20,13 +20,15 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 		return PreparedDocument{}, fmt.Errorf("parse html: %w", err)
 	}
 
-	root := findMainRoot(doc, mainSelector)
+	root, matchedSelector := findMainRoot(doc, mainSelector)
 	if root == nil {
 		return PreparedDocument{}, fmt.Errorf("main selector %q not found", mainSelector)
 	}
 
 	allowed := toSet(allowedBlockTags)
-	root = refineEditableRoot(root, allowed)
+	if matchedSelector != "body" {
+		root = refineEditableRoot(root, allowed)
+	}
 	var ids []string
 	var tags []string
 	var seq int
@@ -66,37 +68,65 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 	}, nil
 }
 
-func findMainRoot(doc *html.Node, selector string) *html.Node {
+func findMainRoot(doc *html.Node, selector string) (*html.Node, string) {
 	selectors := splitSelectors(selector)
 	if len(selectors) == 0 {
 		selectors = []string{"main"}
 	}
 
 	for _, selector := range selectors {
+		normalized := strings.ToLower(strings.TrimSpace(selector))
+		if normalized == "body" {
+			var body *html.Node
+			var walkBody func(*html.Node)
+			walkBody = func(node *html.Node) {
+				if body != nil {
+					return
+				}
+				if node.Type == html.ElementNode && strings.EqualFold(node.Data, "body") {
+					body = node
+					return
+				}
+				for child := node.FirstChild; child != nil; child = child.NextSibling {
+					walkBody(child)
+				}
+			}
+			walkBody(doc)
+			if body != nil {
+				return body, "body"
+			}
+			continue
+		}
+
 		match := selectorMatcher(selector)
 		if match == nil {
 			continue
 		}
-		var found *html.Node
+		var found []*html.Node
 		var walk func(*html.Node)
 		walk = func(node *html.Node) {
-			if found != nil {
-				return
-			}
 			if match(node) {
-				found = node
-				return
+				found = append(found, node)
 			}
 			for child := node.FirstChild; child != nil; child = child.NextSibling {
 				walk(child)
 			}
 		}
 		walk(doc)
-		if found != nil {
-			return found
+		if len(found) > 0 {
+			best := found[0]
+			bestScore := editableContainerScore(best, map[string]struct{}{})
+			for _, candidate := range found[1:] {
+				score := editableContainerScore(candidate, map[string]struct{}{})
+				if score > bestScore {
+					best = candidate
+					bestScore = score
+				}
+			}
+			return best, normalized
 		}
 	}
-	return nil
+	return nil, ""
 }
 
 func removeScriptNodes(node *html.Node) {

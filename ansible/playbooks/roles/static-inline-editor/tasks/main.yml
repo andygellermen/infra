@@ -69,9 +69,10 @@
       STATIC_EDITOR_STATIC_ROOT={{ item.static_editor_static_root | default('/srv/static/' ~ item.domain, true) }}
       STATIC_EDITOR_UNDO_BACKUPS={{ item.static_editor_undo_backups | default(item.static_editor_backup_root | default('/srv/editor-undo-archive/' ~ item.domain, true), true) }}
       STATIC_EDITOR_REPO_ROOT={{ item.static_editor_repo_root | default('/srv/static/' ~ item.domain, true) }}
+      STATIC_EDITOR_FROM_EMAIL={{ item.static_editor_from_email | default('', true) }}
       STATIC_EDITOR_ALLOWED_EMAILS={{ (item.static_editor_allowed_emails | default([], true)) | join(',') }}
       STATIC_EDITOR_COOKIE_SECRET={{ item.static_editor_cookie_secret | default('change-me', true) }}
-      STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main, article, .content, .container, body', true) }}
+      STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main, article, .content, body', true) }}
       STATIC_EDITOR_ALLOWED_BLOCK_TAGS={{ item.static_editor_allowed_block_tags | default('div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li', true) }}
       STATIC_EDITOR_ALLOWED_INLINE_TAGS={{ item.static_editor_allowed_inline_tags | default('strong,em,a,br', true) }}
       STATIC_EDITOR_START_PATH={{ item.static_editor_start_path | default('/index.html', true) }}

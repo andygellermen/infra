@@ -31,6 +31,14 @@ type App struct {
 	mailer auth.Mailer
 }
 
+func (a *App) mailerForTenant(tenant model.Tenant) auth.Mailer {
+	fromEmail := strings.TrimSpace(tenant.FromEmail)
+	if fromEmail == "" {
+		return a.mailer
+	}
+	return auth.NewMailer(a.cfg.SMTPHost, a.cfg.SMTPPort, a.cfg.SMTPUsername, a.cfg.SMTPPassword, fromEmail, a.cfg.SMTPFromName)
+}
+
 func New(cfg config.Config) *App {
 	if strings.TrimSpace(cfg.ContentToolsCSSURL) == "" {
 		cfg.ContentToolsCSSURL = defaultContentToolsCSSURL
@@ -257,7 +265,7 @@ func (a *App) handleRequestLink(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		verifyURL := a.verifyURL(r, tenant, token)
-		if err := a.mailer.SendMagicLink(strings.TrimSpace(req.Email), verifyURL); err != nil {
+		if err := a.mailerForTenant(tenant).SendMagicLink(strings.TrimSpace(req.Email), verifyURL); err != nil {
 			log.Printf("static-inline-editor: request-link failed tenant=%s email=%s: %v", tenant.Domain, strings.TrimSpace(req.Email), err)
 			http.Error(w, "could not send magic link", http.StatusInternalServerError)
 			return

@@ -69,10 +69,10 @@ func TestPrepareDocumentRefinesBodyFallbackToContentContainer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareDocument returned error: %v", err)
 	}
-	if strings.Contains(doc.HTML, `<body data-editable=""`) {
-		t.Fatalf("expected body not to become editable")
+	if !strings.Contains(doc.HTML, `<p data-editable="" data-name="node-0001"`) {
+		t.Fatalf("expected body fallback to keep full document leaf editing, got %q", doc.HTML)
 	}
-	if !strings.Contains(doc.HTML, `<h1 data-editable="" data-name="node-0001"`) {
-		t.Fatalf("expected editable leaf block inside refined container, got %q", doc.HTML)
+	if !strings.Contains(doc.HTML, `<h1 data-editable=""`) {
+		t.Fatalf("expected article content to remain editable under body fallback, got %q", doc.HTML)
 	}
 }

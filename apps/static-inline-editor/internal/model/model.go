@@ -7,6 +7,7 @@ type Tenant struct {
 	StaticRoot        string
 	UndoBackupsRoot   string
 	RepoRoot          string
+	FromEmail         string
 	CookieSecret      string
 	AllowedEmails     []string
 	MainSelector      string
