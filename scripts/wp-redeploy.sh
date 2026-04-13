@@ -281,7 +281,7 @@ run_playbook_quiet() {
 
 run_post_redeploy_checks() {
   local container="$1" domain="$2" frontend_auth_expected="${3:-0}"
-  local headers="" first_status="" location="" public_result="" public_status="" public_redirects=""
+  local headers="" first_status="" location="" public_result="" public_status="" public_redirects="" browser_public_result=""
 
   info "Starte WordPress-Selbsttest nach Redeploy"
 
@@ -315,6 +315,17 @@ run_post_redeploy_checks() {
   if public_result="$(curl -k -sSL --max-redirs 10 -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null)"; then
     public_status="${public_result%% *}"
     public_redirects="${public_result##* }"
+    if [[ "$public_status" == "404" ]]; then
+      browser_public_result="$(curl -k -sSL --http1.1 --max-redirs 10 \
+        -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \
+        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+        -H 'Accept-Language: de,en;q=0.9' \
+        -o /dev/null -w '%{http_code} %{num_redirects}' "https://${domain}/" 2>/dev/null || true)"
+      if [[ -n "$browser_public_result" ]]; then
+        public_status="${browser_public_result%% *}"
+        public_redirects="${browser_public_result##* }"
+      fi
+    fi
     case "$public_status" in
       200|301|302|303|307|308)
         ok "Öffentlicher HTTPS-Check erfolgreich (Finalstatus ${public_status}, Redirects ${public_redirects})"
@@ -322,6 +333,13 @@ run_post_redeploy_checks() {
       401)
         if [[ "$frontend_auth_expected" == "1" ]]; then
           ok "Öffentlicher HTTPS-Check bestätigt aktiven Frontend-Passwortschutz (Finalstatus 401, Redirects ${public_redirects})"
+        else
+          warn "Öffentlicher HTTPS-Check meldet Finalstatus ${public_status} (Redirects ${public_redirects})"
+        fi
+        ;;
+      404)
+        if [[ "$first_status" == "200" ]]; then
+          info "Öffentlicher HTTPS-Check bleibt mit Curl uneindeutig (Finalstatus 404, Redirects ${public_redirects}), interner WordPress-Check ist jedoch erfolgreich"
         else
           warn "Öffentlicher HTTPS-Check meldet Finalstatus ${public_status} (Redirects ${public_redirects})"
         fi

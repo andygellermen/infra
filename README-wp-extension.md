@@ -268,6 +268,12 @@ Damit werden insbesondere `www.`-Aufrufe nicht mehr nur bei Ghost-, sondern auch
 In `v1.7.6` wurde die Rückmeldung des WordPress-Passwort-Schutz-Tests für versteckte Admin-/API-Pfade entschärft:
 
 - liefern alle üblichen Probe-Pfade eines Bereichs nur `404`, wird das jetzt als Hinweis statt als Warnung ausgegeben
+
+## Patch-Hinweis v1.7.7
+In `v1.7.7` wurde der öffentliche HTTPS-Check für WordPress noch browsernäher und weniger laut bei Fehlalarmen:
+
+- bei einem öffentlichen `404` wird zusätzlich ein browserähnlicher Request mit typischen Headern ausprobiert
+- bleibt nur dieser Curl-Check uneindeutig, während der interne WordPress-Check bereits `200` liefert, erscheint statt einer Warnung nur noch ein Hinweis
 - dadurch klingt ein absichtlich versteckter Login-/Admin-Bereich nicht mehr wie ein möglicher Fehler
 
 ## Versionspflege
