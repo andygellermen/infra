@@ -9,6 +9,8 @@ STATIC_REDEPLOY="$ROOT_DIR/scripts/static-redeploy.sh"
 REDIRECT_REDEPLOY="$ROOT_DIR/scripts/redirect-redeploy.sh"
 SHEETHELPER_REDEPLOY="$ROOT_DIR/scripts/sheethelper-redeploy.sh"
 STATICEDITOR_REDEPLOY="$ROOT_DIR/scripts/staticeditor-redeploy.sh"
+source "$ROOT_DIR/scripts/lib/error-notify.sh"
+setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 
 usage() {
   cat <<'USAGE'

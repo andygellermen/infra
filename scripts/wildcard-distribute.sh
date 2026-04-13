@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXPORT_SCRIPT="$ROOT_DIR/scripts/wildcard-export.sh"
 DEFAULT_CONFIG="$ROOT_DIR/ansible/wildcards/distribution.example.yml"
+source "$ROOT_DIR/scripts/lib/error-notify.sh"
+setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 
 usage() {
   cat <<'USAGE'

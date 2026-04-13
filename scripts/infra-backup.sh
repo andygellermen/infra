@@ -6,6 +6,8 @@ BACKUP_DIR="$ROOT_DIR/backups/infra"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 OUTPUT_FILE="${BACKUP_DIR}/infra-backup-${TIMESTAMP}.tar.gz"
 INCLUDE_MYSQL_DUMP=1
+source "$ROOT_DIR/scripts/lib/error-notify.sh"
+setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 
 usage() {
   cat <<USAGE

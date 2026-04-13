@@ -132,17 +132,40 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 Die Ghost-Container verwenden standardmäßig Amazon SES als SMTP-Transport. Lege die Zugangsdaten einmalig in `ansible/secrets/secrets.yml` ab, damit sie bei jeder Neuanlage automatisch genutzt werden. Beispiel:
 
 ```yaml
-ghost_ses_smtp_user: "AKIA...SMTP_USER"
-ghost_ses_smtp_password: "DEIN_SMTP_PASSWORT"
-ghost_ses_from: "Ghost <noreply@deine-domain.tld>"
+ses_smtp_user: "AKIA...SMTP_USER"
+ses_smtp_password: "DEIN_SMTP_PASSWORT"
+ses_from: "Infra <noreply@deine-domain.tld>"
 
 # Optional (Defaults werden verwendet, wenn nicht gesetzt)
-ghost_ses_smtp_host: "email-smtp.eu-central-1.amazonaws.com"
-ghost_ses_smtp_port: 587
-ghost_ses_smtp_secure: false
+ses_smtp_host: "email-smtp.eu-central-1.amazonaws.com"
+ses_smtp_port: 587
+ses_smtp_secure: false
 ```
 
-Wenn `ghost_ses_from` nicht gesetzt ist, wird automatisch `noreply@<domain>` verwendet. Individuelle Abweichungen kannst du pro Instanz im jeweiligen `ansible/hostvars/<domain>.yml` überschreiben.
+Wenn `ses_from` nicht gesetzt ist, wird automatisch `noreply@<domain>` verwendet. Individuelle Abweichungen kannst du pro Instanz im jeweiligen `ansible/hostvars/<domain>.yml` überschreiben.
+
+## Fehler-Notifications fuer Batch-Skripte
+
+Autonom laufende Batch-Skripte koennen bei Fehlern SMTP-Mails ueber Amazon SES versenden. Dafuer werden die vorhandenen SES-Zugangsdaten aus `ansible/secrets/secrets.yml` verwendet.
+
+Neue optionale Secrets:
+
+```yaml
+infra_error_notify_to: "andy@example.org"
+infra_error_notify_from: "Infra Bot <noreply@example.org>"
+infra_error_notify_subject_prefix: "[infra]"
+```
+
+Hinweise:
+- `infra_error_notify_to` aktiviert die Fehler-Mailings. Ohne diesen Key bleibt die Notification still deaktiviert.
+- `infra_error_notify_from` ist optional. Ohne diesen Key wird `ses_from` als Absender verwendet.
+- SMTP-Host, Port, User und Passwort kommen weiterhin aus `ses_smtp_*`.
+
+Aktuell angebunden sind:
+- `scripts/infra-update-all.sh`
+- `scripts/infra-backup.sh`
+- `scripts/redeploy-all-web.sh`
+- `scripts/wildcard-distribute.sh`
 
 
 # 🌀 Ghost Backup & Restore Toolkit
