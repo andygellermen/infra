@@ -28,6 +28,7 @@ type Config struct {
 	ContentToolsJSURL  string
 	GitAuthorName      string
 	GitAuthorEmail     string
+	GitCommitOnSave    bool
 	GitPushOnSave      bool
 	GitRemoteName      string
 	GitBranch          string
@@ -54,6 +55,7 @@ func Load() (Config, error) {
 		ContentToolsJSURL:  getenv("STATIC_EDITOR_CONTENTTOOLS_JS_URL", "https://cdn.jsdelivr.net/npm/ContentTools@1.6.1/build/content-tools.min.js"),
 		GitAuthorName:      getenv("STATIC_EDITOR_GIT_AUTHOR_NAME", "Static Inline Editor"),
 		GitAuthorEmail:     getenv("STATIC_EDITOR_GIT_AUTHOR_EMAIL", ""),
+		GitCommitOnSave:    getenvBool("STATIC_EDITOR_GIT_COMMIT_ON_SAVE", false),
 		GitPushOnSave:      getenvBool("STATIC_EDITOR_GIT_PUSH_ON_SAVE", false),
 		GitRemoteName:      getenv("STATIC_EDITOR_GIT_REMOTE", "origin"),
 		GitBranch:          getenv("STATIC_EDITOR_GIT_BRANCH", ""),
@@ -101,12 +103,12 @@ func loadTenantsFromDir(dir string) (map[string]model.Tenant, error) {
 			LoginDomain:       firstNonEmpty(values["STATIC_EDITOR_LOGIN_DOMAIN"], "bearbeitung."+domain),
 			Aliases:           parseCSV(values["STATIC_EDITOR_ALIASES"]),
 			StaticRoot:        strings.TrimSpace(values["STATIC_EDITOR_STATIC_ROOT"]),
-			BackupRoot:        strings.TrimSpace(values["STATIC_EDITOR_BACKUP_ROOT"]),
+			UndoBackupsRoot:   firstNonEmpty(strings.TrimSpace(values["STATIC_EDITOR_UNDO_BACKUPS"]), strings.TrimSpace(values["STATIC_EDITOR_BACKUP_ROOT"])),
 			RepoRoot:          strings.TrimSpace(values["STATIC_EDITOR_REPO_ROOT"]),
 			CookieSecret:      strings.TrimSpace(values["STATIC_EDITOR_COOKIE_SECRET"]),
 			AllowedEmails:     parseCSV(values["STATIC_EDITOR_ALLOWED_EMAILS"]),
-			MainSelector:      firstNonEmpty(values["STATIC_EDITOR_MAIN_SELECTOR"], "main"),
-			AllowedBlockTags:  parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_BLOCK_TAGS"], "h1,h2,h3,h4,h5,p,ul,ol,li")),
+			MainSelector:      firstNonEmpty(values["STATIC_EDITOR_MAIN_SELECTOR"], "main, article, .content, .container, body"),
+			AllowedBlockTags:  parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_BLOCK_TAGS"], "div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li")),
 			AllowedInlineTags: parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], "strong,em,a,br")),
 			StartPath:         firstNonEmpty(values["STATIC_EDITOR_START_PATH"], "/index.html"),
 		}

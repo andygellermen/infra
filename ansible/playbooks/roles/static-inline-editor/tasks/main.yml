@@ -46,19 +46,14 @@
       STATIC_EDITOR_TENANT_DIR=/config/tenants
       STATIC_EDITOR_SESSION_TTL=12h
       STATIC_EDITOR_MAGIC_LINK_TTL=15m
-      STATIC_EDITOR_GIT_AUTHOR_NAME={{ (static_editor_sites | map(attribute='static_editor_git_author_name') | list | first | default('Static Inline Editor', true)) }}
-      STATIC_EDITOR_GIT_AUTHOR_EMAIL={{ (static_editor_sites | map(attribute='static_editor_git_author_email') | list | first | default('', true)) }}
-      STATIC_EDITOR_GIT_PUSH_ON_SAVE={{ (static_editor_sites | map(attribute='static_editor_git_push_on_save') | list | first | default(false, true)) | ternary('true', 'false') }}
-      STATIC_EDITOR_GIT_REMOTE={{ (static_editor_sites | map(attribute='static_editor_git_remote') | list | first | default('origin', true)) }}
-      STATIC_EDITOR_GIT_BRANCH={{ (static_editor_sites | map(attribute='static_editor_git_branch') | list | first | default('', true)) }}
-      STATIC_EDITOR_GIT_HTTP_USERNAME={{ (static_editor_sites | map(attribute='static_editor_git_http_username') | list | first | default('', true)) }}
-      STATIC_EDITOR_GIT_HTTP_PASSWORD={{ (static_editor_sites | map(attribute='static_editor_git_http_password') | list | first | default('', true)) }}
-      STATIC_EDITOR_SMTP_HOST={{ (static_editor_sites | map(attribute='static_editor_smtp_host') | list | first | default('', true)) }}
-      STATIC_EDITOR_SMTP_PORT={{ (static_editor_sites | map(attribute='static_editor_smtp_port') | list | first | default(587, true)) }}
-      STATIC_EDITOR_SMTP_USERNAME={{ (static_editor_sites | map(attribute='static_editor_smtp_username') | list | first | default('', true)) }}
-      STATIC_EDITOR_SMTP_PASSWORD={{ (static_editor_sites | map(attribute='static_editor_smtp_password') | list | first | default('', true)) }}
-      STATIC_EDITOR_SMTP_FROM_EMAIL={{ (static_editor_sites | map(attribute='static_editor_smtp_from_email') | list | first | default('', true)) }}
-      STATIC_EDITOR_SMTP_FROM_NAME={{ (static_editor_sites | map(attribute='static_editor_smtp_from_name') | list | first | default('Static Inline Editor', true)) }}
+      STATIC_EDITOR_GIT_COMMIT_ON_SAVE=false
+      STATIC_EDITOR_GIT_PUSH_ON_SAVE=false
+      STATIC_EDITOR_SMTP_HOST={{ ses_smtp_host | default('email-smtp.eu-central-1.amazonaws.com', true) }}
+      STATIC_EDITOR_SMTP_PORT={{ ses_smtp_port | default(587, true) }}
+      STATIC_EDITOR_SMTP_USERNAME={{ ses_smtp_user | default('', true) }}
+      STATIC_EDITOR_SMTP_PASSWORD={{ ses_smtp_password | default('', true) }}
+      STATIC_EDITOR_SMTP_FROM_EMAIL={{ ((ses_from | regex_replace('^.*<([^>]+)>.*$', '\1')) if (ses_from is defined and '<' in ses_from and '>' in ses_from) else (ses_from | default('', true))) }}
+      STATIC_EDITOR_SMTP_FROM_NAME={{ (((ses_from | regex_replace('\s*<[^>]+>\s*$', '')) | trim) if (ses_from is defined and '<' in ses_from and '>' in ses_from) else 'Static Inline Editor') }}
   when: static_editor_sites | length > 0
 
 - name: Render per-tenant static-inline-editor env files
@@ -72,12 +67,12 @@
       STATIC_EDITOR_LOGIN_DOMAIN={{ item.static_editor_login_domain | default('bearbeitung.' ~ item.domain, true) }}
       STATIC_EDITOR_ALIASES={{ (item.static_editor_aliases | default([], true)) | join(',') }}
       STATIC_EDITOR_STATIC_ROOT={{ item.static_editor_static_root | default('/srv/static/' ~ item.domain, true) }}
-      STATIC_EDITOR_BACKUP_ROOT={{ item.static_editor_backup_root | default('/srv/static-backups/' ~ item.domain, true) }}
+      STATIC_EDITOR_UNDO_BACKUPS={{ item.static_editor_undo_backups | default(item.static_editor_backup_root | default('/srv/editor-undo-archive/' ~ item.domain, true), true) }}
       STATIC_EDITOR_REPO_ROOT={{ item.static_editor_repo_root | default('/srv/static/' ~ item.domain, true) }}
       STATIC_EDITOR_ALLOWED_EMAILS={{ (item.static_editor_allowed_emails | default([], true)) | join(',') }}
       STATIC_EDITOR_COOKIE_SECRET={{ item.static_editor_cookie_secret | default('change-me', true) }}
-      STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main', true) }}
-      STATIC_EDITOR_ALLOWED_BLOCK_TAGS={{ item.static_editor_allowed_block_tags | default('h1,h2,h3,h4,h5,p,ul,ol,li', true) }}
+      STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main, article, .content, .container, body', true) }}
+      STATIC_EDITOR_ALLOWED_BLOCK_TAGS={{ item.static_editor_allowed_block_tags | default('div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li', true) }}
       STATIC_EDITOR_ALLOWED_INLINE_TAGS={{ item.static_editor_allowed_inline_tags | default('strong,em,a,br', true) }}
       STATIC_EDITOR_START_PATH={{ item.static_editor_start_path | default('/index.html', true) }}
   loop: "{{ static_editor_sites }}"

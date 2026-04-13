@@ -5,7 +5,7 @@ type Tenant struct {
 	LoginDomain       string
 	Aliases           []string
 	StaticRoot        string
-	BackupRoot        string
+	UndoBackupsRoot   string
 	RepoRoot          string
 	CookieSecret      string
 	AllowedEmails     []string

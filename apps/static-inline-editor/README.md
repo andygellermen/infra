@@ -19,7 +19,7 @@ Aktuell enthalten:
 - ContentTools nur im geschuetzten Edit-Fall
 - Preview- und Save-Endpunkte
 - Backup vor dem Schreiben
-- Git-Commit nach erfolgreichem Save
+- optionaler Git-Commit nach erfolgreichem Save
 - optionaler Git-Push nach erfolgreichem Save
 - minimaler HTTP-Server
 - Healthcheck und Tenant-Debug-Endpunkt
@@ -44,7 +44,7 @@ STATIC_EDITOR_TENANT=example.org
 STATIC_EDITOR_LOGIN_DOMAIN=bearbeitung.example.org
 STATIC_EDITOR_ALIASES=www.example.org
 STATIC_EDITOR_STATIC_ROOT=/srv/static/example.org
-STATIC_EDITOR_BACKUP_ROOT=/srv/static-backups/example.org
+STATIC_EDITOR_UNDO_BACKUPS=/srv/editor-undo-archive/example.org
 STATIC_EDITOR_REPO_ROOT=/srv/static/example.org
 STATIC_EDITOR_ALLOWED_EMAILS=andy@example.org
 STATIC_EDITOR_COOKIE_SECRET=replace-me
@@ -54,12 +54,8 @@ STATIC_EDITOR_ALLOWED_INLINE_TAGS=strong,em,a,br
 STATIC_EDITOR_START_PATH=/index.html
 EOF
 
-STATIC_EDITOR_SMTP_HOST=email-smtp.eu-central-1.amazonaws.com \
-STATIC_EDITOR_SMTP_PORT=587 \
-STATIC_EDITOR_SMTP_USERNAME=replace-me \
-STATIC_EDITOR_SMTP_PASSWORD=replace-me \
-STATIC_EDITOR_SMTP_FROM_EMAIL=no-reply@example.org \
 STATIC_EDITOR_MAGIC_LINK_TTL=15m \
+STATIC_EDITOR_GIT_COMMIT_ON_SAVE=true \
 STATIC_EDITOR_GIT_AUTHOR_NAME='Static Inline Editor' \
 STATIC_EDITOR_GIT_AUTHOR_EMAIL=18n1ylzby6v4t2pmwufj6jsoeeomh9@bots.bitbucket.org \
 STATIC_EDITOR_GIT_PUSH_ON_SAVE=true \
@@ -100,7 +96,10 @@ Fuer bestehende statische Domains ist der einfachste Weg:
 Wichtig:
 
 - `static_editor_login_domain` sollte auf die Bearbeitungsdomain zeigen, zum Beispiel `bearbeitung.example.org`
-- `static_editor_repo_root` sollte auf das Git-Repo der statischen Seite zeigen
+- SMTP fuer Magic Links kommt im Infra-Betrieb global aus `ses_*`; optional kann nur eine Absenderadresse pro Domain als spaeterer Override erhalten bleiben
+- Speichern erzeugt standardmaessig nur ein Dateibackup; Git-Commit und Git-Push sind bewusst optional
+- Ruecksicherungen landen standardmaessig unter `STATIC_EDITOR_UNDO_BACKUPS` statt in einem generischen Backup-Namen
+- wenn du Git bewusst nutzen willst, sollte `static_editor_repo_root` auf das Git-Repo der statischen Seite zeigen
 - `static_editor_static_root` und `static_editor_repo_root` duerfen identisch sein
 - fuer Bitbucket-Repository-Tokens kann `origin` als normale HTTPS-URL bestehen bleiben; der Editor sendet Username und Token ueber `STATIC_EDITOR_GIT_HTTP_USERNAME` und `STATIC_EDITOR_GIT_HTTP_PASSWORD`
 - fuer Bitbucket sollte `STATIC_EDITOR_GIT_AUTHOR_EMAIL` auf die von Bitbucket ausgegebene Bot-Adresse gesetzt werden

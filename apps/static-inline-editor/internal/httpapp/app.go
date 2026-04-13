@@ -443,7 +443,7 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	backupPath, err := backupFile(tenant.BackupRoot, path, []byte(source))
+	backupPath, err := backupFile(tenant.UndoBackupsRoot, path, []byte(source))
 	if err != nil {
 		http.Error(w, "could not create backup", http.StatusInternalServerError)
 		return
@@ -452,29 +452,37 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not write updated file", http.StatusInternalServerError)
 		return
 	}
-	commitHash, err := gitops.CommitFile(tenant.RepoRoot, fullPath, a.cfg.GitAuthorName, a.gitAuthorEmail(session.Email), gitCommitMessage(tenant.Domain, path, session.Email))
-	if err != nil {
-		http.Error(w, "file saved but git commit failed", http.StatusInternalServerError)
-		return
-	}
+
+	commitHash := ""
 	pushed := false
 	pushTarget := ""
-	if a.cfg.GitPushOnSave {
-		pushTarget, err = gitops.Push(tenant.RepoRoot, a.cfg.GitRemoteName, a.cfg.GitBranch, gitops.PushAuth{
-			HTTPUsername: a.cfg.GitHTTPUsername,
-			HTTPPassword: a.cfg.GitHTTPPassword,
-		})
+	message := "Datei gespeichert"
+	if a.cfg.GitCommitOnSave {
+		commitHash, err = gitops.CommitFile(tenant.RepoRoot, fullPath, a.cfg.GitAuthorName, a.gitAuthorEmail(session.Email), gitCommitMessage(tenant.Domain, path, session.Email))
 		if err != nil {
-			http.Error(w, "file saved and committed, but git push failed", http.StatusInternalServerError)
+			http.Error(w, "file saved but git commit failed", http.StatusInternalServerError)
 			return
 		}
-		pushed = true
+
+		message = "Datei gespeichert und versioniert"
+		if a.cfg.GitPushOnSave {
+			pushTarget, err = gitops.Push(tenant.RepoRoot, a.cfg.GitRemoteName, a.cfg.GitBranch, gitops.PushAuth{
+				HTTPUsername: a.cfg.GitHTTPUsername,
+				HTTPPassword: a.cfg.GitHTTPPassword,
+			})
+			if err != nil {
+				http.Error(w, "file saved and committed, but git push failed", http.StatusInternalServerError)
+				return
+			}
+			pushed = true
+			message = "Datei gespeichert, versioniert und gepusht"
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(model.SaveResponse{
 		OK:         true,
-		Message:    "Datei gespeichert",
+		Message:    message,
 		BackupPath: backupPath,
 		CommitHash: commitHash,
 		Pushed:     pushed,
@@ -613,9 +621,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     .static-inline-editor-preview.is-open { display: flex; }
     .static-inline-editor-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: #fbf3e8; font: 14px/1.35 Georgia, serif; }
     .static-inline-editor-preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
-    [data-editor-id] { outline: 2px dashed rgba(138,60,26,0.28); outline-offset: 0.16rem; }
-    [data-editable] { position: relative; }
-    [data-editable]::before { content: "Editable region"; position: absolute; top: 0.35rem; right: 0.5rem; font: 600 0.72rem/1 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #8a3c1a; background: rgba(255,247,239,0.92); border: 1px solid rgba(138,60,26,0.24); border-radius: 999px; padding: 0.28rem 0.5rem; }
+    [data-editable] { min-height: 2rem; }
     .ct-app .ct-widget.ct-ignition { top: 6rem; left: 1rem; z-index: 10000; }
   </style>`, htmlEscape(contentToolsCSSURL))
 
@@ -659,6 +665,12 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
       var closeButton = document.getElementById('preview-close');
       var saveButton = document.getElementById('save-button');
       var latestRegions = null;
+      function readError(response, fallbackMessage) {
+        return response.text().then(function (text) {
+          var message = (text || '').trim();
+          throw new Error(message || fallbackMessage);
+        });
+      }
       var editor = ContentTools.EditorApp.get();
       editor.init('[data-editable]', 'data-name');
       editor.addEventListener('saved', function (ev) {
@@ -675,7 +687,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
         })
           .then(function (response) {
             if (!response.ok) {
-              throw new Error('Preview fehlgeschlagen');
+              return readError(response, 'Preview fehlgeschlagen');
             }
             return response.json();
           })
@@ -689,7 +701,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
           })
           .catch(function (error) {
             console.error(error);
-            previewStatus.textContent = 'Preview fehlgeschlagen';
+            previewStatus.textContent = error && error.message ? error.message : 'Preview fehlgeschlagen';
             new ContentTools.FlashUI('no');
           });
       });
@@ -713,7 +725,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
         })
           .then(function (response) {
             if (!response.ok) {
-              throw new Error('Speichern fehlgeschlagen');
+              return readError(response, 'Speichern fehlgeschlagen');
             }
             return response.json();
           })
@@ -724,7 +736,8 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
           })
           .catch(function (error) {
             console.error(error);
-            previewStatus.textContent = 'Speichern fehlgeschlagen';
+            previewStatus.textContent = error && error.message ? error.message : 'Speichern fehlgeschlagen';
+            window.alert(error && error.message ? error.message : 'Speichern fehlgeschlagen');
             new ContentTools.FlashUI('no');
           });
       });

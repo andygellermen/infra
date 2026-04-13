@@ -1331,7 +1331,7 @@ STATIC_EDITOR_TENANT=example.org
 STATIC_EDITOR_LOGIN_DOMAIN=bearbeitung.example.org
 STATIC_EDITOR_ALIASES=www.example.org
 STATIC_EDITOR_STATIC_ROOT=/srv/static/example.org
-STATIC_EDITOR_BACKUP_ROOT=/srv/static-backups/example.org
+STATIC_EDITOR_UNDO_BACKUPS=/srv/editor-undo-archive/example.org
 STATIC_EDITOR_REPO_ROOT=/srv/static/example.org
 STATIC_EDITOR_ALLOWED_EMAILS=andy@example.org,redaktion@example.org
 STATIC_EDITOR_COOKIE_SECRET=replace-me
@@ -1347,7 +1347,7 @@ Bedeutung:
 - `STATIC_EDITOR_LOGIN_DOMAIN`: Bearbeitungsdomain
 - `STATIC_EDITOR_ALIASES`: optionale Alias-Domains
 - `STATIC_EDITOR_STATIC_ROOT`: Root der statischen Dateien
-- `STATIC_EDITOR_BACKUP_ROOT`: Backup-Verzeichnis
+- `STATIC_EDITOR_UNDO_BACKUPS`: Ruecksicherungs-/Undo-Verzeichnis
 - `STATIC_EDITOR_REPO_ROOT`: Git-Repo-Wurzel
 - `STATIC_EDITOR_ALLOWED_EMAILS`: freigegebene E-Mail-Adressen fuer Magic-Links
 - `STATIC_EDITOR_COOKIE_SECRET`: Signatur-Secret fuer Sessions

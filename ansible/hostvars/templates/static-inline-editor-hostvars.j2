@@ -3,28 +3,11 @@ static_editor_enabled: true
 static_editor_login_domain: "bearbeitung.{{ domain }}"
 static_editor_aliases: []
 static_editor_static_root: "/srv/static/{{ domain }}"
-static_editor_backup_root: "/srv/static-backups/{{ domain }}"
+static_editor_undo_backups: "/srv/editor-undo-archive/{{ domain }}"
 static_editor_repo_root: "/srv/static/{{ domain }}"
 static_editor_allowed_emails: []
 static_editor_cookie_secret: ""
 static_editor_start_path: "/index.html"
-static_editor_main_selector: "main"
-static_editor_allowed_block_tags: "h1,h2,h3,h4,h5,p,ul,ol,li"
+static_editor_main_selector: "main, article, .content, .container, body"
+static_editor_allowed_block_tags: "div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li"
 static_editor_allowed_inline_tags: "strong,em,a,br"
-
-# Global Editor Runtime
-static_editor_container_name: "static-inline-editor"
-static_editor_data_dir: "/srv/static-inline-editor"
-static_editor_git_push_on_save: false
-static_editor_git_remote: "origin"
-static_editor_git_branch: ""
-static_editor_git_author_name: "Static Inline Editor"
-static_editor_git_author_email: ""
-static_editor_git_http_username: ""
-static_editor_git_http_password: ""
-static_editor_smtp_host: ""
-static_editor_smtp_port: 587
-static_editor_smtp_username: ""
-static_editor_smtp_password: ""
-static_editor_smtp_from_email: ""
-static_editor_smtp_from_name: "Static Inline Editor"

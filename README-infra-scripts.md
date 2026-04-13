@@ -167,6 +167,16 @@ Aktuell angebunden sind:
 - `scripts/redeploy-all-web.sh`
 - `scripts/wildcard-distribute.sh`
 
+## Static Inline Editor
+
+Beim Static Inline Editor kommen SMTP-Zugangsdaten fuer Magic Links jetzt ebenfalls global aus `ses_*` statt aus einzelnen Domain-Hostvars.
+
+Wichtig:
+- `static_editor_smtp_*` wird nicht mehr in Hostvars gepflegt
+- Speichern erzeugt standardmaessig ein Dateibackup, aber keinen Git-Commit
+- dadurch bleibt der Editor fuer seltene Kleinaenderungen bewusst schlank und ohne Git-Zwang
+- fuer den Static Editor heisst das Ruecksicherungsziel jetzt `static_editor_undo_backups`
+
 
 # 🌀 Ghost Backup & Restore Toolkit
 

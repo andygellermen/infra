@@ -304,6 +304,7 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 		MagicLinkTTL:  "15m",
 		SecureCookies: false,
 		GitAuthorName: "Static Inline Editor",
+		GitCommitOnSave: true,
 		GitPushOnSave: true,
 		GitRemoteName: "origin",
 		Tenants: map[string]model.Tenant{
@@ -313,7 +314,7 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 				AllowedEmails:     []string{"andy@example.org"},
 				StartPath:         "/index.html",
 				StaticRoot:        repoRoot,
-				BackupRoot:        backupRoot,
+				UndoBackupsRoot:   backupRoot,
 				RepoRoot:          repoRoot,
 				MainSelector:      "main",
 				AllowedBlockTags:  []string{"h1", "p", "ul", "ol", "li"},
