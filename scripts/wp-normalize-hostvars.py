@@ -6,9 +6,8 @@ from pathlib import Path
 
 DOMAIN_LINE_RE = re.compile(r"^domain:\s*.*$")
 TRAEFIK_LINE_RE = re.compile(r"^traefik:\s*$")
-TRAEFIK_DOMAIN_LINE_RE = re.compile(r"^  domain:\s*.*$")
-TRAEFIK_ALIASES_LINE_RE = re.compile(r"^  aliases:\s*$")
-TRAEFIK_ALIAS_ITEM_RE = re.compile(r"^    -\s*(.+?)\s*$")
+ALIASES_LINE_RE = re.compile(r"^\s*aliases:\s*$")
+ALIAS_ITEM_RE = re.compile(r"^\s*-\s*(.+?)\s*$")
 
 
 def build_aliases(domain: str, configured_aliases: list[str]) -> list[str]:
@@ -16,7 +15,7 @@ def build_aliases(domain: str, configured_aliases: list[str]) -> list[str]:
     seen: set[str] = set()
 
     def add(alias: str) -> None:
-        alias = (alias or "").strip()
+        alias = (alias or "").strip().strip('"').strip("'")
         if not alias or alias == domain or alias in seen:
             return
         seen.add(alias)
@@ -24,59 +23,48 @@ def build_aliases(domain: str, configured_aliases: list[str]) -> list[str]:
 
     add(f"www.{domain}")
     for alias in configured_aliases:
-        alias = (alias or "").strip()
-        if not alias:
-            continue
         add(alias)
-        if not alias.startswith("www."):
+        if alias and not alias.startswith("www."):
             add(f"www.{alias}")
 
     return aliases
 
 
-def render_traefik_block(domain: str, aliases: list[str], extra_lines: list[str]) -> list[str]:
-    block = ["traefik:\n", f"  domain: {domain}\n", "  aliases:\n"]
-    block.extend(f"    - {alias}\n" for alias in aliases)
-
-    if extra_lines and block[-1] != "\n" and extra_lines[0] != "\n":
-        block.append("\n")
-    block.extend(extra_lines)
-    return block
+def render_traefik_block(domain: str, aliases: list[str]) -> list[str]:
+    lines = ["traefik:\n", f"  domain: {domain}\n", "  aliases:\n"]
+    lines.extend(f"    - {alias}\n" for alias in aliases)
+    return lines
 
 
-def split_traefik_block(lines: list[str], start_index: int) -> tuple[int, list[str], list[str]]:
+def collect_aliases_from_traefik_block(lines: list[str], start_index: int) -> tuple[int, list[str]]:
+    aliases: list[str] = []
     index = start_index + 1
-    alias_values: list[str] = []
-    extra_lines: list[str] = []
+    in_aliases = False
 
     while index < len(lines):
         line = lines[index]
         if line and not line.startswith((" ", "\t")):
             break
 
-        if TRAEFIK_DOMAIN_LINE_RE.match(line):
+        if ALIASES_LINE_RE.match(line):
+            in_aliases = True
             index += 1
             continue
 
-        if TRAEFIK_ALIASES_LINE_RE.match(line):
-            index += 1
-            while index < len(lines):
-                alias_line = lines[index]
-                match = TRAEFIK_ALIAS_ITEM_RE.match(alias_line)
-                if match:
-                    alias_values.append(match.group(1).strip().strip('"').strip("'"))
-                    index += 1
-                    continue
-                if alias_line.startswith("    ") and alias_line.strip() == "":
-                    index += 1
-                    continue
-                break
-            continue
+        if in_aliases:
+            match = ALIAS_ITEM_RE.match(line)
+            if match:
+                aliases.append(match.group(1).strip())
+                index += 1
+                continue
+            if line.strip() == "" or line.lstrip().startswith("#"):
+                index += 1
+                continue
+            in_aliases = False
 
-        extra_lines.append(line)
         index += 1
 
-    return index, alias_values, extra_lines
+    return index, aliases
 
 
 def main() -> int:
@@ -94,10 +82,9 @@ def main() -> int:
 
     lines = hostvars_path.read_text(encoding="utf-8").splitlines(keepends=True)
     output: list[str] = []
-    found_domain = False
-    found_traefik = False
     existing_aliases: list[str] = []
-    traefik_insert_index: int | None = None
+    found_domain = False
+    insert_after_domain: int | None = None
     index = 0
 
     while index < len(lines):
@@ -106,16 +93,13 @@ def main() -> int:
         if DOMAIN_LINE_RE.match(line):
             output.append(f"domain: {domain}\n")
             found_domain = True
-            if traefik_insert_index is None:
-                traefik_insert_index = len(output)
+            insert_after_domain = len(output)
             index += 1
             continue
 
         if TRAEFIK_LINE_RE.match(line):
-            found_traefik = True
-            next_index, parsed_aliases, extra_lines = split_traefik_block(lines, index)
-            existing_aliases.extend(parsed_aliases)
-            output.extend(render_traefik_block(domain, build_aliases(domain, [*existing_aliases, *cli_aliases]), extra_lines))
+            next_index, aliases = collect_aliases_from_traefik_block(lines, index)
+            existing_aliases.extend(aliases)
             index = next_index
             continue
 
@@ -127,17 +111,15 @@ def main() -> int:
         while insert_at < len(output) and (output[insert_at].startswith("#") or output[insert_at].strip() == ""):
             insert_at += 1
         output[insert_at:insert_at] = [f"domain: {domain}\n", "\n"]
-        if traefik_insert_index is None:
-            traefik_insert_index = insert_at + 2
+        insert_after_domain = insert_at + 1
 
-    if not found_traefik:
-        traefik_block = render_traefik_block(domain, build_aliases(domain, cli_aliases), [])
-        insert_at = traefik_insert_index if traefik_insert_index is not None else len(output)
-        if insert_at > 0 and output[insert_at - 1].strip() != "":
-            traefik_block.insert(0, "\n")
-        if insert_at < len(output) and output[insert_at].strip() != "":
-            traefik_block.append("\n")
-        output[insert_at:insert_at] = traefik_block
+    aliases = build_aliases(domain, [*existing_aliases, *cli_aliases])
+    traefik_block = render_traefik_block(domain, aliases)
+
+    insert_at = insert_after_domain if insert_after_domain is not None else len(output)
+    if insert_at < len(output) and output[insert_at].strip() != "":
+        traefik_block.append("\n")
+    output[insert_at:insert_at] = traefik_block
 
     hostvars_path.write_text("".join(output), encoding="utf-8")
     return 0
