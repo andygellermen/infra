@@ -21,6 +21,9 @@ func TestPrepareDocumentMarksAllowedNodesInsideMainSelector(t *testing.T) {
 	if !strings.Contains(doc.HTML, `data-editor-tag="p"`) {
 		t.Fatalf("expected editor tag marker in HTML")
 	}
+	if strings.Contains(doc.HTML, `data-editable="" data-name="main-content"`) {
+		t.Fatalf("expected individual editable blocks instead of one main-content region")
+	}
 }
 
 func TestPrepareDocumentSupportsClassSelector(t *testing.T) {
@@ -66,10 +69,10 @@ func TestPrepareDocumentRefinesBodyFallbackToContentContainer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareDocument returned error: %v", err)
 	}
-	if !strings.Contains(doc.HTML, `<article class="content" data-editable="" data-name="main-content">`) {
-		t.Fatalf("expected article content container to become editable root, got %q", doc.HTML)
-	}
 	if strings.Contains(doc.HTML, `<body data-editable=""`) {
-		t.Fatalf("expected body not to remain editable root")
+		t.Fatalf("expected body not to become editable")
+	}
+	if !strings.Contains(doc.HTML, `<h1 data-editable="" data-name="node-0001"`) {
+		t.Fatalf("expected editable leaf block inside refined container, got %q", doc.HTML)
 	}
 }

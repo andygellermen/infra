@@ -399,12 +399,12 @@ func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = session
 
-	req, path, _, source, regionHTML, ok := a.loadEditableRequest(w, r, tenant)
+	req, path, _, source, regions, ok := a.loadEditableRequest(w, r, tenant)
 	if !ok {
 		return
 	}
 
-	updatedHTML, err := editor.ApplyRegionHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regionHTML)
+	updatedHTML, err := editor.ApplyRegionsHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regions)
 	if err != nil {
 		http.Error(w, "could not build preview", http.StatusBadRequest)
 		return
@@ -432,12 +432,12 @@ func (a *App) handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = session
 
-	req, path, fullPath, source, regionHTML, ok := a.loadEditableRequest(w, r, tenant)
+	req, path, fullPath, source, regions, ok := a.loadEditableRequest(w, r, tenant)
 	if !ok {
 		return
 	}
 
-	updatedHTML, err := editor.ApplyRegionHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regionHTML)
+	updatedHTML, err := editor.ApplyRegionsHTML(source, tenant.MainSelector, tenant.AllowedBlockTags, tenant.AllowedInlineTags, regions)
 	if err != nil {
 		http.Error(w, "could not save document", http.StatusBadRequest)
 		return
@@ -801,11 +801,11 @@ func (a *App) requireTenantSession(w http.ResponseWriter, r *http.Request) (mode
 	return tenant, session, true
 }
 
-func (a *App) loadEditableRequest(w http.ResponseWriter, r *http.Request, tenant model.Tenant) (model.PreviewRequest, string, string, string, string, bool) {
+func (a *App) loadEditableRequest(w http.ResponseWriter, r *http.Request, tenant model.Tenant) (model.PreviewRequest, string, string, string, map[string]string, bool) {
 	var req model.PreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return model.PreviewRequest{}, "", "", "", "", false
+		return model.PreviewRequest{}, "", "", "", nil, false
 	}
 
 	targetPath := strings.TrimSpace(req.Path)
@@ -815,22 +815,21 @@ func (a *App) loadEditableRequest(w http.ResponseWriter, r *http.Request, tenant
 	fullPath, err := resolveStaticPath(tenant.StaticRoot, targetPath)
 	if err != nil {
 		http.Error(w, "invalid edit path", http.StatusBadRequest)
-		return model.PreviewRequest{}, "", "", "", "", false
+		return model.PreviewRequest{}, "", "", "", nil, false
 	}
 
 	sourceBytes, err := os.ReadFile(fullPath)
 	if err != nil {
 		http.Error(w, "could not read html file", http.StatusNotFound)
-		return model.PreviewRequest{}, "", "", "", "", false
+		return model.PreviewRequest{}, "", "", "", nil, false
 	}
 
-	regionHTML, ok := req.Regions["main-content"]
-	if !ok {
+	if len(req.Regions) == 0 {
 		http.Error(w, "missing editable region", http.StatusBadRequest)
-		return model.PreviewRequest{}, "", "", "", "", false
+		return model.PreviewRequest{}, "", "", "", nil, false
 	}
 
-	return req, targetPath, fullPath, string(sourceBytes), regionHTML, true
+	return req, targetPath, fullPath, string(sourceBytes), req.Regions, true
 }
 
 func backupFile(backupRoot, targetPath string, content []byte) (string, error) {

@@ -12,7 +12,6 @@ type PreparedDocument struct {
 	HTML         string
 	EditableIDs  []string
 	EditableTags []string
-	RegionName   string
 }
 
 func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (PreparedDocument, error) {
@@ -31,17 +30,16 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 	var ids []string
 	var tags []string
 	var seq int
-	regionName := "main-content"
-	setAttr(root, "data-editable", "")
-	setAttr(root, "data-name", regionName)
 
 	var walk func(*html.Node)
 	walk = func(node *html.Node) {
 		if node.Type == html.ElementNode {
 			tag := strings.ToLower(node.Data)
-			if _, ok := allowed[tag]; ok {
+			if _, ok := allowed[tag]; ok && isEditableLeaf(node, allowed) {
 				seq++
 				id := fmt.Sprintf("node-%04d", seq)
+				setAttr(node, "data-editable", "")
+				setAttr(node, "data-name", id)
 				setAttr(node, "data-editor-id", id)
 				setAttr(node, "data-editor-tag", tag)
 				setAttr(node, "data-editor-scope", "text")
@@ -65,7 +63,6 @@ func PrepareDocument(source, mainSelector string, allowedBlockTags []string) (Pr
 		HTML:         buf.String(),
 		EditableIDs:  ids,
 		EditableTags: tags,
-		RegionName:   regionName,
 	}, nil
 }
 
@@ -186,6 +183,42 @@ func editableContainerScore(node *html.Node, allowed map[string]struct{}) int {
 	}
 	walk(node)
 	return score
+}
+
+func isEditableLeaf(node *html.Node, allowed map[string]struct{}) bool {
+	if node == nil || node.Type != html.ElementNode {
+		return false
+	}
+
+	hasMeaningfulText := false
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if child.Type == html.TextNode && strings.TrimSpace(child.Data) != "" {
+			hasMeaningfulText = true
+		}
+		if child.Type == html.ElementNode {
+			tag := strings.ToLower(child.Data)
+			if _, ok := allowed[tag]; ok {
+				return false
+			}
+			if descendantContainsMeaningfulText(child) {
+				hasMeaningfulText = true
+			}
+		}
+	}
+
+	return hasMeaningfulText
+}
+
+func descendantContainsMeaningfulText(node *html.Node) bool {
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if child.Type == html.TextNode && strings.TrimSpace(child.Data) != "" {
+			return true
+		}
+		if child.Type == html.ElementNode && descendantContainsMeaningfulText(child) {
+			return true
+		}
+	}
+	return false
 }
 
 func splitSelectors(selector string) []string {

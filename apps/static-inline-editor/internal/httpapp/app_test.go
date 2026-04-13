@@ -344,7 +344,8 @@ func TestPreviewAndSaveFlow(t *testing.T) {
 	payload := model.PreviewRequest{
 		Path: "/index.html",
 		Regions: map[string]string{
-			"main-content": `<h1>Neu</h1><p>Hallo <strong>Welt</strong></p>`,
+			"node-0001": `Neu`,
+			"node-0002": `Hallo <strong>Welt</strong>`,
 		},
 	}
 	body, err := json.Marshal(payload)

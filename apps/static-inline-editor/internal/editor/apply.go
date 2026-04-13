@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-func ApplyRegionHTML(source, mainSelector string, allowedBlockTags, allowedInlineTags []string, regionHTML string) (string, error) {
+func ApplyRegionsHTML(source, mainSelector string, allowedBlockTags, allowedInlineTags []string, regions map[string]string) (string, error) {
 	doc, err := html.Parse(strings.NewReader(source))
 	if err != nil {
 		return "", fmt.Errorf("parse source html: %w", err)
@@ -19,22 +19,30 @@ func ApplyRegionHTML(source, mainSelector string, allowedBlockTags, allowedInlin
 	if root == nil {
 		return "", fmt.Errorf("main selector %q not found", mainSelector)
 	}
-	root = refineEditableRoot(root, toSet(allowedBlockTags))
+	allowedBlocks := toSet(allowedBlockTags)
+	root = refineEditableRoot(root, allowedBlocks)
+	assignEditableIDs(root, allowedBlocks)
 
-	sanitized, err := sanitizeRegionHTML(regionHTML, allowedBlockTags, allowedInlineTags)
-	if err != nil {
-		return "", err
+	for id, regionHTML := range regions {
+		target := findNodeByEditorID(root, id)
+		if target == nil {
+			continue
+		}
+		sanitized, err := sanitizeInlineHTML(regionHTML, allowedInlineTags)
+		if err != nil {
+			return "", err
+		}
+		for child := target.FirstChild; child != nil; {
+			next := child.NextSibling
+			target.RemoveChild(child)
+			child = next
+		}
+		for _, node := range sanitized {
+			target.AppendChild(node)
+		}
 	}
 
-	for child := root.FirstChild; child != nil; {
-		next := child.NextSibling
-		root.RemoveChild(child)
-		child = next
-	}
-
-	for _, node := range sanitized {
-		root.AppendChild(node)
-	}
+	removeEditorAttrs(doc)
 
 	var buf bytes.Buffer
 	if err := html.Render(&buf, doc); err != nil {
@@ -43,53 +51,35 @@ func ApplyRegionHTML(source, mainSelector string, allowedBlockTags, allowedInlin
 	return buf.String(), nil
 }
 
-func sanitizeRegionHTML(regionHTML string, allowedBlockTags, allowedInlineTags []string) ([]*html.Node, error) {
+func sanitizeInlineHTML(regionHTML string, allowedInlineTags []string) ([]*html.Node, error) {
 	context := &html.Node{Type: html.ElementNode, Data: "div", DataAtom: atom.Div}
 	nodes, err := html.ParseFragment(strings.NewReader(regionHTML), context)
 	if err != nil {
 		return nil, fmt.Errorf("parse region html: %w", err)
 	}
 
-	allowedBlocks := toSet(allowedBlockTags)
 	allowedInlines := toSet(allowedInlineTags)
 	var out []*html.Node
 	for _, node := range nodes {
-		for _, sanitized := range sanitizeNode(node, allowedBlocks, allowedInlines, true) {
-			if sanitized.Type == html.TextNode && strings.TrimSpace(sanitized.Data) == "" {
-				out = append(out, sanitized)
-				continue
-			}
-			if sanitized.Type != html.ElementNode {
-				continue
-			}
-			if _, ok := allowedBlocks[strings.ToLower(sanitized.Data)]; !ok {
-				continue
-			}
-			out = append(out, sanitized)
-		}
+		out = append(out, sanitizeInlineNode(node, allowedInlines)...)
 	}
 	return out, nil
 }
 
-func sanitizeNode(node *html.Node, allowedBlocks, allowedInlines map[string]struct{}, topLevel bool) []*html.Node {
+func sanitizeInlineNode(node *html.Node, allowedInlines map[string]struct{}) []*html.Node {
 	switch node.Type {
 	case html.TextNode:
 		return []*html.Node{{Type: html.TextNode, Data: node.Data}}
 	case html.ElementNode:
 		tag := strings.ToLower(node.Data)
-		_, blockAllowed := allowedBlocks[tag]
 		_, inlineAllowed := allowedInlines[tag]
-		if !blockAllowed && !inlineAllowed {
-			return sanitizeChildren(node, allowedBlocks, allowedInlines, topLevel)
+		if !inlineAllowed {
+			return sanitizeInlineChildren(node, allowedInlines)
 		}
-		if topLevel && !blockAllowed {
-			return nil
-		}
-
 		cloned := &html.Node{Type: html.ElementNode, Data: tag}
 		cloned.Attr = sanitizeAttrs(tag, node.Attr)
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			children := sanitizeNode(child, allowedBlocks, allowedInlines, false)
+			children := sanitizeInlineNode(child, allowedInlines)
 			for _, item := range children {
 				cloned.AppendChild(item)
 			}
@@ -100,10 +90,10 @@ func sanitizeNode(node *html.Node, allowedBlocks, allowedInlines map[string]stru
 	}
 }
 
-func sanitizeChildren(node *html.Node, allowedBlocks, allowedInlines map[string]struct{}, topLevel bool) []*html.Node {
+func sanitizeInlineChildren(node *html.Node, allowedInlines map[string]struct{}) []*html.Node {
 	var out []*html.Node
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		out = append(out, sanitizeNode(child, allowedBlocks, allowedInlines, topLevel)...)
+		out = append(out, sanitizeInlineNode(child, allowedInlines)...)
 	}
 	return out
 }
@@ -121,4 +111,60 @@ func sanitizeAttrs(tag string, attrs []html.Attribute) []html.Attribute {
 		}
 	}
 	return out
+}
+
+func assignEditableIDs(root *html.Node, allowed map[string]struct{}) {
+	var seq int
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if node.Type == html.ElementNode {
+			tag := strings.ToLower(node.Data)
+			if _, ok := allowed[tag]; ok && isEditableLeaf(node, allowed) {
+				seq++
+				id := fmt.Sprintf("node-%04d", seq)
+				setAttr(node, "data-editor-id", id)
+			}
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(root)
+}
+
+func findNodeByEditorID(root *html.Node, id string) *html.Node {
+	var found *html.Node
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if found != nil {
+			return
+		}
+		if node.Type == html.ElementNode && attr(node, "data-editor-id") == id {
+			found = node
+			return
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(root)
+	return found
+}
+
+func removeEditorAttrs(node *html.Node) {
+	if node.Type == html.ElementNode {
+		filtered := node.Attr[:0]
+		for _, item := range node.Attr {
+			switch strings.ToLower(item.Key) {
+			case "data-editable", "data-name", "data-editor-id", "data-editor-tag", "data-editor-scope":
+				continue
+			default:
+				filtered = append(filtered, item)
+			}
+		}
+		node.Attr = filtered
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		removeEditorAttrs(child)
+	}
 }
