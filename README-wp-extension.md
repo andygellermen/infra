@@ -258,6 +258,13 @@ In `v1.7.5` wurde der öffentliche HTTPS-Check in den WordPress-Skripten browser
 - dadurch entstehen weniger Fehlalarme mit `404`, obwohl die Website im Browser korrekt erreichbar ist
 
 ## Patch-Hinweis v1.7.6
+In `v1.7.6` wurde die Alias-Behandlung fuer WordPress an das Verhalten der Ghost-Instanzen angeglichen:
+
+- `wp-add.sh` normalisiert neue Hostvars jetzt zentral und schreibt Alias-Domains konsistent unter `traefik.aliases`
+- `wp-restore.sh` ergänzt bzw. repariert die Alias-Struktur nach einem Restore automatisch, auch bei Legacy-Hostvars ohne vorhandenen `traefik`-Block
+- `wp-redeploy.sh` zieht dieselbe Normalisierung vor jedem Redeploy nach, damit bestehende Instanzen `www.<domain>` und weitere Alias-Domains zuverlässig mitnehmen
+
+Damit werden insbesondere `www.`-Aufrufe nicht mehr nur bei Ghost-, sondern auch bei WordPress-Instanzen über dieselbe Alias-Logik auf die Primaerdomain gefuehrt.
 In `v1.7.6` wurde die Rückmeldung des WordPress-Passwort-Schutz-Tests für versteckte Admin-/API-Pfade entschärft:
 
 - liefern alle üblichen Probe-Pfade eines Bereichs nur `404`, wird das jetzt als Hinweis statt als Warnung ausgegeben

@@ -4,6 +4,7 @@ set -euo pipefail
 INVENTORY="./ansible/inventory/hosts.ini"
 PLAYBOOK="./ansible/playbooks/deploy-wordpress.yml"
 HOSTVARS_DIR="./ansible/hostvars"
+HOSTVARS_NORMALIZER="./scripts/wp-normalize-hostvars.py"
 
 usage(){ echo "Usage: $0 <domain> [--check-only]"; }
 die(){ echo "❌ $*" >&2; exit 1; }
@@ -429,10 +430,14 @@ require_cmd curl
 require_cmd dig
 require_cmd docker
 require_cmd ansible-playbook
+require_cmd python3
 
 HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
+[[ -f "$HOSTVARS_NORMALIZER" ]] || die "Hostvars-Normalizer fehlt: $HOSTVARS_NORMALIZER"
 CONTAINER="wp-${DOMAIN//./-}"
+
+python3 "$HOSTVARS_NORMALIZER" "$HOSTVARS_FILE" "$DOMAIN"
 
 host_ip="$(curl -fsSL https://api.ipify.org || true)"
 dns_ip="$(dig +short A "$DOMAIN" | head -n1)"

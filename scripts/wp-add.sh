@@ -4,6 +4,7 @@ set -euo pipefail
 ANSIBLE_PLAYBOOK="./ansible/playbooks/deploy-wordpress.yml"
 INVENTORY="./ansible/inventory"
 HOSTVARS_DIR="./ansible/hostvars"
+HOSTVARS_NORMALIZER="./scripts/wp-normalize-hostvars.py"
 DEFAULT_WP_VERSION="latest"
 
 usage() {
@@ -66,6 +67,8 @@ done
 command -v idn >/dev/null 2>&1 || die "Tool fehlt: idn"
 command -v dig >/dev/null 2>&1 || die "Tool fehlt: dig"
 command -v curl >/dev/null 2>&1 || die "Tool fehlt: curl"
+command -v python3 >/dev/null 2>&1 || die "Tool fehlt: python3"
+[[ -f "$HOSTVARS_NORMALIZER" ]] || die "Hostvars-Normalizer fehlt: $HOSTVARS_NORMALIZER"
 
 verify_domain_points_here "$DOMAIN"
 for alias in "${ALIASES[@]}"; do verify_domain_points_here "$alias"; done
@@ -103,6 +106,7 @@ wp_pwd="$(openssl rand -hex 16)"
   echo "tls_dns_account: \"${dns_account}\""
 } > "$HOSTVARS_FILE"
 
+python3 "$HOSTVARS_NORMALIZER" "$HOSTVARS_FILE" "$DOMAIN" "${ALIASES[@]}"
 info "Hostvars geschrieben: $HOSTVARS_FILE"
 ansible-playbook -i "$INVENTORY" -e "target_domain=${DOMAIN}" "$ANSIBLE_PLAYBOOK"
 ok "WordPress-Setup für ${DOMAIN} abgeschlossen"

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REDEPLOY_SCRIPT="$ROOT_DIR/scripts/wp-redeploy.sh"
+HOSTVARS_NORMALIZER="$ROOT_DIR/scripts/wp-normalize-hostvars.py"
 
 die(){ echo "❌ $*" >&2; exit 1; }
 info(){ echo "ℹ️  $*"; }
@@ -433,7 +434,9 @@ done
 require_cmd curl
 require_cmd docker
 require_cmd idn
+require_cmd python3
 [[ -f "$BACKUP_FILE" ]] || die "Backup fehlt: $BACKUP_FILE"
+[[ -f "$HOSTVARS_NORMALIZER" ]] || die "Hostvars-Normalizer fehlt: $HOSTVARS_NORMALIZER"
 
 if [[ -n "$WILDCARD_DOMAIN" ]]; then
   if [[ "$WILDCARD_DOMAIN" =~ ^[a-zA-Z0-9.-]+$ ]]; then
@@ -518,6 +521,7 @@ elif [[ -n "$DNS_ACCOUNT" ]]; then
   FORCE_REDEPLOY=1
   info "DNS-Account in Hostvars gesetzt: ${DNS_ACCOUNT}"
 fi
+python3 "$HOSTVARS_NORMALIZER" "$HOSTVARS" "$DOMAIN"
 ensure_db_and_user_exists "$HOSTVARS"
 
 DB_NAME="$(extract_hostvar wp_domain_db "$HOSTVARS")"
