@@ -43,7 +43,11 @@ def collect_aliases_from_traefik_block(lines: list[str], start_index: int) -> tu
 
     while index < len(lines):
         line = lines[index]
-        if line and not line.startswith((" ", "\t")):
+        if line.strip() == "":
+            index += 1
+            continue
+
+        if not line.startswith((" ", "\t")):
             break
 
         if ALIASES_LINE_RE.match(line):
