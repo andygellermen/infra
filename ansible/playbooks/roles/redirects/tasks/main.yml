@@ -55,7 +55,7 @@
         if (tls_mode == 'wildcard' and (tls_wildcard_domain | length) > 0)
         else {}
       }}
-  redirect_entry_labels: >-
+    redirect_entry_labels: >-
       {{
         {
           ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
