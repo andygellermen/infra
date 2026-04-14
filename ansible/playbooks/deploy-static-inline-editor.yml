@@ -1,6 +1,12 @@
 ---
 - name: Deploy Static Inline Editor
-  hosts: all
+  hosts: localhost
+  connection: local
   become: true
+  gather_facts: false
+
+  vars_files:
+    - "../secrets/secrets.yml"
+
   roles:
     - static-inline-editor
