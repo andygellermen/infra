@@ -64,3 +64,18 @@ func TestApplyRegionsHTMLPreservesInlineClassesAndStructure(t *testing.T) {
 		t.Fatalf("expected button structure to survive, got %q", out)
 	}
 }
+
+func TestApplyRegionsHTMLConvertsEditedBlockWrappersToLineBreaks(t *testing.T) {
+	source := `<!doctype html><html><body><main><p>Alt</p></main></body></html>`
+	regions := map[string]string{
+		"node-0001": `<div>Erste Zeile</div><div>Zweite Zeile</div>`,
+	}
+
+	out, err := ApplyRegionsHTML(source, "main", []string{"p"}, []string{"strong", "em", "a", "span", "button", "br"}, regions)
+	if err != nil {
+		t.Fatalf("ApplyRegionsHTML returned error: %v", err)
+	}
+	if !strings.Contains(out, `<p>Erste Zeile<br/>Zweite Zeile<br/></p>`) && !strings.Contains(out, `<p>Erste Zeile<br>Zweite Zeile<br></p>`) {
+		t.Fatalf("expected edited block wrappers to survive as line breaks, got %q", out)
+	}
+}

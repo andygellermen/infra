@@ -76,7 +76,11 @@ func sanitizeInlineNode(node *html.Node, allowedInlines map[string]struct{}) []*
 		tag := strings.ToLower(node.Data)
 		_, inlineAllowed := allowedInlines[tag]
 		if !inlineAllowed {
-			return sanitizeInlineChildren(node, allowedInlines)
+			children := sanitizeInlineChildren(node, allowedInlines)
+			if shouldEmitLineBreak(tag, children) {
+				children = append(children, &html.Node{Type: html.ElementNode, Data: "br", DataAtom: atom.Br})
+			}
+			return children
 		}
 		cloned := &html.Node{Type: html.ElementNode, Data: tag}
 		cloned.Attr = sanitizeAttrs(tag, node.Attr)
@@ -98,6 +102,23 @@ func sanitizeInlineChildren(node *html.Node, allowedInlines map[string]struct{})
 		out = append(out, sanitizeInlineNode(child, allowedInlines)...)
 	}
 	return out
+}
+
+func shouldEmitLineBreak(tag string, children []*html.Node) bool {
+	switch tag {
+	case "div", "p", "section", "article", "header", "footer", "li":
+	default:
+		return false
+	}
+
+	for i := len(children) - 1; i >= 0; i-- {
+		node := children[i]
+		if node.Type == html.TextNode && strings.TrimSpace(node.Data) == "" {
+			continue
+		}
+		return !(node.Type == html.ElementNode && strings.EqualFold(node.Data, "br"))
+	}
+	return false
 }
 
 func sanitizeAttrs(tag string, attrs []html.Attribute) []html.Attribute {

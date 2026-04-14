@@ -110,7 +110,7 @@ func loadTenantsFromDir(dir string) (map[string]model.Tenant, error) {
 			AllowedEmails:     parseCSV(values["STATIC_EDITOR_ALLOWED_EMAILS"]),
 			MainSelector:      firstNonEmpty(values["STATIC_EDITOR_MAIN_SELECTOR"], "main, article, .content, body"),
 			AllowedBlockTags:  parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_BLOCK_TAGS"], "div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li")),
-			AllowedInlineTags: parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], "strong,em,a,span,button,br")),
+			AllowedInlineTags: mergeCSVDefaults(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], []string{"strong", "em", "a", "span", "button", "br"}),
 			StartPath:         firstNonEmpty(values["STATIC_EDITOR_START_PATH"], "/index.html"),
 		}
 	}
@@ -170,6 +170,26 @@ func parseCSV(value string) []string {
 		}
 		seen[item] = struct{}{}
 		out = append(out, item)
+	}
+	return out
+}
+
+func mergeCSVDefaults(value string, defaults []string) []string {
+	out := parseCSV(value)
+	seen := make(map[string]struct{}, len(out)+len(defaults))
+	for _, item := range out {
+		seen[item] = struct{}{}
+	}
+	for _, item := range defaults {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
 	}
 	return out
 }

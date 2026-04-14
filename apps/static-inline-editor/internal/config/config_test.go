@@ -47,6 +47,18 @@ STATIC_EDITOR_START_PATH=/index.html
 	if got := len(tenant.AllowedBlockTags); got != 3 {
 		t.Fatalf("expected 3 allowed block tags, got %d", got)
 	}
+	for _, required := range []string{"strong", "em", "a", "span", "button", "br"} {
+		found := false
+		for _, item := range tenant.AllowedInlineTags {
+			if item == required {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected inline tag %q to be present, got %v", required, tenant.AllowedInlineTags)
+		}
+	}
 }
 
 func TestLoadReadsGitAuthConfigFromEnv(t *testing.T) {
