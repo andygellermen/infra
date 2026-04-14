@@ -621,7 +621,9 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
 	_ = contentToolsJSURL
 	headInjection := fmt.Sprintf(`
   <style>
-    body.static-inline-editor-active { padding-top: 5.5rem !important; }
+    :root { --static-inline-editor-offset: 5.5rem; }
+    body.static-inline-editor-active { padding-top: var(--static-inline-editor-offset) !important; }
+    body.static-inline-editor-active .fixed-top { top: var(--static-inline-editor-offset) !important; }
     .static-inline-editor-bar { position: fixed; inset: 0 0 auto 0; z-index: 9999; display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.9rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: rgba(255,252,246,0.96); backdrop-filter: blur(8px); font: 14px/1.35 Georgia, serif; color: #2d241d; box-shadow: 0 10px 24px rgba(46,36,29,0.1); }
     .static-inline-editor-meta strong { color: #8a3c1a; }
     .static-inline-editor-actions { display: flex; gap: 0.75rem; align-items: center; }
@@ -634,6 +636,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     [data-editable][contenteditable="true"] { cursor: text; }
     [data-editable][contenteditable="true"]:hover { outline-color: rgba(255,210,0,0.45); background: rgba(255,210,0,0.08); box-shadow: inset 0 0 0 1px rgba(255,210,0,0.08); }
     [data-editable][contenteditable="true"]:focus { outline-color: rgba(255,210,0,0.95); background: rgba(255,210,0,0.14); box-shadow: inset 0 0 0 1px rgba(255,210,0,0.16); }
+    [data-inline-preserved="true"] { cursor: default; }
   </style>`)
 
 	bodyPrefix := fmt.Sprintf(`
@@ -666,6 +669,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
       document.body.classList.add('static-inline-editor-active');
 
       var editPath = %q;
+      var editorBar = document.querySelector('.static-inline-editor-bar');
       var previewPanel = document.getElementById('preview-panel');
       var previewFrame = document.getElementById('preview-frame');
       var previewStatus = document.getElementById('preview-status');
@@ -675,9 +679,34 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
       var editableNodes = Array.prototype.slice.call(document.querySelectorAll('[data-editable]'));
       var latestRegions = {};
 
+      function syncEditorOffset() {
+        if (!editorBar) {
+          return;
+        }
+        var offset = Math.ceil(editorBar.getBoundingClientRect().height + 12);
+        document.documentElement.style.setProperty('--static-inline-editor-offset', offset + 'px');
+      }
+
+      syncEditorOffset();
+      window.addEventListener('resize', syncEditorOffset);
+
       editableNodes.forEach(function (node) {
         node.setAttribute('contenteditable', 'true');
         node.setAttribute('spellcheck', 'true');
+        Array.prototype.forEach.call(node.querySelectorAll('*'), function (child) {
+          var tag = (child.tagName || '').toLowerCase();
+          if (tag === 'br') {
+            return;
+          }
+          if (tag === 'a' || tag === 'button') {
+            return;
+          }
+          if (!child.attributes || child.attributes.length === 0) {
+            return;
+          }
+          child.setAttribute('contenteditable', 'false');
+          child.setAttribute('data-inline-preserved', 'true');
+        });
       });
 
       function readError(response, fallbackMessage) {
