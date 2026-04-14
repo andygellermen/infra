@@ -101,15 +101,21 @@ func sanitizeInlineChildren(node *html.Node, allowedInlines map[string]struct{})
 }
 
 func sanitizeAttrs(tag string, attrs []html.Attribute) []html.Attribute {
-	if tag != "a" {
-		return nil
-	}
-
 	out := make([]html.Attribute, 0, len(attrs))
 	for _, attr := range attrs {
-		switch strings.ToLower(attr.Key) {
-		case "href", "title", "target", "rel":
-			out = append(out, html.Attribute{Key: strings.ToLower(attr.Key), Val: attr.Val})
+		key := strings.ToLower(strings.TrimSpace(attr.Key))
+		if key == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(key, "on"):
+			continue
+		case key == "contenteditable", key == "spellcheck":
+			continue
+		case key == "data-editable", key == "data-name", key == "data-editor-id", key == "data-editor-tag", key == "data-editor-scope":
+			continue
+		default:
+			out = append(out, html.Attribute{Namespace: attr.Namespace, Key: attr.Key, Val: attr.Val})
 		}
 	}
 	return out

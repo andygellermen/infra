@@ -110,7 +110,7 @@ func loadTenantsFromDir(dir string) (map[string]model.Tenant, error) {
 			AllowedEmails:     parseCSV(values["STATIC_EDITOR_ALLOWED_EMAILS"]),
 			MainSelector:      firstNonEmpty(values["STATIC_EDITOR_MAIN_SELECTOR"], "main, article, .content, body"),
 			AllowedBlockTags:  parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_BLOCK_TAGS"], "div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li")),
-			AllowedInlineTags: parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], "strong,em,a,br")),
+			AllowedInlineTags: parseCSV(firstNonEmpty(values["STATIC_EDITOR_ALLOWED_INLINE_TAGS"], "strong,em,a,span,button,br")),
 			StartPath:         firstNonEmpty(values["STATIC_EDITOR_START_PATH"], "/index.html"),
 		}
 	}

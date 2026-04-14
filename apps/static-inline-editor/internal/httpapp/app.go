@@ -630,10 +630,10 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     .static-inline-editor-preview.is-open { display: flex; }
     .static-inline-editor-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: #fbf3e8; font: 14px/1.35 Georgia, serif; }
     .static-inline-editor-preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
-    [data-editable] { min-height: 1.25rem; outline: 2px dashed transparent; outline-offset: 0.2rem; transition: outline-color 120ms ease, background-color 120ms ease; }
+    [data-editable] { min-height: 1.25rem; outline: 2px dashed transparent; outline-offset: 0.2rem; transition: outline-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease; color: inherit; caret-color: #ffd200; }
     [data-editable][contenteditable="true"] { cursor: text; }
-    [data-editable][contenteditable="true"]:hover { outline-color: rgba(138,60,26,0.35); background: rgba(255,247,239,0.45); }
-    [data-editable][contenteditable="true"]:focus { outline-color: rgba(138,60,26,0.9); background: rgba(255,247,239,0.78); }
+    [data-editable][contenteditable="true"]:hover { outline-color: rgba(255,210,0,0.45); background: rgba(255,210,0,0.08); box-shadow: inset 0 0 0 1px rgba(255,210,0,0.08); }
+    [data-editable][contenteditable="true"]:focus { outline-color: rgba(255,210,0,0.95); background: rgba(255,210,0,0.14); box-shadow: inset 0 0 0 1px rgba(255,210,0,0.16); }
   </style>`)
 
 	bodyPrefix := fmt.Sprintf(`
@@ -698,7 +698,7 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
           if (!name) {
             return;
           }
-          regions[name] = node.innerHTML.trim();
+          regions[name] = node.innerHTML;
         });
         return regions;
       }

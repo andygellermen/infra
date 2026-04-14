@@ -193,10 +193,10 @@ func TestEditRequiresSessionAndMarksDocument(t *testing.T) {
 		t.Fatalf("expected prepared document markers in edit response")
 	}
 	if !strings.Contains(body, `data-editable`) {
-		t.Fatalf("expected contenttools editable region marker in edit response")
+		t.Fatalf("expected editable region marker in edit response")
 	}
-	if !strings.Contains(strings.ToLower(body), `content-tools.min.js`) {
-		t.Fatalf("expected contenttools script to be injected on edit route")
+	if !strings.Contains(strings.ToLower(body), `contenteditable="true"`) {
+		t.Fatalf("expected direct contenteditable editing to be enabled on edit route")
 	}
 	if !strings.Contains(body, "Edit-Modus") {
 		t.Fatalf("expected edit chrome in response")

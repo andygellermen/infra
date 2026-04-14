@@ -42,3 +42,25 @@ func TestApplyRegionsHTMLSupportsSelectorFallbackList(t *testing.T) {
 		t.Fatalf("expected updated paragraph in output")
 	}
 }
+
+func TestApplyRegionsHTMLPreservesInlineClassesAndStructure(t *testing.T) {
+	source := `<!doctype html><html><body><main><h1>Hallo</h1><div><a class="btn btn-primary" href="/kontakt">Kontakt</a></div></main></body></html>`
+	regions := map[string]string{
+		"node-0001": `Hallo <span class="underline">Welt</span>`,
+		"node-0002": `<a class="btn btn-primary" href="/kontakt">Kontakt</a><button class="cta" type="button">Mehr</button>`,
+	}
+
+	out, err := ApplyRegionsHTML(source, "main", []string{"h1", "div"}, []string{"strong", "em", "a", "span", "button", "br"}, regions)
+	if err != nil {
+		t.Fatalf("ApplyRegionsHTML returned error: %v", err)
+	}
+	if !strings.Contains(out, `<span class="underline">Welt</span>`) {
+		t.Fatalf("expected span class to survive, got %q", out)
+	}
+	if !strings.Contains(out, `<a class="btn btn-primary" href="/kontakt">Kontakt</a>`) {
+		t.Fatalf("expected anchor classes to survive, got %q", out)
+	}
+	if !strings.Contains(out, `<button class="cta" type="button">Mehr</button>`) {
+		t.Fatalf("expected button structure to survive, got %q", out)
+	}
+}

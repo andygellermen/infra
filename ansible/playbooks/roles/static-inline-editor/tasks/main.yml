@@ -74,7 +74,7 @@
       STATIC_EDITOR_COOKIE_SECRET={{ item.static_editor_cookie_secret | default('change-me', true) }}
       STATIC_EDITOR_MAIN_SELECTOR={{ item.static_editor_main_selector | default('main, article, .content, body', true) }}
       STATIC_EDITOR_ALLOWED_BLOCK_TAGS={{ item.static_editor_allowed_block_tags | default('div,section,article,blockquote,h1,h2,h3,h4,h5,h6,p,ul,ol,li', true) }}
-      STATIC_EDITOR_ALLOWED_INLINE_TAGS={{ item.static_editor_allowed_inline_tags | default('strong,em,a,br', true) }}
+      STATIC_EDITOR_ALLOWED_INLINE_TAGS={{ item.static_editor_allowed_inline_tags | default('strong,em,a,span,button,br', true) }}
       STATIC_EDITOR_START_PATH={{ item.static_editor_start_path | default('/index.html', true) }}
   loop: "{{ static_editor_sites }}"
   when: static_editor_sites | length > 0
