@@ -617,8 +617,9 @@ func resolveStaticPath(root, target string) (string, error) {
 }
 
 func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string, prepared editor.PreparedDocument, contentToolsCSSURL, contentToolsJSURL string) string {
+	_ = contentToolsCSSURL
+	_ = contentToolsJSURL
 	headInjection := fmt.Sprintf(`
-  <link rel="stylesheet" href="%s">
   <style>
     body.static-inline-editor-active { padding-top: 5.5rem !important; }
     .static-inline-editor-bar { position: fixed; inset: 0 0 auto 0; z-index: 9999; display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.9rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: rgba(255,252,246,0.96); backdrop-filter: blur(8px); font: 14px/1.35 Georgia, serif; color: #2d241d; box-shadow: 0 10px 24px rgba(46,36,29,0.1); }
@@ -629,9 +630,11 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     .static-inline-editor-preview.is-open { display: flex; }
     .static-inline-editor-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border-bottom: 1px solid rgba(121,91,61,0.24); background: #fbf3e8; font: 14px/1.35 Georgia, serif; }
     .static-inline-editor-preview-frame { width: 100%%; min-height: 26rem; border: 0; background: #fff; }
-    [data-editable] { min-height: 2rem; }
-    .ct-app .ct-widget.ct-ignition { top: 6rem; left: 1rem; z-index: 10000; }
-  </style>`, htmlEscape(contentToolsCSSURL))
+    [data-editable] { min-height: 1.25rem; outline: 2px dashed transparent; outline-offset: 0.2rem; transition: outline-color 120ms ease, background-color 120ms ease; }
+    [data-editable][contenteditable="true"] { cursor: text; }
+    [data-editable][contenteditable="true"]:hover { outline-color: rgba(138,60,26,0.35); background: rgba(255,247,239,0.45); }
+    [data-editable][contenteditable="true"]:focus { outline-color: rgba(138,60,26,0.9); background: rgba(255,247,239,0.78); }
+  </style>`)
 
 	bodyPrefix := fmt.Sprintf(`
   <div class="static-inline-editor-bar">
@@ -641,8 +644,9 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     </div>
     <div class="static-inline-editor-actions">
       <a href="/">Start</a>
+      <button type="button" id="preview-button">Vorschau</button>
+      <button type="button" id="save-button">Speichern</button>
       <button type="button" id="preview-close" hidden>Vorschau schliessen</button>
-      <button type="button" id="save-button" hidden>Speichern</button>
       <form method="post" action="/auth/logout" style="margin:0">
         <button type="submit">Abmelden</button>
       </form>
@@ -657,37 +661,56 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
     </div>
     <iframe id="preview-frame" class="static-inline-editor-preview-frame" title="Preview"></iframe>
   </div>
-  <script src="%s"></script>
   <script>
     window.addEventListener('load', function () {
       document.body.classList.add('static-inline-editor-active');
-      if (!window.ContentTools) {
-        console.warn('ContentTools konnte nicht geladen werden');
-        return;
-      }
 
       var editPath = %q;
       var previewPanel = document.getElementById('preview-panel');
       var previewFrame = document.getElementById('preview-frame');
       var previewStatus = document.getElementById('preview-status');
+      var previewButton = document.getElementById('preview-button');
       var closeButton = document.getElementById('preview-close');
       var saveButton = document.getElementById('save-button');
-      var latestRegions = null;
+      var editableNodes = Array.prototype.slice.call(document.querySelectorAll('[data-editable]'));
+      var latestRegions = {};
+
+      editableNodes.forEach(function (node) {
+        node.setAttribute('contenteditable', 'true');
+        node.setAttribute('spellcheck', 'true');
+      });
+
       function readError(response, fallbackMessage) {
         return response.text().then(function (text) {
           var message = (text || '').trim();
           throw new Error(message || fallbackMessage);
         });
       }
-      var editor = ContentTools.EditorApp.get();
-      editor.init('[data-editable]', 'data-name');
-      editor.addEventListener('saved', function (ev) {
-        var regions = ev.detail().regions || {};
+
+      function flash(kind) {
+        previewStatus.dataset.state = kind;
+      }
+
+      function collectRegions() {
+        var regions = {};
+        editableNodes.forEach(function (node) {
+          var name = node.getAttribute('data-name');
+          if (!name) {
+            return;
+          }
+          regions[name] = node.innerHTML.trim();
+        });
+        return regions;
+      }
+
+      function requestPreview() {
+        var regions = collectRegions();
         if (Object.keys(regions).length === 0) {
-          return;
+          window.alert('Keine bearbeitbaren Bereiche gefunden.');
+          return Promise.resolve(null);
         }
         latestRegions = regions;
-        fetch('/preview', {
+        return fetch('/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
@@ -702,56 +725,57 @@ func renderEditPage(tenant model.Tenant, session auth.Session, targetPath string
           .then(function (payload) {
             previewPanel.classList.add('is-open');
             closeButton.hidden = false;
-            saveButton.hidden = false;
             previewStatus.textContent = payload.message || 'Preview erstellt';
             previewFrame.srcdoc = payload.preview_html || '';
-            new ContentTools.FlashUI('ok');
+            flash('ok');
+            return payload;
           })
           .catch(function (error) {
             console.error(error);
             previewStatus.textContent = error && error.message ? error.message : 'Preview fehlgeschlagen';
-            new ContentTools.FlashUI('no');
+            flash('no');
+            throw error;
           });
+      }
+
+      previewButton.addEventListener('click', function () {
+        requestPreview().catch(function () {});
       });
 
       closeButton.addEventListener('click', function () {
         previewPanel.classList.remove('is-open');
         closeButton.hidden = true;
-        saveButton.hidden = true;
       });
 
       saveButton.addEventListener('click', function () {
-        if (!latestRegions) {
-          window.alert('Bitte zuerst ueber den ContentTools-Save-Button eine Vorschau erzeugen.');
-          return;
-        }
+        latestRegions = collectRegions();
         fetch('/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ path: editPath, regions: latestRegions })
-        })
-          .then(function (response) {
-            if (!response.ok) {
-              return readError(response, 'Speichern fehlgeschlagen');
-            }
-            return response.json();
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ path: editPath, regions: latestRegions })
           })
-          .then(function (payload) {
-            previewStatus.textContent = payload.message || 'Datei gespeichert';
-            new ContentTools.FlashUI('ok');
-            window.alert('Gespeichert. Backup: ' + (payload.backup_path || 'angelegt'));
-          })
-          .catch(function (error) {
-            console.error(error);
-            previewStatus.textContent = error && error.message ? error.message : 'Speichern fehlgeschlagen';
-            window.alert(error && error.message ? error.message : 'Speichern fehlgeschlagen');
-            new ContentTools.FlashUI('no');
-          });
+            .then(function (response) {
+              if (!response.ok) {
+                return readError(response, 'Speichern fehlgeschlagen');
+              }
+              return response.json();
+            })
+            .then(function (payload) {
+              previewStatus.textContent = payload.message || 'Datei gespeichert';
+              flash('ok');
+              window.alert('Gespeichert. Backup: ' + (payload.backup_path || 'angelegt'));
+            })
+            .catch(function (error) {
+              console.error(error);
+              previewStatus.textContent = error && error.message ? error.message : 'Speichern fehlgeschlagen';
+              window.alert(error && error.message ? error.message : 'Speichern fehlgeschlagen');
+              flash('no');
+            });
       });
     });
   </script>
-</body>`, htmlEscape(contentToolsJSURL), targetPath)
+</body>`, targetPath)
 
 	page := prepared.HTML
 	page = injectIntoHead(page, headInjection)
