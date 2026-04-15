@@ -323,7 +323,7 @@ Ein Google-Apps-Script oder ein externer Trigger ruft nach einer Aenderung einen
 
 Beispiel:
 
-- `POST /internal/sync/{tenant}`
+- `POST /<sheet_helper_sync_token>`
 
 Vorteile:
 
@@ -629,34 +629,3 @@ Die `gid` bleibt ein technischer Google-internen Identifikator, ist fuer den Bed
 | 10 | Scrum Pocket Guide | https://example.org/downloads/scrum-pocket-guide.pdf | Kompakter Einstieg in Scrum | Scrum |  | true |
 | 20 | Kanban Basics | https://example.org/downloads/kanban-basics.pdf | Uebersicht fuer Einsteiger | Kanban |  | true |
 | 30 | Agile Retrospektiven | https://example.org/downloads/retrospektiven.pdf | Sammlung mit Moderationsideen | Facilitation |  | true |
-
-## Trigger-Vorbereitung
-
-Fuer den Start reicht ein kleines Google-Apps-Script, das nach manuellen Aenderungen einen internen Sync-Endpunkt der Go-App anstoesst.
-
-Ablage im Repo:
-
-- [sync-trigger.js](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/sync-trigger.js)
-
-Empfohlene Script-Properties:
-
-- `SHEET_HELPER_SYNC_URL`
-- `SHEET_HELPER_SYNC_TOKEN`
-- `SHEET_HELPER_TENANT`
-
-Beispiel fuer `geller.men`:
-
-```text
-SHEET_HELPER_SYNC_URL=https://sheet-helper.example.org
-SHEET_HELPER_SYNC_TOKEN=replace-me
-SHEET_HELPER_TENANT=geller.men
-```
-
-## Mein empfohlener naechster Schritt
-
-Ich wuerde jetzt so vorgehen:
-
-1. Du legst das neue Google Sheet fuer `geller.men` an.
-2. Du uebernimmst die obigen Tabellenblaetter.
-3. Wir tragen danach die echte `sheet_id` und die Blattnamen in die Hostvars ein.
-4. Anschliessend bauen wir den echten Sync-Endpunkt in der Go-App und ziehen die erste Domain hoch.
