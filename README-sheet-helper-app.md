@@ -4,6 +4,130 @@ Ziel ist eine zentrale, leichtgewichtige Web-Applikation in Go, die je nach Doma
 
 Die App ist ausdruecklich fuer unsensible Daten gedacht. Sie ist kein Secret-Store und kein Ersatz fuer sichere Passwort- oder Schluesselverwaltung.
 
+## Quick Start
+
+Fuer eine neue Domain wie `mf2go.de` ist der einfachste Ablauf:
+
+1. Google Sheet mit diesen Blattnamen anlegen:
+   - `routes`
+   - `vcard_entries`
+   - `text_entries`
+   - optional weitere Listenblaetter mit Prefix `list_`, z. B. `list_downloads`
+2. Wichtig im Blatt `routes`:
+   - Die Spalte `Type` muss exakt einen der Werte `link`, `text`, `vcard`, `list` enthalten.
+   - Fuer Redirects ist der richtige Typ `link`.
+   - Andere Werte wie `redirect` oder `weiterleitung` fuehren spaeter zu `unsupported route type`.
+3. Hostvars-Geruest anlegen:
+```bash
+./scripts/sheethelper-add.sh mf2go.de
+```
+4. Die zwei echten Google-Werte in `ansible/hostvars/mf2go.de.yml` nachtragen:
+   - `sheet_helper_sheet_id`
+   - `sheet_helper_published_url`
+5. Google Apps Script aus [apps/sheet-helper/google-apps-script/sync-trigger.js](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/sync-trigger.js) in die Tabelle einfuegen.
+6. Im Apps Script diese Script Properties setzen:
+```text
+SHEET_HELPER_SYNC_URL=https://mf2go.de
+SHEET_HELPER_SYNC_TOKEN=<WERT AUS sheet_helper_sync_token>
+```
+7. Sheet-Helper fuer die Domain ausrollen:
+```bash
+./scripts/sheethelper-redeploy.sh mf2go.de
+```
+8. Danach testen:
+   - `https://mf2go.de/`
+   - `https://www.mf2go.de/`
+   - optional einen manuellen Trigger ueber das Apps Script mit `manualSync()`
+
+### Quick-Start Hostvars
+
+Nach dem Anlegen mit `sheethelper-add.sh` sollte die Datei fuer eine Domain am Ende mindestens so aussehen:
+
+```yaml
+domain: mf2go.de
+
+traefik:
+  domain: mf2go.de
+  aliases:
+    - www.mf2go.de
+
+sheet_helper_enabled: true
+sheet_helper_mode: "public_csv"
+sheet_helper_sheet_id: "DEINE_SHEET_ID"
+sheet_helper_published_url: "DEINE_PUBLISHED_URL"
+sheet_helper_cookie_secret: "..."
+sheet_helper_sync_token: "s..."
+sheet_helper_routes_sheet: "routes"
+sheet_helper_vcards_sheet: "vcard_entries"
+sheet_helper_texts_sheet: "text_entries"
+sheet_helper_default_list_prefix: "list_"
+sheet_helper_theme: "clean"
+sheet_helper_sync_mode: "hybrid"
+sheet_helper_sync_interval: "15m"
+sheet_helper_click_sync_interval: "24h"
+sheet_helper_allow_text: true
+sheet_helper_allow_vcard: true
+sheet_helper_allow_list: true
+sheet_helper_allow_link: true
+sheet_helper_require_rate_limit: true
+sheet_helper_container_name: "sheet-helper"
+sheet_helper_data_dir: "/srv/sheet-helper"
+
+tls_mode: "standard"
+tls_wildcard_domain: ""
+tls_dns_account: ""
+```
+
+### Quick-Start Tabellen-Vorlage
+
+#### Blatt `routes`
+
+| Domain | Path | Type | Passphrase | Target | Title | Description | ListSheet | Enabled |
+|--------|------|------|------------|--------|-------|-------------|-----------|---------|
+| mf2go.de | / | link |  | https://example.org/ | Start | Standard-Weiterleitung |  | true |
+| mf2go.de | /api | text |  | demo-token-001 | API-Key | Demo-Zugang |  | true |
+| mf2go.de | /kontakt | vcard |  | Max Mustermann | Kontakt | Ansprechpartner |  | true |
+| mf2go.de | /downloads | list |  | Downloads | Download-Bereich | Freigegebene Dateien | list_downloads | true |
+
+#### Blatt `vcard_entries`
+
+| Domain | Path | FullName | Organization | JobTitle | Email | PhoneMobile | Address | Website | ImageURL | Note | Enabled |
+|--------|------|----------|--------------|----------|-------|-------------|---------|---------|----------|------|---------|
+| mf2go.de | /kontakt | Max Mustermann | MF2GO | Beratung | max@example.org | 00491701234567 | Musterstr. 1, 12345 Berlin | https://mf2go.de |  | Ansprechpartner fuer Rueckfragen | true |
+
+#### Blatt `text_entries`
+
+| Domain | Path | ContentType | Content | CopyHint | ExpiresAt | Enabled |
+|--------|------|-------------|---------|----------|-----------|---------|
+| mf2go.de | /api | text/plain | demo-token-001 | Token kopieren |  | true |
+
+#### Blatt `list_downloads`
+
+| Sort | Label | URL | Description | Category | Password | Enabled |
+|------|-------|-----|-------------|----------|----------|---------|
+| 10 | Produktblatt | https://example.org/produktblatt.pdf | Produktuebersicht als PDF | PDF |  | true |
+| 20 | Preisliste | https://example.org/preise.pdf | Aktuelle Preise | PDF |  | true |
+
+### Wo finde ich die fehlenden Google-Werte?
+
+- `sheet_helper_sheet_id`:
+  - aus der normalen Tabellen-URL
+  - Beispiel: `https://docs.google.com/spreadsheets/d/1ABCDEF/edit#gid=0`
+  - Die ID ist dann `1ABCDEF`
+- `sheet_helper_published_url`:
+  - in Google Sheets ueber `Datei -> Im Web veroeffentlichen`
+  - benoetigt wird die veroeffentlichte `pubhtml`-URL
+
+### Sync-Hinweis
+
+Der aktive Sync-Weg fuer das Google Apps Script ist aktuell der Token-Pfad auf der Domain selbst. Das Script baut daraus:
+
+```text
+https://mf2go.de/<sheet_helper_sync_token>
+```
+
+Das ist absichtlich einfach gehalten. Der alternative interne Pfad `/internal/sync/{tenant}` existiert ebenfalls im Code, ist fuer das mitgelieferte Google Apps Script derzeit aber nicht der Standardweg.
+
 ## Zielbild
 
 Eine zentrale App verarbeitet mehrere Domains und mehrere Modi:
