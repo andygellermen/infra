@@ -217,6 +217,8 @@
     ghost_image_editor_notice_enabled_effective: "{{ ghost_image_editor_notice_enabled | default(false) | bool }}"
     ghost_image_editor_notice_install_url_effective: "{{ ghost_image_editor_notice_install_url | default('https://github.com/andygellermen/ghost-image-editor/', true) }}"
     ghost_image_editor_notice_remind_hours_effective: "{{ ghost_image_editor_notice_remind_hours | default(24, true) | int }}"
+    ghost_image_editor_notice_extra_title_effective: "{{ ghost_image_editor_notice_extra_title | default('', true) }}"
+    ghost_image_editor_notice_extra_text_effective: "{{ ghost_image_editor_notice_extra_text | default('', true) }}"
     ghost_admin_overlay_dir: "/srv/ghost-admin-overlay/{{ domain }}"
 
 - name: Validate Ghost image editor notice settings

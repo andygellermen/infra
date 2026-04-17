@@ -131,6 +131,10 @@ ghost_traefik_middleware_members_api: "crowdsec-api@docker"
 # ghost_image_editor_notice_enabled: true
 # ghost_image_editor_notice_install_url: "https://github.com/andygellermen/ghost-image-editor/"
 # ghost_image_editor_notice_remind_hours: 24
+# ghost_image_editor_notice_extra_title: "Wichtiger Hinweis"
+# ghost_image_editor_notice_extra_text: |
+#   Dieser Hinweistext kann pro Ghost-Domain individuell gesetzt werden.
+#   Er wird im Modal unterhalb der Standard-Vorteile angezeigt.
 
 tls_mode: "${tls_mode}"
 tls_wildcard_domain: "${wildcard_domain}"

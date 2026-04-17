@@ -3,6 +3,8 @@
 
   const INSTALL_URL = {{ ghost_image_editor_notice_install_url_effective | to_json }};
   const REMIND_HOURS = {{ ghost_image_editor_notice_remind_hours_effective | int }};
+  const EXTRA_TITLE = {{ ghost_image_editor_notice_extra_title_effective | to_json }};
+  const EXTRA_TEXT = {{ ghost_image_editor_notice_extra_text_effective | to_json }};
   const NOTICE_ID = "ghost-image-editor-notice";
   const NOTICE_STYLE_ID = "ghost-image-editor-notice-style";
   const PROBE_ID = "ghost-image-editor-extension-probe";
@@ -328,6 +330,29 @@
         color: #1f2937;
       }
 
+      #${NOTICE_ID} .gie-extra {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(17, 24, 39, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+      }
+
+      #${NOTICE_ID} .gie-extra-title {
+        margin: 0 0 6px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      #${NOTICE_ID} .gie-extra-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #475467;
+        white-space: pre-line;
+      }
+
       #${NOTICE_ID} .gie-actions {
         display: flex;
         flex-wrap: wrap;
@@ -513,6 +538,28 @@
     }, { once: true });
 
     document.body.appendChild(modal);
+
+    if (EXTRA_TITLE || EXTRA_TEXT) {
+      const body = modal.querySelector(".gie-body");
+      const extra = document.createElement("section");
+      extra.className = "gie-extra";
+
+      if (EXTRA_TITLE) {
+        const extraTitle = document.createElement("h3");
+        extraTitle.className = "gie-extra-title";
+        extraTitle.textContent = EXTRA_TITLE;
+        extra.appendChild(extraTitle);
+      }
+
+      if (EXTRA_TEXT) {
+        const extraText = document.createElement("p");
+        extraText.className = "gie-extra-text";
+        extraText.textContent = EXTRA_TEXT;
+        extra.appendChild(extraText);
+      }
+
+      body.insertBefore(extra, body.querySelector(".gie-actions"));
+    }
 
     const primaryButton = modal.querySelector("[data-action='install']");
     if (primaryButton) {

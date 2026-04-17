@@ -464,6 +464,10 @@ Hostvars-Beispiel:
 ghost_image_editor_notice_enabled: true
 ghost_image_editor_notice_install_url: "https://github.com/andygellermen/ghost-image-editor/"
 ghost_image_editor_notice_remind_hours: 24
+ghost_image_editor_notice_extra_title: "Nur im Ghost-Backend sichtbar"
+ghost_image_editor_notice_extra_text: |
+  Bitte installiere das Browser-Plugin im bevorzugten Redaktions-Browser.
+  Nach der Installation die Ghost-Admin-Seite einmal neu laden.
 ```
 
 Danach wie gewohnt ausrollen:
@@ -471,6 +475,8 @@ Danach wie gewohnt ausrollen:
 ```bash
 ./scripts/ghost-redeploy.sh <domain>
 ```
+
+Optional koennen die Zusatztexte spaeter pro Domain direkt in `ansible/hostvars/<domain>.yml` angepasst und mit demselben Redeploy uebernommen werden.
 
 **CrowdSec-Routen (Ghost):**
 - Standardseiten: standardmäßig **ohne** CrowdSec-Middleware (optional via `ghost_traefik_middleware_default: "crowdsec-default@docker"`)
