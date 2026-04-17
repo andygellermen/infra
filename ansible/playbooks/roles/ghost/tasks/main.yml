@@ -234,6 +234,7 @@
     path: "{{ ghost_admin_overlay_dir }}"
     state: directory
     mode: "0755"
+  become: true
   when: ghost_image_editor_notice_enabled_effective
 
 - name: Install Ghost admin overlay launcher
@@ -241,6 +242,7 @@
     src: ghost-admin-overlay/start.sh
     dest: "{{ ghost_admin_overlay_dir }}/start.sh"
     mode: "0755"
+  become: true
   when: ghost_image_editor_notice_enabled_effective
 
 - name: Render Ghost image editor helper script
@@ -248,6 +250,7 @@
     src: ghost-admin-overlay/ghost-image-editor-helper.js.j2
     dest: "{{ ghost_admin_overlay_dir }}/ghost-image-editor-helper.js"
     mode: "0644"
+  become: true
   when: ghost_image_editor_notice_enabled_effective
 
 - name: Build Ghost container volume list

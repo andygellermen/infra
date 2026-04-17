@@ -13,7 +13,7 @@
 
   let extensionDetected = false;
   let scheduledTimer = null;
-  let currentUserCache = {
+  let adminSessionCache = {
     expiresAt: 0,
     value: undefined
   };
@@ -188,46 +188,35 @@
     });
   }
 
-  function fetchCurrentUser() {
+  function hasActiveAdminSession() {
     const now = Date.now();
-    if (now < currentUserCache.expiresAt) {
-      return Promise.resolve(currentUserCache.value);
+    if (now < adminSessionCache.expiresAt) {
+      return Promise.resolve(adminSessionCache.value);
     }
 
     return window.fetch(
-        new URL("api/admin/users/me/?include=roles", getGhostAdminBaseUrl()).toString(),
+        new URL("auth-frame", getGhostAdminBaseUrl()).toString(),
         {
           credentials: "include",
           headers: {
-            Accept: "application/json"
+            Accept: "text/html"
           }
         }
       )
       .then((response) => {
-        if (!response.ok) {
-          currentUserCache = {
-            expiresAt: now + 5000,
-            value: null
-          };
-          return null;
-        }
-
-        return response.json().then((payload) => {
-          const user = payload && payload.users && payload.users[0] ? payload.users[0] : null;
-          currentUserCache = {
-            expiresAt: now + 15000,
-            value: user
-          };
-
-          return user;
-        });
+        const isLoggedIn = response.status !== 204 && response.ok;
+        adminSessionCache = {
+          expiresAt: now + (isLoggedIn ? 15000 : 5000),
+          value: isLoggedIn
+        };
+        return isLoggedIn;
       })
       .catch(() => {
-        currentUserCache = {
+        adminSessionCache = {
           expiresAt: now + 5000,
-          value: null
+          value: false
         };
-        return null;
+        return false;
       });
   }
 
@@ -577,8 +566,8 @@
       return;
     }
 
-    fetchCurrentUser().then((user) => {
-      if (!user) {
+    hasActiveAdminSession().then((sessionIsActive) => {
+      if (!sessionIsActive) {
         closeNotice();
         return;
       }
