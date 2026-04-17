@@ -127,6 +127,11 @@ ghost_traefik_middleware_api: "crowdsec-api@docker"
 ghost_traefik_middleware_dotghost: "crowdsec-api@docker"
 ghost_traefik_middleware_members_api: "crowdsec-api@docker"
 
+# Optionaler Ghost-Backend-Hinweis fuer den Ghost Image Editor
+# ghost_image_editor_notice_enabled: true
+# ghost_image_editor_notice_install_url: "https://github.com/andygellermen/ghost-image-editor/"
+# ghost_image_editor_notice_remind_hours: 24
+
 tls_mode: "${tls_mode}"
 tls_wildcard_domain: "${wildcard_domain}"
 tls_dns_account: "${dns_account}"

@@ -454,6 +454,23 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 - Alias-Domains sind **relevant** für Zertifikate.
 - Nach erfolgreichem Redeploy zieht Traefik die Zertifikate für die Host-Regeln nach (bei korrekt gesetztem DNS und eingehendem Traffic).
 
+### Optional: Backend-Hinweis fuer den Ghost Image Editor
+
+Fuer Ghost kann optional ein Admin-Modal aktiviert werden, das nur im Backend fuer eingeloggte Nutzer erscheint, wenn das Browser-Plugin `ghost-image-editor` im aktuellen Browser nicht aktiv ist.
+
+Hostvars-Beispiel:
+
+```yaml
+ghost_image_editor_notice_enabled: true
+ghost_image_editor_notice_install_url: "https://github.com/andygellermen/ghost-image-editor/"
+ghost_image_editor_notice_remind_hours: 24
+```
+
+Danach wie gewohnt ausrollen:
+
+```bash
+./scripts/ghost-redeploy.sh <domain>
+```
 
 **CrowdSec-Routen (Ghost):**
 - Standardseiten: standardmäßig **ohne** CrowdSec-Middleware (optional via `ghost_traefik_middleware_default: "crowdsec-default@docker"`)

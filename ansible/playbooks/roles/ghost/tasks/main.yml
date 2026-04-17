@@ -212,6 +212,56 @@
         | combine(ghost_labels_alias_redirect)
       }}
 
+- name: Build Ghost image editor notice settings
+  ansible.builtin.set_fact:
+    ghost_image_editor_notice_enabled_effective: "{{ ghost_image_editor_notice_enabled | default(false) | bool }}"
+    ghost_image_editor_notice_install_url_effective: "{{ ghost_image_editor_notice_install_url | default('https://github.com/andygellermen/ghost-image-editor/', true) }}"
+    ghost_image_editor_notice_remind_hours_effective: "{{ ghost_image_editor_notice_remind_hours | default(24, true) | int }}"
+    ghost_admin_overlay_dir: "/srv/ghost-admin-overlay/{{ domain }}"
+
+- name: Validate Ghost image editor notice settings
+  ansible.builtin.assert:
+    that:
+      - ghost_image_editor_notice_install_url_effective | length > 0
+      - ghost_image_editor_notice_remind_hours_effective > 0
+    fail_msg: "Ghost image editor notice settings sind ungueltig. Bitte ghost_image_editor_notice_install_url und ghost_image_editor_notice_remind_hours pruefen."
+  when: ghost_image_editor_notice_enabled_effective
+
+- name: Ensure Ghost admin overlay directory exists
+  ansible.builtin.file:
+    path: "{{ ghost_admin_overlay_dir }}"
+    state: directory
+    mode: "0755"
+  when: ghost_image_editor_notice_enabled_effective
+
+- name: Install Ghost admin overlay launcher
+  ansible.builtin.copy:
+    src: ghost-admin-overlay/start.sh
+    dest: "{{ ghost_admin_overlay_dir }}/start.sh"
+    mode: "0755"
+  when: ghost_image_editor_notice_enabled_effective
+
+- name: Render Ghost image editor helper script
+  ansible.builtin.template:
+    src: ghost-admin-overlay/ghost-image-editor-helper.js.j2
+    dest: "{{ ghost_admin_overlay_dir }}/ghost-image-editor-helper.js"
+    mode: "0644"
+  when: ghost_image_editor_notice_enabled_effective
+
+- name: Build Ghost container volume list
+  ansible.builtin.set_fact:
+    ghost_container_volumes: >-
+      {{
+        [
+          'ghost_' ~ (domain | replace('.', '_')) ~ '_content:/var/lib/ghost/content'
+        ]
+        + (
+          [ghost_admin_overlay_dir ~ ':/opt/ghost-admin-overlay:ro']
+          if ghost_image_editor_notice_enabled_effective
+          else []
+        )
+      }}
+
 - name: Deploy Ghost container
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
@@ -224,10 +274,10 @@
     networks:
       - name: traefik
       - name: backend
-    volumes:
-      - "ghost_{{ domain | replace('.', '_') }}_content:/var/lib/ghost/content"
+    volumes: "{{ ghost_container_volumes }}"
     # Wichtig: alte /etc/hosts-Overrides (z.B. aus früheren Deployments) explizit entfernen
     etc_hosts: {}
+    command: "{{ ['/opt/ghost-admin-overlay/start.sh'] if ghost_image_editor_notice_enabled_effective else omit }}"
     env:
       # Ghost braucht URL + DB Config
       url: "https://{{ domain }}"
