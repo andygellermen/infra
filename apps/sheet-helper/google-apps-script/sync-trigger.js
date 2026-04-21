@@ -8,12 +8,13 @@
  * 4. Set the script properties:
  *    - SHEET_HELPER_SYNC_URL
  *    - SHEET_HELPER_SYNC_TOKEN
- * 5. Create an installable trigger for onEdit or onChange, or call manualSync() manually.
+ * 5. Run installRecommendedTriggers() once, or manually create an
+ *    installable "On change" trigger for sheetHelperOnChange().
  *
  * This script is intentionally simple and aimed at unsensitive content only.
  */
 
-function onEdit(e) {
+function sheetHelperOnEdit(e) {
   if (!e || !e.range || typeof e.range.getSheet !== 'function') {
     return;
   }
@@ -21,8 +22,7 @@ function onEdit(e) {
   var sheet = e.range.getSheet();
   var sheetName = sheet.getName();
 
-  // Keep noisy edits away from hidden/admin sheets if needed.
-  if (sheetName === '_meta' || sheetName === '_stats') {
+  if (shouldIgnoreSheet_(sheetName)) {
     return;
   }
 
@@ -32,7 +32,7 @@ function onEdit(e) {
   });
 }
 
-function onChange(e) {
+function sheetHelperOnChange(e) {
   var spreadsheet = e && e.source ? e.source : SpreadsheetApp.getActiveSpreadsheet();
   var activeSheet = spreadsheet && typeof spreadsheet.getActiveSheet === 'function'
     ? spreadsheet.getActiveSheet()
@@ -44,7 +44,7 @@ function onChange(e) {
 
   if (activeSheet && typeof activeSheet.getName === 'function') {
     var sheetName = activeSheet.getName();
-    if (sheetName === '_meta' || sheetName === '_stats') {
+    if (shouldIgnoreSheet_(sheetName)) {
       return;
     }
     details.sheetName = sheetName;
@@ -55,6 +55,53 @@ function onChange(e) {
 
 function manualSync() {
   triggerSheetHelperSync_('manual', {});
+}
+
+function installRecommendedTriggers() {
+  removeSheetHelperTriggers();
+
+  ScriptApp.newTrigger('sheetHelperOnChange')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onChange()
+    .create();
+}
+
+function installEditOnlyTrigger() {
+  removeSheetHelperTriggers();
+
+  ScriptApp.newTrigger('sheetHelperOnEdit')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onEdit()
+    .create();
+}
+
+function installEditAndChangeTriggers() {
+  removeSheetHelperTriggers();
+
+  ScriptApp.newTrigger('sheetHelperOnEdit')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onEdit()
+    .create();
+
+  ScriptApp.newTrigger('sheetHelperOnChange')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onChange()
+    .create();
+}
+
+function removeSheetHelperTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+
+  for (var i = 0; i < triggers.length; i++) {
+    var trigger = triggers[i];
+    var handler = trigger.getHandlerFunction();
+
+    if (!isSheetHelperTriggerHandler_(handler)) {
+      continue;
+    }
+
+    ScriptApp.deleteTrigger(trigger);
+  }
 }
 
 function triggerSheetHelperSync_(reason, details) {
@@ -94,4 +141,15 @@ function triggerSheetHelperSync_(reason, details) {
 function buildSyncUrl_(baseUrl, token) {
   var normalized = baseUrl.replace(/\/+$/, '');
   return normalized + '/' + encodeURIComponent(token);
+}
+
+function shouldIgnoreSheet_(sheetName) {
+  return sheetName === '_meta' || sheetName === '_stats';
+}
+
+function isSheetHelperTriggerHandler_(handler) {
+  return handler === 'sheetHelperOnEdit' ||
+    handler === 'sheetHelperOnChange' ||
+    handler === 'onEdit' ||
+    handler === 'onChange';
 }

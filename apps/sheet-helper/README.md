@@ -148,6 +148,8 @@ Fuer spaetere Sync-Callbacks liegt eine Google-Apps-Script-Vorlage unter [sync-t
 
 Die zugehoerige Kurzanleitung findest du in [google-apps-script/README.md](/Users/andygellermann/Documents/Projects/infra/infra/apps/sheet-helper/google-apps-script/README.md).
 
+Empfohlen ist inzwischen, im Apps-Script einmal `installRecommendedTriggers()` auszufuehren. Das legt nur einen installierbaren Change-Trigger fuer `sheetHelperOnChange` an und vermeidet die haeufigen `onEdit`-Fehler eines zusaetzlich laufenden Simple Triggers.
+
 ## Deploy
 
 Fuer den gemeinsamen Container gibt es jetzt ein eigenes Redeploy-Skript:

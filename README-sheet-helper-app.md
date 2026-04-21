@@ -30,11 +30,12 @@ Fuer eine neue Domain wie `mf2go.de` ist der einfachste Ablauf:
 SHEET_HELPER_SYNC_URL=https://mf2go.de
 SHEET_HELPER_SYNC_TOKEN=<WERT AUS sheet_helper_sync_token>
 ```
-7. Sheet-Helper fuer die Domain ausrollen:
+7. Im Apps-Script-Editor einmal `installRecommendedTriggers()` ausfuehren.
+8. Sheet-Helper fuer die Domain ausrollen:
 ```bash
 ./scripts/sheethelper-redeploy.sh mf2go.de
 ```
-8. Danach testen:
+9. Danach testen:
    - `https://mf2go.de/`
    - `https://www.mf2go.de/`
    - optional einen manuellen Trigger ueber das Apps Script mit `manualSync()`
@@ -127,6 +128,11 @@ https://mf2go.de/<sheet_helper_sync_token>
 ```
 
 Das ist absichtlich einfach gehalten. Der alternative interne Pfad `/internal/sync/{tenant}` existiert ebenfalls im Code, ist fuer das mitgelieferte Google Apps Script derzeit aber nicht der Standardweg.
+
+Wichtig fuer Apps Script:
+
+- Verwende bevorzugt `installRecommendedTriggers()`.
+- Die fruehere Kombination aus reserviertem `onEdit` plus installierbarem Edit-Trigger fuehrt leicht zu doppelten Ausfuehrungen und Fehlern im Script-Log.
 
 ## Zielbild
 
