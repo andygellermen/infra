@@ -6,7 +6,7 @@ func TestParseRoutes(t *testing.T) {
 	rows := [][]string{
 		{"Domain", "Path", "Type", "Passphrase", "Target", "Title", "Description", "ListSheet", "Enabled"},
 		{"geller.men", "/", "link", "", "https://example.org", "Start", "Beschreibung", "", "true"},
-		{"geller.men", "agileebooks", "list", "scrum", "Downloads", "Agile", "Liste", "list_agileebooks", "true"},
+		{"geller.men", "agileebooks/", "list", "scrum", "Downloads", "Agile", "Liste", "list_agileebooks", "true"},
 	}
 
 	routes, err := parseRoutes(rows)
@@ -17,7 +17,7 @@ func TestParseRoutes(t *testing.T) {
 		t.Fatalf("expected 2 routes, got %d", got)
 	}
 	if routes[1].Path != "/agileebooks" {
-		t.Fatalf("expected normalized path /agileebooks, got %q", routes[1].Path)
+		t.Fatalf("expected trailing slash to be removed from path, got %q", routes[1].Path)
 	}
 	if routes[1].ListSheet != "list_agileebooks" {
 		t.Fatalf("expected list sheet to survive parsing, got %q", routes[1].ListSheet)

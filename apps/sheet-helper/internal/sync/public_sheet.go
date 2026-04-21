@@ -14,6 +14,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/config"
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/model"
+	"github.com/andygellermann/infra/apps/sheet-helper/internal/pathutil"
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/storage"
 )
 
@@ -347,13 +348,7 @@ func normalizeHeader(value string) string {
 }
 
 func normalizePath(path string) string {
-	if strings.TrimSpace(path) == "" {
-		return "/"
-	}
-	if strings.HasPrefix(path, "/") {
-		return path
-	}
-	return "/" + path
+	return pathutil.Normalize(path)
 }
 
 func parseBool(value string, fallback bool) bool {

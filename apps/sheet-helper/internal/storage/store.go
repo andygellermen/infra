@@ -9,6 +9,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/model"
+	"github.com/andygellermann/infra/apps/sheet-helper/internal/pathutil"
 )
 
 type Store struct {
@@ -117,6 +118,7 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 	}
 
 	for _, route := range routes {
+		route.Path = pathutil.Normalize(route.Path)
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO routes (domain, path, type, passphrase, target, title, description, list_sheet, enabled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -127,6 +129,7 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 	}
 
 	for _, entry := range vCards {
+		entry.Path = pathutil.Normalize(entry.Path)
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO vcard_entries (domain, path, full_name, organization, job_title, email, phone_mobile, address, website, image_url, note, enabled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -137,6 +140,7 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 	}
 
 	for _, entry := range texts {
+		entry.Path = pathutil.Normalize(entry.Path)
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO text_entries (domain, path, content_type, content, copy_hint, expires_at, enabled)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -163,11 +167,15 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 }
 
 func (s *Store) LookupRoute(ctx context.Context, domain, path string) (model.Route, bool, error) {
+	path = pathutil.Normalize(path)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT domain, path, type, passphrase, target, title, description, list_sheet, enabled
 		FROM routes
-		WHERE domain = ? AND path = ? AND enabled = 1`,
-		domain, path,
+		WHERE domain = ? AND enabled = 1
+		  AND (path = ? OR rtrim(path, '/') = rtrim(?, '/'))
+		ORDER BY CASE WHEN path = ? THEN 0 ELSE 1 END
+		LIMIT 1`,
+		domain, path, path, path,
 	)
 
 	var route model.Route
@@ -191,16 +199,21 @@ func (s *Store) LookupRoute(ctx context.Context, domain, path string) (model.Rou
 	}
 
 	route.Type = model.RouteType(routeType)
+	route.Path = pathutil.Normalize(route.Path)
 	route.Enabled = enabled == 1
 	return route, true, nil
 }
 
 func (s *Store) GetVCard(ctx context.Context, domain, path string) (model.VCardEntry, bool, error) {
+	path = pathutil.Normalize(path)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT domain, path, full_name, organization, job_title, email, phone_mobile, address, website, image_url, note, enabled
 		FROM vcard_entries
-		WHERE domain = ? AND path = ? AND enabled = 1`,
-		domain, path,
+		WHERE domain = ? AND enabled = 1
+		  AND (path = ? OR rtrim(path, '/') = rtrim(?, '/'))
+		ORDER BY CASE WHEN path = ? THEN 0 ELSE 1 END
+		LIMIT 1`,
+		domain, path, path, path,
 	)
 
 	var entry model.VCardEntry
@@ -214,16 +227,21 @@ func (s *Store) GetVCard(ctx context.Context, domain, path string) (model.VCardE
 		}
 		return model.VCardEntry{}, false, fmt.Errorf("scan vcard: %w", err)
 	}
+	entry.Path = pathutil.Normalize(entry.Path)
 	entry.Enabled = enabled == 1
 	return entry, true, nil
 }
 
 func (s *Store) GetText(ctx context.Context, domain, path string) (model.TextEntry, bool, error) {
+	path = pathutil.Normalize(path)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT domain, path, content_type, content, copy_hint, expires_at, enabled
 		FROM text_entries
-		WHERE domain = ? AND path = ? AND enabled = 1`,
-		domain, path,
+		WHERE domain = ? AND enabled = 1
+		  AND (path = ? OR rtrim(path, '/') = rtrim(?, '/'))
+		ORDER BY CASE WHEN path = ? THEN 0 ELSE 1 END
+		LIMIT 1`,
+		domain, path, path, path,
 	)
 
 	var entry model.TextEntry
@@ -234,6 +252,7 @@ func (s *Store) GetText(ctx context.Context, domain, path string) (model.TextEnt
 		}
 		return model.TextEntry{}, false, fmt.Errorf("scan text: %w", err)
 	}
+	entry.Path = pathutil.Normalize(entry.Path)
 	entry.Enabled = enabled == 1
 	return entry, true, nil
 }
@@ -268,6 +287,7 @@ func (s *Store) ListItems(ctx context.Context, sheetName string) ([]model.ListIt
 }
 
 func (s *Store) RecordClick(ctx context.Context, event model.ClickEvent) error {
+	event.Path = pathutil.Normalize(event.Path)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO click_events (ts, domain, path, type, target, referrer, user_agent)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,

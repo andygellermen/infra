@@ -11,6 +11,13 @@ func TestSyncTokenFromPath(t *testing.T) {
 	if token != valid[1:] {
 		t.Fatalf("unexpected token %q", token)
 	}
+	token, ok = syncTokenFromPath(valid + "/")
+	if !ok {
+		t.Fatalf("expected trailing slash to be ignored for sync token path")
+	}
+	if token != valid[1:] {
+		t.Fatalf("unexpected token %q after trailing slash normalization", token)
+	}
 
 	invalid := []string{
 		"/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -22,5 +29,14 @@ func TestSyncTokenFromPath(t *testing.T) {
 		if _, ok := syncTokenFromPath(candidate); ok {
 			t.Fatalf("expected invalid sync token path for %q", candidate)
 		}
+	}
+}
+
+func TestNormalizedPathRemovesTrailingSlash(t *testing.T) {
+	if got := normalizedPath("/flyer/"); got != "/flyer" {
+		t.Fatalf("expected /flyer, got %q", got)
+	}
+	if got := normalizedPath("/"); got != "/" {
+		t.Fatalf("expected root path to stay /, got %q", got)
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/config"
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/model"
+	"github.com/andygellermann/infra/apps/sheet-helper/internal/pathutil"
 	"github.com/andygellermann/infra/apps/sheet-helper/internal/storage"
 )
 
@@ -331,10 +332,7 @@ func stripPort(host string) string {
 }
 
 func normalizedPath(path string) string {
-	if path == "" {
-		return "/"
-	}
-	return path
+	return pathutil.Normalize(path)
 }
 
 func accessCookieName(route model.Route) string {
@@ -343,7 +341,7 @@ func accessCookieName(route model.Route) string {
 }
 
 func syncTokenFromPath(path string) (string, bool) {
-	trimmed := strings.TrimPrefix(path, "/")
+	trimmed := strings.TrimPrefix(pathutil.Normalize(path), "/")
 	if strings.Contains(trimmed, "/") || len(trimmed) != 65 {
 		return "", false
 	}
