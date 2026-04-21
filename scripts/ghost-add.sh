@@ -6,6 +6,8 @@ INVENTORY="./ansible/inventory"
 HOSTVARS_DIR="./ansible/hostvars"
 CREATE_HOSTVARS="./scripts/create-hostvars.sh"
 
+source "./scripts/lib/dns-check.sh"
+
 DEFAULT_GHOST_VERSION="latest"
 
 usage() {
@@ -31,26 +33,14 @@ success() {
   echo "✅ $*"
 }
 
-resolve_a_record() {
-  local domain="$1"
-  dig +short A "$domain" | head -n1
-}
-
 verify_domain_points_here() {
   local domain="$1"
-  local host_ip dns_ip
+  local host_ip
 
   host_ip="$(curl -fsSL https://api.ipify.org || true)"
-  dns_ip="$(resolve_a_record "$domain")"
 
   [[ -n "$host_ip" ]] || die "Öffentliche Host-IP konnte nicht ermittelt werden."
-  [[ -n "$dns_ip" ]] || die "Kein A-Record für ${domain} gefunden."
-
-  if [[ "$dns_ip" != "$host_ip" ]]; then
-    die "DNS-Fehler: ${domain} zeigt auf ${dns_ip}, erwartet wird ${host_ip}. Zertifikats-Deployment wird abgebrochen."
-  fi
-
-  info "DNS OK: ${domain} -> ${dns_ip}"
+  verify_domain_resolves_to_host_ipv4 "$domain" "$host_ip"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -111,6 +101,9 @@ if ! command -v dig >/dev/null 2>&1; then
 fi
 if ! command -v curl >/dev/null 2>&1; then
   die "Das 'curl'-Tool fehlt. Installiere es mit: sudo apt install curl"
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  die "Das 'python3'-Tool fehlt. Installiere es mit: sudo apt install python3"
 fi
 
 # =========================

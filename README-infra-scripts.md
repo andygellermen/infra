@@ -441,7 +441,10 @@ Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvar
 **Prüfungen:**
 - Pflichtwerte in Hostvars: `domain`, `ghost_domain_db`, `ghost_domain_usr`, `ghost_domain_pwd`
 - Domain-Matching zwischen Argument und `hostvars.domain`
-- DNS-A-Record-Matching (Hauptdomain + alle Aliase) gegen die öffentliche Host-IP
+- DNS-IPv4-Matching (Hauptdomain + alle Aliase) gegen die öffentliche Host-IP
+
+**Hinweis zu Wildcard-DNS:**
+- Ein `*.example.com A ...` reicht nicht, wenn der konkrete Hostname bereits eigene Records wie `MX` oder `TXT` hat. In diesem Fall greift der Wildcard-A-Record für genau diesen Hostnamen nicht mehr, und ein expliziter `A`-Record ist nötig.
 
 **Tinybird-Nachzug (Bestandsdomains):**
 - `ghost-redeploy.sh` ist der empfohlene Weg, um Änderungen in Hostvars (inkl. `tinybird_*`) live in die Container-Umgebung zu übernehmen.

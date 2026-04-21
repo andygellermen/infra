@@ -8,6 +8,8 @@ HOSTVARS_DIR="$ROOT_DIR/ansible/hostvars"
 CHECK_ONLY=0
 RESTART_TRAEFIK=0
 
+source "$ROOT_DIR/scripts/lib/dns-check.sh"
+
 usage() {
   cat <<USAGE
 Usage:
@@ -98,23 +100,8 @@ extract_aliases() {
   ' "$file"
 }
 
-resolve_a_record() {
-  local domain="$1"
-  dig +short A "$domain" | head -n1
-}
-
 verify_a_record_matches_host() {
-  local domain="$1" host_ip="$2"
-  local dns_ip
-  dns_ip="$(resolve_a_record "$domain")"
-
-  [[ -n "$dns_ip" ]] || die "Kein A-Record für ${domain} gefunden."
-
-  if [[ "$dns_ip" != "$host_ip" ]]; then
-    die "DNS-Fehler: ${domain} zeigt auf ${dns_ip}, erwartet wird ${host_ip}."
-  fi
-
-  ok "DNS OK: ${domain} -> ${dns_ip}"
+  verify_domain_resolves_to_host_ipv4 "$1" "$2"
 }
 
 if [[ ${1:-} == "--help" || ${1:-} == "-h" ]]; then
@@ -137,6 +124,7 @@ done
 
 require_cmd dig
 require_cmd curl
+require_cmd python3
 
 DOMAIN="$(normalize_domain "$DOMAIN")"
 HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
@@ -167,7 +155,11 @@ HOST_IP="$(curl -fsSL https://api.ipify.org || true)"
 [[ -n "$HOST_IP" ]] || die "Öffentliche Host-IP konnte nicht ermittelt werden (api.ipify.org)."
 info "Host-IP erkannt: $HOST_IP"
 
-mapfile -t ALIASES < <(extract_aliases "$HOSTVARS_FILE")
+ALIASES=()
+while IFS= read -r alias; do
+  [[ -n "$alias" ]] || continue
+  ALIASES+=("$alias")
+done < <(extract_aliases "$HOSTVARS_FILE")
 
 verify_a_record_matches_host "$DOMAIN" "$HOST_IP"
 
