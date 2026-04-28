@@ -26,11 +26,26 @@ normalize_domain() {
 
 OUTPUT_DIR=""
 ARGS=()
-for arg in "$@"; do
-  case "$arg" in
-    --output-dir=*) OUTPUT_DIR="${arg#*=}" ;;
-    --help|-h) usage; exit 0 ;;
-    *) ARGS+=("$arg") ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir=*)
+      OUTPUT_DIR="${1#*=}"
+      shift
+      ;;
+    --output-dir)
+      shift
+      [[ $# -gt 0 ]] || die "Fehlender Wert für --output-dir"
+      OUTPUT_DIR="$1"
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
   esac
 done
 
@@ -68,7 +83,7 @@ def walk(node):
                     main = dom.get("main") or dom.get("Main")
                     sans = dom.get("sans") or dom.get("Sans") or dom.get("SANs") or []
                     names = {name for name in [main, *sans] if name}
-                    if domain in names and wildcard in names:
+                    if wildcard in names:
                         matches.append(cert)
             else:
                 walk(value)

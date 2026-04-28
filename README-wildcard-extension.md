@@ -23,7 +23,7 @@ Ein einzelner Legacy-/Fallback-Account bleibt möglich:
 ```yaml
 traefik_autodns_user: "tech-user"
 traefik_autodns_password: "super-secret"
-traefik_autodns_context: "4"
+traefik_autodns_context: "10"
 traefik_autodns_endpoint: "https://api.autodns.com/v1/"
 traefik_autodns_user_agent: "infra-traefik-wildcard/1.0"
 traefik_autodns_http_timeout: "30"
@@ -41,7 +41,7 @@ traefik_autodns_accounts:
   account-a:
     user: "tech-user-a"
     password: "secret-a"
-    context: "4"
+    context: "10"
     endpoint: "https://api.autodns.com/v1/"
     user_agent: "infra-traefik-wildcard/1.0"
     http_timeout: "30"
@@ -52,12 +52,13 @@ traefik_autodns_accounts:
   account-b:
     user: "tech-user-b"
     password: "secret-b"
-    context: "4"
+    context: "10"
 ```
 
 Wichtig:
 - pro Wildcard-Nutzung kann derselbe Traefik-Prozess aktuell nur genau einen `tls_dns_account` gleichzeitig aktiv bedienen
 - wenn mehrere verschiedene Wildcard-Accounts parallel aktiv wären, bricht der Traefik-Deploy mit einer klaren Fehlermeldung ab
+- laut InternetX-/Schlundtech-Rückmeldung läuft unser Live-Account mit dem persönlichen AutoDNS-Kontext `10`, nicht mit dem generischen Produktionswert `4`
 
 ## Hostvars
 Für Ghost-, WordPress- und Static-Domains kann Wildcard-TLS direkt in den Hostvars aktiviert werden:

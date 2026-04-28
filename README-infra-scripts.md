@@ -167,6 +167,60 @@ Aktuell angebunden sind:
 - `scripts/redeploy-all-web.sh`
 - `scripts/wildcard-distribute.sh`
 
+## Domain Health Monitor
+
+Fuer einen einfachen Cron-basierten Aussencheck gibt es jetzt
+`scripts/domain-health-monitor.py`.
+
+Was das Skript prueft:
+- HTTPS-Erreichbarkeit pro Domain
+- TLS-Handshake und Zertifikatsgueltigkeit
+- HTTP-Status am Pfad `/`
+- Redirect-Ziele fuer Eintraege aus `ansible/redirects/redirects.yml`
+- optionale Zertifikatswarnung vor Ablauf
+
+Automatische Discovery:
+- alle oeffentlichen Domains aus `ansible/hostvars/*.yml`
+- zusaetzliche `traefik.aliases`
+- Redirect-Quellen und Redirect-Aliase aus `ansible/redirects/redirects.yml`
+
+Standardverhalten:
+- normale Sites gelten als gesund bei `2xx`, `3xx`, `401` oder `403`
+- Redirect-Domains muessen den konfigurierten Redirect liefern
+- neue Fehler oder geaenderte Fehlerbilder loesen genau eine Mail aus
+- unveraenderte Dauerfehler werden nicht alle 15 Minuten erneut gemailt
+- Recoveries koennen optional ebenfalls gemailt werden
+
+State-Datei:
+- `data/domain-health-monitor/state.json`
+
+Beispiele:
+
+```bash
+# normaler Lauf mit Mailversand bei Aenderungen
+./scripts/domain-health-monitor.py
+
+# nur pruefen, keine Mail
+./scripts/domain-health-monitor.py --no-mail
+
+# Zertifikate erst ab 7 Tagen Restlaufzeit warnen
+./scripts/domain-health-monitor.py --warn-cert-days 7
+```
+
+Cron-Beispiel alle 15 Minuten:
+
+```cron
+*/15 * * * * /bin/sh -lc 'mkdir -p /home/andy/infra/data/domain-health-monitor && cd /home/andy/infra && /usr/bin/env python3 ./scripts/domain-health-monitor.py >> /home/andy/infra/data/domain-health-monitor/cron.log 2>&1'
+```
+
+Mail-Konfiguration:
+- verwendet `infra_error_notify_to`
+- verwendet `infra_error_notify_from` oder faellt auf `ses_from` zurueck
+- SMTP-Zugangsdaten kommen aus `ses_smtp_*`
+
+Voraussetzungen:
+- `python3`
+
 ## Static Inline Editor
 
 Beim Static Inline Editor kommen SMTP-Zugangsdaten fuer Magic Links jetzt ebenfalls global aus `ses_*` statt aus einzelnen Domain-Hostvars.

@@ -95,7 +95,7 @@
     env:
       AUTODNS_API_USER: "{{ traefik_active_autodns_account.user | default(traefik_autodns_user | default('', true), true) }}"
       AUTODNS_API_PASSWORD: "{{ traefik_active_autodns_account.password | default(traefik_autodns_password | default('', true), true) }}"
-      AUTODNS_CONTEXT: "{{ traefik_active_autodns_account.context | default(traefik_autodns_context | default('4', true), true) | string }}"
+      AUTODNS_CONTEXT: "{{ traefik_active_autodns_account.context | default(traefik_autodns_context | default('10', true), true) | string }}"
       AUTODNS_ENDPOINT: "{{ traefik_active_autodns_account.endpoint | default(traefik_autodns_endpoint | default('https://api.autodns.com/v1/', true), true) }}"
       AUTODNS_USER_AGENT: "{{ traefik_active_autodns_account.user_agent | default(traefik_autodns_user_agent | default('infra-traefik-wildcard/1.0', true), true) }}"
       AUTODNS_HTTP_TIMEOUT: "{{ traefik_active_autodns_account.http_timeout | default(traefik_autodns_http_timeout | default('30', true), true) | string }}"
