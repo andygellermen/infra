@@ -17,7 +17,7 @@ require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 normalize_domain() {
   local domain="$1"
   if [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]]; then
-    printf '%s\n' "${domain,,}"
+    printf '%s\n' "$domain" | tr '[:upper:]' '[:lower:]'
   else
     require_cmd idn
     idn --quiet --uts46 "$domain" | tr '[:upper:]' '[:lower:]'
@@ -28,6 +28,16 @@ OUTPUT_DIR=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --acme-file=*)
+      ACME_FILE="${1#*=}"
+      shift
+      ;;
+    --acme-file)
+      shift
+      [[ $# -gt 0 ]] || die "Fehlender Wert für --acme-file"
+      ACME_FILE="$1"
+      shift
+      ;;
     --output-dir=*)
       OUTPUT_DIR="${1#*=}"
       shift

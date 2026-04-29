@@ -21,7 +21,7 @@ require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 normalize_domain() {
   local domain="$1"
   if [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]]; then
-    printf '%s\n' "${domain,,}"
+    printf '%s\n' "$domain" | tr '[:upper:]' '[:lower:]'
   else
     require_cmd idn
     idn --quiet --uts46 "$domain" | tr '[:upper:]' '[:lower:]'
@@ -30,11 +30,26 @@ normalize_domain() {
 
 CONFIG_FILE="$DEFAULT_CONFIG"
 ARGS=()
-for arg in "$@"; do
-  case "$arg" in
-    --config=*) CONFIG_FILE="${arg#*=}" ;;
-    --help|-h) usage; exit 0 ;;
-    *) ARGS+=("$arg") ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config=*)
+      CONFIG_FILE="${1#*=}"
+      shift
+      ;;
+    --config)
+      shift
+      [[ $# -gt 0 ]] || die "Fehlender Wert für --config"
+      CONFIG_FILE="$1"
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
   esac
 done
 

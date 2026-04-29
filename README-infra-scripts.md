@@ -93,6 +93,16 @@ Exportiert ein vorhandenes Wildcard-Zertifikat für eine Apex-Domain aus Traefik
 ./scripts/wildcard-export.sh example.com [--output-dir /tmp/wildcard-export]
 ```
 
+### wildcard-housekeeping.sh
+
+**Beschreibung:**  
+Prüft, ob für eine Apex-Domain bereits ein echtes Wildcard-Zertifikat in Traefiks `acme.json` vorliegt, und bereinigt anschließend nur die davon vollständig abgedeckten Einzelzertifikate. Optional kann Traefik danach direkt neu gestartet werden.
+
+**Syntax:**
+```bash
+./scripts/wildcard-housekeeping.sh example.com [--restart-traefik]
+```
+
 ### wildcard-distribute.sh
 
 **Beschreibung:**  

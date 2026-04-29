@@ -12,6 +12,7 @@ Diese Erweiterung bereitet den Stack für automatisch erneuerbare Wildcard-Zerti
 - [deploy-traefik.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/playbooks/deploy-traefik.yml)
 - [main.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/playbooks/roles/traefik/tasks/main.yml)
 - [wildcard-export.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-export.sh)
+- [wildcard-housekeeping.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-housekeeping.sh)
 - [wildcard-distribute.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-distribute.sh)
 - [distribution.example.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/distribution.example.yml)
 
@@ -110,6 +111,17 @@ Wildcard-Zertifikat aus Traefiks `acme.json` exportieren:
 ```bash
 ./scripts/wildcard-export.sh example.com
 ```
+
+Bestehende Einzelzertifikate unterhalb derselben Apex-Domain lassen sich nach erfolgreicher Wildcard-Ausstellung sicher bereinigen:
+
+```bash
+./scripts/wildcard-housekeeping.sh example.com --restart-traefik
+```
+
+Dabei gilt:
+- das Skript bereinigt nur Zertifikate, deren Namen vollständig durch das tatsächlich exportierte Wildcard-Zertifikat gedeckt sind
+- Aliase außerhalb der Wildcard-Apex-Domain, z. B. fremde Punycode-Domains, bleiben bewusst erhalten und laufen separat weiter
+- der Traefik-Deploy führt dieses Housekeeping inzwischen automatisch für konfigurierte Wildcard-Apex-Domains aus, sobald das Wildcard-Zertifikat bereits existiert
 
 An Staging-Server verteilen:
 

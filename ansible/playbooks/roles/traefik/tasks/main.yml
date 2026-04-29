@@ -31,6 +31,18 @@
   ansible.builtin.set_fact:
     traefik_wildcard_account_keys: "{{ ((traefik_wildcard_account_keys_hostvars | default([])) + (traefik_wildcard_account_keys_redirects | default([]))) | unique }}"
 
+- name: Build wildcard apex domain list from hostvars
+  ansible.builtin.set_fact:
+    traefik_wildcard_apex_domains_hostvars: "{{ ((traefik_hostvar_payloads | default([])) | selectattr('tls_mode', 'defined') | selectattr('tls_mode', 'equalto', 'wildcard') | map(attribute='tls_wildcard_domain') | reject('equalto', None) | reject('equalto', '') | list | unique) }}"
+
+- name: Build wildcard apex domain list from redirects
+  ansible.builtin.set_fact:
+    traefik_wildcard_apex_domains_redirects: "{{ ((traefik_redirect_entries | default([])) | selectattr('tls_mode', 'defined') | selectattr('tls_mode', 'equalto', 'wildcard') | map(attribute='tls_wildcard_domain') | reject('equalto', None) | reject('equalto', '') | list | unique) }}"
+
+- name: Combine requested wildcard apex domains
+  ansible.builtin.set_fact:
+    traefik_wildcard_apex_domains: "{{ ((traefik_wildcard_apex_domains_hostvars | default([])) + (traefik_wildcard_apex_domains_redirects | default([]))) | unique }}"
+
 - name: Select active AutoDNS account key
   ansible.builtin.set_fact:
     traefik_active_autodns_account_key: "{{ (traefik_wildcard_account_keys | first) if ((traefik_wildcard_account_keys | length) == 1) else (traefik_autodns_default_account | default('', true)) }}"
@@ -127,3 +139,23 @@
       - "--certificatesresolvers.letsEncryptDns.acme.storage=/etc/traefik/acme/acme.json"
       - "--log.level=INFO"
       - "--accesslog=true"
+
+- name: Run wildcard ACME housekeeping for covered apex domains
+  ansible.builtin.command:
+    argv:
+      - "{{ playbook_dir }}/../../scripts/wildcard-housekeeping.sh"
+      - "{{ item }}"
+  loop: "{{ traefik_wildcard_apex_domains | default([]) }}"
+  register: traefik_wildcard_housekeeping
+  changed_when: "'ACME_CHANGED=1' in (stdout | default(''))"
+  when:
+    - "(traefik_wildcard_apex_domains | default([]) | length) > 0"
+
+- name: Restart Traefik after wildcard ACME housekeeping
+  community.docker.docker_container:
+    name: infra-traefik
+    state: started
+    restart: true
+  when:
+    - traefik_wildcard_housekeeping is defined
+    - traefik_wildcard_housekeeping is changed
