@@ -140,13 +140,20 @@ tls_mode: "${tls_mode}"
 tls_wildcard_domain: "${wildcard_domain}"
 tls_dns_account: "${dns_account}"
 
-# Tinybird analytics defaults
+# Legacy Tinybird custom env defaults
+# Hinweis: Das ist nicht automatisch Ghost Native Analytics.
 tinybird_enabled: true
 tinybird_api_url: "https://api.tinybird.co"
 tinybird_workspace: "main"
 tinybird_datasource: "ghost_pageviews_${tinybird_datasource}"
 tinybird_token: "${tinybird_token}"
 tinybird_events_endpoint: "/v0/events?name=pageviews"
+
+# Ghost Native Analytics (offizieller Ghost-/Tinybird-Pfad)
+ghost_native_analytics_enabled: false
+ghost_native_analytics_profile: ""
+ghost_native_analytics_tracker_datasource: "analytics_events"
+ghost_traefik_middleware_native_analytics: "crowdsec-api@docker"
 EOF
 
 echo "✅ Hostvars-Datei erzeugt: $file"

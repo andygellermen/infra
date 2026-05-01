@@ -135,7 +135,8 @@ Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 - Validiert Eingaben (inkl. Punycode bei Umlauten)
 - Schreibt in `ansible/hostvars`
 - Warnung bei bestehenden Dateien
-- Ergänzt standardmäßig Tinybird-Credentials/-Defaults (`tinybird_*`) pro neuer Domain
+- Ergänzt standardmäßig Legacy-/Custom-Tinybird-Defaults (`tinybird_*`) pro neuer Domain
+- Ergänzt Platzhalter für Ghost Native Analytics (`ghost_native_analytics_*`) pro neuer Domain
 
 ### Amazon SES (Standard für Ghost-Mail)
 
@@ -420,8 +421,8 @@ Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Mid
 
 ### ghost-migrate-tinybird.sh
 
-**Beschreibung:**
-Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende Tinybird-Defaults in `ansible/hostvars/*.yml`, generiert pro Domain ein eigenes `tinybird_token` und führt optional je Domain `ghost-redeploy.sh` aus.
+**Beschreibung:**  
+Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende Legacy-/Custom-Tinybird-Defaults in `ansible/hostvars/*.yml`, generiert pro Domain ein eigenes `tinybird_token` und führt optional je Domain `ghost-redeploy.sh` aus.
 
 **Syntax:**
 ```bash
@@ -438,9 +439,91 @@ Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende Tinybird-Def
 ./scripts/ghost-migrate-tinybird.sh --rotate-tokens
 ```
 
+**Empfohlener Setup-Ablauf:**
+1. Tinybird-seitig den Ziel-Workspace und die gewünschte Event-/Datasource-Struktur vorbereiten.
+2. Für neue Ghost-Domains reichen die automatisch erzeugten `tinybird_*` Hostvars in `create-hostvars.sh` normalerweise aus.
+3. Für bestehende Ghost-Domains zuerst prüfen:
+```bash
+./scripts/ghost-migrate-tinybird.sh --check-only
+```
+4. Dann die fehlenden Tinybird-Defaults in die Hostvars schreiben und Ghost neu deployen:
+```bash
+./scripts/ghost-migrate-tinybird.sh
+```
+5. Anschließend pro Domain Smoke-Check fahren:
+```bash
+./scripts/ghost-smoke-check.sh <domain>
+```
+6. Optional Tokens rotieren:
+```bash
+./scripts/ghost-migrate-tinybird.sh --rotate-tokens
+```
+
+**Wichtige Hostvars/Env-Werte:**
+- `tinybird_enabled`
+- `tinybird_api_url`
+- `tinybird_workspace`
+- `tinybird_datasource`
+- `tinybird_token`
+- `tinybird_events_endpoint`
+
+Hinweis:
+- Diese Infra übergibt die Tinybird-Werte an die Ghost-Container-Umgebung. Die eigentliche Event-Erzeugung bzw. ein Theme-/Frontend-Hook, der Nutzungsdaten an Tinybird sendet, muss auf Ghost-/Theme-Seite ebenfalls vorhanden sein.
+- Wenn direkt gegen die Tinybird Events API gesendet wird, muss `tinybird_token` ein echter Tinybird-Token mit Schreibrechten für die Zieldatenquelle sein; ein lokal generierter Zufallswert reicht dafür nicht aus.
+- `tinybird_api_url` muss zum API-Host der Tinybird-Workspace-Region passen. Der Default `https://api.tinybird.co` ist nur korrekt, wenn eure Workspace-Region genau diesen Host verwendet.
+- Wichtige Abgrenzung: Diese Hostvars-/Env-Vorbereitung ist nicht automatisch identisch mit Ghost 6 Native Analytics. Laut offizieller Ghost-Doku funktioniert die native Tinybird-Analytics für Self-Hosting nur über den Docker-Preview-/`ghost-docker`-Setup mit zusätzlichen `tinybird-*` Diensten und dem separaten Traffic-Analytics-Service.
+
 **Hinweis:**
 - Ideal für den Nachzug bei bereits produktiven Domains.
 - Für einen kontrollierten Rollout zuerst `--check-only`, danach regulär ausführen.
+
+### ghost-native-analytics-sync.sh
+
+**Beschreibung:**  
+Kopiert die offiziellen Tinybird-Projektdateien aus einem laufenden Ghost-Container in ein lokales Arbeitsverzeichnis. Das ist der vorbereitende Operator-Schritt fuer Ghost Native Analytics auf dem bestehenden Ansible-/Traefik-Stack.
+
+**Syntax:**
+```bash
+# Standardziel unter ./data/ghost-native-analytics/<domain>/tinybird
+./scripts/ghost-native-analytics-sync.sh <domain>
+
+# Bestehendes Zielverzeichnis vorher bereinigen
+./scripts/ghost-native-analytics-sync.sh <domain> --clean
+
+# Eigenes Zielverzeichnis verwenden
+./scripts/ghost-native-analytics-sync.sh <domain> --output-dir /tmp/ghost-tinybird
+```
+
+**Ghost Native Analytics (Pilot-Pfad):**
+1. In `ansible/secrets/secrets.yml` ein Profil unter `ghost_native_analytics_profiles` anlegen:
+```yaml
+ghost_native_analytics_profiles:
+  woelfe_workspace:
+    api_url: https://api.europe-west2.gcp.tinybird.co
+    workspace_id: <tinybird-workspace-id>
+    admin_token: <tinybird-admin-token>
+    tracker_token: <tinybird-tracker-token>
+```
+2. In den Hostvars der Pilot-Domain aktivieren:
+```yaml
+ghost_native_analytics_enabled: true
+ghost_native_analytics_profile: woelfe_workspace
+ghost_native_analytics_tracker_datasource: analytics_events
+ghost_traefik_middleware_native_analytics: crowdsec-api@docker
+```
+3. `./scripts/ghost-native-analytics-sync.sh <domain>` ausfuehren, damit die Tinybird-Datenfiles aus dem Ghost-Container vorliegen.
+4. Das synchronisierte Tinybird-Projekt anschliessend bewusst per Tinybird CLI gegen den Ziel-Workspace deployen.
+5. Danach `./scripts/ghost-redeploy.sh <domain>` ausfuehren.
+
+**Was die Rolle jetzt automatisch uebernimmt, sobald `ghost_native_analytics_enabled: true` gesetzt ist:**
+- offizieller Ghost-Env-Pfad via `tinybird__tracker__endpoint`, `tinybird__adminToken`, `tinybird__workspaceId`, `tinybird__tracker__datasource`, `tinybird__stats__endpoint`
+- separater `ghost-analytics-<domain>` Container auf Basis von `ghost/traffic-analytics`
+- eigene Traefik-Route fuer `/.ghost/analytics/**` mit hoeherer Prioritaet als die allgemeine `/.ghost`-Route
+- eigenes Salt-Volume pro Ghost-Domain fuer den Analytics-Proxy
+
+**Wichtige Abgrenzung:**
+- Der eigentliche Tinybird-Cloud-Deploy der synchronisierten Datenfiles ist derzeit bewusst noch ein expliziter Operator-Schritt.
+- So bleibt der produktive Runtime-Rollout von Ghost + Traefik entkoppelt vom heikleren Tinybird-CLI-/Workspace-Deploy.
 
 ### ghost-backup.sh
 

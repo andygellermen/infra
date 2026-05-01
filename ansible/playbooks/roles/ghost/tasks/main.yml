@@ -7,6 +7,27 @@
   community.docker.docker_volume:
     name: "ghost_{{ domain | replace('.', '_') }}_content"
 
+- name: Build Ghost native analytics settings
+  ansible.builtin.set_fact:
+    ghost_native_analytics_enabled_effective: "{{ ghost_native_analytics_enabled | default(false) | bool }}"
+    ghost_native_analytics_profile_key: "{{ ghost_native_analytics_profile | default('', true) }}"
+    ghost_native_analytics_profile_payload: "{{ (ghost_native_analytics_profiles | default({}, true)).get((ghost_native_analytics_profile | default('', true)), {}) }}"
+    ghost_native_analytics_service_name: "ghost-analytics-{{ domain | replace('.', '-') }}"
+    ghost_native_analytics_router_name: "ghost-{{ domain | replace('.', '-') }}-analytics"
+    ghost_native_analytics_volume_name: "ghost_{{ domain | replace('.', '_') }}_traffic_analytics_data"
+    ghost_native_analytics_tracker_datasource_effective: "{{ ghost_native_analytics_tracker_datasource | default('analytics_events', true) }}"
+    ghost_native_analytics_log_level_effective: "{{ ghost_native_analytics_log_level | default('info', true) }}"
+    ghost_native_analytics_salt_store_type_effective: "{{ ghost_native_analytics_salt_store_type | default('file', true) }}"
+    ghost_native_analytics_salt_store_file_path_effective: "{{ ghost_native_analytics_salt_store_file_path | default('/data/salts.json', true) }}"
+    ghost_native_analytics_image_effective: "{{ ghost_native_analytics_image | default('ghost/traffic-analytics:1.0.205@sha256:284a71d8ab393280cd8b55a76689fcfccb709cf6bb29bfaf552f81562c823604', true) }}"
+
+- name: Resolve Ghost native analytics profile values
+  ansible.builtin.set_fact:
+    ghost_native_analytics_api_url_effective: "{{ (ghost_native_analytics_profile_payload.api_url | default('', true) | regex_replace('/+$', '')) if (ghost_native_analytics_enabled | default(false) | bool) else '' }}"
+    ghost_native_analytics_workspace_id_effective: "{{ ghost_native_analytics_profile_payload.workspace_id | default('', true) if (ghost_native_analytics_enabled | default(false) | bool) else '' }}"
+    ghost_native_analytics_admin_token_effective: "{{ ghost_native_analytics_profile_payload.admin_token | default('', true) if (ghost_native_analytics_enabled | default(false) | bool) else '' }}"
+    ghost_native_analytics_tracker_token_effective: "{{ ghost_native_analytics_profile_payload.tracker_token | default('', true) if (ghost_native_analytics_enabled | default(false) | bool) else '' }}"
+
 - name: Ensure traefik docker network exists
   community.docker.docker_network:
     name: traefik
@@ -20,6 +41,20 @@
     driver: bridge
     attachable: true
     state: present
+
+- name: Validate Ghost native analytics profile settings
+  ansible.builtin.assert:
+    that:
+      - ghost_native_analytics_profile_key | length > 0
+      - ghost_native_analytics_profile_payload | length > 0
+      - ghost_native_analytics_api_url_effective | length > 0
+      - ghost_native_analytics_workspace_id_effective | length > 0
+      - ghost_native_analytics_admin_token_effective | length > 0
+      - ghost_native_analytics_tracker_token_effective | length > 0
+    fail_msg: >-
+      Ghost Native Analytics ist aktiv, aber das Profil '{{ ghost_native_analytics_profile_key }}'
+      ist unvollständig oder fehlt in ansible/secrets/secrets.yml unter ghost_native_analytics_profiles.
+  when: ghost_native_analytics_enabled_effective
 
 - name: Create MySQL database for Ghost
   community.mysql.mysql_db:
@@ -97,6 +132,15 @@
         if (ghost_tls_mode == 'wildcard' and (ghost_tls_wildcard_domain | length) > 0 and (ghost_aliases | length > 0))
         else {}
       }}
+    ghost_native_analytics_tls_domain_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.tls.domains[0].main'): ghost_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.tls.domains[0].sans'): '*.' ~ ghost_tls_wildcard_domain
+        }
+        if (ghost_native_analytics_enabled_effective and ghost_tls_mode == 'wildcard' and (ghost_tls_wildcard_domain | length) > 0)
+        else {}
+      }}
 
 - name: Build Ghost middleware settings
   ansible.builtin.set_fact:
@@ -105,6 +149,7 @@
     ghost_middleware_api: "{{ ghost_traefik_middleware_api | default('crowdsec-api@docker') }}"
     ghost_middleware_dotghost: "{{ ghost_traefik_middleware_dotghost | default(ghost_traefik_middleware_api | default('crowdsec-api@docker')) }}"
     ghost_middleware_members_api: "{{ ghost_traefik_middleware_members_api | default(ghost_traefik_middleware_api | default('crowdsec-api@docker')) }}"
+    ghost_middleware_native_analytics: "{{ ghost_traefik_middleware_native_analytics | default(ghost_traefik_middleware_api | default('crowdsec-api@docker')) }}"
 
 - name: Build optional Ghost middleware labels
   ansible.builtin.set_fact:
@@ -140,6 +185,34 @@
         }
         | combine(ghost_tls_domain_labels_alias)
         if (ghost_aliases | length > 0) else {}
+      }}
+
+- name: Build Ghost native analytics Traefik labels
+  ansible.builtin.set_fact:
+    ghost_native_analytics_middlewares: >-
+      {{
+        (
+          ([ghost_middleware_native_analytics] if (ghost_middleware_native_analytics | length > 0) else [])
+          + [ghost_native_analytics_router_name ~ '-strip']
+        ) | join(',')
+      }}
+    ghost_native_analytics_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik',
+          ('traefik.http.middlewares.' ~ ghost_native_analytics_router_name ~ '-strip.stripprefix.prefixes'): '/.ghost/analytics',
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.rule'): '(' ~ ghost_host_rule_primary ~ ') && PathPrefix(`/.ghost/analytics`)',
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.priority'): '240',
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.tls.certresolver'): ghost_tls_certresolver,
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.middlewares'): ghost_native_analytics_middlewares,
+          ('traefik.http.routers.' ~ ghost_native_analytics_router_name ~ '.service'): ghost_native_analytics_service_name,
+          ('traefik.http.services.' ~ ghost_native_analytics_service_name ~ '.loadbalancer.server.port'): '3000'
+        }
+        | combine(ghost_native_analytics_tls_domain_labels)
+        if ghost_native_analytics_enabled_effective else {}
       }}
 
 - name: Build Traefik labels map
@@ -267,6 +340,78 @@
         )
       }}
 
+- name: Build Ghost container environment
+  ansible.builtin.set_fact:
+    ghost_container_env: >-
+      {{
+        {
+          'url': 'https://' ~ domain,
+          'NODE_ENV': ghost_env | default('production'),
+          'database__client': 'mysql',
+          'database__connection__host': 'infra-mysql',
+          'database__connection__user': ghost_domain_usr,
+          'database__connection__password': ghost_domain_pwd,
+          'database__connection__database': ghost_domain_db,
+          'mail__transport': 'SMTP',
+          'mail__options__host': ses_smtp_host | default('email-smtp.eu-central-1.amazonaws.com'),
+          'mail__options__port': ses_smtp_port | default(587) | string,
+          'mail__options__secure': ses_smtp_secure | default(false) | bool | lower,
+          'mail__options__requireTLS': ses_smtp_requireTLS | default(true) | bool | lower,
+          'mail__options__auth__user': ses_smtp_user,
+          'mail__options__auth__pass': ses_smtp_password,
+          'mail__from': ses_from | default('noreply@' ~ domain),
+          'TINYBIRD_ENABLED': tinybird_enabled | default(true) | bool | lower,
+          'TINYBIRD_API_URL': tinybird_api_url | default('https://api.tinybird.co'),
+          'TINYBIRD_WORKSPACE': tinybird_workspace | default('main'),
+          'TINYBIRD_DATASOURCE': tinybird_datasource | default('ghost_pageviews_' ~ (domain | replace('.', '__') | replace('-', '__'))),
+          'TINYBIRD_TOKEN': tinybird_token | default(''),
+          'TINYBIRD_EVENTS_ENDPOINT': tinybird_events_endpoint | default('/v0/events?name=pageviews')
+        }
+        | combine(
+          {
+            'tinybird__tracker__endpoint': 'https://' ~ domain ~ '/.ghost/analytics/api/v1/page_hit',
+            'tinybird__adminToken': ghost_native_analytics_admin_token_effective,
+            'tinybird__workspaceId': ghost_native_analytics_workspace_id_effective,
+            'tinybird__tracker__datasource': ghost_native_analytics_tracker_datasource_effective,
+            'tinybird__stats__endpoint': ghost_native_analytics_api_url_effective
+          }
+          if ghost_native_analytics_enabled_effective
+          else {}
+        )
+      }}
+
+- name: Create Ghost native analytics salt volume
+  community.docker.docker_volume:
+    name: "{{ ghost_native_analytics_volume_name }}"
+  when: ghost_native_analytics_enabled_effective
+
+- name: Deploy Ghost native analytics container
+  community.docker.docker_container:
+    name: "{{ ghost_native_analytics_service_name }}"
+    image: "{{ ghost_native_analytics_image_effective }}"
+    pull: true
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    volumes:
+      - "{{ ghost_native_analytics_volume_name }}:/data"
+    env:
+      NODE_ENV: production
+      PROXY_TARGET: "{{ ghost_native_analytics_api_url_effective }}/v0/events"
+      SALT_STORE_TYPE: "{{ ghost_native_analytics_salt_store_type_effective }}"
+      SALT_STORE_FILE_PATH: "{{ ghost_native_analytics_salt_store_file_path_effective }}"
+      TINYBIRD_TRACKER_TOKEN: "{{ ghost_native_analytics_tracker_token_effective }}"
+      LOG_LEVEL: "{{ ghost_native_analytics_log_level_effective }}"
+    labels: "{{ ghost_native_analytics_labels }}"
+  when: ghost_native_analytics_enabled_effective
+
+- name: Remove Ghost native analytics container when disabled
+  community.docker.docker_container:
+    name: "{{ ghost_native_analytics_service_name }}"
+    state: absent
+  when: not ghost_native_analytics_enabled_effective
+
 - name: Deploy Ghost container
   community.docker.docker_container:
     name: "ghost-{{ domain | replace('.', '-') }}"
@@ -283,27 +428,5 @@
     # Wichtig: alte /etc/hosts-Overrides (z.B. aus früheren Deployments) explizit entfernen
     etc_hosts: {}
     command: "{{ ['/opt/ghost-admin-overlay/start.sh'] if ghost_image_editor_notice_enabled_effective else omit }}"
-    env:
-      # Ghost braucht URL + DB Config
-      url: "https://{{ domain }}"
-      NODE_ENV: "{{ ghost_env | default('production') }}"
-      database__client: "mysql"
-      database__connection__host: "infra-mysql"
-      database__connection__user: "{{ ghost_domain_usr }}"
-      database__connection__password: "{{ ghost_domain_pwd }}"
-      database__connection__database: "{{ ghost_domain_db }}"
-      mail__transport: "SMTP"
-      mail__options__host: "{{ ses_smtp_host | default('email-smtp.eu-central-1.amazonaws.com') }}"
-      mail__options__port: "{{ ses_smtp_port | default(587) | string }}"
-      mail__options__secure: "{{ ses_smtp_secure | default(false) | bool | lower }}"
-      mail__options__requireTLS: "{{ ses_smtp_requireTLS | default(true) | bool | lower }}"
-      mail__options__auth__user: "{{ ses_smtp_user }}"
-      mail__options__auth__pass: "{{ ses_smtp_password }}"
-      mail__from: "{{ ses_from | default('noreply@' ~ domain) }}"
-      TINYBIRD_ENABLED: "{{ tinybird_enabled | default(true) | bool | lower }}"
-      TINYBIRD_API_URL: "{{ tinybird_api_url | default('https://api.tinybird.co') }}"
-      TINYBIRD_WORKSPACE: "{{ tinybird_workspace | default('main') }}"
-      TINYBIRD_DATASOURCE: "{{ tinybird_datasource | default('ghost_pageviews_' ~ (domain | replace('.', '__') | replace('-', '__'))) }}"
-      TINYBIRD_TOKEN: "{{ tinybird_token | default('') }}"
-      TINYBIRD_EVENTS_ENDPOINT: "{{ tinybird_events_endpoint | default('/v0/events?name=pageviews') }}"
+    env: "{{ ghost_container_env }}"
     labels: "{{ ghost_labels }}"
