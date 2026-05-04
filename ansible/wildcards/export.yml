@@ -1,0 +1,87 @@
+---
+# Zentrale Wildcard-Verteilung fuer die drei Hetzner-Zielserver.
+# Annahme: Auf den Zielservern werden die Zertifikate bewusst separat unter
+# /etc/ssl/wildcards/<domain>/ abgelegt und koennen dort von lokalen Services
+# oder Install-Skripten weiterverarbeitet werden.
+#
+# Diese Datei ist fuer den Betrieb auf dem Traefik-/ACME-Host vorbereitet.
+# Deshalb sind hier Linux-Pfade unter /home/andy/... hinterlegt und die
+# Zielserver direkt ueber ihre IPs adressiert.
+wildcard_exports:
+  - source_domain: miethaenger.com
+    acme_file: /home/andy/infra/data/traefik/acme/acme.json
+    targets:
+      - name: live-server
+        host: 116.203.182.136
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/miethaenger.com
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"
+
+      - name: backup-server
+        host: 49.13.158.205
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/miethaenger.com
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"
+
+      - name: test-server
+        host: 188.245.223.161
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/miethaenger.com
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"
+
+  - source_domain: anhaenger.berlin
+    acme_file: /home/andy/infra/data/traefik/acme/acme.json
+    targets:
+      - name: live-server
+        host: 116.203.182.136
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/anhaenger.berlin
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"
+
+      - name: backup-server
+        host: 49.13.158.205
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/anhaenger.berlin
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"
+
+      - name: test-server
+        host: 188.245.223.161
+        user: root
+        port: 22
+        identity_file: /home/andy/.ssh/...
+        known_hosts_file: /home/andy/.ssh/known_hosts
+        remote_dir: /etc/ssl/wildcards/anhaenger.berlin
+        owner: root
+        group: root
+        fullchain_mode: "0644"
+        privkey_mode: "0600"

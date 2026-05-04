@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch Traefik ACME storage for wildcard certificate changes
+
+[Path]
+# Diese Pfade muessen genau auf die echte acme.json des Traefik-/ACME-Hosts
+# zeigen. Wenn dein Traefik-Storage woanders liegt, muss nur dieser Teil
+# angepasst werden.
+PathExists=/home/andy/infra/data/traefik/acme/acme.json
+PathChanged=/home/andy/infra/data/traefik/acme/acme.json
+PathModified=/home/andy/infra/data/traefik/acme/acme.json
+Unit=wildcard-distribute-on-change.service
+
+[Install]
+WantedBy=multi-user.target

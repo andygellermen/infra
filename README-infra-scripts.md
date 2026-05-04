@@ -106,12 +106,53 @@ Prüft, ob für eine Apex-Domain bereits ein echtes Wildcard-Zertifikat in Traef
 ### wildcard-distribute.sh
 
 **Beschreibung:**  
-Verteilt ein exportiertes Wildcard-Zertifikat an definierte Zielserver, z. B. für Staging-Systeme.
+Verteilt ein exportiertes Wildcard-Zertifikat an definierte Zielserver, z. B. für Staging-Systeme. Die zentrale Mapping-Datei kann exakte Zielpfade, einen separaten SSH-Key und optionale Post-Deploy-Kommandos pro Server enthalten.
 
 **Syntax:**
 ```bash
-./scripts/wildcard-distribute.sh example.com [--config ./ansible/wildcards/distribution.example.yml]
+./scripts/wildcard-distribute.sh example.com [--config ./ansible/wildcards/export.yml] [--dry-run]
+./scripts/wildcard-distribute.sh --all [--config ./ansible/wildcards/export.yml] [--dry-run]
 ```
+
+**Konfigurationsmodell (`ansible/wildcards/export.yml`):**
+```yaml
+wildcard_exports:
+  - source_domain: example.com
+    acme_file: /home/andy/infra/data/traefik/acme/acme.json
+    targets:
+      - host: staging-1.example.net
+        user: root
+        identity_file: /home/andy/.ssh/id_wildcard_staging
+        remote_fullchain_path: /etc/nginx/ssl/example.com/fullchain.pem
+        remote_privkey_path: /etc/nginx/ssl/example.com/privkey.pem
+        post_deploy_command: "systemctl reload nginx"
+```
+
+**Features:**
+- verarbeitet einen einzelnen Wildcard-Eintrag oder alle Einträge per `--all`
+- unterstützt exakte Zielpfade oder alternativ `remote_dir`
+- erlaubt separate SSH-Keys pro Zielserver über `identity_file`
+- kann auf dem Zielserver optional einen lokalen Reload-/Install-Hook ausführen
+- `--dry-run` zeigt den Plan an, ohne Export oder SSH-Transfer auszuführen
+
+### wildcard-distribute-on-change.sh
+
+**Beschreibung:**  
+Prüft die konfigurierten Wildcard-Exporte gegen einen Fingerprint-State und löst die Verteilung nur dann aus, wenn sich das eigentliche Zertifikat seit dem letzten erfolgreichen Lauf geändert hat. Gedacht als Trigger hinter `systemd.path` oder als sparsamer Fallback-Cron.
+
+**Syntax:**
+```bash
+./scripts/wildcard-distribute-on-change.sh example.com [--config ./ansible/wildcards/export.yml] [--state-dir ./data/wildcard-distribution-state] [--dry-run] [--force]
+./scripts/wildcard-distribute-on-change.sh --all [--config ./ansible/wildcards/export.yml] [--state-dir ./data/wildcard-distribution-state] [--dry-run] [--force]
+```
+
+**Features:**
+- berechnet pro `source_domain` einen SHA-256-Fingerprint des aktuellen Leaf-Zertifikats
+- schreibt den letzten erfolgreichen Stand in `data/wildcard-distribution-state`
+- ruft `wildcard-distribute.sh` nur bei echter Zertifikatsänderung auf
+- `--dry-run` zeigt, welche Verteilungen aktuell ausgelöst würden
+- `--force` verteilt trotz unverändertem Fingerprint erneut
+- eignet sich direkt für `systemd.path` auf `data/traefik/acme/acme.json`
 
 Hinweis:
 - Wildcard-Restores für WordPress, Static und Ghost unterstützen zusätzlich `--wildcard-domain=<apex-domain>` und `--dns-account=<key>`.

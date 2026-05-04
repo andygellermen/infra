@@ -14,7 +14,11 @@ Diese Erweiterung bereitet den Stack für automatisch erneuerbare Wildcard-Zerti
 - [wildcard-export.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-export.sh)
 - [wildcard-housekeeping.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-housekeeping.sh)
 - [wildcard-distribute.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-distribute.sh)
+- [wildcard-distribute-on-change.sh](/Users/andygellermann/Documents/Projects/infra/infra/scripts/wildcard-distribute-on-change.sh)
+- [export.example.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/export.example.yml)
 - [distribution.example.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/distribution.example.yml)
+- [wildcard-distribute-on-change.service](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.service)
+- [wildcard-distribute-on-change.path](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.path)
 
 ## Secrets
 Die AutoDNS-Zugangsdaten liegen unsynced in `ansible/secrets/secrets.yml`.
@@ -123,11 +127,115 @@ Dabei gilt:
 - Aliase außerhalb der Wildcard-Apex-Domain, z. B. fremde Punycode-Domains, bleiben bewusst erhalten und laufen separat weiter
 - der Traefik-Deploy führt dieses Housekeeping inzwischen automatisch für konfigurierte Wildcard-Apex-Domains aus, sobald das Wildcard-Zertifikat bereits existiert
 
-An Staging-Server verteilen:
+Für die Verteilung braucht der Zielserver keine zusätzlichen Hostvars im Infra-Stack, solange dort nur Zertifikatsdateien abgelegt und lokal weiterverarbeitet werden. Die Ausstellung und Erneuerung bleiben auf dem zentralen Traefik-Host; im Repo pflegen wir nur die Export-/Verteilkonfiguration.
+
+Zentrale Konfiguration:
+
+```yaml
+wildcard_exports:
+  - source_domain: example.com
+    acme_file: /home/andy/infra/data/traefik/acme/acme.json
+    targets:
+      - name: staging-nginx-1
+        host: staging-1.example.net
+        user: root
+        identity_file: /home/andy/.ssh/id_wildcard_staging
+        remote_fullchain_path: /etc/nginx/ssl/example.com/fullchain.pem
+        remote_privkey_path: /etc/nginx/ssl/example.com/privkey.pem
+        post_deploy_command: "systemctl reload nginx"
+```
+
+Wichtige Felder:
+- `source_domain`: welche Wildcard aus `acme.json` exportiert werden soll
+- `acme_file`: optionaler Pfad zur Quell-`acme.json`
+- `remote_fullchain_path` und `remote_privkey_path`: exakte Zielpfade auf dem Server
+- `remote_dir`: Kurzform, falls beide Dateien klassisch als `fullchain.pem` und `privkey.pem` in einem Verzeichnis landen sollen
+- `identity_file`: optionaler separater SSH-Key pro Zielserver
+- `post_deploy_command`: optionaler lokaler Hook auf dem Zielserver, z. B. für `nginx`-/`caddy`-Reload oder ein eigenes Install-Skript
+
+Gezielt an eine Apex-Domain verteilen:
 
 ```bash
-./scripts/wildcard-distribute.sh example.com --config ./ansible/wildcards/distribution.example.yml
+./scripts/wildcard-distribute.sh example.com --config ./ansible/wildcards/export.example.yml
 ```
+
+Alle Einträge aus der zentralen Datei abarbeiten, z. B. für Cron:
+
+```bash
+./scripts/wildcard-distribute.sh --all --config ./ansible/wildcards/export.example.yml
+```
+
+Nur den Ablauf prüfen, ohne Dateien zu exportieren oder per SSH zu verteilen:
+
+```bash
+./scripts/wildcard-distribute.sh --all --config ./ansible/wildcards/export.example.yml --dry-run
+```
+
+Cron-Beispiel:
+
+```cron
+17 3 * * * /bin/sh -lc 'cd /home/andy/infra && ./scripts/wildcard-distribute.sh --all --config ./ansible/wildcards/export.yml >> /home/andy/infra/logs/wildcard-distribute.log 2>&1'
+```
+
+## Erneuerungsgekoppelte Verteilung
+Damit die Zielserver nur nach einer echten Zertifikatserneuerung beliefert werden, gibt es zusätzlich einen Change-Trigger:
+
+```bash
+./scripts/wildcard-distribute-on-change.sh --all --config ./ansible/wildcards/export.yml
+```
+
+Das Skript arbeitet so:
+- liest alle konfigurierten `source_domain`-Einträge aus `export.yml`
+- exportiert pro Wildcard das aktuelle Zertifikat aus `acme.json`
+- berechnet einen SHA-256-Fingerprint des Leaf-Zertifikats
+- vergleicht ihn mit einer State-Datei unter `data/wildcard-distribution-state/`
+- ruft nur bei echter Änderung das Verteilskript auf
+
+Vorteil:
+- keine tägliche Blind-Verteilung
+- keine unnötigen SSH-Transfers
+- keine überflüssigen Reloads auf den Zielservern
+- trotzdem sofortige Reaktion, sobald Traefik das Zertifikat erneuert hat
+
+Manuell testen:
+
+```bash
+./scripts/wildcard-distribute-on-change.sh --all --config ./ansible/wildcards/export.yml --dry-run
+```
+
+Erzwungene Verteilung trotz identischem Fingerprint:
+
+```bash
+./scripts/wildcard-distribute-on-change.sh --all --config ./ansible/wildcards/export.yml --force
+```
+
+## Systemd Watcher
+Für den produktiven Betrieb ist `systemd.path` die sauberste Kopplung:
+
+1. `acme.json` wird von `wildcard-distribute-on-change.path` überwacht
+2. bei Änderung startet `wildcard-distribute-on-change.service`
+3. der Service prüft den Fingerprint und verteilt nur bei echter Änderung
+
+Beispiel-Dateien:
+- [wildcard-distribute-on-change.service](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.service)
+- [wildcard-distribute-on-change.path](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.path)
+
+Installationsbeispiel auf dem Traefik-/ACME-Host:
+
+```bash
+sudo cp ./ansible/wildcards/systemd/wildcard-distribute-on-change.service /etc/systemd/system/
+sudo cp ./ansible/wildcards/systemd/wildcard-distribute-on-change.path /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wildcard-distribute-on-change.path
+```
+
+Optionaler Sicherheitsgurt als Fallback-Cron, z. B. einmal täglich:
+
+```cron
+23 4 * * * /bin/sh -lc 'cd /home/andy/infra && ./scripts/wildcard-distribute-on-change.sh --all --config ./ansible/wildcards/export.yml >> /home/andy/infra/logs/wildcard-distribute-on-change.log 2>&1'
+```
+
+Auch dieser Fallback verteilt nur bei geändertem Fingerprint.
 
 ## Wichtig
 - der Traefik-Deploy braucht jetzt Zugriff auf `ansible/secrets/secrets.yml`

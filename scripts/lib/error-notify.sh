@@ -22,6 +22,11 @@ setup_error_notification() {
   local root_dir="$2"
   local command_line="${3:-$0}"
 
+  if [[ -n "${INFRA_NOTIFY_ACTIVE:-}" ]]; then
+    return 0
+  fi
+
+  export INFRA_NOTIFY_ACTIVE=1
   INFRA_NOTIFY_SCRIPT_NAME="$script_name"
   INFRA_NOTIFY_ROOT_DIR="$root_dir"
   INFRA_NOTIFY_COMMAND_LINE="$command_line"

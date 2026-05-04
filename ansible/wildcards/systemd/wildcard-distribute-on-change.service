@@ -1,0 +1,12 @@
+[Unit]
+Description=Distribute changed wildcard certificates to remote servers
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Wenn dein Repo auf dem Traefik-Host nicht unter /home/andy/infra liegt,
+# muessen WorkingDirectory und die Pfade in ExecStart* angepasst werden.
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+ExecStartPre=/usr/bin/mkdir -p /home/andy/infra/data/wildcard-distribution-state
+ExecStart=/usr/bin/env bash ./scripts/wildcard-distribute-on-change.sh --all --config ./ansible/wildcards/export.yml --state-dir ./data/wildcard-distribution-state
