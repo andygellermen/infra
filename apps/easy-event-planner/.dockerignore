@@ -1,0 +1,6 @@
+.git
+.gocache
+.gomodcache
+data
+smoke/smoke.log
+docs/.DS_Store
