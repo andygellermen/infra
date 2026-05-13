@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/db"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/httpapp"
 )
 
@@ -19,7 +20,13 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	app := httpapp.New(cfg)
+	sqlDB, err := db.Open(cfg.DBDriver, cfg.DBPath)
+	if err != nil {
+		log.Fatalf("open db: %v", err)
+	}
+	defer sqlDB.Close()
+
+	app := httpapp.New(cfg, sqlDB)
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           app.Handler(),

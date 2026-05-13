@@ -20,13 +20,23 @@ func testConfig() config.Config {
 		Version:           "test-version",
 		DBDriver:          "sqlite",
 		DBPath:            "./data/test.sqlite",
+		TokenPepper:       "test-pepper",
+		SessionCookieName: "eep_session",
+		SecureCookies:     false,
+		SessionTTL:        12 * time.Hour,
+		MagicLinkTTL:      15 * time.Minute,
+		RegistrationTTL:   30 * time.Minute,
+		WaitlistOfferTTL:  24 * time.Hour,
+		CertificateTTL:    30 * time.Minute,
+		AuthRateLimit:     5,
+		AuthRateWindow:    15 * time.Minute,
 		ReadHeaderTimeout: 5 * time.Second,
 		ShutdownTimeout:   10 * time.Second,
 	}
 }
 
 func TestSystemRoutes(t *testing.T) {
-	app := New(testConfig())
+	app := New(testConfig(), nil)
 
 	tests := []struct {
 		name         string
@@ -64,7 +74,7 @@ func TestSystemRoutes(t *testing.T) {
 }
 
 func TestVersionPayloadShape(t *testing.T) {
-	app := New(testConfig())
+	app := New(testConfig(), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/version", nil)
 	rec := httptest.NewRecorder()

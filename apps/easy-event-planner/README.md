@@ -4,11 +4,17 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Der technische Projektbootstrap (Paket 1 aus `docs/codex-task-plan.md`) ist umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 4 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
 - System-Endpunkte: `/healthz`, `/readyz`, `/version`
+- SQLite-Verbindung mit PRAGMAs (`foreign_keys`, `WAL`, `busy_timeout`)
+- Migration Runner (`cmd/migrate`) mit eingebetteten SQL-Migrationen
+- Initiales Schema + Indizes aus `docs/data-model.md`
+- Tenant-Basis (`internal/tenant`) mit Repo, Slug-Lookup und Settings-Upsert
+- Seed-Command (`cmd/seed`) fuer den ersten Tenant-Test
+- Magic-Link-Auth (`internal/auth`) mit Token-Hashing, Verify, Session, Logout, Rate-Limit und Audit-Log
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -16,6 +22,8 @@ Der technische Projektbootstrap (Paket 1 aus `docs/codex-task-plan.md`) ist umge
 
 ```bash
 cd apps/easy-event-planner
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/migrate
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/seed
 GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/server
 ```
 
@@ -29,12 +37,47 @@ curl -fsS http://localhost:8080/readyz
 curl -fsS http://localhost:8080/version
 ```
 
+Auth-Checks (Beispiel):
+
+```bash
+curl -fsS -X POST http://localhost:8080/api/v1/auth/magic-link/request \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_slug":"demo","email":"owner@example.com","purpose":"organizer_login"}'
+```
+
 ## Tests
 
 ```bash
 cd apps/easy-event-planner
 GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go test ./...
 ```
+
+## Migrationen
+
+```bash
+cd apps/easy-event-planner
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/migrate
+```
+
+## Tenant-Seed
+
+```bash
+cd apps/easy-event-planner
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/seed
+```
+
+Wichtige Seed-Variablen:
+
+- `EEP_SEED_TENANT_SLUG` (Default: `demo`)
+- `EEP_SEED_TENANT_NAME` (Default: `Demo Tenant`)
+- `EEP_SEED_TENANT_PUBLIC_BASE_URL` (Default: `${EEP_BASE_URL}/${EEP_SEED_TENANT_SLUG}`)
+- `EEP_SEED_TENANT_TIMEZONE` (Default: `Europe/Berlin`)
+- `EEP_SEED_TENANT_LOCALE` (Default: `de-DE`)
+- `EEP_SEED_RETENTION_DAYS` (Default: `30`)
+- `EEP_SEED_SENDER_EMAIL`
+- `EEP_SEED_SENDER_NAME`
+- `EEP_SEED_PAYPAL_MODE` (`disabled`, `sandbox`, `live`)
+- `EEP_SEED_SETTINGS_JSON`
 
 ## Smoke-Test
 
@@ -48,6 +91,14 @@ cd apps/easy-event-planner
 ```bash
 cd apps/easy-event-planner
 docker compose up --build
+```
+
+Migration im Container:
+
+```bash
+cd apps/easy-event-planner
+docker compose run --rm easy-event-planner easy-event-planner-migrate
+docker compose run --rm easy-event-planner easy-event-planner-seed
 ```
 
 ## Dokumente
@@ -68,4 +119,4 @@ docker compose up --build
 
 ## Naechster technischer Schritt
 
-Paket 2 aus `docs/codex-task-plan.md`: SQLite-Anbindung, Migration Runner und initiales Schema.
+Paket 5 aus `docs/codex-task-plan.md`: Mailer Adapter (Interface, LogMailer, SES/SMTP vorbereitet, EmailJob Worker).

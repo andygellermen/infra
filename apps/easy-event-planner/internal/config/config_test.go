@@ -15,6 +15,16 @@ func clearEEPEnv(t *testing.T) {
 		"EEP_VERSION",
 		"EEP_DB_DRIVER",
 		"EEP_DB_PATH",
+		"EEP_TOKEN_PEPPER",
+		"EEP_SESSION_COOKIE_NAME",
+		"EEP_SECURE_COOKIES",
+		"EEP_SESSION_TTL",
+		"EEP_MAGIC_LINK_TTL",
+		"EEP_REGISTRATION_MAGIC_LINK_TTL",
+		"EEP_WAITLIST_OFFER_TTL",
+		"EEP_CERTIFICATE_ACCESS_TTL",
+		"EEP_AUTH_RATE_LIMIT_WINDOW",
+		"EEP_AUTH_RATE_LIMIT_REQUESTS",
 		"EEP_HTTP_READ_HEADER_TIMEOUT",
 		"EEP_HTTP_SHUTDOWN_TIMEOUT",
 	} {
@@ -57,6 +67,36 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DBPath != expectedDBPath {
 		t.Fatalf("expected db path %q, got %q", expectedDBPath, cfg.DBPath)
 	}
+	if cfg.TokenPepper != "dev-only-change-me" {
+		t.Fatalf("expected default token pepper dev-only-change-me, got %q", cfg.TokenPepper)
+	}
+	if cfg.SessionCookieName != "eep_session" {
+		t.Fatalf("expected default cookie name eep_session, got %q", cfg.SessionCookieName)
+	}
+	if cfg.SecureCookies {
+		t.Fatalf("expected secure cookies to default to false in development")
+	}
+	if cfg.SessionTTL != 12*time.Hour {
+		t.Fatalf("expected default session ttl 12h, got %s", cfg.SessionTTL)
+	}
+	if cfg.MagicLinkTTL != 15*time.Minute {
+		t.Fatalf("expected default magic link ttl 15m, got %s", cfg.MagicLinkTTL)
+	}
+	if cfg.RegistrationTTL != 30*time.Minute {
+		t.Fatalf("expected default registration ttl 30m, got %s", cfg.RegistrationTTL)
+	}
+	if cfg.WaitlistOfferTTL != 24*time.Hour {
+		t.Fatalf("expected default waitlist ttl 24h, got %s", cfg.WaitlistOfferTTL)
+	}
+	if cfg.CertificateTTL != 30*time.Minute {
+		t.Fatalf("expected default certificate ttl 30m, got %s", cfg.CertificateTTL)
+	}
+	if cfg.AuthRateLimit != 5 {
+		t.Fatalf("expected default auth rate limit 5, got %d", cfg.AuthRateLimit)
+	}
+	if cfg.AuthRateWindow != 15*time.Minute {
+		t.Fatalf("expected default auth rate window 15m, got %s", cfg.AuthRateWindow)
+	}
 	if cfg.ReadHeaderTimeout != 5*time.Second {
 		t.Fatalf("expected read header timeout 5s, got %s", cfg.ReadHeaderTimeout)
 	}
@@ -73,6 +113,16 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_VERSION", "2026.05.13")
 	t.Setenv("EEP_DB_DRIVER", "postgres")
 	t.Setenv("EEP_DB_PATH", "/var/lib/eep/eep.db")
+	t.Setenv("EEP_TOKEN_PEPPER", "pepper-123")
+	t.Setenv("EEP_SESSION_COOKIE_NAME", "eep_auth")
+	t.Setenv("EEP_SECURE_COOKIES", "true")
+	t.Setenv("EEP_SESSION_TTL", "8h")
+	t.Setenv("EEP_MAGIC_LINK_TTL", "10m")
+	t.Setenv("EEP_REGISTRATION_MAGIC_LINK_TTL", "20m")
+	t.Setenv("EEP_WAITLIST_OFFER_TTL", "18h")
+	t.Setenv("EEP_CERTIFICATE_ACCESS_TTL", "40m")
+	t.Setenv("EEP_AUTH_RATE_LIMIT_WINDOW", "20m")
+	t.Setenv("EEP_AUTH_RATE_LIMIT_REQUESTS", "8")
 	t.Setenv("EEP_HTTP_READ_HEADER_TIMEOUT", "3s")
 	t.Setenv("EEP_HTTP_SHUTDOWN_TIMEOUT", "15s")
 
@@ -98,6 +148,36 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.DBPath != "/var/lib/eep/eep.db" {
 		t.Fatalf("expected db path override, got %q", cfg.DBPath)
+	}
+	if cfg.TokenPepper != "pepper-123" {
+		t.Fatalf("expected token pepper override, got %q", cfg.TokenPepper)
+	}
+	if cfg.SessionCookieName != "eep_auth" {
+		t.Fatalf("expected session cookie override, got %q", cfg.SessionCookieName)
+	}
+	if !cfg.SecureCookies {
+		t.Fatalf("expected secure cookies override to true")
+	}
+	if cfg.SessionTTL != 8*time.Hour {
+		t.Fatalf("expected session ttl 8h, got %s", cfg.SessionTTL)
+	}
+	if cfg.MagicLinkTTL != 10*time.Minute {
+		t.Fatalf("expected magic link ttl 10m, got %s", cfg.MagicLinkTTL)
+	}
+	if cfg.RegistrationTTL != 20*time.Minute {
+		t.Fatalf("expected registration ttl 20m, got %s", cfg.RegistrationTTL)
+	}
+	if cfg.WaitlistOfferTTL != 18*time.Hour {
+		t.Fatalf("expected waitlist ttl 18h, got %s", cfg.WaitlistOfferTTL)
+	}
+	if cfg.CertificateTTL != 40*time.Minute {
+		t.Fatalf("expected certificate ttl 40m, got %s", cfg.CertificateTTL)
+	}
+	if cfg.AuthRateLimit != 8 {
+		t.Fatalf("expected auth rate limit 8, got %d", cfg.AuthRateLimit)
+	}
+	if cfg.AuthRateWindow != 20*time.Minute {
+		t.Fatalf("expected auth rate window 20m, got %s", cfg.AuthRateWindow)
 	}
 	if cfg.ReadHeaderTimeout != 3*time.Second {
 		t.Fatalf("expected read header timeout 3s, got %s", cfg.ReadHeaderTimeout)

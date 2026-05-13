@@ -10,12 +10,20 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go build -trimpath -ldflags="-s -w -X main.buildVersion=${EEP_VERSION}" \
   -o /out/easy-event-planner ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -ldflags="-s -w -X main.buildVersion=${EEP_VERSION}" \
+  -o /out/easy-event-planner-migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -ldflags="-s -w -X main.buildVersion=${EEP_VERSION}" \
+  -o /out/easy-event-planner-seed ./cmd/seed
 
 FROM alpine:3.20
 
 WORKDIR /app
 
 COPY --from=builder /out/easy-event-planner /usr/local/bin/easy-event-planner
+COPY --from=builder /out/easy-event-planner-migrate /usr/local/bin/easy-event-planner-migrate
+COPY --from=builder /out/easy-event-planner-seed /usr/local/bin/easy-event-planner-seed
 
 ENV EEP_ENV=production
 ENV EEP_HTTP_ADDR=:8080
