@@ -22,6 +22,7 @@ type App struct {
 	db          *sql.DB
 	authService *auth.Service
 	eventRepo   *event.Repository
+	tenantRepo  *tenant.Repository
 	startedAt   time.Time
 }
 
@@ -33,9 +34,10 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 		startedAt: time.Now().UTC(),
 	}
 	if sqlDB != nil {
+		app.tenantRepo = tenant.NewRepository(sqlDB)
 		app.authService = auth.NewService(
 			sqlDB,
-			tenant.NewRepository(sqlDB),
+			app.tenantRepo,
 			auth.Config{
 				BaseURL:           cfg.BaseURL,
 				TokenPepper:       cfg.TokenPepper,
@@ -74,6 +76,8 @@ func (a *App) routes() {
 
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
+
+	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
