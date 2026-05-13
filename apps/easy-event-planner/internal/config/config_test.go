@@ -18,6 +18,16 @@ func clearEEPEnv(t *testing.T) {
 		"EEP_TOKEN_PEPPER",
 		"EEP_SESSION_COOKIE_NAME",
 		"EEP_SECURE_COOKIES",
+		"EEP_MAIL_PROVIDER",
+		"EEP_MAIL_FROM",
+		"EEP_MAIL_FROM_NAME",
+		"EEP_SES_REGION",
+		"EEP_SES_SMTP_HOST",
+		"EEP_SES_SMTP_PORT",
+		"EEP_SES_SMTP_USER",
+		"EEP_SES_SMTP_PASS",
+		"EEP_EMAIL_WORKER_POLL_INTERVAL",
+		"EEP_EMAIL_WORKER_BATCH_SIZE",
 		"EEP_SESSION_TTL",
 		"EEP_MAGIC_LINK_TTL",
 		"EEP_REGISTRATION_MAGIC_LINK_TTL",
@@ -76,6 +86,27 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SecureCookies {
 		t.Fatalf("expected secure cookies to default to false in development")
 	}
+	if cfg.MailProvider != "log" {
+		t.Fatalf("expected default mail provider log, got %q", cfg.MailProvider)
+	}
+	if cfg.MailFromEmail != "noreply@example.com" {
+		t.Fatalf("expected default mail from noreply@example.com, got %q", cfg.MailFromEmail)
+	}
+	if cfg.MailFromName != "" {
+		t.Fatalf("expected default mail from name empty, got %q", cfg.MailFromName)
+	}
+	if cfg.SESRegion != "eu-north-1" {
+		t.Fatalf("expected default ses region eu-north-1, got %q", cfg.SESRegion)
+	}
+	if cfg.SESPort != 587 {
+		t.Fatalf("expected default ses smtp port 587, got %d", cfg.SESPort)
+	}
+	if cfg.EmailWorkerPollInterval != 3*time.Second {
+		t.Fatalf("expected default worker poll interval 3s, got %s", cfg.EmailWorkerPollInterval)
+	}
+	if cfg.EmailWorkerBatchSize != 10 {
+		t.Fatalf("expected default worker batch size 10, got %d", cfg.EmailWorkerBatchSize)
+	}
 	if cfg.SessionTTL != 12*time.Hour {
 		t.Fatalf("expected default session ttl 12h, got %s", cfg.SessionTTL)
 	}
@@ -116,6 +147,16 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_TOKEN_PEPPER", "pepper-123")
 	t.Setenv("EEP_SESSION_COOKIE_NAME", "eep_auth")
 	t.Setenv("EEP_SECURE_COOKIES", "true")
+	t.Setenv("EEP_MAIL_PROVIDER", "ses")
+	t.Setenv("EEP_MAIL_FROM", "events@example.com")
+	t.Setenv("EEP_MAIL_FROM_NAME", "Events Team")
+	t.Setenv("EEP_SES_REGION", "eu-central-1")
+	t.Setenv("EEP_SES_SMTP_HOST", "email-smtp.eu-central-1.amazonaws.com")
+	t.Setenv("EEP_SES_SMTP_PORT", "2525")
+	t.Setenv("EEP_SES_SMTP_USER", "smtp-user")
+	t.Setenv("EEP_SES_SMTP_PASS", "smtp-pass")
+	t.Setenv("EEP_EMAIL_WORKER_POLL_INTERVAL", "7s")
+	t.Setenv("EEP_EMAIL_WORKER_BATCH_SIZE", "25")
 	t.Setenv("EEP_SESSION_TTL", "8h")
 	t.Setenv("EEP_MAGIC_LINK_TTL", "10m")
 	t.Setenv("EEP_REGISTRATION_MAGIC_LINK_TTL", "20m")
@@ -157,6 +198,36 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if !cfg.SecureCookies {
 		t.Fatalf("expected secure cookies override to true")
+	}
+	if cfg.MailProvider != "ses" {
+		t.Fatalf("expected mail provider ses, got %q", cfg.MailProvider)
+	}
+	if cfg.MailFromEmail != "events@example.com" {
+		t.Fatalf("expected mail from override, got %q", cfg.MailFromEmail)
+	}
+	if cfg.MailFromName != "Events Team" {
+		t.Fatalf("expected mail from name override, got %q", cfg.MailFromName)
+	}
+	if cfg.SESRegion != "eu-central-1" {
+		t.Fatalf("expected ses region override, got %q", cfg.SESRegion)
+	}
+	if cfg.SESHost != "email-smtp.eu-central-1.amazonaws.com" {
+		t.Fatalf("expected ses host override, got %q", cfg.SESHost)
+	}
+	if cfg.SESPort != 2525 {
+		t.Fatalf("expected ses port override 2525, got %d", cfg.SESPort)
+	}
+	if cfg.SESUser != "smtp-user" {
+		t.Fatalf("expected ses user override, got %q", cfg.SESUser)
+	}
+	if cfg.SESPass != "smtp-pass" {
+		t.Fatalf("expected ses pass override, got %q", cfg.SESPass)
+	}
+	if cfg.EmailWorkerPollInterval != 7*time.Second {
+		t.Fatalf("expected worker poll interval 7s, got %s", cfg.EmailWorkerPollInterval)
+	}
+	if cfg.EmailWorkerBatchSize != 25 {
+		t.Fatalf("expected worker batch size 25, got %d", cfg.EmailWorkerBatchSize)
 	}
 	if cfg.SessionTTL != 8*time.Hour {
 		t.Fatalf("expected session ttl 8h, got %s", cfg.SessionTTL)
@@ -204,5 +275,15 @@ func TestLoadRejectsInvalidDuration(t *testing.T) {
 	_, err := Load("dev")
 	if err == nil {
 		t.Fatal("expected error for invalid duration")
+	}
+}
+
+func TestLoadRejectsUnsupportedMailProvider(t *testing.T) {
+	clearEEPEnv(t)
+	t.Setenv("EEP_MAIL_PROVIDER", "pigeon")
+
+	_, err := Load("dev")
+	if err == nil {
+		t.Fatal("expected error for unsupported mail provider")
 	}
 }

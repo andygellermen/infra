@@ -16,3 +16,25 @@ services:
       - ./data:/data
     ports:
       - "8080:8080"
+
+  easy-event-planner-worker:
+    build:
+      context: .
+      args:
+        EEP_VERSION: dev
+    image: easy-event-planner:dev
+    restart: unless-stopped
+    command: ["easy-event-planner-worker"]
+    environment:
+      EEP_ENV: development
+      EEP_BASE_URL: http://localhost:8080
+      EEP_DB_DRIVER: sqlite
+      EEP_DB_PATH: /data/easy-event-planner.sqlite
+      EEP_MAIL_PROVIDER: log
+      EEP_MAIL_FROM: noreply@example.com
+      EEP_EMAIL_WORKER_POLL_INTERVAL: 3s
+      EEP_EMAIL_WORKER_BATCH_SIZE: 10
+    volumes:
+      - ./data:/data
+    depends_on:
+      - easy-event-planner

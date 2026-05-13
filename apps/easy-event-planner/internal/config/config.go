@@ -16,6 +16,11 @@ const (
 	defaultDBDriver          = "sqlite"
 	defaultTokenPepper       = "dev-only-change-me"
 	defaultSessionCookieName = "eep_session"
+	defaultMailProvider      = "log"
+	defaultMailFromEmail     = "noreply@example.com"
+	defaultMailFromName      = ""
+	defaultSESRegion         = "eu-north-1"
+	defaultSESPort           = 587
 	defaultReadHeaderTimeout = 5 * time.Second
 	defaultShutdownTimeout   = 10 * time.Second
 	defaultSessionTTL        = 12 * time.Hour
@@ -25,30 +30,42 @@ const (
 	defaultCertificateTTL    = 30 * time.Minute
 	defaultRateLimitWindow   = 15 * time.Minute
 	defaultRateLimitRequests = 5
+	defaultWorkerPoll        = 3 * time.Second
+	defaultWorkerBatch       = 10
 	defaultVersion           = "dev"
 	appName                  = "easy-event-planner"
 )
 
 type Config struct {
-	AppName           string
-	Env               string
-	Addr              string
-	BaseURL           string
-	Version           string
-	DBDriver          string
-	DBPath            string
-	TokenPepper       string
-	SessionCookieName string
-	SecureCookies     bool
-	SessionTTL        time.Duration
-	MagicLinkTTL      time.Duration
-	RegistrationTTL   time.Duration
-	WaitlistOfferTTL  time.Duration
-	CertificateTTL    time.Duration
-	AuthRateLimit     int
-	AuthRateWindow    time.Duration
-	ReadHeaderTimeout time.Duration
-	ShutdownTimeout   time.Duration
+	AppName                 string
+	Env                     string
+	Addr                    string
+	BaseURL                 string
+	Version                 string
+	DBDriver                string
+	DBPath                  string
+	TokenPepper             string
+	SessionCookieName       string
+	SecureCookies           bool
+	MailProvider            string
+	MailFromEmail           string
+	MailFromName            string
+	SESRegion               string
+	SESHost                 string
+	SESPort                 int
+	SESUser                 string
+	SESPass                 string
+	EmailWorkerPollInterval time.Duration
+	EmailWorkerBatchSize    int
+	SessionTTL              time.Duration
+	MagicLinkTTL            time.Duration
+	RegistrationTTL         time.Duration
+	WaitlistOfferTTL        time.Duration
+	CertificateTTL          time.Duration
+	AuthRateLimit           int
+	AuthRateWindow          time.Duration
+	ReadHeaderTimeout       time.Duration
+	ShutdownTimeout         time.Duration
 }
 
 func Load(buildVersion string) (Config, error) {
@@ -58,25 +75,35 @@ func Load(buildVersion string) (Config, error) {
 	}
 
 	cfg := Config{
-		AppName:           appName,
-		Env:               strings.TrimSpace(getenv("EEP_ENV", defaultEnv)),
-		Addr:              strings.TrimSpace(getenv("EEP_HTTP_ADDR", defaultAddr)),
-		BaseURL:           strings.TrimSpace(getenv("EEP_BASE_URL", defaultBaseURL)),
-		Version:           resolveVersion(buildVersion),
-		DBDriver:          strings.ToLower(strings.TrimSpace(getenv("EEP_DB_DRIVER", defaultDBDriver))),
-		DBPath:            strings.TrimSpace(getenv("EEP_DB_PATH", filepath.Join(cwd, "data", "easy-event-planner.sqlite"))),
-		TokenPepper:       strings.TrimSpace(getenv("EEP_TOKEN_PEPPER", defaultTokenPepper)),
-		SessionCookieName: strings.TrimSpace(getenv("EEP_SESSION_COOKIE_NAME", defaultSessionCookieName)),
-		SecureCookies:     getenvBool("EEP_SECURE_COOKIES", strings.EqualFold(strings.TrimSpace(getenv("EEP_ENV", defaultEnv)), "production")),
-		ReadHeaderTimeout: defaultReadHeaderTimeout,
-		ShutdownTimeout:   defaultShutdownTimeout,
-		SessionTTL:        defaultSessionTTL,
-		MagicLinkTTL:      defaultMagicLinkTTL,
-		RegistrationTTL:   defaultRegistrationTTL,
-		WaitlistOfferTTL:  defaultWaitlistTTL,
-		CertificateTTL:    defaultCertificateTTL,
-		AuthRateLimit:     defaultRateLimitRequests,
-		AuthRateWindow:    defaultRateLimitWindow,
+		AppName:                 appName,
+		Env:                     strings.TrimSpace(getenv("EEP_ENV", defaultEnv)),
+		Addr:                    strings.TrimSpace(getenv("EEP_HTTP_ADDR", defaultAddr)),
+		BaseURL:                 strings.TrimSpace(getenv("EEP_BASE_URL", defaultBaseURL)),
+		Version:                 resolveVersion(buildVersion),
+		DBDriver:                strings.ToLower(strings.TrimSpace(getenv("EEP_DB_DRIVER", defaultDBDriver))),
+		DBPath:                  strings.TrimSpace(getenv("EEP_DB_PATH", filepath.Join(cwd, "data", "easy-event-planner.sqlite"))),
+		TokenPepper:             strings.TrimSpace(getenv("EEP_TOKEN_PEPPER", defaultTokenPepper)),
+		SessionCookieName:       strings.TrimSpace(getenv("EEP_SESSION_COOKIE_NAME", defaultSessionCookieName)),
+		SecureCookies:           getenvBool("EEP_SECURE_COOKIES", strings.EqualFold(strings.TrimSpace(getenv("EEP_ENV", defaultEnv)), "production")),
+		MailProvider:            strings.ToLower(strings.TrimSpace(getenv("EEP_MAIL_PROVIDER", defaultMailProvider))),
+		MailFromEmail:           strings.TrimSpace(getenv("EEP_MAIL_FROM", defaultMailFromEmail)),
+		MailFromName:            strings.TrimSpace(getenv("EEP_MAIL_FROM_NAME", defaultMailFromName)),
+		SESRegion:               strings.TrimSpace(getenv("EEP_SES_REGION", defaultSESRegion)),
+		SESHost:                 strings.TrimSpace(getenv("EEP_SES_SMTP_HOST", "")),
+		SESPort:                 defaultSESPort,
+		SESUser:                 strings.TrimSpace(getenv("EEP_SES_SMTP_USER", "")),
+		SESPass:                 strings.TrimSpace(getenv("EEP_SES_SMTP_PASS", "")),
+		EmailWorkerPollInterval: defaultWorkerPoll,
+		EmailWorkerBatchSize:    defaultWorkerBatch,
+		ReadHeaderTimeout:       defaultReadHeaderTimeout,
+		ShutdownTimeout:         defaultShutdownTimeout,
+		SessionTTL:              defaultSessionTTL,
+		MagicLinkTTL:            defaultMagicLinkTTL,
+		RegistrationTTL:         defaultRegistrationTTL,
+		WaitlistOfferTTL:        defaultWaitlistTTL,
+		CertificateTTL:          defaultCertificateTTL,
+		AuthRateLimit:           defaultRateLimitRequests,
+		AuthRateWindow:          defaultRateLimitWindow,
 	}
 
 	if cfg.Env == "" {
@@ -102,6 +129,15 @@ func Load(buildVersion string) (Config, error) {
 	}
 	if cfg.SessionCookieName == "" {
 		return Config{}, fmt.Errorf("EEP_SESSION_COOKIE_NAME must not be empty")
+	}
+	if err := validateMailProvider(cfg.MailProvider); err != nil {
+		return Config{}, err
+	}
+	if cfg.MailFromEmail == "" {
+		return Config{}, fmt.Errorf("EEP_MAIL_FROM must not be empty")
+	}
+	if cfg.SESRegion == "" {
+		return Config{}, fmt.Errorf("EEP_SES_REGION must not be empty")
 	}
 
 	cfg.ReadHeaderTimeout, err = parseDurationEnv("EEP_HTTP_READ_HEADER_TIMEOUT", defaultReadHeaderTimeout)
@@ -142,6 +178,33 @@ func Load(buildVersion string) (Config, error) {
 	}
 	if cfg.AuthRateLimit <= 0 {
 		return Config{}, fmt.Errorf("EEP_AUTH_RATE_LIMIT_REQUESTS must be > 0")
+	}
+	cfg.SESPort, err = parseIntEnv("EEP_SES_SMTP_PORT", defaultSESPort)
+	if err != nil {
+		return Config{}, err
+	}
+	if cfg.SESPort <= 0 {
+		return Config{}, fmt.Errorf("EEP_SES_SMTP_PORT must be > 0")
+	}
+	cfg.EmailWorkerBatchSize, err = parseIntEnv("EEP_EMAIL_WORKER_BATCH_SIZE", defaultWorkerBatch)
+	if err != nil {
+		return Config{}, err
+	}
+	if cfg.EmailWorkerBatchSize <= 0 {
+		return Config{}, fmt.Errorf("EEP_EMAIL_WORKER_BATCH_SIZE must be > 0")
+	}
+	cfg.EmailWorkerPollInterval, err = parseDurationEnv("EEP_EMAIL_WORKER_POLL_INTERVAL", defaultWorkerPoll)
+	if err != nil {
+		return Config{}, err
+	}
+
+	if cfg.MailProvider == "smtp" || cfg.MailProvider == "ses" {
+		if strings.TrimSpace(cfg.SESHost) == "" {
+			return Config{}, fmt.Errorf("EEP_SES_SMTP_HOST must not be empty when EEP_MAIL_PROVIDER is %s", cfg.MailProvider)
+		}
+		if (cfg.SESUser == "") != (cfg.SESPass == "") {
+			return Config{}, fmt.Errorf("EEP_SES_SMTP_USER and EEP_SES_SMTP_PASS must be set together")
+		}
 	}
 
 	return cfg, nil
@@ -202,6 +265,15 @@ func validateDBDriver(driver string) error {
 		return nil
 	default:
 		return fmt.Errorf("unsupported EEP_DB_DRIVER %q", driver)
+	}
+}
+
+func validateMailProvider(provider string) error {
+	switch provider {
+	case "log", "smtp", "ses":
+		return nil
+	default:
+		return fmt.Errorf("unsupported EEP_MAIL_PROVIDER %q", provider)
 	}
 }
 

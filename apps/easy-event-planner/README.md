@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 4 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 5 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -15,6 +15,8 @@ Die technischen Grundlagen aus Paket 1 bis Paket 4 aus `docs/codex-task-plan.md`
 - Tenant-Basis (`internal/tenant`) mit Repo, Slug-Lookup und Settings-Upsert
 - Seed-Command (`cmd/seed`) fuer den ersten Tenant-Test
 - Magic-Link-Auth (`internal/auth`) mit Token-Hashing, Verify, Session, Logout, Rate-Limit und Audit-Log
+- Mailer-Adapter (`internal/notification`) mit `log`/`smtp`/`ses`-Provider-Setup
+- EmailJob Repository + Worker (`cmd/worker`) fuer `email_jobs` Queue-Verarbeitung
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -25,6 +27,7 @@ cd apps/easy-event-planner
 GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/migrate
 GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/seed
 GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/server
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache go run ./cmd/worker
 ```
 
 Standardadresse: `http://localhost:8080`
@@ -99,7 +102,21 @@ Migration im Container:
 cd apps/easy-event-planner
 docker compose run --rm easy-event-planner easy-event-planner-migrate
 docker compose run --rm easy-event-planner easy-event-planner-seed
+docker compose run --rm easy-event-planner easy-event-planner-worker
 ```
+
+Wichtige Mail/Worker-Variablen:
+
+- `EEP_MAIL_PROVIDER` (`log`, `smtp`, `ses`)
+- `EEP_MAIL_FROM` (z. B. `noreply@events.geller.men`)
+- `EEP_MAIL_FROM_NAME`
+- `EEP_SES_REGION` (nur vorbereitend, z. B. `eu-north-1`)
+- `EEP_SES_SMTP_HOST`
+- `EEP_SES_SMTP_PORT` (Default `587`)
+- `EEP_SES_SMTP_USER`
+- `EEP_SES_SMTP_PASS`
+- `EEP_EMAIL_WORKER_POLL_INTERVAL` (Default `3s`)
+- `EEP_EMAIL_WORKER_BATCH_SIZE` (Default `10`)
 
 ## Dokumente
 
@@ -119,4 +136,4 @@ docker compose run --rm easy-event-planner easy-event-planner-seed
 
 ## Naechster technischer Schritt
 
-Paket 5 aus `docs/codex-task-plan.md`: Mailer Adapter (Interface, LogMailer, SES/SMTP vorbereitet, EmailJob Worker).
+Paket 6 aus `docs/codex-task-plan.md`: Event Series CRUD.
