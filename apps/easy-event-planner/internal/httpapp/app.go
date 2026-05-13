@@ -71,6 +71,9 @@ func (a *App) routes() {
 
 	a.mux.HandleFunc("/api/v1/admin/event-series", a.handleAdminEventSeriesCollection)
 	a.mux.HandleFunc("/api/v1/admin/event-series/", a.handleAdminEventSeriesItem)
+
+	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
+	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -513,6 +516,346 @@ func eventSeriesPayload(series event.EventSeries) map[string]any {
 		"is_public":             series.IsPublic,
 		"created_at":            series.CreatedAt.Format(time.RFC3339),
 		"updated_at":            series.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func (a *App) handleAdminEventsCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		a.handleAdminEventsList(w, r)
+	case http.MethodPost:
+		a.handleAdminEventsCreate(w, r)
+	default:
+		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+	}
+}
+
+func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
+	eventID, action, ok := parseAdminEventPath(r.URL.Path)
+	if !ok {
+		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+		return
+	}
+
+	if action == "" {
+		switch r.Method {
+		case http.MethodGet:
+			a.handleAdminEventGet(w, r, eventID)
+		case http.MethodPatch:
+			a.handleAdminEventPatch(w, r, eventID)
+		case http.MethodDelete:
+			a.handleAdminEventDelete(w, r, eventID)
+		default:
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+		}
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+		return
+	}
+	switch action {
+	case "publish":
+		a.handleAdminEventPublish(w, r, eventID)
+	case "unpublish":
+		a.handleAdminEventUnpublish(w, r, eventID)
+	default:
+		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+	}
+}
+
+func (a *App) handleAdminEventsList(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+
+	items, err := a.eventRepo.ListEvents(r.Context(), principal.TenantID)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Veranstaltungen konnten nicht geladen werden.")
+		return
+	}
+
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, eventPayload(item))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": result,
+		"total": len(result),
+	})
+}
+
+func (a *App) handleAdminEventsCreate(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		SeriesID            string `json:"series_id"`
+		Slug                string `json:"slug"`
+		Title               string `json:"title"`
+		Subtitle            string `json:"subtitle"`
+		Description         string `json:"description"`
+		StartsAt            string `json:"starts_at"`
+		EndsAt              string `json:"ends_at"`
+		Timezone            string `json:"timezone"`
+		LocationName        string `json:"location_name"`
+		Address             string `json:"address"`
+		OnlineURL           string `json:"online_url"`
+		ParticipationMode   string `json:"participation_mode"`
+		IsPublic            *bool  `json:"is_public"`
+		RegistrationEnabled *bool  `json:"registration_enabled"`
+		WaitlistEnabled     *bool  `json:"waitlist_enabled"`
+		MaxParticipants     *int   `json:"max_participants"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	created, err := a.eventRepo.CreateEvent(r.Context(), principal.TenantID, event.CreateEventParams{
+		SeriesID:            request.SeriesID,
+		Slug:                request.Slug,
+		Title:               request.Title,
+		Subtitle:            request.Subtitle,
+		Description:         request.Description,
+		StartsAt:            request.StartsAt,
+		EndsAt:              request.EndsAt,
+		Timezone:            request.Timezone,
+		LocationName:        request.LocationName,
+		Address:             request.Address,
+		OnlineURL:           request.OnlineURL,
+		ParticipationMode:   request.ParticipationMode,
+		IsPublic:            request.IsPublic,
+		RegistrationEnabled: request.RegistrationEnabled,
+		WaitlistEnabled:     request.WaitlistEnabled,
+		MaxParticipants:     request.MaxParticipants,
+	})
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"item": eventPayload(created),
+	})
+}
+
+func (a *App) handleAdminEventGet(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.GetEventByID(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		SeriesID            *string `json:"series_id"`
+		Slug                *string `json:"slug"`
+		Title               *string `json:"title"`
+		Subtitle            *string `json:"subtitle"`
+		Description         *string `json:"description"`
+		StartsAt            *string `json:"starts_at"`
+		EndsAt              *string `json:"ends_at"`
+		Timezone            *string `json:"timezone"`
+		LocationName        *string `json:"location_name"`
+		Address             *string `json:"address"`
+		OnlineURL           *string `json:"online_url"`
+		ParticipationMode   *string `json:"participation_mode"`
+		IsPublic            *bool   `json:"is_public"`
+		RegistrationEnabled *bool   `json:"registration_enabled"`
+		WaitlistEnabled     *bool   `json:"waitlist_enabled"`
+		MaxParticipants     *int    `json:"max_participants"`
+		ChangeNote          *string `json:"change_note"`
+		CancelledReason     *string `json:"cancelled_reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	updated, err := a.eventRepo.UpdateEvent(r.Context(), principal.TenantID, eventID, event.UpdateEventParams{
+		SeriesID:            request.SeriesID,
+		Slug:                request.Slug,
+		Title:               request.Title,
+		Subtitle:            request.Subtitle,
+		Description:         request.Description,
+		StartsAt:            request.StartsAt,
+		EndsAt:              request.EndsAt,
+		Timezone:            request.Timezone,
+		LocationName:        request.LocationName,
+		Address:             request.Address,
+		OnlineURL:           request.OnlineURL,
+		ParticipationMode:   request.ParticipationMode,
+		IsPublic:            request.IsPublic,
+		RegistrationEnabled: request.RegistrationEnabled,
+		WaitlistEnabled:     request.WaitlistEnabled,
+		MaxParticipants:     request.MaxParticipants,
+		ChangeNote:          request.ChangeNote,
+		CancelledReason:     request.CancelledReason,
+	})
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(updated),
+	})
+}
+
+func (a *App) handleAdminEventDelete(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	deleted, err := a.eventRepo.DeleteEvent(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Veranstaltung konnte nicht geloescht werden.")
+		return
+	}
+	if !deleted {
+		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) handleAdminEventPublish(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.PublishEvent(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventUnpublish(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.UnpublishEvent(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) writeEventError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, event.ErrEventNotFound):
+		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+	case errors.Is(err, event.ErrEventSlugExists):
+		writeAPIError(w, http.StatusConflict, "EVENT_SLUG_EXISTS", "Eine Veranstaltung mit diesem Slug existiert bereits.")
+	case errors.Is(err, event.ErrInvalidStatusTransition):
+		writeAPIError(w, http.StatusConflict, "EVENT_STATUS_INVALID", "Statuswechsel ist fuer diese Veranstaltung nicht erlaubt.")
+	case errors.Is(err, event.ErrEventSeriesScopeMismatch):
+		writeAPIError(w, http.StatusBadRequest, "EVENT_SERIES_INVALID", "Die Event-Serie gehoert nicht zu diesem Tenant.")
+	default:
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+	}
+}
+
+func parseAdminEventPath(path string) (eventID, action string, ok bool) {
+	const prefix = "/api/v1/admin/events/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	remainder := strings.TrimSpace(strings.TrimPrefix(path, prefix))
+	if remainder == "" {
+		return "", "", false
+	}
+
+	parts := strings.Split(remainder, "/")
+	if len(parts) == 1 {
+		id := strings.TrimSpace(parts[0])
+		if id == "" {
+			return "", "", false
+		}
+		return id, "", true
+	}
+	if len(parts) == 2 {
+		id := strings.TrimSpace(parts[0])
+		action = strings.TrimSpace(parts[1])
+		if id == "" || action == "" {
+			return "", "", false
+		}
+		return id, action, true
+	}
+	return "", "", false
+}
+
+func eventPayload(item event.Event) map[string]any {
+	var endsAt any
+	if item.EndsAt != nil {
+		endsAt = item.EndsAt.UTC().Format(time.RFC3339)
+	}
+	var seriesID any
+	if strings.TrimSpace(item.SeriesID) != "" {
+		seriesID = item.SeriesID
+	}
+	var maxParticipants any
+	if item.MaxParticipants != nil {
+		maxParticipants = *item.MaxParticipants
+	}
+
+	return map[string]any{
+		"id":                   item.ID,
+		"tenant_id":            item.TenantID,
+		"series_id":            seriesID,
+		"slug":                 item.Slug,
+		"title":                item.Title,
+		"subtitle":             item.Subtitle,
+		"description":          item.Description,
+		"starts_at":            item.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":              endsAt,
+		"timezone":             item.Timezone,
+		"location_name":        item.LocationName,
+		"address":              item.Address,
+		"online_url":           item.OnlineURL,
+		"participation_mode":   item.ParticipationMode,
+		"status":               item.Status,
+		"is_public":            item.IsPublic,
+		"registration_enabled": item.RegistrationEnabled,
+		"waitlist_enabled":     item.WaitlistEnabled,
+		"max_participants":     maxParticipants,
+		"change_note":          item.ChangeNote,
+		"cancelled_reason":     item.CancelledReason,
+		"created_at":           item.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":           item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

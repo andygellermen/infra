@@ -1,0 +1,794 @@
+package event
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+const (
+	EventStatusDraft     = "draft"
+	EventStatusScheduled = "scheduled"
+	EventStatusChanged   = "changed"
+	EventStatusPostponed = "postponed"
+	EventStatusCancelled = "cancelled"
+	EventStatusCompleted = "completed"
+	EventStatusArchived  = "archived"
+
+	ParticipationModeOnsite = "onsite"
+	ParticipationModeOnline = "online"
+	ParticipationModeHybrid = "hybrid"
+)
+
+var (
+	ErrEventNotFound            = errors.New("event not found")
+	ErrEventSlugExists          = errors.New("event slug already exists")
+	ErrInvalidStatusTransition  = errors.New("invalid event status transition")
+	ErrEventSeriesScopeMismatch = errors.New("event series does not belong to tenant")
+)
+
+var eventSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+type Event struct {
+	ID                  string
+	TenantID            string
+	SeriesID            string
+	Slug                string
+	Title               string
+	Subtitle            string
+	Description         string
+	StartsAt            time.Time
+	EndsAt              *time.Time
+	Timezone            string
+	LocationName        string
+	Address             string
+	OnlineURL           string
+	ParticipationMode   string
+	Status              string
+	IsPublic            bool
+	RegistrationEnabled bool
+	WaitlistEnabled     bool
+	MaxParticipants     *int
+	ChangeNote          string
+	CancelledReason     string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type CreateEventParams struct {
+	SeriesID            string
+	Slug                string
+	Title               string
+	Subtitle            string
+	Description         string
+	StartsAt            string
+	EndsAt              string
+	Timezone            string
+	LocationName        string
+	Address             string
+	OnlineURL           string
+	ParticipationMode   string
+	IsPublic            *bool
+	RegistrationEnabled *bool
+	WaitlistEnabled     *bool
+	MaxParticipants     *int
+}
+
+type UpdateEventParams struct {
+	SeriesID            *string
+	Slug                *string
+	Title               *string
+	Subtitle            *string
+	Description         *string
+	StartsAt            *string
+	EndsAt              *string
+	Timezone            *string
+	LocationName        *string
+	Address             *string
+	OnlineURL           *string
+	ParticipationMode   *string
+	IsPublic            *bool
+	RegistrationEnabled *bool
+	WaitlistEnabled     *bool
+	MaxParticipants     *int
+	ChangeNote          *string
+	CancelledReason     *string
+}
+
+func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("event repository database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return nil, fmt.Errorf("tenant id must not be empty")
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
+            starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
+            participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
+     FROM events
+     WHERE tenant_id = ?
+     ORDER BY starts_at ASC, created_at DESC`,
+		tenant,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]Event, 0)
+	for rows.Next() {
+		item, scanErr := scanEvent(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		events = append(events, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate events rows: %w", err)
+	}
+	return events, nil
+}
+
+func (r *Repository) CreateEvent(ctx context.Context, tenantID string, params CreateEventParams) (Event, error) {
+	if r.db == nil {
+		return Event{}, fmt.Errorf("event repository database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return Event{}, fmt.Errorf("tenant id must not be empty")
+	}
+
+	normalized, err := normalizeCreateEventParams(params)
+	if err != nil {
+		return Event{}, err
+	}
+
+	seriesID, err := r.normalizeSeriesForTenant(ctx, tenant, normalized.SeriesID)
+	if err != nil {
+		return Event{}, err
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	eventID := r.idFn("evt")
+	_, err = r.db.ExecContext(
+		ctx,
+		`INSERT INTO events (
+      id, tenant_id, series_id, slug, title, subtitle, description, starts_at, ends_at, timezone,
+      location_name, address, online_url, participation_mode, status, is_public, registration_enabled,
+      waitlist_enabled, max_participants, change_note, cancelled_reason, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		eventID,
+		tenant,
+		nullable(seriesID),
+		normalized.Slug,
+		normalized.Title,
+		nullable(normalized.Subtitle),
+		nullable(normalized.Description),
+		normalized.StartsAt.Format(time.RFC3339),
+		nullableTime(normalized.EndsAt),
+		normalized.Timezone,
+		nullable(normalized.LocationName),
+		nullable(normalized.Address),
+		nullable(normalized.OnlineURL),
+		normalized.ParticipationMode,
+		EventStatusDraft,
+		boolToInt(normalized.IsPublic),
+		boolToInt(normalized.RegistrationEnabled),
+		boolToInt(normalized.WaitlistEnabled),
+		nullableInt(normalized.MaxParticipants),
+		nil,
+		nil,
+		now,
+		now,
+	)
+	if err != nil {
+		if isEventSlugConstraintError(err) {
+			return Event{}, ErrEventSlugExists
+		}
+		return Event{}, fmt.Errorf("insert event: %w", err)
+	}
+
+	return r.GetEventByID(ctx, tenant, eventID)
+}
+
+func (r *Repository) GetEventByID(ctx context.Context, tenantID, eventID string) (Event, error) {
+	if r.db == nil {
+		return Event{}, fmt.Errorf("event repository database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return Event{}, fmt.Errorf("tenant id must not be empty")
+	}
+	id := strings.TrimSpace(eventID)
+	if id == "" {
+		return Event{}, fmt.Errorf("event id must not be empty")
+	}
+
+	row := r.db.QueryRowContext(
+		ctx,
+		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
+            starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
+            participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
+     FROM events
+     WHERE tenant_id = ? AND id = ?
+     LIMIT 1`,
+		tenant,
+		id,
+	)
+	item, err := scanEvent(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Event{}, ErrEventNotFound
+		}
+		return Event{}, err
+	}
+	return item, nil
+}
+
+func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, params UpdateEventParams) (Event, error) {
+	if r.db == nil {
+		return Event{}, fmt.Errorf("event repository database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return Event{}, fmt.Errorf("tenant id must not be empty")
+	}
+	id := strings.TrimSpace(eventID)
+	if id == "" {
+		return Event{}, fmt.Errorf("event id must not be empty")
+	}
+
+	current, err := r.GetEventByID(ctx, tenant, id)
+	if err != nil {
+		return Event{}, err
+	}
+
+	updated, hasChange, err := r.applyEventUpdate(ctx, tenant, current, params)
+	if err != nil {
+		return Event{}, err
+	}
+	if !hasChange {
+		return Event{}, fmt.Errorf("at least one field must be set for update")
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET series_id = ?, slug = ?, title = ?, subtitle = ?, description = ?, starts_at = ?, ends_at = ?, timezone = ?,
+         location_name = ?, address = ?, online_url = ?, participation_mode = ?, is_public = ?, registration_enabled = ?,
+         waitlist_enabled = ?, max_participants = ?, change_note = ?, cancelled_reason = ?, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		nullable(updated.SeriesID),
+		updated.Slug,
+		updated.Title,
+		nullable(updated.Subtitle),
+		nullable(updated.Description),
+		updated.StartsAt.Format(time.RFC3339),
+		nullableTime(updated.EndsAt),
+		updated.Timezone,
+		nullable(updated.LocationName),
+		nullable(updated.Address),
+		nullable(updated.OnlineURL),
+		updated.ParticipationMode,
+		boolToInt(updated.IsPublic),
+		boolToInt(updated.RegistrationEnabled),
+		boolToInt(updated.WaitlistEnabled),
+		nullableInt(updated.MaxParticipants),
+		nullable(updated.ChangeNote),
+		nullable(updated.CancelledReason),
+		now,
+		tenant,
+		id,
+	)
+	if err != nil {
+		if isEventSlugConstraintError(err) {
+			return Event{}, ErrEventSlugExists
+		}
+		return Event{}, fmt.Errorf("update event: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("event update rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+
+	return r.GetEventByID(ctx, tenant, id)
+}
+
+func (r *Repository) DeleteEvent(ctx context.Context, tenantID, eventID string) (bool, error) {
+	if r.db == nil {
+		return false, fmt.Errorf("event repository database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return false, fmt.Errorf("tenant id must not be empty")
+	}
+	id := strings.TrimSpace(eventID)
+	if id == "" {
+		return false, fmt.Errorf("event id must not be empty")
+	}
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM events WHERE tenant_id = ? AND id = ?`, tenant, id)
+	if err != nil {
+		return false, fmt.Errorf("delete event: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("event delete rows affected: %w", err)
+	}
+	return rowsAffected == 1, nil
+}
+
+func (r *Repository) PublishEvent(ctx context.Context, tenantID, eventID string) (Event, error) {
+	return r.transitionPublishState(ctx, tenantID, eventID, true)
+}
+
+func (r *Repository) UnpublishEvent(ctx context.Context, tenantID, eventID string) (Event, error) {
+	return r.transitionPublishState(ctx, tenantID, eventID, false)
+}
+
+func (r *Repository) transitionPublishState(ctx context.Context, tenantID, eventID string, published bool) (Event, error) {
+	current, err := r.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+
+	if !canTogglePublish(current.Status) {
+		return Event{}, ErrInvalidStatusTransition
+	}
+
+	targetStatus := EventStatusDraft
+	if published {
+		targetStatus = EventStatusScheduled
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET status = ?, is_public = ?, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		targetStatus,
+		boolToInt(published),
+		now,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(eventID),
+	)
+	if err != nil {
+		return Event{}, fmt.Errorf("publish state transition: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("publish transition rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+
+	return r.GetEventByID(ctx, tenantID, eventID)
+}
+
+func canTogglePublish(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case EventStatusCancelled, EventStatusCompleted, EventStatusArchived:
+		return false
+	default:
+		return true
+	}
+}
+
+func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, current Event, params UpdateEventParams) (Event, bool, error) {
+	updated := current
+	hasChange := false
+
+	if params.SeriesID != nil {
+		seriesID, err := r.normalizeSeriesForTenant(ctx, tenantID, *params.SeriesID)
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.SeriesID = seriesID
+		hasChange = true
+	}
+	if params.Slug != nil {
+		slug, err := normalizeEventSlug(*params.Slug)
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.Slug = slug
+		hasChange = true
+	}
+	if params.Title != nil {
+		title := strings.TrimSpace(*params.Title)
+		if title == "" {
+			return Event{}, false, fmt.Errorf("event title must not be empty")
+		}
+		if len(title) > 180 {
+			return Event{}, false, fmt.Errorf("event title must be <= 180 characters")
+		}
+		updated.Title = title
+		hasChange = true
+	}
+	if params.Subtitle != nil {
+		updated.Subtitle = strings.TrimSpace(*params.Subtitle)
+		hasChange = true
+	}
+	if params.Description != nil {
+		updated.Description = strings.TrimSpace(*params.Description)
+		hasChange = true
+	}
+	if params.StartsAt != nil {
+		startsAt, err := parseRequiredRFC3339(*params.StartsAt, "event starts_at")
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.StartsAt = startsAt
+		hasChange = true
+	}
+	if params.EndsAt != nil {
+		endsAt, err := parseOptionalRFC3339(*params.EndsAt, "event ends_at")
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.EndsAt = endsAt
+		hasChange = true
+	}
+	if updated.EndsAt != nil && updated.EndsAt.Before(updated.StartsAt) {
+		return Event{}, false, fmt.Errorf("event ends_at must be >= starts_at")
+	}
+	if params.Timezone != nil {
+		timezone := strings.TrimSpace(*params.Timezone)
+		if timezone == "" {
+			return Event{}, false, fmt.Errorf("event timezone must not be empty")
+		}
+		updated.Timezone = timezone
+		hasChange = true
+	}
+	if params.LocationName != nil {
+		updated.LocationName = strings.TrimSpace(*params.LocationName)
+		hasChange = true
+	}
+	if params.Address != nil {
+		updated.Address = strings.TrimSpace(*params.Address)
+		hasChange = true
+	}
+	if params.OnlineURL != nil {
+		onlineURL, err := normalizeOptionalEventURL(*params.OnlineURL)
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.OnlineURL = onlineURL
+		hasChange = true
+	}
+	if params.ParticipationMode != nil {
+		mode, err := normalizeParticipationMode(*params.ParticipationMode)
+		if err != nil {
+			return Event{}, false, err
+		}
+		updated.ParticipationMode = mode
+		hasChange = true
+	}
+	if params.IsPublic != nil {
+		updated.IsPublic = *params.IsPublic
+		hasChange = true
+	}
+	if params.RegistrationEnabled != nil {
+		updated.RegistrationEnabled = *params.RegistrationEnabled
+		hasChange = true
+	}
+	if params.WaitlistEnabled != nil {
+		updated.WaitlistEnabled = *params.WaitlistEnabled
+		hasChange = true
+	}
+	if params.MaxParticipants != nil {
+		value := *params.MaxParticipants
+		if value <= 0 {
+			return Event{}, false, fmt.Errorf("event max_participants must be > 0")
+		}
+		updated.MaxParticipants = &value
+		hasChange = true
+	}
+	if params.ChangeNote != nil {
+		updated.ChangeNote = strings.TrimSpace(*params.ChangeNote)
+		hasChange = true
+	}
+	if params.CancelledReason != nil {
+		updated.CancelledReason = strings.TrimSpace(*params.CancelledReason)
+		hasChange = true
+	}
+
+	return updated, hasChange, nil
+}
+
+type normalizedCreateEvent struct {
+	SeriesID            string
+	Slug                string
+	Title               string
+	Subtitle            string
+	Description         string
+	StartsAt            time.Time
+	EndsAt              *time.Time
+	Timezone            string
+	LocationName        string
+	Address             string
+	OnlineURL           string
+	ParticipationMode   string
+	IsPublic            bool
+	RegistrationEnabled bool
+	WaitlistEnabled     bool
+	MaxParticipants     *int
+}
+
+func normalizeCreateEventParams(params CreateEventParams) (normalizedCreateEvent, error) {
+	slug, err := normalizeEventSlug(params.Slug)
+	if err != nil {
+		return normalizedCreateEvent{}, err
+	}
+	title := strings.TrimSpace(params.Title)
+	if title == "" {
+		return normalizedCreateEvent{}, fmt.Errorf("event title must not be empty")
+	}
+	if len(title) > 180 {
+		return normalizedCreateEvent{}, fmt.Errorf("event title must be <= 180 characters")
+	}
+	startsAt, err := parseRequiredRFC3339(params.StartsAt, "event starts_at")
+	if err != nil {
+		return normalizedCreateEvent{}, err
+	}
+	endsAt, err := parseOptionalRFC3339(params.EndsAt, "event ends_at")
+	if err != nil {
+		return normalizedCreateEvent{}, err
+	}
+	if endsAt != nil && endsAt.Before(startsAt) {
+		return normalizedCreateEvent{}, fmt.Errorf("event ends_at must be >= starts_at")
+	}
+
+	mode, err := normalizeParticipationMode(params.ParticipationMode)
+	if err != nil {
+		return normalizedCreateEvent{}, err
+	}
+	onlineURL, err := normalizeOptionalEventURL(params.OnlineURL)
+	if err != nil {
+		return normalizedCreateEvent{}, err
+	}
+
+	timezone := strings.TrimSpace(params.Timezone)
+	if timezone == "" {
+		timezone = "Europe/Berlin"
+	}
+
+	isPublic := false
+	if params.IsPublic != nil {
+		isPublic = *params.IsPublic
+	}
+	registrationEnabled := true
+	if params.RegistrationEnabled != nil {
+		registrationEnabled = *params.RegistrationEnabled
+	}
+	waitlistEnabled := true
+	if params.WaitlistEnabled != nil {
+		waitlistEnabled = *params.WaitlistEnabled
+	}
+
+	var maxParticipants *int
+	if params.MaxParticipants != nil {
+		value := *params.MaxParticipants
+		if value <= 0 {
+			return normalizedCreateEvent{}, fmt.Errorf("event max_participants must be > 0")
+		}
+		maxParticipants = &value
+	}
+
+	return normalizedCreateEvent{
+		SeriesID:            strings.TrimSpace(params.SeriesID),
+		Slug:                slug,
+		Title:               title,
+		Subtitle:            strings.TrimSpace(params.Subtitle),
+		Description:         strings.TrimSpace(params.Description),
+		StartsAt:            startsAt,
+		EndsAt:              endsAt,
+		Timezone:            timezone,
+		LocationName:        strings.TrimSpace(params.LocationName),
+		Address:             strings.TrimSpace(params.Address),
+		OnlineURL:           onlineURL,
+		ParticipationMode:   mode,
+		IsPublic:            isPublic,
+		RegistrationEnabled: registrationEnabled,
+		WaitlistEnabled:     waitlistEnabled,
+		MaxParticipants:     maxParticipants,
+	}, nil
+}
+
+func (r *Repository) normalizeSeriesForTenant(ctx context.Context, tenantID, seriesID string) (string, error) {
+	id := strings.TrimSpace(seriesID)
+	if id == "" {
+		return "", nil
+	}
+	if _, err := r.GetSeriesByID(ctx, tenantID, id); err != nil {
+		if errors.Is(err, ErrSeriesNotFound) {
+			return "", ErrEventSeriesScopeMismatch
+		}
+		return "", err
+	}
+	return id, nil
+}
+
+func normalizeEventSlug(raw string) (string, error) {
+	slug := strings.ToLower(strings.Trim(strings.TrimSpace(raw), "/"))
+	if slug == "" {
+		return "", fmt.Errorf("event slug must not be empty")
+	}
+	if len(slug) > 120 {
+		return "", fmt.Errorf("event slug must be <= 120 characters")
+	}
+	if !eventSlugPattern.MatchString(slug) {
+		return "", fmt.Errorf("event slug %q is invalid", raw)
+	}
+	return slug, nil
+}
+
+func parseRequiredRFC3339(raw, field string) (time.Time, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return time.Time{}, fmt.Errorf("%s must not be empty", field)
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse %s: %w", field, err)
+	}
+	return parsed.UTC(), nil
+}
+
+func parseOptionalRFC3339(raw, field string) (*time.Time, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", field, err)
+	}
+	parsed = parsed.UTC()
+	return &parsed, nil
+}
+
+func normalizeOptionalEventURL(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", fmt.Errorf("parse event online_url: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("event online_url must include scheme and host")
+	}
+	return value, nil
+}
+
+func normalizeParticipationMode(raw string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(raw))
+	if mode == "" {
+		mode = ParticipationModeOnsite
+	}
+	switch mode {
+	case ParticipationModeOnsite, ParticipationModeOnline, ParticipationModeHybrid:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("unsupported event participation_mode %q", raw)
+	}
+}
+
+func isEventSlugConstraintError(err error) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed: events.tenant_id, events.slug")
+}
+
+func nullableTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func nullableInt(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func scanEvent(row rowScanner) (Event, error) {
+	var (
+		item                Event
+		startsAtRaw         string
+		endsAtRaw           string
+		isPublicInt         int
+		registrationEnabled int
+		waitlistEnabled     int
+		maxParticipantsRaw  sql.NullInt64
+		createdAtRaw        string
+		updatedAtRaw        string
+	)
+
+	if err := row.Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.SeriesID,
+		&item.Slug,
+		&item.Title,
+		&item.Subtitle,
+		&item.Description,
+		&startsAtRaw,
+		&endsAtRaw,
+		&item.Timezone,
+		&item.LocationName,
+		&item.Address,
+		&item.OnlineURL,
+		&item.ParticipationMode,
+		&item.Status,
+		&isPublicInt,
+		&registrationEnabled,
+		&waitlistEnabled,
+		&maxParticipantsRaw,
+		&item.ChangeNote,
+		&item.CancelledReason,
+		&createdAtRaw,
+		&updatedAtRaw,
+	); err != nil {
+		return Event{}, err
+	}
+
+	startsAt, err := time.Parse(time.RFC3339, startsAtRaw)
+	if err != nil {
+		return Event{}, fmt.Errorf("parse event starts_at: %w", err)
+	}
+	var endsAt *time.Time
+	if strings.TrimSpace(endsAtRaw) != "" {
+		parsedEndsAt, parseErr := time.Parse(time.RFC3339, endsAtRaw)
+		if parseErr != nil {
+			return Event{}, fmt.Errorf("parse event ends_at: %w", parseErr)
+		}
+		parsedEndsAt = parsedEndsAt.UTC()
+		endsAt = &parsedEndsAt
+	}
+	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
+	if err != nil {
+		return Event{}, fmt.Errorf("parse event created_at: %w", err)
+	}
+	updatedAt, err := time.Parse(time.RFC3339, updatedAtRaw)
+	if err != nil {
+		return Event{}, fmt.Errorf("parse event updated_at: %w", err)
+	}
+
+	item.StartsAt = startsAt.UTC()
+	item.EndsAt = endsAt
+	item.IsPublic = isPublicInt == 1
+	item.RegistrationEnabled = registrationEnabled == 1
+	item.WaitlistEnabled = waitlistEnabled == 1
+	if maxParticipantsRaw.Valid {
+		value := int(maxParticipantsRaw.Int64)
+		item.MaxParticipants = &value
+	}
+	item.CreatedAt = createdAt.UTC()
+	item.UpdatedAt = updatedAt.UTC()
+	return item, nil
+}

@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 6 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 7 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -18,6 +18,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 6 aus `docs/codex-task-plan.md`
 - Mailer-Adapter (`internal/notification`) mit `log`/`smtp`/`ses`-Provider-Setup
 - EmailJob Repository + Worker (`cmd/worker`) fuer `email_jobs` Queue-Verarbeitung
 - Event-Series CRUD (`internal/event` + Admin-API `/api/v1/admin/event-series`)
+- Event-CRUD mit Publish/Unpublish (`internal/event` + Admin-API `/api/v1/admin/events`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -137,4 +138,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 7 aus `docs/codex-task-plan.md`: Event CRUD mit Publish/Unpublish.
+Paket 8 aus `docs/codex-task-plan.md`: Public Event Pages.
