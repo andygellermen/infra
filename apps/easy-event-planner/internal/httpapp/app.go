@@ -12,6 +12,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
@@ -20,6 +21,7 @@ type App struct {
 	mux         *http.ServeMux
 	db          *sql.DB
 	authService *auth.Service
+	eventRepo   *event.Repository
 	startedAt   time.Time
 }
 
@@ -47,6 +49,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			},
 			nil,
 		)
+		app.eventRepo = event.NewRepository(sqlDB)
 	}
 	app.routes()
 	return app
@@ -65,6 +68,9 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/auth/magic-link/verify", a.handleMagicLinkVerify)
 	a.mux.HandleFunc("/api/v1/auth/me", a.handleAuthMe)
 	a.mux.HandleFunc("/api/v1/auth/logout", a.handleAuthLogout)
+
+	a.mux.HandleFunc("/api/v1/admin/event-series", a.handleAdminEventSeriesCollection)
+	a.mux.HandleFunc("/api/v1/admin/event-series/", a.handleAdminEventSeriesItem)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -259,6 +265,255 @@ func (a *App) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	a.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) handleAdminEventSeriesCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		a.handleAdminEventSeriesList(w, r)
+	case http.MethodPost:
+		a.handleAdminEventSeriesCreate(w, r)
+	default:
+		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+	}
+}
+
+func (a *App) handleAdminEventSeriesItem(w http.ResponseWriter, r *http.Request) {
+	seriesID, ok := parseEventSeriesIDFromPath(r.URL.Path)
+	if !ok {
+		writeAPIError(w, http.StatusNotFound, "EVENT_SERIES_NOT_FOUND", "Event-Serie nicht gefunden.")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		a.handleAdminEventSeriesGet(w, r, seriesID)
+	case http.MethodPatch:
+		a.handleAdminEventSeriesPatch(w, r, seriesID)
+	case http.MethodDelete:
+		a.handleAdminEventSeriesDelete(w, r, seriesID)
+	default:
+		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+	}
+}
+
+func (a *App) handleAdminEventSeriesList(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+	series, err := a.eventRepo.ListSeries(r.Context(), principal.TenantID)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Event-Serien konnten nicht geladen werden.")
+		return
+	}
+
+	items := make([]map[string]any, 0, len(series))
+	for _, item := range series {
+		items = append(items, eventSeriesPayload(item))
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": items,
+		"total": len(items),
+	})
+}
+
+func (a *App) handleAdminEventSeriesCreate(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		Slug                string `json:"slug"`
+		Title               string `json:"title"`
+		Description         string `json:"description"`
+		DefaultLocationName string `json:"default_location_name"`
+		DefaultAddress      string `json:"default_address"`
+		DefaultOnlineURL    string `json:"default_online_url"`
+		IsPublic            *bool  `json:"is_public"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	created, err := a.eventRepo.CreateSeries(r.Context(), principal.TenantID, event.CreateSeriesParams{
+		Slug:                request.Slug,
+		Title:               request.Title,
+		Description:         request.Description,
+		DefaultLocationName: request.DefaultLocationName,
+		DefaultAddress:      request.DefaultAddress,
+		DefaultOnlineURL:    request.DefaultOnlineURL,
+		IsPublic:            request.IsPublic,
+	})
+	if err != nil {
+		if errors.Is(err, event.ErrSeriesSlugExists) {
+			writeAPIError(w, http.StatusConflict, "EVENT_SERIES_SLUG_EXISTS", "Eine Event-Serie mit diesem Slug existiert bereits.")
+			return
+		}
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"item": eventSeriesPayload(created),
+	})
+}
+
+func (a *App) handleAdminEventSeriesGet(w http.ResponseWriter, r *http.Request, seriesID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.GetSeriesByID(r.Context(), principal.TenantID, seriesID)
+	if err != nil {
+		if errors.Is(err, event.ErrSeriesNotFound) {
+			writeAPIError(w, http.StatusNotFound, "EVENT_SERIES_NOT_FOUND", "Event-Serie nicht gefunden.")
+			return
+		}
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Event-Serie konnte nicht geladen werden.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventSeriesPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventSeriesPatch(w http.ResponseWriter, r *http.Request, seriesID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		Slug                *string `json:"slug"`
+		Title               *string `json:"title"`
+		Description         *string `json:"description"`
+		DefaultLocationName *string `json:"default_location_name"`
+		DefaultAddress      *string `json:"default_address"`
+		DefaultOnlineURL    *string `json:"default_online_url"`
+		IsPublic            *bool   `json:"is_public"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	updated, err := a.eventRepo.UpdateSeries(r.Context(), principal.TenantID, seriesID, event.UpdateSeriesParams{
+		Slug:                request.Slug,
+		Title:               request.Title,
+		Description:         request.Description,
+		DefaultLocationName: request.DefaultLocationName,
+		DefaultAddress:      request.DefaultAddress,
+		DefaultOnlineURL:    request.DefaultOnlineURL,
+		IsPublic:            request.IsPublic,
+	})
+	if err != nil {
+		if errors.Is(err, event.ErrSeriesNotFound) {
+			writeAPIError(w, http.StatusNotFound, "EVENT_SERIES_NOT_FOUND", "Event-Serie nicht gefunden.")
+			return
+		}
+		if errors.Is(err, event.ErrSeriesSlugExists) {
+			writeAPIError(w, http.StatusConflict, "EVENT_SERIES_SLUG_EXISTS", "Eine Event-Serie mit diesem Slug existiert bereits.")
+			return
+		}
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventSeriesPayload(updated),
+	})
+}
+
+func (a *App) handleAdminEventSeriesDelete(w http.ResponseWriter, r *http.Request, seriesID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	deleted, err := a.eventRepo.DeleteSeries(r.Context(), principal.TenantID, seriesID)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Event-Serie konnte nicht geloescht werden.")
+		return
+	}
+	if !deleted {
+		writeAPIError(w, http.StatusNotFound, "EVENT_SERIES_NOT_FOUND", "Event-Serie nicht gefunden.")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) requireAdminPrincipal(w http.ResponseWriter, r *http.Request, writeAccess bool) (auth.SessionPrincipal, bool) {
+	if a.authService == nil || a.eventRepo == nil {
+		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service ist nicht verfuegbar.")
+		return auth.SessionPrincipal{}, false
+	}
+
+	rawSessionToken := a.sessionTokenFromCookie(r)
+	principal, err := a.authService.AuthenticateSession(r.Context(), rawSessionToken)
+	if err != nil {
+		if errors.Is(err, auth.ErrSessionNotFound) {
+			a.clearSessionCookie(w)
+			writeAPIError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Nicht angemeldet.")
+			return auth.SessionPrincipal{}, false
+		}
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Session konnte nicht gelesen werden.")
+		return auth.SessionPrincipal{}, false
+	}
+
+	if !isAdminRoleAllowed(principal.Role, writeAccess) {
+		writeAPIError(w, http.StatusForbidden, "FORBIDDEN", "Zugriff verweigert.")
+		return auth.SessionPrincipal{}, false
+	}
+
+	return principal, true
+}
+
+func isAdminRoleAllowed(role string, writeAccess bool) bool {
+	normalized := strings.ToLower(strings.TrimSpace(role))
+	switch normalized {
+	case "owner", "admin":
+		return true
+	case "event_manager":
+		return true
+	case "readonly":
+		return !writeAccess
+	default:
+		return false
+	}
+}
+
+func parseEventSeriesIDFromPath(path string) (string, bool) {
+	const prefix = "/api/v1/admin/event-series/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	raw := strings.TrimSpace(strings.TrimPrefix(path, prefix))
+	if raw == "" || strings.Contains(raw, "/") {
+		return "", false
+	}
+	return raw, true
+}
+
+func eventSeriesPayload(series event.EventSeries) map[string]any {
+	return map[string]any{
+		"id":                    series.ID,
+		"tenant_id":             series.TenantID,
+		"slug":                  series.Slug,
+		"title":                 series.Title,
+		"description":           series.Description,
+		"default_location_name": series.DefaultLocationName,
+		"default_address":       series.DefaultAddress,
+		"default_online_url":    series.DefaultOnlineURL,
+		"is_public":             series.IsPublic,
+		"created_at":            series.CreatedAt.Format(time.RFC3339),
+		"updated_at":            series.UpdatedAt.Format(time.RFC3339),
+	}
 }
 
 func (a *App) sessionTokenFromCookie(r *http.Request) string {
