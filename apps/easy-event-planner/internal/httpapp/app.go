@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/calendar"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/privacy"
@@ -20,16 +21,17 @@ import (
 )
 
 type App struct {
-	cfg            config.Config
-	mux            *http.ServeMux
-	db             *sql.DB
-	authService    *auth.Service
-	eventRepo      *event.Repository
-	tenantRepo     *tenant.Repository
-	regService     *registration.Service
-	privacyService *privacy.Service
-	snippetRepo    *snippet.Repository
-	startedAt      time.Time
+	cfg             config.Config
+	mux             *http.ServeMux
+	db              *sql.DB
+	authService     *auth.Service
+	eventRepo       *event.Repository
+	tenantRepo      *tenant.Repository
+	regService      *registration.Service
+	calendarService *calendar.Service
+	privacyService  *privacy.Service
+	snippetRepo     *snippet.Repository
+	startedAt       time.Time
 }
 
 func New(cfg config.Config, sqlDB *sql.DB) *App {
@@ -64,6 +66,10 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			RegistrationTTL:  cfg.RegistrationTTL,
 			WaitlistOfferTTL: cfg.WaitlistOfferTTL,
 		})
+		app.calendarService = calendar.NewService(sqlDB, calendar.Config{
+			BaseURL:     cfg.BaseURL,
+			TokenPepper: cfg.TokenPepper,
+		})
 		app.privacyService = privacy.NewService(sqlDB)
 		app.snippetRepo = snippet.NewRepository(sqlDB)
 	}
@@ -91,6 +97,9 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/dashboard", a.handleAdminDashboard)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
+	a.mux.HandleFunc("/api/v1/admin/calendar/feed", a.handleAdminCalendarFeed)
+	a.mux.HandleFunc("/api/v1/admin/calendar/feed/rotate-token", a.handleAdminCalendarFeedRotateToken)
+	a.mux.HandleFunc("/api/v1/admin/calendar/feed/embed-url", a.handleAdminCalendarFeedEmbedURL)
 	a.mux.HandleFunc("/api/v1/admin/privacy/retention-policies", a.handleAdminRetentionPoliciesCollection)
 	a.mux.HandleFunc("/api/v1/admin/privacy/retention-policies/", a.handleAdminRetentionPolicyItem)
 	a.mux.HandleFunc("/api/v1/admin/privacy/retention-jobs/dry-run", a.handleAdminRetentionJobDryRun)

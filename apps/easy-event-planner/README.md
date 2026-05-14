@@ -146,4 +146,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 16 aus `docs/codex-task-plan.md`: Calendar ICS fuer Veranstalterfeed und Teilnehmerdatei.
+Paket 17 aus `docs/codex-task-plan.md`: PayPal Basis mit Order und Webhook.

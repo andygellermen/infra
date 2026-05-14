@@ -416,6 +416,8 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 		writeSnippetIncludeJS(w, tenantItem)
 	case "snippet_css":
 		writeSnippetCSS(w)
+	case "organizer_calendar":
+		a.handleTenantOrganizerCalendarICS(w, r, tenantItem)
 	default:
 		http.NotFound(w, r)
 	}
@@ -427,19 +429,32 @@ func parseTenantAssetPath(path string) (tenantSlug, assetType string, ok bool) {
 		return "", "", false
 	}
 	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(parts) != 2 {
+	switch len(parts) {
+	case 2:
+		tenantSlug = strings.TrimSpace(parts[0])
+		asset := strings.TrimSpace(parts[1])
+		if tenantSlug == "" {
+			return "", "", false
+		}
+		switch asset {
+		case "include.js":
+			return tenantSlug, "include_js", true
+		case "snippet.css":
+			return tenantSlug, "snippet_css", true
+		default:
+			return "", "", false
+		}
+	case 3:
+		tenantSlug = strings.TrimSpace(parts[0])
+		group := strings.TrimSpace(parts[1])
+		asset := strings.TrimSpace(parts[2])
+		if tenantSlug == "" {
+			return "", "", false
+		}
+		if group == "calendar" && asset == "admin.ics" {
+			return tenantSlug, "organizer_calendar", true
+		}
 		return "", "", false
-	}
-	tenantSlug = strings.TrimSpace(parts[0])
-	asset := strings.TrimSpace(parts[1])
-	if tenantSlug == "" {
-		return "", "", false
-	}
-	switch asset {
-	case "include.js":
-		return tenantSlug, "include_js", true
-	case "snippet.css":
-		return tenantSlug, "snippet_css", true
 	default:
 		return "", "", false
 	}

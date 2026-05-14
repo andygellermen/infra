@@ -90,6 +90,12 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.handlePublicRegistrationVerify(w, r, tenantItem)
+	case "registrations_calendar":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handlePublicRegistrationCalendar(w, r, tenantItem, routeSlug)
 	default:
 		writeAPIError(w, http.StatusNotFound, "NOT_FOUND", "Route nicht gefunden.")
 	}
@@ -230,10 +236,20 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 			return "", "", "", false
 		}
 	case 4:
-		if parts[1] != "series" || parts[3] != "events" {
+		switch parts[1] {
+		case "series":
+			if parts[3] != "events" {
+				return "", "", "", false
+			}
+			return tenantSlug, "series_events", strings.TrimSpace(parts[2]), true
+		case "registrations":
+			if parts[3] != "calendar.ics" {
+				return "", "", "", false
+			}
+			return tenantSlug, "registrations_calendar", strings.TrimSpace(parts[2]), true
+		default:
 			return "", "", "", false
 		}
-		return tenantSlug, "series_events", strings.TrimSpace(parts[2]), true
 	default:
 		return "", "", "", false
 	}
@@ -319,6 +335,17 @@ func (a *App) handlePublicRegistrationVerify(w http.ResponseWriter, r *http.Requ
 		payload["waitlist"] = map[string]any{
 			"id":       result.WaitlistID,
 			"position": result.WaitlistPos,
+		}
+	}
+	if a.calendarService != nil {
+		calendarURL := a.calendarService.ParticipantCalendarURL(
+			tenantItem.Slug,
+			tenantItem.ID,
+			result.RegistrationID,
+			result.ParticipantID,
+		)
+		if calendarURL != "" {
+			payload["calendar_url"] = calendarURL
 		}
 	}
 	writeJSON(w, http.StatusOK, payload)
