@@ -55,9 +55,10 @@ var (
 )
 
 type Config struct {
-	BaseURL         string
-	TokenPepper     string
-	RegistrationTTL time.Duration
+	BaseURL          string
+	TokenPepper      string
+	RegistrationTTL  time.Duration
+	WaitlistOfferTTL time.Duration
 }
 
 type Service struct {
@@ -136,12 +137,22 @@ type magicLinkRecord struct {
 }
 
 func NewService(sqlDB *sql.DB, cfg Config) *Service {
+	registrationTTL := cfg.RegistrationTTL
+	if registrationTTL <= 0 {
+		registrationTTL = 30 * time.Minute
+	}
+	waitlistOfferTTL := cfg.WaitlistOfferTTL
+	if waitlistOfferTTL <= 0 {
+		waitlistOfferTTL = 24 * time.Hour
+	}
+
 	return &Service{
 		db: sqlDB,
 		cfg: Config{
-			BaseURL:         strings.TrimSpace(cfg.BaseURL),
-			TokenPepper:     strings.TrimSpace(cfg.TokenPepper),
-			RegistrationTTL: cfg.RegistrationTTL,
+			BaseURL:          strings.TrimSpace(cfg.BaseURL),
+			TokenPepper:      strings.TrimSpace(cfg.TokenPepper),
+			RegistrationTTL:  registrationTTL,
+			WaitlistOfferTTL: waitlistOfferTTL,
 		},
 		nowFn: func() time.Time { return time.Now().UTC() },
 		idFn:  defaultID,

@@ -78,6 +78,12 @@ POST   /api/v1/admin/events/{eventId}/postpone
 POST   /api/v1/admin/events/{eventId}/mark-completed
 ```
 
+## Admin Dashboard
+
+```http
+GET /api/v1/admin/dashboard
+```
+
 ## Admin Registrations
 
 ```http

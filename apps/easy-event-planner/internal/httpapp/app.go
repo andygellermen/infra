@@ -55,9 +55,10 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 		)
 		app.eventRepo = event.NewRepository(sqlDB)
 		app.regService = registration.NewService(sqlDB, registration.Config{
-			BaseURL:         cfg.BaseURL,
-			TokenPepper:     cfg.TokenPepper,
-			RegistrationTTL: cfg.RegistrationTTL,
+			BaseURL:          cfg.BaseURL,
+			TokenPepper:      cfg.TokenPepper,
+			RegistrationTTL:  cfg.RegistrationTTL,
+			WaitlistOfferTTL: cfg.WaitlistOfferTTL,
 		})
 	}
 	app.routes()
@@ -81,8 +82,11 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/event-series", a.handleAdminEventSeriesCollection)
 	a.mux.HandleFunc("/api/v1/admin/event-series/", a.handleAdminEventSeriesItem)
 
+	a.mux.HandleFunc("/api/v1/admin/dashboard", a.handleAdminDashboard)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
+	a.mux.HandleFunc("/api/v1/admin/registrations/", a.handleAdminRegistrationItem)
+	a.mux.HandleFunc("/api/v1/admin/waitlist/", a.handleAdminWaitlistItem)
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
 }
@@ -559,6 +563,23 @@ func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
 		default:
 			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
 		}
+		return
+	}
+
+	if action == "waitlist" {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminEventWaitlistList(w, r, eventID)
+		return
+	}
+	if action == "registrations" {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminEventRegistrationList(w, r, eventID)
 		return
 	}
 
