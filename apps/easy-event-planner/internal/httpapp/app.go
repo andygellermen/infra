@@ -14,6 +14,7 @@ import (
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/snippet"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
@@ -25,6 +26,7 @@ type App struct {
 	eventRepo   *event.Repository
 	tenantRepo  *tenant.Repository
 	regService  *registration.Service
+	snippetRepo *snippet.Repository
 	startedAt   time.Time
 }
 
@@ -60,6 +62,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			RegistrationTTL:  cfg.RegistrationTTL,
 			WaitlistOfferTTL: cfg.WaitlistOfferTTL,
 		})
+		app.snippetRepo = snippet.NewRepository(sqlDB)
 	}
 	app.routes()
 	return app
@@ -85,10 +88,13 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/dashboard", a.handleAdminDashboard)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
+	a.mux.HandleFunc("/api/v1/admin/snippets", a.handleAdminSnippetsCollection)
+	a.mux.HandleFunc("/api/v1/admin/snippets/", a.handleAdminSnippetsItem)
 	a.mux.HandleFunc("/api/v1/admin/registrations/", a.handleAdminRegistrationItem)
 	a.mux.HandleFunc("/api/v1/admin/waitlist/", a.handleAdminWaitlistItem)
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
+	a.mux.HandleFunc("/", a.handleTenantAssetRoutes)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {

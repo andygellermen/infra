@@ -15,7 +15,7 @@ import (
 )
 
 func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
-	if a.eventRepo == nil || a.tenantRepo == nil || a.regService == nil {
+	if a.eventRepo == nil || a.tenantRepo == nil || a.regService == nil || a.snippetRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service ist nicht verfuegbar.")
 		return
 	}
@@ -72,6 +72,12 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.SeriesSlug = routeSlug
 		a.handlePublicSeriesEvents(w, r, tenantItem, routeSlug, filter)
+	case "snippet_events":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handlePublicSnippetEvents(w, r, tenantItem)
 	case "registrations_start":
 		if r.Method != http.MethodPost {
 			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
@@ -206,6 +212,11 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 		switch parts[1] {
 		case "events":
 			return tenantSlug, "event_detail", strings.TrimSpace(parts[2]), true
+		case "snippet":
+			if parts[2] != "events" {
+				return "", "", "", false
+			}
+			return tenantSlug, "snippet_events", "", true
 		case "registrations":
 			switch parts[2] {
 			case "start":
