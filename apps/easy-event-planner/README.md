@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 14 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 15 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -26,6 +26,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 14 aus `docs/codex-task-plan.md
 - Ghost/CMS-Snippet mit Config-CRUD, Embed-Code, `include.js`, `snippet.css` und Public-Snippet-Events (`internal/snippet`, `/api/v1/admin/snippets`, `/{tenantSlug}/include.js`, `/{tenantSlug}/snippet.css`, `/api/v1/public/{tenantSlug}/snippet/events`)
 - Tages-/Morgenuebersicht fuer Veranstalter als automatischer Email-Job (`internal/notification`, Template `organizer_morning_summary`)
 - Privacy-Retention mit Tenant-Policies, Dry-Run/Run, Teilnehmeranonymisierung, Magic-Link-/Session-/Email-Job-Cleanup, Audit-Log und Admin-API (`internal/privacy`, `/api/v1/admin/privacy/...`)
+- Event-Pflegeaktionen mit Statusuebergaengen (`changed`, `postponed`, `cancelled`, `completed`) und Admin-API-Aktionen (`/publish`, `/unpublish`, `/cancel`, `/postpone`, `/mark-completed`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -145,4 +146,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 15 aus `docs/codex-task-plan.md`: Event Change/Cancel/Postpone.
+Paket 16 aus `docs/codex-task-plan.md`: Calendar ICS fuer Veranstalterfeed und Teilnehmerdatei.

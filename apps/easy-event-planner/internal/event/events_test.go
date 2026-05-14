@@ -206,3 +206,120 @@ func TestUpdateEventRejectsEmptyPatch(t *testing.T) {
 		t.Fatal("expected error for empty patch")
 	}
 }
+
+func TestEventMaintenanceActions(t *testing.T) {
+	repo, tenantID, _ := setupEventRepository(t)
+
+	created, err := repo.CreateEvent(context.Background(), tenantID, CreateEventParams{
+		Slug:     "maintenance-event",
+		Title:    "Maintenance Event",
+		StartsAt: "2026-09-01T18:00:00Z",
+		EndsAt:   "2026-09-01T20:00:00Z",
+	})
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+
+	published, err := repo.PublishEvent(context.Background(), tenantID, created.ID)
+	if err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	if published.Status != EventStatusScheduled {
+		t.Fatalf("expected scheduled status, got %q", published.Status)
+	}
+
+	newTitle := "Maintenance Event Updated"
+	changed, err := repo.UpdateEvent(context.Background(), tenantID, created.ID, UpdateEventParams{
+		Title: &newTitle,
+	})
+	if err != nil {
+		t.Fatalf("update event after publish: %v", err)
+	}
+	if changed.Status != EventStatusChanged {
+		t.Fatalf("expected changed status after update, got %q", changed.Status)
+	}
+
+	postponed, err := repo.PostponeEvent(
+		context.Background(),
+		tenantID,
+		created.ID,
+		"2026-10-01T18:30:00Z",
+		"2026-10-01T20:30:00Z",
+		"Termin wurde organisatorisch verschoben.",
+	)
+	if err != nil {
+		t.Fatalf("postpone event: %v", err)
+	}
+	if postponed.Status != EventStatusPostponed {
+		t.Fatalf("expected postponed status, got %q", postponed.Status)
+	}
+	if postponed.ChangeNote == "" {
+		t.Fatalf("expected postpone change note")
+	}
+	if postponed.StartsAt.Format(time.RFC3339) != "2026-10-01T18:30:00Z" {
+		t.Fatalf("expected updated starts_at, got %s", postponed.StartsAt.Format(time.RFC3339))
+	}
+
+	completed, err := repo.MarkEventCompleted(context.Background(), tenantID, created.ID)
+	if err != nil {
+		t.Fatalf("mark event completed: %v", err)
+	}
+	if completed.Status != EventStatusCompleted {
+		t.Fatalf("expected completed status, got %q", completed.Status)
+	}
+	if completed.RegistrationEnabled {
+		t.Fatalf("expected registration disabled on completed event")
+	}
+	if completed.WaitlistEnabled {
+		t.Fatalf("expected waitlist disabled on completed event")
+	}
+
+	_, err = repo.CancelEvent(context.Background(), tenantID, created.ID, "Abgesagt", "Nachtraegliche Absage")
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition when canceling completed event, got %v", err)
+	}
+}
+
+func TestCancelEvent(t *testing.T) {
+	repo, tenantID, _ := setupEventRepository(t)
+
+	created, err := repo.CreateEvent(context.Background(), tenantID, CreateEventParams{
+		Slug:     "cancel-event",
+		Title:    "Cancel Event",
+		StartsAt: "2026-09-01T18:00:00Z",
+	})
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	if _, err := repo.PublishEvent(context.Background(), tenantID, created.ID); err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+
+	cancelled, err := repo.CancelEvent(
+		context.Background(),
+		tenantID,
+		created.ID,
+		"Der Veranstaltungsort ist nicht verfuegbar.",
+		"Wir informieren ueber einen Ersatztermin.",
+	)
+	if err != nil {
+		t.Fatalf("cancel event: %v", err)
+	}
+	if cancelled.Status != EventStatusCancelled {
+		t.Fatalf("expected cancelled status, got %q", cancelled.Status)
+	}
+	if cancelled.CancelledReason == "" {
+		t.Fatalf("expected cancelled reason to be set")
+	}
+	if cancelled.RegistrationEnabled {
+		t.Fatalf("expected registration disabled on cancelled event")
+	}
+	if cancelled.WaitlistEnabled {
+		t.Fatalf("expected waitlist disabled on cancelled event")
+	}
+
+	_, err = repo.PostponeEvent(context.Background(), tenantID, created.ID, "2026-10-01T18:00:00Z", "", "Nachholtermin")
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition when postponing cancelled event, got %v", err)
+	}
+}

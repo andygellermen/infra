@@ -247,3 +247,174 @@ func TestAdminEventPublishRejectsCancelled(t *testing.T) {
 		t.Fatalf("expected publish conflict status 409, got %d", publishRec.Code)
 	}
 }
+
+func TestAdminEventMaintenanceActions(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	createPayload := map[string]any{
+		"slug":      "maintenance-http-event",
+		"title":     "Maintenance HTTP Event",
+		"starts_at": "2026-09-01T10:00:00Z",
+		"ends_at":   "2026-09-01T12:00:00Z",
+	}
+	createBody, _ := json.Marshal(createPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	createResult := decodeBody[map[string]any](t, createRec)
+	eventID := createResult["item"].(map[string]any)["id"].(string)
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/publish", nil)
+	publishReq.AddCookie(sessionCookie)
+	publishRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("expected publish status 200, got %d", publishRec.Code)
+	}
+
+	newTitle := map[string]any{"title": "Maintenance HTTP Event Updated"}
+	newTitleBody, _ := json.Marshal(newTitle)
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/events/"+eventID, bytes.NewReader(newTitleBody))
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchReq.AddCookie(sessionCookie)
+	patchRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(patchRec, patchReq)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("expected patch status 200, got %d", patchRec.Code)
+	}
+	patchItem := decodeBody[map[string]any](t, patchRec)["item"].(map[string]any)
+	if patchItem["status"] != "changed" {
+		t.Fatalf("expected status changed after patch, got %v", patchItem["status"])
+	}
+
+	postponePayload := map[string]any{
+		"starts_at":   "2026-10-01T10:30:00Z",
+		"ends_at":     "2026-10-01T12:30:00Z",
+		"change_note": "Termin wurde verschoben.",
+	}
+	postponeBody, _ := json.Marshal(postponePayload)
+	postponeReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/postpone", bytes.NewReader(postponeBody))
+	postponeReq.Header.Set("Content-Type", "application/json")
+	postponeReq.AddCookie(sessionCookie)
+	postponeRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(postponeRec, postponeReq)
+	if postponeRec.Code != http.StatusOK {
+		t.Fatalf("expected postpone status 200, got %d", postponeRec.Code)
+	}
+	postponeItem := decodeBody[map[string]any](t, postponeRec)["item"].(map[string]any)
+	if postponeItem["status"] != "postponed" {
+		t.Fatalf("expected status postponed, got %v", postponeItem["status"])
+	}
+	if postponeItem["change_note"] == "" {
+		t.Fatalf("expected postpone change_note")
+	}
+
+	completedReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/mark-completed", nil)
+	completedReq.AddCookie(sessionCookie)
+	completedRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(completedRec, completedReq)
+	if completedRec.Code != http.StatusOK {
+		t.Fatalf("expected mark-completed status 200, got %d", completedRec.Code)
+	}
+	completedItem := decodeBody[map[string]any](t, completedRec)["item"].(map[string]any)
+	if completedItem["status"] != "completed" {
+		t.Fatalf("expected status completed, got %v", completedItem["status"])
+	}
+	if completedItem["registration_enabled"] != false {
+		t.Fatalf("expected registration_enabled=false, got %v", completedItem["registration_enabled"])
+	}
+	if completedItem["waitlist_enabled"] != false {
+		t.Fatalf("expected waitlist_enabled=false, got %v", completedItem["waitlist_enabled"])
+	}
+
+	cancelPayload := map[string]any{
+		"cancelled_reason": "Nachtraegliche Absage.",
+		"change_note":      "Bitte Kalender aktualisieren.",
+	}
+	cancelBody, _ := json.Marshal(cancelPayload)
+	cancelReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/cancel", bytes.NewReader(cancelBody))
+	cancelReq.Header.Set("Content-Type", "application/json")
+	cancelReq.AddCookie(sessionCookie)
+	cancelRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(cancelRec, cancelReq)
+	if cancelRec.Code != http.StatusConflict {
+		t.Fatalf("expected cancel-after-complete status 409, got %d", cancelRec.Code)
+	}
+}
+
+func TestAdminEventCancelEndpoint(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	createPayload := map[string]any{
+		"slug":      "cancel-http-event",
+		"title":     "Cancel HTTP Event",
+		"starts_at": "2026-09-01T10:00:00Z",
+	}
+	createBody, _ := json.Marshal(createPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	createResult := decodeBody[map[string]any](t, createRec)
+	eventID := createResult["item"].(map[string]any)["id"].(string)
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/publish", nil)
+	publishReq.AddCookie(sessionCookie)
+	publishRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("expected publish status 200, got %d", publishRec.Code)
+	}
+
+	cancelPayload := map[string]any{
+		"cancelled_reason": "Location ist nicht verfuegbar.",
+		"change_note":      "Wir informieren ueber einen Ersatztermin.",
+	}
+	cancelBody, _ := json.Marshal(cancelPayload)
+	cancelReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/cancel", bytes.NewReader(cancelBody))
+	cancelReq.Header.Set("Content-Type", "application/json")
+	cancelReq.AddCookie(sessionCookie)
+	cancelRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(cancelRec, cancelReq)
+	if cancelRec.Code != http.StatusOK {
+		t.Fatalf("expected cancel status 200, got %d", cancelRec.Code)
+	}
+	cancelledItem := decodeBody[map[string]any](t, cancelRec)["item"].(map[string]any)
+	if cancelledItem["status"] != "cancelled" {
+		t.Fatalf("expected status cancelled, got %v", cancelledItem["status"])
+	}
+	if cancelledItem["cancelled_reason"] == "" {
+		t.Fatalf("expected cancelled_reason to be set")
+	}
+	if cancelledItem["registration_enabled"] != false {
+		t.Fatalf("expected registration_enabled=false, got %v", cancelledItem["registration_enabled"])
+	}
+	if cancelledItem["waitlist_enabled"] != false {
+		t.Fatalf("expected waitlist_enabled=false, got %v", cancelledItem["waitlist_enabled"])
+	}
+
+	postponePayload := map[string]any{
+		"starts_at":   "2026-10-01T10:00:00Z",
+		"change_note": "Nachholtermin",
+	}
+	postponeBody, _ := json.Marshal(postponePayload)
+	postponeReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/postpone", bytes.NewReader(postponeBody))
+	postponeReq.Header.Set("Content-Type", "application/json")
+	postponeReq.AddCookie(sessionCookie)
+	postponeRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(postponeRec, postponeReq)
+	if postponeRec.Code != http.StatusConflict {
+		t.Fatalf("expected postpone-after-cancel status 409, got %d", postponeRec.Code)
+	}
+}

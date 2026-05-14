@@ -606,6 +606,12 @@ func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
 		a.handleAdminEventPublish(w, r, eventID)
 	case "unpublish":
 		a.handleAdminEventUnpublish(w, r, eventID)
+	case "cancel":
+		a.handleAdminEventCancel(w, r, eventID)
+	case "postpone":
+		a.handleAdminEventPostpone(w, r, eventID)
+	case "mark-completed":
+		a.handleAdminEventMarkCompleted(w, r, eventID)
 	default:
 		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
 	}
@@ -810,6 +816,89 @@ func (a *App) handleAdminEventUnpublish(w http.ResponseWriter, r *http.Request, 
 	}
 
 	item, err := a.eventRepo.UnpublishEvent(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventCancel(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		CancelledReason string `json:"cancelled_reason"`
+		ChangeNote      string `json:"change_note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	item, err := a.eventRepo.CancelEvent(
+		r.Context(),
+		principal.TenantID,
+		eventID,
+		request.CancelledReason,
+		request.ChangeNote,
+	)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventPostpone(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		StartsAt   string `json:"starts_at"`
+		EndsAt     string `json:"ends_at"`
+		ChangeNote string `json:"change_note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	item, err := a.eventRepo.PostponeEvent(
+		r.Context(),
+		principal.TenantID,
+		eventID,
+		request.StartsAt,
+		request.EndsAt,
+		request.ChangeNote,
+	)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventMarkCompleted(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.MarkEventCompleted(r.Context(), principal.TenantID, eventID)
 	if err != nil {
 		a.writeEventError(w, err)
 		return

@@ -272,7 +272,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 		`UPDATE events
      SET series_id = ?, slug = ?, title = ?, subtitle = ?, description = ?, starts_at = ?, ends_at = ?, timezone = ?,
          location_name = ?, address = ?, online_url = ?, participation_mode = ?, is_public = ?, registration_enabled = ?,
-         waitlist_enabled = ?, max_participants = ?, change_note = ?, cancelled_reason = ?, updated_at = ?
+         waitlist_enabled = ?, max_participants = ?, change_note = ?, cancelled_reason = ?, status = ?, updated_at = ?
      WHERE tenant_id = ? AND id = ?`,
 		nullable(updated.SeriesID),
 		updated.Slug,
@@ -292,6 +292,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 		nullableInt(updated.MaxParticipants),
 		nullable(updated.ChangeNote),
 		nullable(updated.CancelledReason),
+		updated.Status,
 		now,
 		tenant,
 		id,
@@ -346,6 +347,141 @@ func (r *Repository) UnpublishEvent(ctx context.Context, tenantID, eventID strin
 	return r.transitionPublishState(ctx, tenantID, eventID, false)
 }
 
+func (r *Repository) CancelEvent(ctx context.Context, tenantID, eventID, cancelledReason, changeNote string) (Event, error) {
+	current, err := r.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+	if !canCancel(current.Status) {
+		return Event{}, ErrInvalidStatusTransition
+	}
+
+	reason := strings.TrimSpace(cancelledReason)
+	if reason == "" {
+		return Event{}, fmt.Errorf("cancelled_reason must not be empty")
+	}
+	if len(reason) > 1000 {
+		return Event{}, fmt.Errorf("cancelled_reason must be <= 1000 characters")
+	}
+	note := strings.TrimSpace(changeNote)
+	if len(note) > 2000 {
+		return Event{}, fmt.Errorf("change_note must be <= 2000 characters")
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET status = ?, cancelled_reason = ?, change_note = ?, registration_enabled = 0, waitlist_enabled = 0, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		EventStatusCancelled,
+		reason,
+		nullable(note),
+		now,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(eventID),
+	)
+	if err != nil {
+		return Event{}, fmt.Errorf("cancel event: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("cancel event rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+	return r.GetEventByID(ctx, tenantID, eventID)
+}
+
+func (r *Repository) PostponeEvent(ctx context.Context, tenantID, eventID, startsAtRaw, endsAtRaw, changeNote string) (Event, error) {
+	current, err := r.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+	if !canPostpone(current.Status) {
+		return Event{}, ErrInvalidStatusTransition
+	}
+
+	startsAt, err := parseRequiredRFC3339(startsAtRaw, "event starts_at")
+	if err != nil {
+		return Event{}, err
+	}
+	endsAt, err := parseOptionalRFC3339(endsAtRaw, "event ends_at")
+	if err != nil {
+		return Event{}, err
+	}
+	if endsAt != nil && endsAt.Before(startsAt) {
+		return Event{}, fmt.Errorf("event ends_at must be >= starts_at")
+	}
+	note := strings.TrimSpace(changeNote)
+	if note == "" {
+		return Event{}, fmt.Errorf("change_note must not be empty")
+	}
+	if len(note) > 2000 {
+		return Event{}, fmt.Errorf("change_note must be <= 2000 characters")
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET status = ?, starts_at = ?, ends_at = ?, change_note = ?, cancelled_reason = NULL, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		EventStatusPostponed,
+		startsAt.UTC().Format(time.RFC3339),
+		nullableTime(endsAt),
+		note,
+		now,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(eventID),
+	)
+	if err != nil {
+		return Event{}, fmt.Errorf("postpone event: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("postpone event rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+	return r.GetEventByID(ctx, tenantID, eventID)
+}
+
+func (r *Repository) MarkEventCompleted(ctx context.Context, tenantID, eventID string) (Event, error) {
+	current, err := r.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+	if !canMarkCompleted(current.Status) {
+		return Event{}, ErrInvalidStatusTransition
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET status = ?, registration_enabled = 0, waitlist_enabled = 0, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		EventStatusCompleted,
+		now,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(eventID),
+	)
+	if err != nil {
+		return Event{}, fmt.Errorf("mark event completed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("mark event completed rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+	return r.GetEventByID(ctx, tenantID, eventID)
+}
+
 func (r *Repository) transitionPublishState(ctx context.Context, tenantID, eventID string, published bool) (Event, error) {
 	current, err := r.GetEventByID(ctx, tenantID, eventID)
 	if err != nil {
@@ -396,9 +532,37 @@ func canTogglePublish(status string) bool {
 	}
 }
 
+func canCancel(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case EventStatusCancelled, EventStatusCompleted, EventStatusArchived:
+		return false
+	default:
+		return true
+	}
+}
+
+func canPostpone(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case EventStatusScheduled, EventStatusChanged, EventStatusPostponed:
+		return true
+	default:
+		return false
+	}
+}
+
+func canMarkCompleted(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case EventStatusScheduled, EventStatusChanged, EventStatusPostponed:
+		return true
+	default:
+		return false
+	}
+}
+
 func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, current Event, params UpdateEventParams) (Event, bool, error) {
 	updated := current
 	hasChange := false
+	contentChanged := false
 
 	if params.SeriesID != nil {
 		seriesID, err := r.normalizeSeriesForTenant(ctx, tenantID, *params.SeriesID)
@@ -407,6 +571,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.SeriesID = seriesID
 		hasChange = true
+		contentChanged = true
 	}
 	if params.Slug != nil {
 		slug, err := normalizeEventSlug(*params.Slug)
@@ -415,6 +580,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.Slug = slug
 		hasChange = true
+		contentChanged = true
 	}
 	if params.Title != nil {
 		title := strings.TrimSpace(*params.Title)
@@ -426,14 +592,17 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.Title = title
 		hasChange = true
+		contentChanged = true
 	}
 	if params.Subtitle != nil {
 		updated.Subtitle = strings.TrimSpace(*params.Subtitle)
 		hasChange = true
+		contentChanged = true
 	}
 	if params.Description != nil {
 		updated.Description = strings.TrimSpace(*params.Description)
 		hasChange = true
+		contentChanged = true
 	}
 	if params.StartsAt != nil {
 		startsAt, err := parseRequiredRFC3339(*params.StartsAt, "event starts_at")
@@ -442,6 +611,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.StartsAt = startsAt
 		hasChange = true
+		contentChanged = true
 	}
 	if params.EndsAt != nil {
 		endsAt, err := parseOptionalRFC3339(*params.EndsAt, "event ends_at")
@@ -450,6 +620,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.EndsAt = endsAt
 		hasChange = true
+		contentChanged = true
 	}
 	if updated.EndsAt != nil && updated.EndsAt.Before(updated.StartsAt) {
 		return Event{}, false, fmt.Errorf("event ends_at must be >= starts_at")
@@ -461,14 +632,17 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.Timezone = timezone
 		hasChange = true
+		contentChanged = true
 	}
 	if params.LocationName != nil {
 		updated.LocationName = strings.TrimSpace(*params.LocationName)
 		hasChange = true
+		contentChanged = true
 	}
 	if params.Address != nil {
 		updated.Address = strings.TrimSpace(*params.Address)
 		hasChange = true
+		contentChanged = true
 	}
 	if params.OnlineURL != nil {
 		onlineURL, err := normalizeOptionalEventURL(*params.OnlineURL)
@@ -477,6 +651,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.OnlineURL = onlineURL
 		hasChange = true
+		contentChanged = true
 	}
 	if params.ParticipationMode != nil {
 		mode, err := normalizeParticipationMode(*params.ParticipationMode)
@@ -485,6 +660,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.ParticipationMode = mode
 		hasChange = true
+		contentChanged = true
 	}
 	if params.IsPublic != nil {
 		updated.IsPublic = *params.IsPublic
@@ -505,6 +681,7 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		}
 		updated.MaxParticipants = &value
 		hasChange = true
+		contentChanged = true
 	}
 	if params.ChangeNote != nil {
 		updated.ChangeNote = strings.TrimSpace(*params.ChangeNote)
@@ -513,6 +690,13 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 	if params.CancelledReason != nil {
 		updated.CancelledReason = strings.TrimSpace(*params.CancelledReason)
 		hasChange = true
+	}
+
+	if contentChanged {
+		switch strings.ToLower(strings.TrimSpace(current.Status)) {
+		case EventStatusScheduled, EventStatusChanged:
+			updated.Status = EventStatusChanged
+		}
 	}
 
 	return updated, hasChange, nil
