@@ -21,6 +21,13 @@ func clearEEPEnv(t *testing.T) {
 		"EEP_MAIL_PROVIDER",
 		"EEP_MAIL_FROM",
 		"EEP_MAIL_FROM_NAME",
+		"EEP_PAYPAL_USE_REAL_API",
+		"EEP_PAYPAL_CLIENT_ID",
+		"EEP_PAYPAL_CLIENT_SECRET",
+		"EEP_PAYPAL_WEBHOOK_ID",
+		"EEP_PAYPAL_SANDBOX_API_BASE_URL",
+		"EEP_PAYPAL_LIVE_API_BASE_URL",
+		"EEP_PAYPAL_HTTP_TIMEOUT",
 		"EEP_SES_REGION",
 		"EEP_SES_SMTP_HOST",
 		"EEP_SES_SMTP_PORT",
@@ -95,6 +102,27 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MailFromName != "" {
 		t.Fatalf("expected default mail from name empty, got %q", cfg.MailFromName)
 	}
+	if cfg.PayPalUseRealAPI {
+		t.Fatalf("expected paypal real api default false")
+	}
+	if cfg.PayPalClientID != "" {
+		t.Fatalf("expected empty paypal client id by default, got %q", cfg.PayPalClientID)
+	}
+	if cfg.PayPalClientSecret != "" {
+		t.Fatalf("expected empty paypal client secret by default")
+	}
+	if cfg.PayPalWebhookID != "" {
+		t.Fatalf("expected empty paypal webhook id by default, got %q", cfg.PayPalWebhookID)
+	}
+	if cfg.PayPalSandboxAPIBaseURL != "https://api-m.sandbox.paypal.com" {
+		t.Fatalf("expected default paypal sandbox base url, got %q", cfg.PayPalSandboxAPIBaseURL)
+	}
+	if cfg.PayPalLiveAPIBaseURL != "https://api-m.paypal.com" {
+		t.Fatalf("expected default paypal live base url, got %q", cfg.PayPalLiveAPIBaseURL)
+	}
+	if cfg.PayPalHTTPTimeout != 15*time.Second {
+		t.Fatalf("expected default paypal http timeout 15s, got %s", cfg.PayPalHTTPTimeout)
+	}
 	if cfg.SESRegion != "eu-north-1" {
 		t.Fatalf("expected default ses region eu-north-1, got %q", cfg.SESRegion)
 	}
@@ -150,6 +178,13 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_MAIL_PROVIDER", "ses")
 	t.Setenv("EEP_MAIL_FROM", "events@example.com")
 	t.Setenv("EEP_MAIL_FROM_NAME", "Events Team")
+	t.Setenv("EEP_PAYPAL_USE_REAL_API", "true")
+	t.Setenv("EEP_PAYPAL_CLIENT_ID", "paypal-client-id")
+	t.Setenv("EEP_PAYPAL_CLIENT_SECRET", "paypal-client-secret")
+	t.Setenv("EEP_PAYPAL_WEBHOOK_ID", "WH-123")
+	t.Setenv("EEP_PAYPAL_SANDBOX_API_BASE_URL", "https://sandbox-paypal.example.test")
+	t.Setenv("EEP_PAYPAL_LIVE_API_BASE_URL", "https://live-paypal.example.test")
+	t.Setenv("EEP_PAYPAL_HTTP_TIMEOUT", "11s")
 	t.Setenv("EEP_SES_REGION", "eu-central-1")
 	t.Setenv("EEP_SES_SMTP_HOST", "email-smtp.eu-central-1.amazonaws.com")
 	t.Setenv("EEP_SES_SMTP_PORT", "2525")
@@ -207,6 +242,27 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.MailFromName != "Events Team" {
 		t.Fatalf("expected mail from name override, got %q", cfg.MailFromName)
+	}
+	if !cfg.PayPalUseRealAPI {
+		t.Fatalf("expected paypal real api override to true")
+	}
+	if cfg.PayPalClientID != "paypal-client-id" {
+		t.Fatalf("expected paypal client id override, got %q", cfg.PayPalClientID)
+	}
+	if cfg.PayPalClientSecret != "paypal-client-secret" {
+		t.Fatalf("expected paypal client secret override, got %q", cfg.PayPalClientSecret)
+	}
+	if cfg.PayPalWebhookID != "WH-123" {
+		t.Fatalf("expected paypal webhook id override, got %q", cfg.PayPalWebhookID)
+	}
+	if cfg.PayPalSandboxAPIBaseURL != "https://sandbox-paypal.example.test" {
+		t.Fatalf("expected paypal sandbox base url override, got %q", cfg.PayPalSandboxAPIBaseURL)
+	}
+	if cfg.PayPalLiveAPIBaseURL != "https://live-paypal.example.test" {
+		t.Fatalf("expected paypal live base url override, got %q", cfg.PayPalLiveAPIBaseURL)
+	}
+	if cfg.PayPalHTTPTimeout != 11*time.Second {
+		t.Fatalf("expected paypal http timeout 11s, got %s", cfg.PayPalHTTPTimeout)
 	}
 	if cfg.SESRegion != "eu-central-1" {
 		t.Fatalf("expected ses region override, got %q", cfg.SESRegion)

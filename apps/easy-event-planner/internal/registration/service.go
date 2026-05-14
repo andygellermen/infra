@@ -17,6 +17,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/invitation"
 )
 
 const (
@@ -62,11 +63,12 @@ type Config struct {
 }
 
 type Service struct {
-	db    *sql.DB
-	cfg   Config
-	nowFn func() time.Time
-	idFn  func(prefix string) string
-	tokFn func() (string, error)
+	db                *sql.DB
+	cfg               Config
+	invitationService *invitation.Service
+	nowFn             func() time.Time
+	idFn              func(prefix string) string
+	tokFn             func() (string, error)
 }
 
 type StartInput struct {
@@ -77,17 +79,25 @@ type StartInput struct {
 	Email             string
 	Phone             string
 	ParticipationType string
+	InviteCode        string
+	InviteAmountCents int
 	PrivacyAccepted   bool
 	RequestIP         string
 	UserAgent         string
 }
 
 type StartResult struct {
-	RegistrationID string
-	ParticipantID  string
-	EventID        string
-	Status         string
-	VerifyExpires  time.Time
+	RegistrationID      string
+	ParticipantID       string
+	EventID             string
+	Status              string
+	VerifyExpires       time.Time
+	InviteID            string
+	InviteCode          string
+	DiscountAmountCents int
+	CreditAmountCents   int
+	FinalAmountCents    int
+	Sponsored           bool
 }
 
 type VerifyInput struct {
@@ -154,9 +164,10 @@ func NewService(sqlDB *sql.DB, cfg Config) *Service {
 			RegistrationTTL:  registrationTTL,
 			WaitlistOfferTTL: waitlistOfferTTL,
 		},
-		nowFn: func() time.Time { return time.Now().UTC() },
-		idFn:  defaultID,
-		tokFn: randomToken,
+		invitationService: invitation.NewService(sqlDB),
+		nowFn:             func() time.Time { return time.Now().UTC() },
+		idFn:              defaultID,
+		tokFn:             randomToken,
 	}
 }
 
@@ -197,6 +208,13 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 	participationType, err := normalizeParticipationType(input.ParticipationType)
 	if err != nil {
 		return StartResult{}, err
+	}
+	inviteCode := strings.TrimSpace(input.InviteCode)
+	if len(inviteCode) > 64 {
+		return StartResult{}, fmt.Errorf("%w: invite_code must be <= 64 characters", ErrInvalidStartInput)
+	}
+	if input.InviteAmountCents < 0 {
+		return StartResult{}, fmt.Errorf("%w: invite_amount_cents must be >= 0", ErrInvalidStartInput)
 	}
 
 	eventItem, err := s.lookupEvent(ctx, tenantID, eventID)
@@ -284,6 +302,22 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 		return StartResult{}, fmt.Errorf("insert registration: %w", err)
 	}
 
+	inviteResult := invitation.ResolveResult{}
+	if inviteCode != "" && s.invitationService != nil {
+		inviteResult, err = s.invitationService.ApplyCodeToRegistrationTx(ctx, tx, invitation.ApplyCodeToRegistrationInput{
+			TenantID:         tenantID,
+			EventID:          eventID,
+			RegistrationID:   registrationID,
+			ParticipantEmail: normalizedEmail,
+			Code:             inviteCode,
+			BaseAmountCents:  input.InviteAmountCents,
+		})
+		if err != nil {
+			_ = tx.Rollback()
+			return StartResult{}, err
+		}
+	}
+
 	rawToken, expiresAt, err := s.createVerificationMagicLinkTx(ctx, tx, tenantID, participantID, registrationID, input.RequestIP, input.UserAgent, now)
 	if err != nil {
 		_ = tx.Rollback()
@@ -300,11 +334,17 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 	}
 
 	return StartResult{
-		RegistrationID: registrationID,
-		ParticipantID:  participantID,
-		EventID:        eventID,
-		Status:         StatusVerificationPending,
-		VerifyExpires:  expiresAt,
+		RegistrationID:      registrationID,
+		ParticipantID:       participantID,
+		EventID:             eventID,
+		Status:              StatusVerificationPending,
+		VerifyExpires:       expiresAt,
+		InviteID:            inviteResult.Link.ID,
+		InviteCode:          inviteResult.Link.Code,
+		DiscountAmountCents: inviteResult.DiscountAmountCents,
+		CreditAmountCents:   inviteResult.CreditAmountCents,
+		FinalAmountCents:    inviteResult.FinalAmountCents,
+		Sponsored:           inviteResult.Sponsored,
 	}, nil
 }
 

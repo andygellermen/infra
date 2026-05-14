@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/invitation"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
@@ -96,6 +97,14 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.handlePublicRegistrationCalendar(w, r, tenantItem, routeSlug)
+	case "invitations_resolve":
+		a.handlePublicInvitationResolve(w, r, tenantItem)
+	case "payments_paypal_create_order":
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handlePublicPayPalCreateOrder(w, r, tenantItem)
 	default:
 		writeAPIError(w, http.StatusNotFound, "NOT_FOUND", "Route nicht gefunden.")
 	}
@@ -232,6 +241,11 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 			default:
 				return "", "", "", false
 			}
+		case "invitations":
+			if parts[2] != "resolve" {
+				return "", "", "", false
+			}
+			return tenantSlug, "invitations_resolve", "", true
 		default:
 			return "", "", "", false
 		}
@@ -247,6 +261,11 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 				return "", "", "", false
 			}
 			return tenantSlug, "registrations_calendar", strings.TrimSpace(parts[2]), true
+		case "payments":
+			if parts[2] != "paypal" || parts[3] != "create-order" {
+				return "", "", "", false
+			}
+			return tenantSlug, "payments_paypal_create_order", "", true
 		default:
 			return "", "", "", false
 		}
@@ -262,6 +281,8 @@ func (a *App) handlePublicRegistrationStart(w http.ResponseWriter, r *http.Reque
 		Email             string `json:"email"`
 		Phone             string `json:"phone"`
 		ParticipationType string `json:"participation_type"`
+		InviteCode        string `json:"invite_code"`
+		InviteAmountCents int    `json:"invite_amount_cents"`
 		PrivacyAccepted   bool   `json:"privacy_accepted"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -277,6 +298,8 @@ func (a *App) handlePublicRegistrationStart(w http.ResponseWriter, r *http.Reque
 		Email:             request.Email,
 		Phone:             request.Phone,
 		ParticipationType: request.ParticipationType,
+		InviteCode:        request.InviteCode,
+		InviteAmountCents: request.InviteAmountCents,
 		PrivacyAccepted:   request.PrivacyAccepted,
 		RequestIP:         clientIP(r),
 		UserAgent:         strings.TrimSpace(r.UserAgent()),
@@ -294,6 +317,14 @@ func (a *App) handlePublicRegistrationStart(w http.ResponseWriter, r *http.Reque
 		"status":            result.Status,
 		"verify_expires_at": result.VerifyExpires.UTC().Format(time.RFC3339),
 		"message":           "Bitte bestaetige die Anmeldung ueber den Link in der E-Mail.",
+		"invite": map[string]any{
+			"id":                    emptyToNil(result.InviteID),
+			"code":                  emptyToNil(result.InviteCode),
+			"discount_amount_cents": result.DiscountAmountCents,
+			"credit_amount_cents":   result.CreditAmountCents,
+			"final_amount_cents":    result.FinalAmountCents,
+			"sponsored":             result.Sponsored,
+		},
 	})
 }
 
@@ -373,6 +404,18 @@ func (a *App) writePublicRegistrationError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusConflict, "REGISTRATION_STATE_INVALID", "Anmeldung kann nicht bestaetigt werden.")
 	case errors.Is(err, registration.ErrEventFull):
 		writeAPIError(w, http.StatusConflict, "EVENT_FULL", "Die Veranstaltung ist ausgebucht. Eine Warteliste ist verfuegbar.")
+	case errors.Is(err, invitation.ErrInvitationNotFound):
+		writeAPIError(w, http.StatusNotFound, "INVITATION_NOT_FOUND", "Einladungscode wurde nicht gefunden.")
+	case errors.Is(err, invitation.ErrInvitationStatusInvalid):
+		writeAPIError(w, http.StatusConflict, "INVITATION_INACTIVE", "Einladungscode ist derzeit nicht aktiv.")
+	case errors.Is(err, invitation.ErrInvitationNotStarted):
+		writeAPIError(w, http.StatusConflict, "INVITATION_NOT_STARTED", "Einladungscode ist noch nicht aktiv.")
+	case errors.Is(err, invitation.ErrInvitationExpired):
+		writeAPIError(w, http.StatusConflict, "INVITATION_EXPIRED", "Einladungscode ist abgelaufen.")
+	case errors.Is(err, invitation.ErrInvitationScopeMismatch):
+		writeAPIError(w, http.StatusConflict, "INVITATION_SCOPE_MISMATCH", "Einladungscode passt nicht zu dieser Veranstaltung.")
+	case errors.Is(err, invitation.ErrInvitationUsageExceeded), errors.Is(err, invitation.ErrInvitationEmailExceeded):
+		writeAPIError(w, http.StatusConflict, "INVITATION_LIMIT_REACHED", "Einladungscode kann nicht mehr eingelost werden.")
 	default:
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
 	}
@@ -436,6 +479,14 @@ func parsePublicDateFilter(raw string, dayEnd bool) (*time.Time, error) {
 		parsedDate = parsedDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 	return &parsedDate, nil
+}
+
+func emptyToNil(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func publicTenantPayload(item tenant.Tenant) map[string]any {

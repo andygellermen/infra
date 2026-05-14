@@ -177,9 +177,20 @@ Start-Request:
   "phone": "+491701234567",
   "participation_type": "onsite",
   "invite_code": "FREUNDE20",
+  "invite_amount_cents": 3900,
   "privacy_accepted": true,
   "turnstile_token": "..."
 }
+```
+
+## Invitations & Discounts
+
+```http
+GET   /api/v1/admin/invitations
+POST  /api/v1/admin/invitations
+GET   /api/v1/admin/invitations/{invitationId}
+PATCH /api/v1/admin/invitations/{invitationId}
+POST  /api/v1/public/{tenantSlug}/invitations/resolve
 ```
 
 ## PayPal

@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 15 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 18 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -27,6 +27,8 @@ Die technischen Grundlagen aus Paket 1 bis Paket 15 aus `docs/codex-task-plan.md
 - Tages-/Morgenuebersicht fuer Veranstalter als automatischer Email-Job (`internal/notification`, Template `organizer_morning_summary`)
 - Privacy-Retention mit Tenant-Policies, Dry-Run/Run, Teilnehmeranonymisierung, Magic-Link-/Session-/Email-Job-Cleanup, Audit-Log und Admin-API (`internal/privacy`, `/api/v1/admin/privacy/...`)
 - Event-Pflegeaktionen mit Statusuebergaengen (`changed`, `postponed`, `cancelled`, `completed`) und Admin-API-Aktionen (`/publish`, `/unpublish`, `/cancel`, `/postpone`, `/mark-completed`)
+- PayPal-Basisfluss mit optionaler Real-API-Integration (`OAuth2`, `create-order`) und Webhook-Signaturpruefung inklusive deduplizierter Event-Verarbeitung (`/api/v1/public/{tenantSlug}/payments/paypal/create-order`, `/api/v1/webhooks/paypal`)
+- Discounts & Invitations mit Admin-CRUD, Public-Resolve, Nutzungs-/Zeitfenster-/Scope-Validierung und Registrierungseinloesung inkl. Redemptions (`/api/v1/admin/invitations`, `/api/v1/public/{tenantSlug}/invitations/resolve`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -128,6 +130,16 @@ Wichtige Mail/Worker-Variablen:
 - `EEP_EMAIL_WORKER_POLL_INTERVAL` (Default `3s`)
 - `EEP_EMAIL_WORKER_BATCH_SIZE` (Default `10`)
 
+Wichtige PayPal-Haertung-Variablen:
+
+- `EEP_PAYPAL_USE_REAL_API` (`true` aktiviert echte PayPal-API-Aufrufe)
+- `EEP_PAYPAL_CLIENT_ID`
+- `EEP_PAYPAL_CLIENT_SECRET`
+- `EEP_PAYPAL_WEBHOOK_ID`
+- `EEP_PAYPAL_SANDBOX_API_BASE_URL` (Default `https://api-m.sandbox.paypal.com`)
+- `EEP_PAYPAL_LIVE_API_BASE_URL` (Default `https://api-m.paypal.com`)
+- `EEP_PAYPAL_HTTP_TIMEOUT` (Default `15s`)
+
 ## Dokumente
 
 - [domain-map.md](docs/domain-map.md)
@@ -146,4 +158,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 17 aus `docs/codex-task-plan.md`: PayPal Basis mit Order und Webhook.
+Paket 19 aus `docs/codex-task-plan.md`: Participant Portal.

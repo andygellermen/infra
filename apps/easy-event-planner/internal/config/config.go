@@ -30,6 +30,7 @@ const (
 	defaultCertificateTTL    = 30 * time.Minute
 	defaultRateLimitWindow   = 15 * time.Minute
 	defaultRateLimitRequests = 5
+	defaultPayPalHTTPTimeout = 15 * time.Second
 	defaultWorkerPoll        = 3 * time.Second
 	defaultWorkerBatch       = 10
 	defaultVersion           = "dev"
@@ -50,6 +51,13 @@ type Config struct {
 	MailProvider            string
 	MailFromEmail           string
 	MailFromName            string
+	PayPalUseRealAPI        bool
+	PayPalClientID          string
+	PayPalClientSecret      string
+	PayPalWebhookID         string
+	PayPalSandboxAPIBaseURL string
+	PayPalLiveAPIBaseURL    string
+	PayPalHTTPTimeout       time.Duration
 	SESRegion               string
 	SESHost                 string
 	SESPort                 int
@@ -88,6 +96,13 @@ func Load(buildVersion string) (Config, error) {
 		MailProvider:            strings.ToLower(strings.TrimSpace(getenv("EEP_MAIL_PROVIDER", defaultMailProvider))),
 		MailFromEmail:           strings.TrimSpace(getenv("EEP_MAIL_FROM", defaultMailFromEmail)),
 		MailFromName:            strings.TrimSpace(getenv("EEP_MAIL_FROM_NAME", defaultMailFromName)),
+		PayPalUseRealAPI:        getenvBool("EEP_PAYPAL_USE_REAL_API", false),
+		PayPalClientID:          strings.TrimSpace(getenv("EEP_PAYPAL_CLIENT_ID", "")),
+		PayPalClientSecret:      strings.TrimSpace(getenv("EEP_PAYPAL_CLIENT_SECRET", "")),
+		PayPalWebhookID:         strings.TrimSpace(getenv("EEP_PAYPAL_WEBHOOK_ID", "")),
+		PayPalSandboxAPIBaseURL: strings.TrimSpace(getenv("EEP_PAYPAL_SANDBOX_API_BASE_URL", "https://api-m.sandbox.paypal.com")),
+		PayPalLiveAPIBaseURL:    strings.TrimSpace(getenv("EEP_PAYPAL_LIVE_API_BASE_URL", "https://api-m.paypal.com")),
+		PayPalHTTPTimeout:       defaultPayPalHTTPTimeout,
 		SESRegion:               strings.TrimSpace(getenv("EEP_SES_REGION", defaultSESRegion)),
 		SESHost:                 strings.TrimSpace(getenv("EEP_SES_SMTP_HOST", "")),
 		SESPort:                 defaultSESPort,
@@ -136,6 +151,12 @@ func Load(buildVersion string) (Config, error) {
 	if cfg.MailFromEmail == "" {
 		return Config{}, fmt.Errorf("EEP_MAIL_FROM must not be empty")
 	}
+	if cfg.PayPalSandboxAPIBaseURL == "" {
+		return Config{}, fmt.Errorf("EEP_PAYPAL_SANDBOX_API_BASE_URL must not be empty")
+	}
+	if cfg.PayPalLiveAPIBaseURL == "" {
+		return Config{}, fmt.Errorf("EEP_PAYPAL_LIVE_API_BASE_URL must not be empty")
+	}
 	if cfg.SESRegion == "" {
 		return Config{}, fmt.Errorf("EEP_SES_REGION must not be empty")
 	}
@@ -169,6 +190,10 @@ func Load(buildVersion string) (Config, error) {
 		return Config{}, err
 	}
 	cfg.AuthRateWindow, err = parseDurationEnv("EEP_AUTH_RATE_LIMIT_WINDOW", defaultRateLimitWindow)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.PayPalHTTPTimeout, err = parseDurationEnv("EEP_PAYPAL_HTTP_TIMEOUT", defaultPayPalHTTPTimeout)
 	if err != nil {
 		return Config{}, err
 	}

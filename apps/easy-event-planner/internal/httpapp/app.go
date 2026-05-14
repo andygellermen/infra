@@ -14,6 +14,8 @@ import (
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/calendar"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/invitation"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/payment"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/privacy"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/snippet"
@@ -21,17 +23,19 @@ import (
 )
 
 type App struct {
-	cfg             config.Config
-	mux             *http.ServeMux
-	db              *sql.DB
-	authService     *auth.Service
-	eventRepo       *event.Repository
-	tenantRepo      *tenant.Repository
-	regService      *registration.Service
-	calendarService *calendar.Service
-	privacyService  *privacy.Service
-	snippetRepo     *snippet.Repository
-	startedAt       time.Time
+	cfg               config.Config
+	mux               *http.ServeMux
+	db                *sql.DB
+	authService       *auth.Service
+	eventRepo         *event.Repository
+	tenantRepo        *tenant.Repository
+	regService        *registration.Service
+	invitationService *invitation.Service
+	calendarService   *calendar.Service
+	paymentService    *payment.Service
+	privacyService    *privacy.Service
+	snippetRepo       *snippet.Repository
+	startedAt         time.Time
 }
 
 func New(cfg config.Config, sqlDB *sql.DB) *App {
@@ -66,9 +70,19 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			RegistrationTTL:  cfg.RegistrationTTL,
 			WaitlistOfferTTL: cfg.WaitlistOfferTTL,
 		})
+		app.invitationService = invitation.NewService(sqlDB)
 		app.calendarService = calendar.NewService(sqlDB, calendar.Config{
 			BaseURL:     cfg.BaseURL,
 			TokenPepper: cfg.TokenPepper,
+		})
+		app.paymentService = payment.NewService(sqlDB, payment.Config{
+			FallbackClientID:     cfg.PayPalClientID,
+			FallbackClientSecret: cfg.PayPalClientSecret,
+			FallbackWebhookID:    cfg.PayPalWebhookID,
+			SandboxAPIBaseURL:    cfg.PayPalSandboxAPIBaseURL,
+			LiveAPIBaseURL:       cfg.PayPalLiveAPIBaseURL,
+			HTTPTimeout:          cfg.PayPalHTTPTimeout,
+			UseRealPayPalAPI:     cfg.PayPalUseRealAPI,
 		})
 		app.privacyService = privacy.NewService(sqlDB)
 		app.snippetRepo = snippet.NewRepository(sqlDB)
@@ -107,10 +121,13 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/privacy/retention-jobs", a.handleAdminRetentionJobsList)
 	a.mux.HandleFunc("/api/v1/admin/snippets", a.handleAdminSnippetsCollection)
 	a.mux.HandleFunc("/api/v1/admin/snippets/", a.handleAdminSnippetsItem)
+	a.mux.HandleFunc("/api/v1/admin/invitations", a.handleAdminInvitationsCollection)
+	a.mux.HandleFunc("/api/v1/admin/invitations/", a.handleAdminInvitationsItem)
 	a.mux.HandleFunc("/api/v1/admin/registrations/", a.handleAdminRegistrationItem)
 	a.mux.HandleFunc("/api/v1/admin/waitlist/", a.handleAdminWaitlistItem)
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
+	a.mux.HandleFunc("/api/v1/webhooks/paypal", a.handlePayPalWebhook)
 	a.mux.HandleFunc("/", a.handleTenantAssetRoutes)
 }
 
