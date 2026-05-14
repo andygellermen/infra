@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/db"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/db/migrations"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
@@ -196,4 +198,167 @@ func TestWorkerMarksFailedOnMailerError(t *testing.T) {
 	if !strings.Contains(stored.ErrorMessage.String, "simulated") {
 		t.Fatalf("expected error_message to include source error, got %q", stored.ErrorMessage.String)
 	}
+}
+
+func TestWorkerGeneratesOrganizerSummaryOnEventDay(t *testing.T) {
+	sqlDB, tenantID := setupNotificationDB(t)
+	now := time.Date(2026, 9, 10, 6, 0, 0, 0, time.UTC)
+	eventRepo := event.NewRepository(sqlDB)
+
+	eventItem := createPublishedEventForNotificationTest(t, eventRepo, tenantID, event.CreateEventParams{
+		Slug:            "event-day-summary",
+		Title:           "Event Day Summary",
+		StartsAt:        now.Add(8 * time.Hour).Format(time.RFC3339),
+		Timezone:        "UTC",
+		MaxParticipants: intPointer(8),
+	})
+
+	addOrganizerUser(t, sqlDB, tenantID, "owner@example.com", "Owner", "owner")
+
+	insertRegistrationWithParticipant(t, sqlDB, tenantID, eventItem.ID, "Alice", "alice@example.com", "confirmed", "onsite", nil)
+	insertRegistrationWithParticipant(t, sqlDB, tenantID, eventItem.ID, "Bob", "bob@example.com", "waitlist", "online", nil)
+	insertRegistrationWithParticipant(t, sqlDB, tenantID, eventItem.ID, "Carla", "carla@example.com", "verification_pending", "onsite", nil)
+	insertRegistrationWithParticipant(t, sqlDB, tenantID, eventItem.ID, "Dave", "dave@example.com", "reserved", "onsite", timePointer(now.Add(1*time.Hour)))
+	insertRegistrationWithParticipant(t, sqlDB, tenantID, eventItem.ID, "Eve", "eve@example.com", "payment_pending", "hybrid", timePointer(now.Add(2*time.Hour)))
+
+	mailer := &captureMailer{}
+	worker := NewWorker(sqlDB, mailer, WorkerConfig{BatchSize: 10, PollInterval: time.Second})
+	worker.nowFn = func() time.Time { return now }
+
+	stats, err := worker.ProcessOnce(context.Background())
+	if err != nil {
+		t.Fatalf("ProcessOnce returned error: %v", err)
+	}
+	if stats.Queued != 1 {
+		t.Fatalf("expected one queued organizer summary, got %d", stats.Queued)
+	}
+	if stats.Claimed != 1 || stats.Sent != 1 || stats.Failed != 0 {
+		t.Fatalf("unexpected process stats: %+v", stats)
+	}
+	if len(mailer.messages) != 1 {
+		t.Fatalf("expected one delivered message, got %d", len(mailer.messages))
+	}
+
+	message := mailer.messages[0]
+	if message.TemplateKey != OrganizerSummaryTemplateKey {
+		t.Fatalf("expected template key %q, got %q", OrganizerSummaryTemplateKey, message.TemplateKey)
+	}
+	if !strings.Contains(message.Subject, "Event Day Summary") {
+		t.Fatalf("expected subject to include event title, got %q", message.Subject)
+	}
+	if !strings.Contains(message.BodyText, "- bestaetigt: 1") {
+		t.Fatalf("expected confirmed count in body, got %q", message.BodyText)
+	}
+	if !strings.Contains(message.BodyText, "- warteliste: 1") {
+		t.Fatalf("expected waitlist count in body, got %q", message.BodyText)
+	}
+	if !strings.Contains(message.BodyText, "alice@example.com") {
+		t.Fatalf("expected participant listing in body, got %q", message.BodyText)
+	}
+
+	statsSecondRun, err := worker.ProcessOnce(context.Background())
+	if err != nil {
+		t.Fatalf("second ProcessOnce returned error: %v", err)
+	}
+	if statsSecondRun.Queued != 0 || statsSecondRun.Claimed != 0 {
+		t.Fatalf("expected no duplicate queue/send in second run, got %+v", statsSecondRun)
+	}
+	if len(mailer.messages) != 1 {
+		t.Fatalf("expected no additional messages after second run, got %d", len(mailer.messages))
+	}
+}
+
+func addOrganizerUser(t *testing.T, dbHandle *sql.DB, tenantID, email, name, role string) {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := dbHandle.ExecContext(
+		context.Background(),
+		`INSERT INTO tenant_users (id, tenant_id, email, name, role, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`,
+		fmt.Sprintf("usr_%d", time.Now().UTC().UnixNano()),
+		tenantID,
+		email,
+		name,
+		role,
+		now,
+		now,
+	); err != nil {
+		t.Fatalf("insert organizer user: %v", err)
+	}
+}
+
+func createPublishedEventForNotificationTest(t *testing.T, repo *event.Repository, tenantID string, params event.CreateEventParams) event.Event {
+	t.Helper()
+	created, err := repo.CreateEvent(context.Background(), tenantID, params)
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	published, err := repo.PublishEvent(context.Background(), tenantID, created.ID)
+	if err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	return published
+}
+
+func insertRegistrationWithParticipant(
+	t *testing.T,
+	dbHandle *sql.DB,
+	tenantID,
+	eventID,
+	name,
+	email,
+	status,
+	participationType string,
+	reservedUntil *time.Time,
+) {
+	t.Helper()
+
+	now := time.Now().UTC()
+	safeMail := strings.NewReplacer("@", "_", ".", "_", "+", "_", "-", "_").Replace(strings.ToLower(strings.TrimSpace(email)))
+	participantID := fmt.Sprintf("par_%s_%d", safeMail, now.UnixNano())
+	registrationID := fmt.Sprintf("reg_%s_%d", safeMail, now.UnixNano())
+
+	if _, err := dbHandle.ExecContext(
+		context.Background(),
+		`INSERT INTO participants (id, tenant_id, email, phone, name, created_at, updated_at)
+     VALUES (?, ?, ?, NULL, ?, ?, ?)`,
+		participantID,
+		tenantID,
+		strings.ToLower(strings.TrimSpace(email)),
+		name,
+		now.Format(time.RFC3339),
+		now.Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert participant: %v", err)
+	}
+
+	var reservedUntilRaw any
+	if reservedUntil != nil {
+		reservedUntilRaw = reservedUntil.UTC().Format(time.RFC3339)
+	}
+	if _, err := dbHandle.ExecContext(
+		context.Background(),
+		`INSERT INTO registrations (
+      id, tenant_id, event_id, participant_id, status, participation_type, quantity, reserved_until, source, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'public_page', ?, ?)`,
+		registrationID,
+		tenantID,
+		eventID,
+		participantID,
+		status,
+		participationType,
+		reservedUntilRaw,
+		now.Format(time.RFC3339),
+		now.Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert registration: %v", err)
+	}
+}
+
+func intPointer(value int) *int {
+	return &value
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
 }

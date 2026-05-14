@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 12 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 13 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -24,6 +24,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 12 aus `docs/codex-task-plan.md
 - Waitlist-Verwaltung mit Offer/Promote (`internal/registration` + Admin-API `/api/v1/admin/events/{eventId}/waitlist` und `/api/v1/admin/waitlist/{waitlistEntryId}/offer|promote`)
 - Admin Dashboard und Teilnehmerliste (`internal/registration` + Admin-API `/api/v1/admin/dashboard`, `/api/v1/admin/events/{eventId}/registrations`, `/api/v1/admin/registrations/{registrationId}`)
 - Ghost/CMS-Snippet mit Config-CRUD, Embed-Code, `include.js`, `snippet.css` und Public-Snippet-Events (`internal/snippet`, `/api/v1/admin/snippets`, `/{tenantSlug}/include.js`, `/{tenantSlug}/snippet.css`, `/api/v1/public/{tenantSlug}/snippet/events`)
+- Tages-/Morgenuebersicht fuer Veranstalter als automatischer Email-Job (`internal/notification`, Template `organizer_morning_summary`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -143,4 +144,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 13 aus `docs/codex-task-plan.md`: Morgen-E-Mail an Veranstalter.
+Paket 14 aus `docs/codex-task-plan.md`: Privacy Retention Jobs mit Dry-Run und Anonymisierung.

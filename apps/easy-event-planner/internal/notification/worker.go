@@ -21,6 +21,7 @@ type ProcessStats struct {
 	Claimed int
 	Sent    int
 	Failed  int
+	Queued  int
 }
 
 type Worker struct {
@@ -78,8 +79,8 @@ func (w *Worker) Run(ctx context.Context) error {
 		stats, err := w.ProcessOnce(ctx)
 		if err != nil {
 			log.Printf("email worker process cycle failed: %v", err)
-		} else if stats.Claimed > 0 {
-			log.Printf("email worker processed claimed=%d sent=%d failed=%d", stats.Claimed, stats.Sent, stats.Failed)
+		} else if stats.Claimed > 0 || stats.Queued > 0 {
+			log.Printf("email worker processed queued=%d claimed=%d sent=%d failed=%d", stats.Queued, stats.Claimed, stats.Sent, stats.Failed)
 		}
 
 		select {
@@ -96,6 +97,12 @@ func (w *Worker) ProcessOnce(ctx context.Context) (ProcessStats, error) {
 	}
 
 	var stats ProcessStats
+	queued, err := w.enqueueOrganizerSummaries(ctx)
+	if err != nil {
+		return stats, err
+	}
+	stats.Queued = queued
+
 	for i := 0; i < w.cfg.BatchSize; i++ {
 		job, ok, err := w.claimNextJob(ctx)
 		if err != nil {
