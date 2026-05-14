@@ -1,6 +1,7 @@
 package httpapp
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,15 +10,12 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
-		return
-	}
-	if a.eventRepo == nil || a.tenantRepo == nil {
+	if a.eventRepo == nil || a.tenantRepo == nil || a.regService == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service ist nicht verfuegbar.")
 		return
 	}
@@ -40,6 +38,10 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 
 	switch routeType {
 	case "events_list":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
 		filter, err := parsePublicEventFilter(r)
 		if err != nil {
 			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
@@ -47,10 +49,22 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		a.handlePublicEventsList(w, r, tenantItem, filter)
 	case "event_detail":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
 		a.handlePublicEventDetail(w, r, tenantItem, routeSlug)
 	case "series_list":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
 		a.handlePublicSeriesList(w, r, tenantItem)
 	case "series_events":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
 		filter, err := parsePublicEventFilter(r)
 		if err != nil {
 			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
@@ -58,6 +72,18 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.SeriesSlug = routeSlug
 		a.handlePublicSeriesEvents(w, r, tenantItem, routeSlug, filter)
+	case "registrations_start":
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handlePublicRegistrationStart(w, r, tenantItem)
+	case "registrations_verify":
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handlePublicRegistrationVerify(w, r, tenantItem)
 	default:
 		writeAPIError(w, http.StatusNotFound, "NOT_FOUND", "Route nicht gefunden.")
 	}
@@ -177,10 +203,21 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 			return "", "", "", false
 		}
 	case 3:
-		if parts[1] != "events" {
+		switch parts[1] {
+		case "events":
+			return tenantSlug, "event_detail", strings.TrimSpace(parts[2]), true
+		case "registrations":
+			switch parts[2] {
+			case "start":
+				return tenantSlug, "registrations_start", "", true
+			case "verify":
+				return tenantSlug, "registrations_verify", "", true
+			default:
+				return "", "", "", false
+			}
+		default:
 			return "", "", "", false
 		}
-		return tenantSlug, "event_detail", strings.TrimSpace(parts[2]), true
 	case 4:
 		if parts[1] != "series" || parts[3] != "events" {
 			return "", "", "", false
@@ -188,6 +225,118 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 		return tenantSlug, "series_events", strings.TrimSpace(parts[2]), true
 	default:
 		return "", "", "", false
+	}
+}
+
+func (a *App) handlePublicRegistrationStart(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant) {
+	var request struct {
+		EventID           string `json:"event_id"`
+		Name              string `json:"name"`
+		Email             string `json:"email"`
+		Phone             string `json:"phone"`
+		ParticipationType string `json:"participation_type"`
+		PrivacyAccepted   bool   `json:"privacy_accepted"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	result, err := a.regService.Start(r.Context(), registration.StartInput{
+		TenantID:          tenantItem.ID,
+		TenantSlug:        tenantItem.Slug,
+		EventID:           request.EventID,
+		Name:              request.Name,
+		Email:             request.Email,
+		Phone:             request.Phone,
+		ParticipationType: request.ParticipationType,
+		PrivacyAccepted:   request.PrivacyAccepted,
+		RequestIP:         clientIP(r),
+		UserAgent:         strings.TrimSpace(r.UserAgent()),
+	})
+	if err != nil {
+		a.writePublicRegistrationError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"ok":                true,
+		"registration_id":   result.RegistrationID,
+		"participant_id":    result.ParticipantID,
+		"event_id":          result.EventID,
+		"status":            result.Status,
+		"verify_expires_at": result.VerifyExpires.UTC().Format(time.RFC3339),
+		"message":           "Bitte bestaetige die Anmeldung ueber den Link in der E-Mail.",
+	})
+}
+
+func (a *App) handlePublicRegistrationVerify(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if r.Method == http.MethodPost {
+		var request struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+			return
+		}
+		token = strings.TrimSpace(request.Token)
+	}
+
+	result, err := a.regService.Verify(r.Context(), registration.VerifyInput{
+		TenantID:  tenantItem.ID,
+		RawToken:  token,
+		RequestIP: clientIP(r),
+		UserAgent: strings.TrimSpace(r.UserAgent()),
+	})
+	if err != nil {
+		a.writePublicRegistrationError(w, err)
+		return
+	}
+
+	payload := map[string]any{
+		"ok":              true,
+		"registration_id": result.RegistrationID,
+		"participant_id":  result.ParticipantID,
+		"event_id":        result.EventID,
+		"status":          result.Status,
+	}
+	if result.ConfirmedAt != nil {
+		payload["confirmed_at"] = result.ConfirmedAt.UTC().Format(time.RFC3339)
+	}
+	if strings.TrimSpace(result.WaitlistID) != "" {
+		payload["waitlist"] = map[string]any{
+			"id":       result.WaitlistID,
+			"position": result.WaitlistPos,
+		}
+	}
+	writeJSON(w, http.StatusOK, payload)
+}
+
+func (a *App) writePublicRegistrationError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, registration.ErrEventNotFound):
+		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+	case errors.Is(err, registration.ErrRegistrationDisabled), errors.Is(err, registration.ErrRegistrationClosed):
+		writeAPIError(w, http.StatusConflict, "REGISTRATION_CLOSED", "Anmeldung ist fuer diese Veranstaltung derzeit nicht moeglich.")
+	case errors.Is(err, registration.ErrPrivacyAcceptanceRequired):
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Datenschutzerklaerung muss akzeptiert werden.")
+	case errors.Is(err, registration.ErrAlreadyRegistered):
+		writeAPIError(w, http.StatusConflict, "ALREADY_REGISTERED", "Teilnahme ist bereits bestaetigt.")
+	case errors.Is(err, registration.ErrAlreadyWaitlisted):
+		writeAPIError(w, http.StatusConflict, "ALREADY_WAITLISTED", "Teilnahme steht bereits auf der Warteliste.")
+	case errors.Is(err, registration.ErrInvalidVerificationToken), errors.Is(err, registration.ErrRegistrationVerificationNil):
+		writeAPIError(w, http.StatusBadRequest, "INVALID_MAGIC_LINK", "Magic-Link ist ungueltig.")
+	case errors.Is(err, registration.ErrExpiredVerificationToken):
+		writeAPIError(w, http.StatusBadRequest, "EXPIRED_MAGIC_LINK", "Magic-Link ist abgelaufen.")
+	case errors.Is(err, registration.ErrRegistrationNotFound):
+		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Anmeldung nicht gefunden.")
+	case errors.Is(err, registration.ErrRegistrationState):
+		writeAPIError(w, http.StatusConflict, "REGISTRATION_STATE_INVALID", "Anmeldung kann nicht bestaetigt werden.")
+	case errors.Is(err, registration.ErrEventFull):
+		writeAPIError(w, http.StatusConflict, "EVENT_FULL", "Die Veranstaltung ist ausgebucht. Eine Warteliste ist verfuegbar.")
+	default:
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
 	}
 }
 

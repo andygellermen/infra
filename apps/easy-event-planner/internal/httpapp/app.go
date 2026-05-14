@@ -13,6 +13,7 @@ import (
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
@@ -23,6 +24,7 @@ type App struct {
 	authService *auth.Service
 	eventRepo   *event.Repository
 	tenantRepo  *tenant.Repository
+	regService  *registration.Service
 	startedAt   time.Time
 }
 
@@ -52,6 +54,11 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			nil,
 		)
 		app.eventRepo = event.NewRepository(sqlDB)
+		app.regService = registration.NewService(sqlDB, registration.Config{
+			BaseURL:         cfg.BaseURL,
+			TokenPepper:     cfg.TokenPepper,
+			RegistrationTTL: cfg.RegistrationTTL,
+		})
 	}
 	app.routes()
 	return app

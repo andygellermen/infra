@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 8 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 9 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -20,6 +20,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 8 aus `docs/codex-task-plan.md`
 - Event-Series CRUD (`internal/event` + Admin-API `/api/v1/admin/event-series`)
 - Event-CRUD mit Publish/Unpublish (`internal/event` + Admin-API `/api/v1/admin/events`)
 - Public Event Pages (`internal/event` + Public-API `/api/v1/public/{tenantSlug}/...`)
+- Public Registration mit Magic-Link-Verifizierung (`internal/registration` + `/api/v1/public/{tenantSlug}/registrations/start|verify`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -139,4 +140,4 @@ Wichtige Mail/Worker-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 9 aus `docs/codex-task-plan.md`: Kostenfreie Registration mit Magic-Link-Verifizierung.
+Paket 10 aus `docs/codex-task-plan.md`: Waitlist mit Position und manuellem Nachruecken.
