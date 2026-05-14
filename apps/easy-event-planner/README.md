@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 18 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 19 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -29,6 +29,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 18 aus `docs/codex-task-plan.md
 - Event-Pflegeaktionen mit Statusuebergaengen (`changed`, `postponed`, `cancelled`, `completed`) und Admin-API-Aktionen (`/publish`, `/unpublish`, `/cancel`, `/postpone`, `/mark-completed`)
 - PayPal-Basisfluss mit optionaler Real-API-Integration (`OAuth2`, `create-order`) und Webhook-Signaturpruefung inklusive deduplizierter Event-Verarbeitung (`/api/v1/public/{tenantSlug}/payments/paypal/create-order`, `/api/v1/webhooks/paypal`)
 - Discounts & Invitations mit Admin-CRUD, Public-Resolve, Nutzungs-/Zeitfenster-/Scope-Validierung und Registrierungseinloesung inkl. Redemptions (`/api/v1/admin/invitations`, `/api/v1/public/{tenantSlug}/invitations/resolve`)
+- Teilnehmer-Portal mit Teilnehmer-Magic-Link, eigener Teilnehmer-Session, Registrierungsliste und Selbst-Storno (`/api/v1/public/{tenantSlug}/participants/portal/request|verify|me|registrations|logout`, `/api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -158,4 +159,4 @@ Wichtige PayPal-Haertung-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 19 aus `docs/codex-task-plan.md`: Participant Portal.
+Paket 20 aus `docs/codex-task-plan.md`: Certificates.

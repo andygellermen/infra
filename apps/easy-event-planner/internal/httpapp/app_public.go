@@ -99,6 +99,18 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 		a.handlePublicRegistrationCalendar(w, r, tenantItem, routeSlug)
 	case "invitations_resolve":
 		a.handlePublicInvitationResolve(w, r, tenantItem)
+	case "participants_portal_request":
+		a.handlePublicParticipantPortalRequest(w, r, tenantItem)
+	case "participants_portal_verify":
+		a.handlePublicParticipantPortalVerify(w, r, tenantItem)
+	case "participants_portal_me":
+		a.handlePublicParticipantPortalMe(w, r, tenantItem)
+	case "participants_portal_logout":
+		a.handlePublicParticipantPortalLogout(w, r, tenantItem)
+	case "participants_portal_registrations":
+		a.handlePublicParticipantPortalRegistrations(w, r, tenantItem)
+	case "participants_portal_registration_cancel":
+		a.handlePublicParticipantPortalRegistrationCancel(w, r, tenantItem, routeSlug)
 	case "payments_paypal_create_order":
 		if r.Method != http.MethodPost {
 			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
@@ -266,9 +278,32 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 				return "", "", "", false
 			}
 			return tenantSlug, "payments_paypal_create_order", "", true
+		case "participants":
+			if parts[2] != "portal" {
+				return "", "", "", false
+			}
+			switch parts[3] {
+			case "request":
+				return tenantSlug, "participants_portal_request", "", true
+			case "verify":
+				return tenantSlug, "participants_portal_verify", "", true
+			case "me":
+				return tenantSlug, "participants_portal_me", "", true
+			case "logout":
+				return tenantSlug, "participants_portal_logout", "", true
+			case "registrations":
+				return tenantSlug, "participants_portal_registrations", "", true
+			default:
+				return "", "", "", false
+			}
 		default:
 			return "", "", "", false
 		}
+	case 6:
+		if parts[1] != "participants" || parts[2] != "portal" || parts[3] != "registrations" || parts[5] != "cancel" {
+			return "", "", "", false
+		}
+		return tenantSlug, "participants_portal_registration_cancel", strings.TrimSpace(parts[4]), true
 	default:
 		return "", "", "", false
 	}

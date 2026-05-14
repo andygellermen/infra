@@ -193,6 +193,17 @@ PATCH /api/v1/admin/invitations/{invitationId}
 POST  /api/v1/public/{tenantSlug}/invitations/resolve
 ```
 
+## Participant Portal
+
+```http
+POST /api/v1/public/{tenantSlug}/participants/portal/request
+POST /api/v1/public/{tenantSlug}/participants/portal/verify
+GET  /api/v1/public/{tenantSlug}/participants/portal/me
+GET  /api/v1/public/{tenantSlug}/participants/portal/registrations
+POST /api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel
+POST /api/v1/public/{tenantSlug}/participants/portal/logout
+```
+
 ## PayPal
 
 ```http

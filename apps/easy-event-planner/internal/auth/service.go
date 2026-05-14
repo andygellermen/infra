@@ -80,6 +80,7 @@ type VerifyMagicLinkResult struct {
 	Purpose          string
 	TenantID         string
 	UserID           string
+	ParticipantID    string
 	RedirectPath     string
 	SessionToken     string
 	SessionExpiresAt time.Time
@@ -96,13 +97,24 @@ type SessionPrincipal struct {
 	SessionExpiresAt time.Time
 }
 
+type ParticipantSessionPrincipal struct {
+	SessionID        string
+	TenantID         string
+	TenantSlug       string
+	ParticipantID    string
+	Email            string
+	Name             string
+	SessionExpiresAt time.Time
+}
+
 type auditEvent struct {
-	TenantID  string
-	UserID    string
-	Action    string
-	Details   map[string]any
-	RequestIP string
-	UserAgent string
+	TenantID      string
+	UserID        string
+	ParticipantID string
+	Action        string
+	Details       map[string]any
+	RequestIP     string
+	UserAgent     string
 }
 
 func NewService(sqlDB *sql.DB, tenantRepo *tenant.Repository, cfg Config, sender Sender) *Service {
@@ -169,21 +181,32 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 		return RequestMagicLinkResult{}, err
 	}
 
-	userID, err := s.lookupActiveTenantUser(ctx, tenantRecord.ID, email)
-	if err != nil {
-		return RequestMagicLinkResult{}, err
+	userID := ""
+	participantID := ""
+	switch purpose {
+	case PurposeParticipantLogin:
+		participantID, err = s.lookupPortalParticipantByEmail(ctx, tenantRecord.ID, email)
+		if err != nil {
+			return RequestMagicLinkResult{}, err
+		}
+	default:
+		userID, err = s.lookupActiveTenantUser(ctx, tenantRecord.ID, email)
+		if err != nil {
+			return RequestMagicLinkResult{}, err
+		}
 	}
 
 	_ = s.writeAudit(ctx, auditEvent{
-		TenantID:  tenantRecord.ID,
-		UserID:    userID,
-		Action:    "magic_link_requested",
-		Details:   map[string]any{"purpose": purpose},
-		RequestIP: input.RequestIP,
-		UserAgent: input.UserAgent,
+		TenantID:      tenantRecord.ID,
+		UserID:        userID,
+		ParticipantID: participantID,
+		Action:        "magic_link_requested",
+		Details:       map[string]any{"purpose": purpose},
+		RequestIP:     input.RequestIP,
+		UserAgent:     input.UserAgent,
 	})
 
-	if userID == "" {
+	if userID == "" && participantID == "" {
 		return RequestMagicLinkResult{Accepted: true, Sent: false}, nil
 	}
 
@@ -195,14 +218,18 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 	tokenHash := s.hash(rawToken)
 	expiresAt := now.Add(s.ttlForPurpose(purpose))
 	redirectPath := sanitizeRedirectPath(input.RedirectPath)
+	if purpose == PurposeParticipantLogin && strings.TrimSpace(input.RedirectPath) == "" {
+		redirectPath = "/portal"
+	}
 	if _, err := s.db.ExecContext(
 		ctx,
 		`INSERT INTO magic_links (
-      id, tenant_id, user_id, purpose, token_hash, redirect_path, expires_at, request_ip, user_agent, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, tenant_id, user_id, participant_id, purpose, token_hash, redirect_path, expires_at, request_ip, user_agent, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.idFn("mlk"),
 		tenantRecord.ID,
-		userID,
+		nullable(userID),
+		nullable(participantID),
 		purpose,
 		tokenHash,
 		redirectPath,
@@ -219,6 +246,14 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 		strings.TrimRight(s.cfg.BaseURL, "/"),
 		url.QueryEscape(rawToken),
 	)
+	if purpose == PurposeParticipantLogin {
+		verifyURL = fmt.Sprintf(
+			"%s/api/v1/public/%s/participants/portal/verify?token=%s",
+			strings.TrimRight(s.cfg.BaseURL, "/"),
+			url.PathEscape(tenantRecord.Slug),
+			url.QueryEscape(rawToken),
+		)
+	}
 	if err := s.sender.SendMagicLink(ctx, MagicLinkMessage{
 		ToEmail:    email,
 		TenantSlug: tenantRecord.Slug,
@@ -230,12 +265,13 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 	}
 
 	_ = s.writeAudit(ctx, auditEvent{
-		TenantID:  tenantRecord.ID,
-		UserID:    userID,
-		Action:    "magic_link_sent",
-		Details:   map[string]any{"purpose": purpose},
-		RequestIP: input.RequestIP,
-		UserAgent: input.UserAgent,
+		TenantID:      tenantRecord.ID,
+		UserID:        userID,
+		ParticipantID: participantID,
+		Action:        "magic_link_sent",
+		Details:       map[string]any{"purpose": purpose},
+		RequestIP:     input.RequestIP,
+		UserAgent:     input.UserAgent,
 	})
 
 	return RequestMagicLinkResult{Accepted: true, Sent: true}, nil
@@ -268,12 +304,13 @@ func (s *Service) VerifyMagicLink(ctx context.Context, input VerifyMagicLinkInpu
 			reason = "expired"
 		}
 		_ = s.writeAudit(ctx, auditEvent{
-			TenantID:  link.tenantID,
-			UserID:    link.userID,
-			Action:    "magic_link_rejected",
-			Details:   map[string]any{"reason": reason, "purpose": link.purpose},
-			RequestIP: input.RequestIP,
-			UserAgent: input.UserAgent,
+			TenantID:      link.tenantID,
+			UserID:        link.userID,
+			ParticipantID: link.participantID,
+			Action:        "magic_link_rejected",
+			Details:       map[string]any{"reason": reason, "purpose": link.purpose},
+			RequestIP:     input.RequestIP,
+			UserAgent:     input.UserAgent,
 		})
 		return VerifyMagicLinkResult{}, ErrInvalidMagicLink
 	}
@@ -304,13 +341,14 @@ func (s *Service) VerifyMagicLink(ctx context.Context, input VerifyMagicLinkInpu
 	}
 
 	result := VerifyMagicLinkResult{
-		Purpose:      link.purpose,
-		TenantID:     link.tenantID,
-		UserID:       link.userID,
-		RedirectPath: sanitizeRedirectPath(link.redirectPath),
+		Purpose:       link.purpose,
+		TenantID:      link.tenantID,
+		UserID:        link.userID,
+		ParticipantID: link.participantID,
+		RedirectPath:  sanitizeRedirectPath(link.redirectPath),
 	}
 
-	if link.userID != "" {
+	if link.userID != "" || link.participantID != "" {
 		sessionToken, tokenErr := s.tokenFn()
 		if tokenErr != nil {
 			_ = tx.Rollback()
@@ -321,11 +359,12 @@ func (s *Service) VerifyMagicLink(ctx context.Context, input VerifyMagicLinkInpu
 		if _, err := tx.ExecContext(
 			ctx,
 			`INSERT INTO sessions (
-        id, tenant_id, user_id, session_hash, expires_at, created_at, last_seen_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        id, tenant_id, user_id, participant_id, session_hash, expires_at, created_at, last_seen_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			s.idFn("ses"),
 			link.tenantID,
-			link.userID,
+			nullable(link.userID),
+			nullable(link.participantID),
 			s.hash(sessionToken),
 			sessionExpiresAt.Format(time.RFC3339),
 			now.Format(time.RFC3339),
@@ -344,21 +383,23 @@ func (s *Service) VerifyMagicLink(ctx context.Context, input VerifyMagicLinkInpu
 	}
 
 	_ = s.writeAudit(ctx, auditEvent{
-		TenantID:  link.tenantID,
-		UserID:    link.userID,
-		Action:    "magic_link_verified",
-		Details:   map[string]any{"purpose": link.purpose},
-		RequestIP: input.RequestIP,
-		UserAgent: input.UserAgent,
+		TenantID:      link.tenantID,
+		UserID:        link.userID,
+		ParticipantID: link.participantID,
+		Action:        "magic_link_verified",
+		Details:       map[string]any{"purpose": link.purpose},
+		RequestIP:     input.RequestIP,
+		UserAgent:     input.UserAgent,
 	})
 	if result.SessionToken != "" {
 		_ = s.writeAudit(ctx, auditEvent{
-			TenantID:  link.tenantID,
-			UserID:    link.userID,
-			Action:    "session_created",
-			Details:   map[string]any{"purpose": link.purpose},
-			RequestIP: input.RequestIP,
-			UserAgent: input.UserAgent,
+			TenantID:      link.tenantID,
+			UserID:        link.userID,
+			ParticipantID: link.participantID,
+			Action:        "session_created",
+			Details:       map[string]any{"purpose": link.purpose},
+			RequestIP:     input.RequestIP,
+			UserAgent:     input.UserAgent,
 		})
 	}
 
@@ -372,7 +413,7 @@ func (s *Service) AuthenticateSession(ctx context.Context, rawSessionToken strin
 	}
 	row := s.db.QueryRowContext(
 		ctx,
-		`SELECT s.id, s.tenant_id, s.user_id, s.expires_at, s.revoked_at,
+		`SELECT s.id, s.tenant_id, COALESCE(s.user_id, ''), s.expires_at, s.revoked_at,
             COALESCE(t.slug, ''), COALESCE(u.email, ''), COALESCE(u.name, ''), COALESCE(u.role, '')
      FROM sessions s
      LEFT JOIN tenants t ON t.id = s.tenant_id
@@ -403,6 +444,9 @@ func (s *Service) AuthenticateSession(ctx context.Context, rawSessionToken strin
 		}
 		return SessionPrincipal{}, fmt.Errorf("query session: %w", err)
 	}
+	if strings.TrimSpace(principal.UserID) == "" {
+		return SessionPrincipal{}, ErrSessionNotFound
+	}
 
 	expiresAt, err := time.Parse(time.RFC3339, expiresAtRaw)
 	if err != nil {
@@ -410,6 +454,66 @@ func (s *Service) AuthenticateSession(ctx context.Context, rawSessionToken strin
 	}
 	if revokedAtRaw.Valid || s.nowFn().UTC().After(expiresAt) {
 		return SessionPrincipal{}, ErrSessionNotFound
+	}
+
+	principal.SessionExpiresAt = expiresAt
+	_, _ = s.db.ExecContext(
+		ctx,
+		`UPDATE sessions SET last_seen_at = ? WHERE id = ?`,
+		s.nowFn().UTC().Format(time.RFC3339),
+		principal.SessionID,
+	)
+
+	return principal, nil
+}
+
+func (s *Service) AuthenticateParticipantSession(ctx context.Context, rawSessionToken string) (ParticipantSessionPrincipal, error) {
+	token := strings.TrimSpace(rawSessionToken)
+	if token == "" {
+		return ParticipantSessionPrincipal{}, ErrSessionNotFound
+	}
+	row := s.db.QueryRowContext(
+		ctx,
+		`SELECT s.id, s.tenant_id, s.participant_id, s.expires_at, s.revoked_at,
+            COALESCE(t.slug, ''), COALESCE(p.email, ''), COALESCE(p.name, '')
+     FROM sessions s
+     LEFT JOIN tenants t ON t.id = s.tenant_id
+     LEFT JOIN participants p ON p.id = s.participant_id
+     WHERE s.session_hash = ?
+     LIMIT 1`,
+		s.hash(token),
+	)
+
+	var (
+		principal    ParticipantSessionPrincipal
+		expiresAtRaw string
+		revokedAtRaw sql.NullString
+	)
+	if err := row.Scan(
+		&principal.SessionID,
+		&principal.TenantID,
+		&principal.ParticipantID,
+		&expiresAtRaw,
+		&revokedAtRaw,
+		&principal.TenantSlug,
+		&principal.Email,
+		&principal.Name,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ParticipantSessionPrincipal{}, ErrSessionNotFound
+		}
+		return ParticipantSessionPrincipal{}, fmt.Errorf("query participant session: %w", err)
+	}
+	if strings.TrimSpace(principal.ParticipantID) == "" {
+		return ParticipantSessionPrincipal{}, ErrSessionNotFound
+	}
+
+	expiresAt, err := time.Parse(time.RFC3339, expiresAtRaw)
+	if err != nil {
+		return ParticipantSessionPrincipal{}, fmt.Errorf("parse participant session expires_at: %w", err)
+	}
+	if revokedAtRaw.Valid || s.nowFn().UTC().After(expiresAt) {
+		return ParticipantSessionPrincipal{}, ErrSessionNotFound
 	}
 
 	principal.SessionExpiresAt = expiresAt
@@ -431,7 +535,7 @@ func (s *Service) RevokeSession(ctx context.Context, rawSessionToken, requestIP,
 
 	row := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, user_id, revoked_at
+		`SELECT id, tenant_id, COALESCE(user_id, ''), COALESCE(participant_id, ''), revoked_at
      FROM sessions
      WHERE session_hash = ?
      LIMIT 1`,
@@ -439,12 +543,13 @@ func (s *Service) RevokeSession(ctx context.Context, rawSessionToken, requestIP,
 	)
 
 	var (
-		sessionID string
-		tenantID  string
-		userID    string
-		revokedAt sql.NullString
+		sessionID     string
+		tenantID      string
+		userID        string
+		participantID string
+		revokedAt     sql.NullString
 	)
-	if err := row.Scan(&sessionID, &tenantID, &userID, &revokedAt); err != nil {
+	if err := row.Scan(&sessionID, &tenantID, &userID, &participantID, &revokedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
@@ -472,29 +577,31 @@ func (s *Service) RevokeSession(ctx context.Context, rawSessionToken, requestIP,
 	}
 
 	_ = s.writeAudit(ctx, auditEvent{
-		TenantID:  tenantID,
-		UserID:    userID,
-		Action:    "session_revoked",
-		RequestIP: requestIP,
-		UserAgent: userAgent,
+		TenantID:      tenantID,
+		UserID:        userID,
+		ParticipantID: participantID,
+		Action:        "session_revoked",
+		RequestIP:     requestIP,
+		UserAgent:     userAgent,
 	})
 	return true, nil
 }
 
 type magicLinkRecord struct {
-	id           string
-	tenantID     string
-	userID       string
-	purpose      string
-	redirectPath string
-	expiresAt    time.Time
-	usedAt       sql.NullString
+	id            string
+	tenantID      string
+	userID        string
+	participantID string
+	purpose       string
+	redirectPath  string
+	expiresAt     time.Time
+	usedAt        sql.NullString
 }
 
 func (s *Service) lookupMagicLinkByToken(ctx context.Context, rawToken string) (magicLinkRecord, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, user_id, purpose, redirect_path, expires_at, used_at
+		`SELECT id, tenant_id, COALESCE(user_id, ''), COALESCE(participant_id, ''), purpose, redirect_path, expires_at, used_at
      FROM magic_links
      WHERE token_hash = ?
      LIMIT 1`,
@@ -509,6 +616,7 @@ func (s *Service) lookupMagicLinkByToken(ctx context.Context, rawToken string) (
 		&link.id,
 		&link.tenantID,
 		&link.userID,
+		&link.participantID,
 		&link.purpose,
 		&link.redirectPath,
 		&expiresAtRaw,
@@ -550,6 +658,40 @@ func (s *Service) lookupActiveTenantUser(ctx context.Context, tenantID, email st
 	return userID, nil
 }
 
+func (s *Service) lookupPortalParticipantByEmail(ctx context.Context, tenantID, email string) (string, error) {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	if normalizedEmail == "" {
+		return "", nil
+	}
+
+	row := s.db.QueryRowContext(
+		ctx,
+		`SELECT p.id
+     FROM participants p
+     WHERE p.tenant_id = ?
+       AND lower(COALESCE(p.email, '')) = ?
+       AND p.anonymized_at IS NULL
+       AND EXISTS (
+         SELECT 1
+         FROM registrations r
+         WHERE r.tenant_id = p.tenant_id
+           AND r.participant_id = p.id
+       )
+     LIMIT 1`,
+		tenantID,
+		normalizedEmail,
+	)
+
+	var participantID string
+	if err := row.Scan(&participantID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("query participant by email: %w", err)
+	}
+	return participantID, nil
+}
+
 func (s *Service) ttlForPurpose(purpose string) time.Duration {
 	switch purpose {
 	case PurposeOrganizerLogin, PurposeParticipantLogin:
@@ -585,10 +727,11 @@ func (s *Service) writeAudit(ctx context.Context, event auditEvent) error {
 		`INSERT INTO audit_log (
       id, tenant_id, actor_user_id, actor_participant_id, action, entity_type, entity_id,
       details_json, request_ip, user_agent, created_at
-    ) VALUES (?, ?, ?, NULL, ?, 'auth', NULL, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, 'auth', NULL, ?, ?, ?, ?)`,
 		s.idFn("aud"),
 		nullable(event.TenantID),
 		nullable(event.UserID),
+		nullable(event.ParticipantID),
 		event.Action,
 		nullable(detailsJSON),
 		nullable(event.RequestIP),
