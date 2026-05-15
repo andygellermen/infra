@@ -45,6 +45,7 @@ type Config struct {
 	Version                 string
 	DBDriver                string
 	DBPath                  string
+	CertificateStorageDir   string
 	TokenPepper             string
 	SessionCookieName       string
 	SecureCookies           bool
@@ -90,6 +91,7 @@ func Load(buildVersion string) (Config, error) {
 		Version:                 resolveVersion(buildVersion),
 		DBDriver:                strings.ToLower(strings.TrimSpace(getenv("EEP_DB_DRIVER", defaultDBDriver))),
 		DBPath:                  strings.TrimSpace(getenv("EEP_DB_PATH", filepath.Join(cwd, "data", "easy-event-planner.sqlite"))),
+		CertificateStorageDir:   strings.TrimSpace(getenv("EEP_CERTIFICATE_STORAGE_DIR", filepath.Join(cwd, "certificates"))),
 		TokenPepper:             strings.TrimSpace(getenv("EEP_TOKEN_PEPPER", defaultTokenPepper)),
 		SessionCookieName:       strings.TrimSpace(getenv("EEP_SESSION_COOKIE_NAME", defaultSessionCookieName)),
 		SecureCookies:           getenvBool("EEP_SECURE_COOKIES", strings.EqualFold(strings.TrimSpace(getenv("EEP_ENV", defaultEnv)), "production")),
@@ -135,6 +137,9 @@ func Load(buildVersion string) (Config, error) {
 	}
 	if cfg.DBPath == "" {
 		return Config{}, fmt.Errorf("EEP_DB_PATH must not be empty")
+	}
+	if cfg.CertificateStorageDir == "" {
+		return Config{}, fmt.Errorf("EEP_CERTIFICATE_STORAGE_DIR must not be empty")
 	}
 	if err := validateDBDriver(cfg.DBDriver); err != nil {
 		return Config{}, err

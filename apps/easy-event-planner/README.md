@@ -4,7 +4,7 @@ Event-Service fuer kleine und mittelgrosse Veranstaltungen mit mandantenfaehiger
 
 ## Bootstrap-Status
 
-Die technischen Grundlagen aus Paket 1 bis Paket 19 aus `docs/codex-task-plan.md` sind umgesetzt:
+Die technischen Grundlagen aus Paket 1 bis Paket 20 aus `docs/codex-task-plan.md` sind umgesetzt:
 
 - Go-Modul und Server-Einstiegspunkt
 - Config-Layer mit `EEP_*`-Umgebungsvariablen
@@ -30,6 +30,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 19 aus `docs/codex-task-plan.md
 - PayPal-Basisfluss mit optionaler Real-API-Integration (`OAuth2`, `create-order`) und Webhook-Signaturpruefung inklusive deduplizierter Event-Verarbeitung (`/api/v1/public/{tenantSlug}/payments/paypal/create-order`, `/api/v1/webhooks/paypal`)
 - Discounts & Invitations mit Admin-CRUD, Public-Resolve, Nutzungs-/Zeitfenster-/Scope-Validierung und Registrierungseinloesung inkl. Redemptions (`/api/v1/admin/invitations`, `/api/v1/public/{tenantSlug}/invitations/resolve`)
 - Teilnehmer-Portal mit Teilnehmer-Magic-Link, eigener Teilnehmer-Session, Registrierungsliste und Selbst-Storno (`/api/v1/public/{tenantSlug}/participants/portal/request|verify|me|registrations|logout`, `/api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel`)
+- Teilnahmezertifikate inkl. Admin-Ausstellung, Teilnehmer-Download und oeffentlicher Verifikation (`/api/v1/admin/registrations/{registrationId}/mark-attended|issue-certificate|certificate`, `/api/v1/public/{tenantSlug}/participants/portal/certificates`, `/api/v1/public/{tenantSlug}/certificates/verify`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript
 
@@ -141,6 +142,11 @@ Wichtige PayPal-Haertung-Variablen:
 - `EEP_PAYPAL_LIVE_API_BASE_URL` (Default `https://api-m.paypal.com`)
 - `EEP_PAYPAL_HTTP_TIMEOUT` (Default `15s`)
 
+Wichtige Zertifikats-Variablen:
+
+- `EEP_CERTIFICATE_STORAGE_DIR` (Default `${PWD}/certificates`)
+- `EEP_CERTIFICATE_ACCESS_TTL` (Default `30m`)
+
 ## Dokumente
 
 - [domain-map.md](docs/domain-map.md)
@@ -159,4 +165,4 @@ Wichtige PayPal-Haertung-Variablen:
 
 ## Naechster technischer Schritt
 
-Paket 20 aus `docs/codex-task-plan.md`: Certificates.
+Praktischer End-to-End-Testlauf (Admin -> Public -> Teilnehmerportal -> Zertifikatsverifikation) mit produktionsnahen Tenant-Settings.

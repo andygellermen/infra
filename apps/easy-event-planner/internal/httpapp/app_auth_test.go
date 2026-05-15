@@ -71,6 +71,7 @@ func setupAuthApp(t *testing.T) (*App, *fakeMagicLinkSender, string) {
 	cfg := testConfig()
 	cfg.TokenPepper = "test-pepper"
 	cfg.SessionCookieName = "eep_session"
+	cfg.CertificateStorageDir = filepath.Join(t.TempDir(), "certificates")
 	cfg.SecureCookies = false
 	cfg.SessionTTL = 12 * time.Hour
 	cfg.MagicLinkTTL = 15 * time.Minute

@@ -131,6 +131,60 @@ func (s *Service) GetRegistration(ctx context.Context, tenantID, registrationID 
 	return scanAdminRegistration(row)
 }
 
+func (s *Service) MarkRegistrationAttended(ctx context.Context, tenantID, registrationID string) (AdminRegistration, error) {
+	if s.db == nil {
+		return AdminRegistration{}, fmt.Errorf("registration service database is nil")
+	}
+
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return AdminRegistration{}, fmt.Errorf("tenant id must not be empty")
+	}
+	registrationID = strings.TrimSpace(registrationID)
+	if registrationID == "" {
+		return AdminRegistration{}, fmt.Errorf("registration id must not be empty")
+	}
+
+	current, err := s.GetRegistration(ctx, tenant, registrationID)
+	if err != nil {
+		return AdminRegistration{}, err
+	}
+
+	switch strings.ToLower(strings.TrimSpace(current.Status)) {
+	case StatusAttended:
+		return current, nil
+	case StatusConfirmed:
+		// valid transition
+	default:
+		return AdminRegistration{}, ErrRegistrationAttendNotAllowed
+	}
+
+	now := s.nowFn().UTC().Format(time.RFC3339)
+	result, err := s.db.ExecContext(
+		ctx,
+		`UPDATE registrations
+     SET status = ?, attended_at = COALESCE(attended_at, ?), updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		StatusAttended,
+		now,
+		now,
+		tenant,
+		registrationID,
+	)
+	if err != nil {
+		return AdminRegistration{}, fmt.Errorf("mark registration attended: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return AdminRegistration{}, fmt.Errorf("mark registration attended rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return AdminRegistration{}, ErrRegistrationNotFound
+	}
+
+	return s.GetRegistration(ctx, tenant, registrationID)
+}
+
 func (s *Service) GetDashboard(ctx context.Context, tenantID string) (Dashboard, error) {
 	if s.db == nil {
 		return Dashboard{}, fmt.Errorf("registration service database is nil")

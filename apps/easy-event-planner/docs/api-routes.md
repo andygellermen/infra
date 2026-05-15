@@ -92,6 +92,8 @@ GET   /api/v1/admin/registrations/{registrationId}
 PATCH /api/v1/admin/registrations/{registrationId}
 POST  /api/v1/admin/registrations/{registrationId}/cancel
 POST  /api/v1/admin/registrations/{registrationId}/mark-attended
+POST  /api/v1/admin/registrations/{registrationId}/issue-certificate
+GET   /api/v1/admin/registrations/{registrationId}/certificate
 POST  /api/v1/admin/events/{eventId}/registrations/manual
 ```
 
@@ -201,7 +203,16 @@ POST /api/v1/public/{tenantSlug}/participants/portal/verify
 GET  /api/v1/public/{tenantSlug}/participants/portal/me
 GET  /api/v1/public/{tenantSlug}/participants/portal/registrations
 POST /api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel
+GET  /api/v1/public/{tenantSlug}/participants/portal/certificates
+GET  /api/v1/public/{tenantSlug}/participants/portal/certificates/{certificateId}
+GET  /api/v1/public/{tenantSlug}/participants/portal/certificates/{certificateId}/download
 POST /api/v1/public/{tenantSlug}/participants/portal/logout
+```
+
+## Public Certificate Verification
+
+```http
+GET /api/v1/public/{tenantSlug}/certificates/verify?certificate_no=...&code=...
 ```
 
 ## PayPal

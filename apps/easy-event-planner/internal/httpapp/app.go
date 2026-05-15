@@ -12,6 +12,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/calendar"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/certificate"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/config"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/invitation"
@@ -23,19 +24,20 @@ import (
 )
 
 type App struct {
-	cfg               config.Config
-	mux               *http.ServeMux
-	db                *sql.DB
-	authService       *auth.Service
-	eventRepo         *event.Repository
-	tenantRepo        *tenant.Repository
-	regService        *registration.Service
-	invitationService *invitation.Service
-	calendarService   *calendar.Service
-	paymentService    *payment.Service
-	privacyService    *privacy.Service
-	snippetRepo       *snippet.Repository
-	startedAt         time.Time
+	cfg                config.Config
+	mux                *http.ServeMux
+	db                 *sql.DB
+	authService        *auth.Service
+	eventRepo          *event.Repository
+	tenantRepo         *tenant.Repository
+	regService         *registration.Service
+	invitationService  *invitation.Service
+	calendarService    *calendar.Service
+	certificateService *certificate.Service
+	paymentService     *payment.Service
+	privacyService     *privacy.Service
+	snippetRepo        *snippet.Repository
+	startedAt          time.Time
 }
 
 func New(cfg config.Config, sqlDB *sql.DB) *App {
@@ -74,6 +76,11 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 		app.calendarService = calendar.NewService(sqlDB, calendar.Config{
 			BaseURL:     cfg.BaseURL,
 			TokenPepper: cfg.TokenPepper,
+		})
+		app.certificateService = certificate.NewService(sqlDB, certificate.Config{
+			BaseURL:     cfg.BaseURL,
+			TokenPepper: cfg.TokenPepper,
+			StorageDir:  cfg.CertificateStorageDir,
 		})
 		app.paymentService = payment.NewService(sqlDB, payment.Config{
 			FallbackClientID:     cfg.PayPalClientID,

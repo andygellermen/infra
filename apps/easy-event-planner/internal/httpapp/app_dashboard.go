@@ -3,9 +3,11 @@ package httpapp
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/certificate"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 )
 
@@ -87,15 +89,37 @@ func (a *App) handleAdminRegistrationItem(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Teilnahme nicht gefunden.")
 		return
 	}
-	if action != "" {
+	if action == "" {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminRegistrationGet(w, r, registrationID)
+		return
+	}
+
+	switch action {
+	case "mark-attended":
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminRegistrationMarkAttended(w, r, registrationID)
+	case "issue-certificate":
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminRegistrationIssueCertificate(w, r, registrationID)
+	case "certificate":
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminRegistrationCertificateGet(w, r, registrationID)
+	default:
 		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Teilnahme nicht gefunden.")
-		return
 	}
-	if r.Method != http.MethodGet {
-		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
-		return
-	}
-	a.handleAdminRegistrationGet(w, r, registrationID)
 }
 
 func (a *App) handleAdminRegistrationGet(w http.ResponseWriter, r *http.Request, registrationID string) {
@@ -112,6 +136,81 @@ func (a *App) handleAdminRegistrationGet(w http.ResponseWriter, r *http.Request,
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"item": adminRegistrationPayload(item),
+	})
+}
+
+func (a *App) handleAdminRegistrationMarkAttended(w http.ResponseWriter, r *http.Request, registrationID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	item, err := a.regService.MarkRegistrationAttended(r.Context(), principal.TenantID, registrationID)
+	if err != nil {
+		a.writeRegistrationError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": adminRegistrationPayload(item),
+	})
+}
+
+func (a *App) handleAdminRegistrationIssueCertificate(w http.ResponseWriter, r *http.Request, registrationID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+	if a.certificateService == nil {
+		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Zertifikats-Service ist nicht verfuegbar.")
+		return
+	}
+
+	result, err := a.certificateService.IssueForRegistration(r.Context(), principal.TenantID, registrationID)
+	if err != nil {
+		a.writeCertificateError(w, err)
+		return
+	}
+
+	payload := certificatePayload(result.Certificate)
+	if strings.TrimSpace(result.VerificationCode) != "" {
+		payload["verification_url"] = a.certificateService.VerificationURL(
+			result.Certificate.TenantSlug,
+			result.Certificate.CertificateNumber,
+			result.VerificationCode,
+		)
+	}
+
+	statusCode := http.StatusCreated
+	if result.AlreadyIssued {
+		statusCode = http.StatusOK
+	}
+	writeJSON(w, statusCode, map[string]any{
+		"item":           payload,
+		"already_issued": result.AlreadyIssued,
+	})
+}
+
+func (a *App) handleAdminRegistrationCertificateGet(w http.ResponseWriter, r *http.Request, registrationID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+	if a.certificateService == nil {
+		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Zertifikats-Service ist nicht verfuegbar.")
+		return
+	}
+
+	item, err := a.certificateService.GetByRegistration(r.Context(), principal.TenantID, registrationID)
+	if err != nil {
+		a.writeCertificateError(w, err)
+		return
+	}
+
+	payload := certificatePayload(item)
+	payload["verify_path"] = "/api/v1/public/" + url.PathEscape(item.TenantSlug) + "/certificates/verify"
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": payload,
 	})
 }
 
@@ -221,12 +320,63 @@ func dashboardEventPayload(item registration.DashboardEvent) map[string]any {
 	}
 }
 
+func certificatePayload(item certificate.Certificate) map[string]any {
+	var attendedAt any
+	if item.AttendedAt != nil {
+		attendedAt = item.AttendedAt.UTC().Format(time.RFC3339)
+	}
+	var revokedAt any
+	if item.RevokedAt != nil {
+		revokedAt = item.RevokedAt.UTC().Format(time.RFC3339)
+	}
+	return map[string]any{
+		"id":                     item.ID,
+		"tenant_id":              item.TenantID,
+		"tenant_slug":            item.TenantSlug,
+		"registration_id":        item.RegistrationID,
+		"participant_id":         item.ParticipantID,
+		"participant_name":       item.ParticipantName,
+		"participant_email":      item.ParticipantEmail,
+		"event_id":               item.EventID,
+		"event_slug":             item.EventSlug,
+		"event_title":            item.EventTitle,
+		"event_starts_at":        item.EventStartsAt.UTC().Format(time.RFC3339),
+		"event_timezone":         item.EventTimezone,
+		"certificate_number":     item.CertificateNumber,
+		"status":                 item.Status,
+		"verification_code_hint": emptyToNil(item.VerificationCodeHint),
+		"issued_at":              item.IssuedAt.UTC().Format(time.RFC3339),
+		"attended_at":            attendedAt,
+		"revoked_at":             revokedAt,
+		"file_sha256":            item.FileSHA256,
+	}
+}
+
 func (a *App) writeRegistrationError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, registration.ErrEventNotFound):
 		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
 	case errors.Is(err, registration.ErrRegistrationNotFound):
 		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Teilnahme nicht gefunden.")
+	case errors.Is(err, registration.ErrRegistrationAttendNotAllowed):
+		writeAPIError(w, http.StatusConflict, "REGISTRATION_STATE_INVALID", "Teilnahme kann nicht als anwesend markiert werden.")
+	default:
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+	}
+}
+
+func (a *App) writeCertificateError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, certificate.ErrRegistrationNotFound):
+		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Teilnahme nicht gefunden.")
+	case errors.Is(err, certificate.ErrCertificateNotFound):
+		writeAPIError(w, http.StatusNotFound, "CERTIFICATE_NOT_FOUND", "Zertifikat nicht gefunden.")
+	case errors.Is(err, certificate.ErrCertificateEligibility):
+		writeAPIError(w, http.StatusConflict, "CERTIFICATE_NOT_ELIGIBLE", "Teilnahme ist nicht fuer ein Zertifikat freigegeben.")
+	case errors.Is(err, certificate.ErrCertificateAccessDenied):
+		writeAPIError(w, http.StatusForbidden, "FORBIDDEN", "Zugriff verweigert.")
+	case errors.Is(err, certificate.ErrInvalidVerificationCode):
+		writeAPIError(w, http.StatusBadRequest, "INVALID_CERTIFICATE_CODE", "Zertifikat konnte nicht verifiziert werden.")
 	default:
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
 	}

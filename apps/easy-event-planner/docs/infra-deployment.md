@@ -30,6 +30,7 @@ EEP_BASE_URL=https://events.geller.men
 EEP_HTTP_ADDR=:8080
 EEP_DB_DRIVER=sqlite
 EEP_DB_PATH=/data/easy-event-planner.sqlite
+EEP_CERTIFICATE_STORAGE_DIR=/certificates
 EEP_SESSION_SECRET=...
 EEP_TOKEN_PEPPER=...
 EEP_MAIL_PROVIDER=ses

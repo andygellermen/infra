@@ -213,3 +213,48 @@ func TestGetRegistrationNotFound(t *testing.T) {
 		t.Fatalf("expected ErrRegistrationNotFound, got %v", err)
 	}
 }
+
+func TestMarkRegistrationAttended(t *testing.T) {
+	service, dbHandle, tenantItem := setupRegistrationService(t)
+	eventItem := createPublishedEventForRegistration(t, dbHandle, tenantItem.ID, event.CreateEventParams{
+		Slug:     "mark-attended-event",
+		Title:    "Mark Attended Event",
+		StartsAt: time.Now().UTC().Add(36 * time.Hour).Format(time.RFC3339),
+	})
+
+	start, verify := startAndVerifyRegistrationForAdminTest(t, service, tenantItem.ID, StartInput{
+		TenantID:        tenantItem.ID,
+		TenantSlug:      tenantItem.Slug,
+		EventID:         eventItem.ID,
+		Name:            "Attendee",
+		Email:           "attendee@example.com",
+		PrivacyAccepted: true,
+	})
+	if verify.Status != StatusConfirmed {
+		t.Fatalf("expected confirmed verify status, got %q", verify.Status)
+	}
+
+	attended, err := service.MarkRegistrationAttended(context.Background(), tenantItem.ID, start.RegistrationID)
+	if err != nil {
+		t.Fatalf("mark registration attended: %v", err)
+	}
+	if attended.Status != StatusAttended {
+		t.Fatalf("expected status attended, got %q", attended.Status)
+	}
+	if attended.AttendedAt == nil {
+		t.Fatalf("expected attended_at to be set")
+	}
+
+	again, err := service.MarkRegistrationAttended(context.Background(), tenantItem.ID, start.RegistrationID)
+	if err != nil {
+		t.Fatalf("mark attended second time: %v", err)
+	}
+	if again.Status != StatusAttended {
+		t.Fatalf("expected status attended on second call, got %q", again.Status)
+	}
+
+	_, err = service.MarkRegistrationAttended(context.Background(), tenantItem.ID, "reg_missing")
+	if !errors.Is(err, ErrRegistrationNotFound) {
+		t.Fatalf("expected ErrRegistrationNotFound, got %v", err)
+	}
+}

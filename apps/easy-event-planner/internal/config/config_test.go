@@ -15,6 +15,7 @@ func clearEEPEnv(t *testing.T) {
 		"EEP_VERSION",
 		"EEP_DB_DRIVER",
 		"EEP_DB_PATH",
+		"EEP_CERTIFICATE_STORAGE_DIR",
 		"EEP_TOKEN_PEPPER",
 		"EEP_SESSION_COOKIE_NAME",
 		"EEP_SECURE_COOKIES",
@@ -62,6 +63,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("filepath.Abs: %v", err)
 	}
 	expectedDBPath := filepath.Join(actualCwd, "data", "easy-event-planner.sqlite")
+	expectedCertDir := filepath.Join(actualCwd, "certificates")
 
 	if cfg.AppName != "easy-event-planner" {
 		t.Fatalf("expected AppName easy-event-planner, got %q", cfg.AppName)
@@ -83,6 +85,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.DBPath != expectedDBPath {
 		t.Fatalf("expected db path %q, got %q", expectedDBPath, cfg.DBPath)
+	}
+	if cfg.CertificateStorageDir != expectedCertDir {
+		t.Fatalf("expected certificate storage dir %q, got %q", expectedCertDir, cfg.CertificateStorageDir)
 	}
 	if cfg.TokenPepper != "dev-only-change-me" {
 		t.Fatalf("expected default token pepper dev-only-change-me, got %q", cfg.TokenPepper)
@@ -172,6 +177,7 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_VERSION", "2026.05.13")
 	t.Setenv("EEP_DB_DRIVER", "postgres")
 	t.Setenv("EEP_DB_PATH", "/var/lib/eep/eep.db")
+	t.Setenv("EEP_CERTIFICATE_STORAGE_DIR", "/var/lib/eep/certificates")
 	t.Setenv("EEP_TOKEN_PEPPER", "pepper-123")
 	t.Setenv("EEP_SESSION_COOKIE_NAME", "eep_auth")
 	t.Setenv("EEP_SECURE_COOKIES", "true")
@@ -224,6 +230,9 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.DBPath != "/var/lib/eep/eep.db" {
 		t.Fatalf("expected db path override, got %q", cfg.DBPath)
+	}
+	if cfg.CertificateStorageDir != "/var/lib/eep/certificates" {
+		t.Fatalf("expected certificate storage dir override, got %q", cfg.CertificateStorageDir)
 	}
 	if cfg.TokenPepper != "pepper-123" {
 		t.Fatalf("expected token pepper override, got %q", cfg.TokenPepper)

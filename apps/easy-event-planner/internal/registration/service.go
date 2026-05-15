@@ -28,6 +28,8 @@ const (
 	StatusWaitlist            = "waitlist"
 	StatusCancelled           = "cancelled"
 	StatusExpired             = "expired"
+	StatusAttended            = "attended"
+	StatusNoShow              = "no_show"
 
 	WaitlistStatusWaiting = "waiting"
 
@@ -49,6 +51,7 @@ var (
 	ErrExpiredVerificationToken     = errors.New("expired verification token")
 	ErrRegistrationNotFound         = errors.New("registration not found")
 	ErrRegistrationState            = errors.New("registration state does not allow verification")
+	ErrRegistrationAttendNotAllowed = errors.New("registration state does not allow attendance mark")
 	ErrEventFull                    = errors.New("event is full")
 	ErrUnsupportedParticipation     = errors.New("unsupported participation type")
 	ErrInvalidStartInput            = errors.New("invalid registration start input")

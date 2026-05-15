@@ -111,6 +111,14 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 		a.handlePublicParticipantPortalRegistrations(w, r, tenantItem)
 	case "participants_portal_registration_cancel":
 		a.handlePublicParticipantPortalRegistrationCancel(w, r, tenantItem, routeSlug)
+	case "participants_portal_certificates":
+		a.handlePublicParticipantPortalCertificates(w, r, tenantItem)
+	case "participants_portal_certificate":
+		a.handlePublicParticipantPortalCertificateGet(w, r, tenantItem, routeSlug)
+	case "participants_portal_certificate_download":
+		a.handlePublicParticipantPortalCertificateDownload(w, r, tenantItem, routeSlug)
+	case "certificates_verify_public":
+		a.handlePublicCertificateVerify(w, r, tenantItem)
 	case "payments_paypal_create_order":
 		if r.Method != http.MethodPost {
 			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
@@ -258,6 +266,11 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 				return "", "", "", false
 			}
 			return tenantSlug, "invitations_resolve", "", true
+		case "certificates":
+			if parts[2] != "verify" {
+				return "", "", "", false
+			}
+			return tenantSlug, "certificates_verify_public", "", true
 		default:
 			return "", "", "", false
 		}
@@ -293,17 +306,27 @@ func parsePublicPath(path string) (tenantSlug, routeType, routeSlug string, ok b
 				return tenantSlug, "participants_portal_logout", "", true
 			case "registrations":
 				return tenantSlug, "participants_portal_registrations", "", true
+			case "certificates":
+				return tenantSlug, "participants_portal_certificates", "", true
 			default:
 				return "", "", "", false
 			}
 		default:
 			return "", "", "", false
 		}
-	case 6:
-		if parts[1] != "participants" || parts[2] != "portal" || parts[3] != "registrations" || parts[5] != "cancel" {
+	case 5:
+		if parts[1] != "participants" || parts[2] != "portal" || parts[3] != "certificates" {
 			return "", "", "", false
 		}
-		return tenantSlug, "participants_portal_registration_cancel", strings.TrimSpace(parts[4]), true
+		return tenantSlug, "participants_portal_certificate", strings.TrimSpace(parts[4]), true
+	case 6:
+		if parts[1] == "participants" && parts[2] == "portal" && parts[3] == "registrations" && parts[5] == "cancel" {
+			return tenantSlug, "participants_portal_registration_cancel", strings.TrimSpace(parts[4]), true
+		}
+		if parts[1] == "participants" && parts[2] == "portal" && parts[3] == "certificates" && parts[5] == "download" {
+			return tenantSlug, "participants_portal_certificate_download", strings.TrimSpace(parts[4]), true
+		}
+		return "", "", "", false
 	default:
 		return "", "", "", false
 	}
