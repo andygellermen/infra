@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Easy Event Planner Admin</title>
+  <link rel="stylesheet" href="/admin-ui.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+  <div class="layout fade-in">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">easy-event-planner</p>
+        <h1>Admin Cockpit</h1>
+      </div>
+      <div class="topbar-actions">
+        <div id="currentUser" class="user-pill">Nicht angemeldet</div>
+        <button id="logoutBtn" class="btn ghost" type="button" hidden>Logout</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section id="loginPanel" class="card login-card">
+        <h2>Login per Magic Link</h2>
+        <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse.</p>
+        <form id="loginForm" class="form-grid">
+          <label>
+            Tenant Slug
+            <input id="tenantSlug" name="tenantSlug" type="text" placeholder="demo" required>
+          </label>
+          <label>
+            E-Mail
+            <input id="email" name="email" type="email" placeholder="owner@example.com" required>
+          </label>
+          <button id="loginSubmitBtn" class="btn primary" type="submit">Magic Link senden</button>
+        </form>
+        <p id="loginHint" class="muted hint"></p>
+      </section>
+
+      <section id="workspace" class="workspace" hidden>
+        <nav class="tabs" aria-label="Admin Bereiche">
+          <button class="tab is-active" data-tab="dashboard" type="button">Dashboard</button>
+          <button class="tab" data-tab="events" type="button">Events</button>
+          <button class="tab" data-tab="registrations" type="button">Teilnehmer</button>
+          <button class="tab" data-tab="settings" type="button">Erweiterungen</button>
+        </nav>
+
+        <div id="flash" class="flash" hidden></div>
+
+        <section id="tab-dashboard" class="tabpane is-active">
+          <div id="statsGrid" class="stats-grid"></div>
+
+          <div class="card">
+            <div class="table-toolbar">
+              <h2>Naechste Events</h2>
+              <button id="refreshDashboardBtn" class="btn light" type="button">Aktualisieren</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Start</th>
+                    <th>Titel</th>
+                    <th>Status</th>
+                    <th>Bestaetigt</th>
+                    <th>Warteliste</th>
+                  </tr>
+                </thead>
+                <tbody id="nextEventsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-events" class="tabpane">
+          <div class="split">
+            <div class="card">
+              <h2>Event anlegen</h2>
+              <form id="eventForm" class="form-grid">
+                <label>
+                  Titel
+                  <input name="title" type="text" placeholder="Smoke Event" required>
+                </label>
+                <label>
+                  Slug (optional)
+                  <input name="slug" type="text" placeholder="smoke-event">
+                </label>
+                <label>
+                  Start (lokal)
+                  <input name="starts_at" type="datetime-local" required>
+                </label>
+                <label>
+                  Ende (optional)
+                  <input name="ends_at" type="datetime-local">
+                </label>
+                <label>
+                  Zeitzone
+                  <input name="timezone" type="text" value="Europe/Berlin" required>
+                </label>
+                <label>
+                  Teilnahmeart
+                  <select name="participation_mode">
+                    <option value="onsite">Onsite</option>
+                    <option value="online">Online</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </label>
+                <label>
+                  Ort
+                  <input name="location_name" type="text" placeholder="Haus am See">
+                </label>
+                <label>
+                  Online URL
+                  <input name="online_url" type="url" placeholder="https://meet.example.com/room">
+                </label>
+                <label>
+                  Max. Teilnehmer (optional)
+                  <input name="max_participants" type="number" min="1" step="1" placeholder="80">
+                </label>
+
+                <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
+                <label class="checkline"><input name="registration_enabled" type="checkbox" checked> Anmeldung aktiv</label>
+                <label class="checkline"><input name="waitlist_enabled" type="checkbox" checked> Warteliste aktiv</label>
+
+                <button id="eventSubmitBtn" class="btn primary" type="submit">Event speichern</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="table-toolbar">
+                <h2>Events</h2>
+                <button id="refreshEventsBtn" class="btn light" type="button">Aktualisieren</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Start</th>
+                      <th>Titel</th>
+                      <th>Status</th>
+                      <th>Sichtbar</th>
+                      <th>Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody id="eventsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-registrations" class="tabpane">
+          <div class="card">
+            <div class="controls-row">
+              <label class="wide">
+                Event
+                <select id="registrationEventSelect"></select>
+              </label>
+              <button id="refreshRegistrationsBtn" class="btn light" type="button">Aktualisieren</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>E-Mail</th>
+                    <th>Status</th>
+                    <th>Typ</th>
+                    <th>Zahlung</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="registrationsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-settings" class="tabpane">
+          <div class="card placeholder">
+            <h2>Naechste UI-Erweiterungen</h2>
+            <p>Als naechstes bauen wir Snippets, Datenschutz-Lauf und Kalender in diese UI ein.</p>
+            <p class="muted">Der API-Unterbau ist bereits vorhanden, wir erweitern jetzt schrittweise die Oberflaeche.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script defer src="/admin-ui.js"></script>
+</body>
+</html>

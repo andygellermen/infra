@@ -1,0 +1,114 @@
+package httpapp
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
+)
+
+func TestAdminUIRoutesServeShellAndAssets(t *testing.T) {
+	app := New(testConfig(), nil)
+
+	tests := []struct {
+		name         string
+		method       string
+		path         string
+		wantStatus   int
+		wantType     string
+		wantContains string
+	}{
+		{
+			name:         "admin shell",
+			method:       http.MethodGet,
+			path:         "/admin",
+			wantStatus:   http.StatusOK,
+			wantType:     "text/html",
+			wantContains: "Admin Cockpit",
+		},
+		{
+			name:         "admin css",
+			method:       http.MethodGet,
+			path:         "/admin-ui.css",
+			wantStatus:   http.StatusOK,
+			wantType:     "text/css",
+			wantContains: "--brand:",
+		},
+		{
+			name:         "admin js",
+			method:       http.MethodGet,
+			path:         "/admin-ui.js",
+			wantStatus:   http.StatusOK,
+			wantType:     "application/javascript",
+			wantContains: "apiRequest",
+		},
+		{
+			name:         "admin slash redirects",
+			method:       http.MethodGet,
+			path:         "/admin/",
+			wantStatus:   http.StatusTemporaryRedirect,
+			wantType:     "text/html",
+			wantContains: "<a href=\"/admin\">",
+		},
+		{
+			name:         "admin method not allowed",
+			method:       http.MethodPost,
+			path:         "/admin",
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantType:     "text/plain",
+			wantContains: "method not allowed",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rec := httptest.NewRecorder()
+			app.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("expected status %d, got %d", tc.wantStatus, rec.Code)
+			}
+			if got := rec.Header().Get("Content-Type"); !strings.Contains(got, tc.wantType) {
+				t.Fatalf("expected content-type containing %q, got %q", tc.wantType, got)
+			}
+			if body := rec.Body.String(); !strings.Contains(body, tc.wantContains) {
+				t.Fatalf("expected body to contain %q, got %q", tc.wantContains, body)
+			}
+		})
+	}
+}
+
+func TestAdminUIRouteDelegatesAdminTenantAssets(t *testing.T) {
+	app, _, _ := setupAuthApp(t)
+
+	_, err := app.tenantRepo.CreateTenant(context.Background(), tenant.CreateTenantParams{
+		Slug:          "admin",
+		Name:          "Admin Tenant",
+		PublicBaseURL: "http://localhost:8080/admin",
+	})
+	if err != nil {
+		t.Fatalf("create admin tenant: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/include.js", nil)
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected include.js status 200, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.Contains(got, "application/javascript") {
+		t.Fatalf("expected js content type, got %q", got)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "const tenantSlug = \"admin\";") {
+		t.Fatalf("expected include.js to include tenant slug admin, got %q", body)
+	}
+	if !strings.Contains(body, "/api/v1/public/\" + encodeURIComponent(tenantSlug) + \"/snippet/events?") {
+		t.Fatalf("expected include.js to target snippet events endpoint, got %q", body)
+	}
+}

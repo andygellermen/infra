@@ -135,6 +135,10 @@ func (a *App) routes() {
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
 	a.mux.HandleFunc("/api/v1/webhooks/paypal", a.handlePayPalWebhook)
+	a.mux.HandleFunc("/admin", a.handleAdminUIRoutes)
+	a.mux.HandleFunc("/admin/", a.handleAdminUIRoutes)
+	a.mux.HandleFunc("/admin-ui.css", a.handleAdminUIRoutes)
+	a.mux.HandleFunc("/admin-ui.js", a.handleAdminUIRoutes)
 	a.mux.HandleFunc("/", a.handleTenantAssetRoutes)
 }
 

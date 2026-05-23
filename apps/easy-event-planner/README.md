@@ -62,6 +62,18 @@ curl -fsS -X POST http://localhost:8080/api/v1/auth/magic-link/request \
   -d '{"tenant_slug":"demo","email":"owner@example.com","purpose":"organizer_login"}'
 ```
 
+## Admin UI (MVP)
+
+Die erste Admin-Oberflaeche ist unter `/admin` verfuegbar:
+
+```bash
+open http://localhost:8080/admin
+```
+
+Enthalten sind aktuell: Login (Magic Link), Dashboard, Event-Anlage/-Liste (inkl. Publish/Unpublish) und Teilnehmerlisten mit Kernaktionen.
+
+Hinweis: Fuer den Login muss ein aktiver Organizer-User in `tenant_users` vorhanden sein.
+
 ## Tests
 
 ```bash
