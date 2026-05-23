@@ -103,6 +103,15 @@ cd apps/easy-event-planner
 ./smoke/http-smoke.sh
 ```
 
+Functional Smoke (Migration + Seed + API-End-to-End):
+
+```bash
+cd apps/easy-event-planner
+./smoke/functional-smoke.sh
+```
+
+Hinweis: Standard-Port ist `18081`, optional ueberschreibbar mit `EEP_SMOKE_PORT`.
+
 ## Docker
 
 ```bash
@@ -162,6 +171,7 @@ Wichtige Zertifikats-Variablen:
 - [admin-ui-structure.md](docs/admin-ui-structure.md)
 - [infra-deployment.md](docs/infra-deployment.md)
 - [codex-task-plan.md](docs/codex-task-plan.md)
+- [pre-live-roadmap.md](docs/pre-live-roadmap.md)
 
 ## Naechster technischer Schritt
 
