@@ -108,6 +108,112 @@ func TestListEventRegistrationsAndGetRegistration(t *testing.T) {
 	}
 }
 
+func TestCreateManualRegistrationConfirmedAndDuplicate(t *testing.T) {
+	service, dbHandle, tenantItem := setupRegistrationService(t)
+
+	maxParticipants := 3
+	eventItem := createPublishedEventForRegistration(t, dbHandle, tenantItem.ID, event.CreateEventParams{
+		Slug:            "manual-registration-confirmed",
+		Title:           "Manual Registration Confirmed",
+		StartsAt:        time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		MaxParticipants: &maxParticipants,
+	})
+
+	created, err := service.CreateManualRegistration(context.Background(), ManualRegistrationInput{
+		TenantID:          tenantItem.ID,
+		EventID:           eventItem.ID,
+		Name:              "Max Mustermann",
+		Email:             "max@example.com",
+		Phone:             "+491234567",
+		ParticipationType: "onsite",
+	})
+	if err != nil {
+		t.Fatalf("CreateManualRegistration returned error: %v", err)
+	}
+	if created.Status != StatusConfirmed {
+		t.Fatalf("expected status confirmed, got %q", created.Status)
+	}
+	if created.Source != SourceAdminManual {
+		t.Fatalf("expected source %q, got %q", SourceAdminManual, created.Source)
+	}
+	if created.ConfirmedAt == nil {
+		t.Fatalf("expected confirmed_at to be set")
+	}
+	if created.PrivacyAcceptedAt == nil {
+		t.Fatalf("expected privacy_accepted_at to be set")
+	}
+
+	_, err = service.CreateManualRegistration(context.Background(), ManualRegistrationInput{
+		TenantID:          tenantItem.ID,
+		EventID:           eventItem.ID,
+		Name:              "Max Mustermann",
+		Email:             "max@example.com",
+		ParticipationType: "onsite",
+	})
+	if !errors.Is(err, ErrAlreadyRegistered) {
+		t.Fatalf("expected ErrAlreadyRegistered, got %v", err)
+	}
+}
+
+func TestCreateManualRegistrationMovesToWaitlistWhenFull(t *testing.T) {
+	service, dbHandle, tenantItem := setupRegistrationService(t)
+
+	waitlistEnabled := true
+	maxParticipants := 1
+	eventItem := createPublishedEventForRegistration(t, dbHandle, tenantItem.ID, event.CreateEventParams{
+		Slug:            "manual-registration-waitlist",
+		Title:           "Manual Registration Waitlist",
+		StartsAt:        time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		WaitlistEnabled: &waitlistEnabled,
+		MaxParticipants: &maxParticipants,
+	})
+
+	first, err := service.CreateManualRegistration(context.Background(), ManualRegistrationInput{
+		TenantID:          tenantItem.ID,
+		EventID:           eventItem.ID,
+		Name:              "Alice",
+		Email:             "alice@example.com",
+		ParticipationType: "onsite",
+	})
+	if err != nil {
+		t.Fatalf("first CreateManualRegistration returned error: %v", err)
+	}
+	if first.Status != StatusConfirmed {
+		t.Fatalf("expected first status confirmed, got %q", first.Status)
+	}
+
+	second, err := service.CreateManualRegistration(context.Background(), ManualRegistrationInput{
+		TenantID:          tenantItem.ID,
+		EventID:           eventItem.ID,
+		Name:              "Bob",
+		Email:             "bob@example.com",
+		ParticipationType: "onsite",
+	})
+	if err != nil {
+		t.Fatalf("second CreateManualRegistration returned error: %v", err)
+	}
+	if second.Status != StatusWaitlist {
+		t.Fatalf("expected second status waitlist, got %q", second.Status)
+	}
+	if second.Source != SourceAdminManual {
+		t.Fatalf("expected source %q, got %q", SourceAdminManual, second.Source)
+	}
+
+	var waitlistCount int
+	if err := dbHandle.QueryRowContext(
+		context.Background(),
+		`SELECT COUNT(*) FROM waitlist_entries WHERE tenant_id = ? AND event_id = ? AND registration_id = ?`,
+		tenantItem.ID,
+		eventItem.ID,
+		second.ID,
+	).Scan(&waitlistCount); err != nil {
+		t.Fatalf("query waitlist entries: %v", err)
+	}
+	if waitlistCount != 1 {
+		t.Fatalf("expected one waitlist entry for second registration, got %d", waitlistCount)
+	}
+}
+
 func TestListEventRegistrationsReturnsEventNotFound(t *testing.T) {
 	service, _, tenantItem := setupRegistrationService(t)
 

@@ -1,10 +1,15 @@
 package httpapp
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 )
 
 func TestAdminDashboardAndRegistrationEndpoints(t *testing.T) {
@@ -88,6 +93,13 @@ func TestAdminDashboardAndRegistrationsRequireAuth(t *testing.T) {
 	if getRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected get unauthorized status 401, got %d", getRec.Code)
 	}
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/registrations/manual", nil)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected manual create unauthorized status 401, got %d", createRec.Code)
+	}
 }
 
 func TestAdminDashboardAndRegistrationsReadonlyCanRead(t *testing.T) {
@@ -124,5 +136,87 @@ func TestAdminDashboardAndRegistrationsReadonlyCanRead(t *testing.T) {
 	app.Handler().ServeHTTP(getRec, getReq)
 	if getRec.Code != http.StatusOK {
 		t.Fatalf("expected readonly get status 200, got %d", getRec.Code)
+	}
+}
+
+func TestAdminManualRegistrationCreateFlow(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	eventItem := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:     "admin-manual-create-flow",
+		Title:    "Admin Manual Create Flow",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	requestBody, _ := json.Marshal(map[string]any{
+		"name":               "Max Mustermann",
+		"email":              "max@example.com",
+		"phone":              "+4912345",
+		"participation_type": "onsite",
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventItem.ID+"/registrations/manual", bytes.NewReader(requestBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected manual create status 201, got %d", createRec.Code)
+	}
+	createPayload := decodeBody[map[string]any](t, createRec)
+	item, ok := createPayload["item"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected item payload")
+	}
+	if item["status"] != "confirmed" {
+		t.Fatalf("expected confirmed status, got %v", item["status"])
+	}
+	if item["source"] != "admin_manual" {
+		t.Fatalf("expected source admin_manual, got %v", item["source"])
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/events/"+eventItem.ID+"/registrations", nil)
+	listReq.AddCookie(sessionCookie)
+	listRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d", listRec.Code)
+	}
+	listPayload := decodeBody[map[string]any](t, listRec)
+	if listPayload["total"] != float64(1) {
+		t.Fatalf("expected registration total=1, got %v", listPayload["total"])
+	}
+}
+
+func TestAdminManualRegistrationReadonlyForbidden(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	eventItem := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:     "admin-manual-readonly",
+		Title:    "Admin Manual Readonly",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	if _, err := app.db.ExecContext(
+		context.Background(),
+		`UPDATE tenant_users SET role = 'readonly' WHERE email = ?`,
+		"owner@example.com",
+	); err != nil {
+		t.Fatalf("set readonly role: %v", err)
+	}
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	requestBody, _ := json.Marshal(map[string]any{
+		"name":               "Readonly User",
+		"email":              "readonly@example.com",
+		"participation_type": "onsite",
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventItem.ID+"/registrations/manual", bytes.NewReader(requestBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusForbidden {
+		t.Fatalf("expected readonly manual create status 403, got %d", createRec.Code)
 	}
 }

@@ -66,6 +66,198 @@ type DashboardEvent struct {
 	FreeSeats             *int
 }
 
+type ManualRegistrationInput struct {
+	TenantID          string
+	EventID           string
+	Name              string
+	Email             string
+	Phone             string
+	ParticipationType string
+}
+
+func (s *Service) CreateManualRegistration(ctx context.Context, input ManualRegistrationInput) (AdminRegistration, error) {
+	if s.db == nil {
+		return AdminRegistration{}, fmt.Errorf("registration service database is nil")
+	}
+
+	tenantID := strings.TrimSpace(input.TenantID)
+	if tenantID == "" {
+		return AdminRegistration{}, fmt.Errorf("tenant id must not be empty")
+	}
+	eventID := strings.TrimSpace(input.EventID)
+	if eventID == "" {
+		return AdminRegistration{}, fmt.Errorf("event id must not be empty")
+	}
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return AdminRegistration{}, fmt.Errorf("%w: name must not be empty", ErrInvalidStartInput)
+	}
+	if len(name) > 180 {
+		return AdminRegistration{}, fmt.Errorf("%w: name must be <= 180 characters", ErrInvalidStartInput)
+	}
+	normalizedEmail, err := normalizeEmail(input.Email)
+	if err != nil {
+		return AdminRegistration{}, err
+	}
+	phone := strings.TrimSpace(input.Phone)
+	if len(phone) > 64 {
+		return AdminRegistration{}, fmt.Errorf("%w: phone must be <= 64 characters", ErrInvalidStartInput)
+	}
+	participationType, err := normalizeParticipationType(input.ParticipationType)
+	if err != nil {
+		return AdminRegistration{}, err
+	}
+
+	now := s.nowFn().UTC()
+	nowRaw := now.Format(time.RFC3339)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return AdminRegistration{}, fmt.Errorf("begin manual registration transaction: %w", err)
+	}
+
+	eventItem, err := s.lookupEventTx(ctx, tx, tenantID, eventID)
+	if err != nil {
+		_ = tx.Rollback()
+		return AdminRegistration{}, err
+	}
+	if !eventItem.RegistrationEnabled {
+		_ = tx.Rollback()
+		return AdminRegistration{}, ErrRegistrationDisabled
+	}
+	if !canRegisterForEventStatus(eventItem.Status) {
+		_ = tx.Rollback()
+		return AdminRegistration{}, ErrRegistrationClosed
+	}
+
+	participantID, err := s.upsertParticipantTx(ctx, tx, tenantID, normalizedEmail, name, phone, now)
+	if err != nil {
+		_ = tx.Rollback()
+		return AdminRegistration{}, err
+	}
+
+	activeReg, found, err := s.lookupActiveRegistrationTx(ctx, tx, tenantID, eventID, participantID)
+	if err != nil {
+		_ = tx.Rollback()
+		return AdminRegistration{}, err
+	}
+	if found {
+		_ = tx.Rollback()
+		switch activeReg.Status {
+		case StatusWaitlist:
+			return AdminRegistration{}, ErrAlreadyWaitlisted
+		default:
+			return AdminRegistration{}, ErrAlreadyRegistered
+		}
+	}
+
+	occupied, err := s.countOccupiedSeatsTx(ctx, tx, tenantID, eventID, now)
+	if err != nil {
+		_ = tx.Rollback()
+		return AdminRegistration{}, err
+	}
+
+	registrationID := s.idFn("reg")
+	if eventItem.MaxParticipants.Valid && occupied >= int(eventItem.MaxParticipants.Int64) {
+		if !eventItem.WaitlistEnabled {
+			_ = tx.Rollback()
+			return AdminRegistration{}, ErrEventFull
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO registrations (
+      id, tenant_id, event_id, participant_id, status, participation_type, quantity,
+      source, privacy_accepted_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+			registrationID,
+			tenantID,
+			eventID,
+			participantID,
+			StatusWaitlist,
+			participationType,
+			SourceAdminManual,
+			nowRaw,
+			nowRaw,
+			nowRaw,
+		); err != nil {
+			_ = tx.Rollback()
+			return AdminRegistration{}, fmt.Errorf("insert manual waitlist registration: %w", err)
+		}
+
+		waitlistPositionRow := tx.QueryRowContext(
+			ctx,
+			`SELECT COALESCE(MAX(position), 0) + 1
+     FROM waitlist_entries
+     WHERE tenant_id = ? AND event_id = ?`,
+			tenantID,
+			eventID,
+		)
+		var waitlistPosition int
+		if err := waitlistPositionRow.Scan(&waitlistPosition); err != nil {
+			_ = tx.Rollback()
+			return AdminRegistration{}, fmt.Errorf("calculate waitlist position: %w", err)
+		}
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO waitlist_entries (
+      id, tenant_id, event_id, registration_id, position, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.idFn("wle"),
+			tenantID,
+			eventID,
+			registrationID,
+			waitlistPosition,
+			WaitlistStatusWaiting,
+			nowRaw,
+			nowRaw,
+		); err != nil {
+			_ = tx.Rollback()
+			return AdminRegistration{}, fmt.Errorf("insert manual waitlist entry: %w", err)
+		}
+	} else {
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO registrations (
+      id, tenant_id, event_id, participant_id, status, participation_type, quantity,
+      source, privacy_accepted_at, confirmed_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+			registrationID,
+			tenantID,
+			eventID,
+			participantID,
+			StatusConfirmed,
+			participationType,
+			SourceAdminManual,
+			nowRaw,
+			nowRaw,
+			nowRaw,
+			nowRaw,
+		); err != nil {
+			_ = tx.Rollback()
+			return AdminRegistration{}, fmt.Errorf("insert manual confirmed registration: %w", err)
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			`UPDATE participants
+     SET email_verified_at = COALESCE(email_verified_at, ?), updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+			nowRaw,
+			nowRaw,
+			tenantID,
+			participantID,
+		); err != nil {
+			_ = tx.Rollback()
+			return AdminRegistration{}, fmt.Errorf("mark manual participant verified: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AdminRegistration{}, fmt.Errorf("commit manual registration transaction: %w", err)
+	}
+	return s.GetRegistration(ctx, tenantID, registrationID)
+}
+
 func (s *Service) ListEventRegistrations(ctx context.Context, tenantID, eventID string) ([]AdminRegistration, error) {
 	if s.db == nil {
 		return nil, fmt.Errorf("registration service database is nil")

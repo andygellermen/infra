@@ -45,7 +45,8 @@
           <button class="tab is-active" data-tab="dashboard" type="button">Dashboard</button>
           <button class="tab" data-tab="events" type="button">Events</button>
           <button class="tab" data-tab="registrations" type="button">Teilnehmer</button>
-          <button class="tab" data-tab="settings" type="button">Erweiterungen</button>
+          <button class="tab" data-tab="snippets" type="button">Snippets</button>
+          <button class="tab" data-tab="roadmap" type="button">Erweiterungen</button>
         </nav>
 
         <div id="flash" class="flash" hidden></div>
@@ -161,6 +162,31 @@
               </label>
               <button id="refreshRegistrationsBtn" class="btn light" type="button">Aktualisieren</button>
             </div>
+
+            <form id="manualRegistrationForm" class="form-grid">
+              <h2>Teilnehmer manuell hinzufuegen</h2>
+              <label>
+                Name
+                <input id="manualRegistrationName" name="name" type="text" placeholder="Max Mustermann" required>
+              </label>
+              <label>
+                E-Mail
+                <input id="manualRegistrationEmail" name="email" type="email" placeholder="max@example.com" required>
+              </label>
+              <label>
+                Telefon (optional)
+                <input id="manualRegistrationPhone" name="phone" type="text" placeholder="+49...">
+              </label>
+              <label>
+                Teilnahmeart
+                <select id="manualRegistrationType" name="participation_type">
+                  <option value="onsite">Onsite</option>
+                  <option value="online">Online</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </label>
+              <button id="manualRegistrationSubmitBtn" class="btn primary" type="submit">Teilnehmer hinzufuegen</button>
+            </form>
           </div>
 
           <div class="card">
@@ -182,10 +208,79 @@
           </div>
         </section>
 
-        <section id="tab-settings" class="tabpane">
+        <section id="tab-snippets" class="tabpane">
+          <div class="split">
+            <div class="card">
+              <h2>Snippet anlegen</h2>
+              <form id="snippetForm" class="form-grid">
+                <label>
+                  Name
+                  <input name="name" type="text" placeholder="Footer Upcoming" required>
+                </label>
+                <label>
+                  Slug
+                  <input name="slug" type="text" placeholder="footer-upcoming">
+                </label>
+                <label>
+                  Layout
+                  <select name="view_type">
+                    <option value="cards">Cards</option>
+                    <option value="list">List</option>
+                    <option value="table">Table</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="button">Button</option>
+                  </select>
+                </label>
+                <label>
+                  Event-Serie Slug (optional)
+                  <input name="series" type="text" placeholder="angst-workshop">
+                </label>
+                <label>
+                  Limit (optional)
+                  <input name="limit" type="number" min="1" step="1" placeholder="6">
+                </label>
+                <label class="checkline"><input name="include_past" type="checkbox"> Vergangene Events einbeziehen</label>
+                <label class="checkline"><input name="is_active" type="checkbox" checked> Aktiv</label>
+                <button id="snippetSubmitBtn" class="btn primary" type="submit">Snippet speichern</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="table-toolbar">
+                <h2>Snippet-Liste</h2>
+                <button id="refreshSnippetsBtn" class="btn light" type="button">Aktualisieren</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Slug</th>
+                      <th>View</th>
+                      <th>Aktiv</th>
+                      <th>Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody id="snippetsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Embed-Code</h2>
+            <p class="muted">Waehle in der Liste „Embed“, um den Script-Code zu laden.</p>
+            <label>
+              Snippet Script
+              <textarea id="snippetEmbedOutput" rows="4" readonly placeholder="<script src=\"...\" defer></script>"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section id="tab-roadmap" class="tabpane">
           <div class="card placeholder">
             <h2>Naechste UI-Erweiterungen</h2>
-            <p>Als naechstes bauen wir Snippets, Datenschutz-Lauf und Kalender in diese UI ein.</p>
+            <p>Als naechstes bauen wir Datenschutz-Lauf, Kalender-Feed und Einladungen in diese UI ein.</p>
             <p class="muted">Der API-Unterbau ist bereits vorhanden, wir erweitern jetzt schrittweise die Oberflaeche.</p>
           </div>
         </section>

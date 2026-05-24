@@ -208,8 +208,21 @@ select {
   padding: 8px 10px;
 }
 
+textarea {
+  width: 100%;
+  border: 1px solid #b8cacc;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px;
+  resize: vertical;
+  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
+  font-size: 0.84rem;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid #89d5cb;
   outline-offset: 1px;
 }

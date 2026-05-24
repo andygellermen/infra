@@ -34,6 +34,7 @@ const (
 	WaitlistStatusWaiting = "waiting"
 
 	SourcePublicPage = "public_page"
+	SourceAdminManual = "admin_manual"
 
 	DefaultVerificationTemplate = "registration_verify"
 	DefaultConfirmedTemplate    = "registration_confirmed"

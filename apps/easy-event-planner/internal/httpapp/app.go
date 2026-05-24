@@ -63,7 +63,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 				RateLimitRequests: cfg.AuthRateLimit,
 				RateLimitWindow:   cfg.AuthRateWindow,
 			},
-			nil,
+			buildMagicLinkSender(cfg),
 		)
 		app.eventRepo = event.NewRepository(sqlDB)
 		app.regService = registration.NewService(sqlDB, registration.Config{
@@ -633,6 +633,14 @@ func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
 		a.handleAdminEventRegistrationList(w, r, eventID)
 		return
 	}
+	if action == "registrations/manual" {
+		if r.Method != http.MethodPost {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminEventRegistrationManualCreate(w, r, eventID)
+		return
+	}
 
 	if r.Method != http.MethodPost {
 		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
@@ -979,15 +987,23 @@ func parseAdminEventPath(path string) (eventID, action string, ok bool) {
 		}
 		return id, "", true
 	}
-	if len(parts) == 2 {
-		id := strings.TrimSpace(parts[0])
-		action = strings.TrimSpace(parts[1])
-		if id == "" || action == "" {
+
+	id := strings.TrimSpace(parts[0])
+	if id == "" {
+		return "", "", false
+	}
+	actionParts := make([]string, 0, len(parts)-1)
+	for _, part := range parts[1:] {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
 			return "", "", false
 		}
-		return id, action, true
+		actionParts = append(actionParts, trimmed)
 	}
-	return "", "", false
+	if len(actionParts) == 0 {
+		return "", "", false
+	}
+	return id, strings.Join(actionParts, "/"), true
 }
 
 func eventPayload(item event.Event) map[string]any {

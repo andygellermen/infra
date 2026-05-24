@@ -62,6 +62,12 @@ curl -fsS -X POST http://localhost:8080/api/v1/auth/magic-link/request \
   -d '{"tenant_slug":"demo","email":"owner@example.com","purpose":"organizer_login"}'
 ```
 
+### Magic-Link Versand
+
+- Organizer-/Portal-Magic-Links werden direkt ueber den konfigurierten Mail-Provider versendet (`EEP_MAIL_PROVIDER`).
+- Bei `EEP_MAIL_PROVIDER=log` wird in Nicht-Production-Umgebungen zusaetzlich die `verify_url` im Server-Log ausgegeben (fuer lokale Tests).
+- Fuer Magic-Links ist **kein** separater Worker-Prozess erforderlich.
+
 ## Admin UI (MVP)
 
 Die erste Admin-Oberflaeche ist unter `/admin` verfuegbar:

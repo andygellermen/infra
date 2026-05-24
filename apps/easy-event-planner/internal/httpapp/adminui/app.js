@@ -3,6 +3,7 @@
     auth: null,
     events: [],
     selectedEventId: "",
+    snippets: [],
   };
 
   const ui = {
@@ -27,7 +28,14 @@
     eventsTableBody: document.querySelector("#eventsTableBody"),
     registrationEventSelect: document.querySelector("#registrationEventSelect"),
     refreshRegistrationsBtn: document.querySelector("#refreshRegistrationsBtn"),
+    manualRegistrationForm: document.querySelector("#manualRegistrationForm"),
+    manualRegistrationSubmitBtn: document.querySelector("#manualRegistrationSubmitBtn"),
     registrationsTableBody: document.querySelector("#registrationsTableBody"),
+    snippetForm: document.querySelector("#snippetForm"),
+    snippetSubmitBtn: document.querySelector("#snippetSubmitBtn"),
+    refreshSnippetsBtn: document.querySelector("#refreshSnippetsBtn"),
+    snippetsTableBody: document.querySelector("#snippetsTableBody"),
+    snippetEmbedOutput: document.querySelector("#snippetEmbedOutput"),
   };
 
   const STORAGE_TENANT_KEY = "eep_admin_tenant_slug";
@@ -43,6 +51,9 @@
     ui.refreshEventsBtn?.addEventListener("click", () => loadEvents(true));
     ui.eventForm?.addEventListener("submit", onEventCreateSubmit);
     ui.refreshRegistrationsBtn?.addEventListener("click", () => loadRegistrations(state.selectedEventId, true));
+    ui.manualRegistrationForm?.addEventListener("submit", onManualRegistrationSubmit);
+    ui.snippetForm?.addEventListener("submit", onSnippetCreateSubmit);
+    ui.refreshSnippetsBtn?.addEventListener("click", () => loadSnippets(true));
     ui.registrationEventSelect?.addEventListener("change", (ev) => {
       const id = String(ev.target.value || "").trim();
       state.selectedEventId = id;
@@ -75,7 +86,7 @@
       const payload = await apiRequest("/api/v1/auth/me");
       state.auth = payload;
       showWorkspace(payload);
-      await Promise.all([loadDashboard(false), loadEvents(false)]);
+      await Promise.all([loadDashboard(false), loadEvents(false), loadSnippets(false)]);
     } catch (err) {
       if (err.status === 401) {
         showLogin();
@@ -399,6 +410,57 @@
     }
   }
 
+  async function onManualRegistrationSubmit(event) {
+    event.preventDefault();
+    clearFlash();
+
+    const eventID = String(state.selectedEventId || ui.registrationEventSelect?.value || "").trim();
+    if (!eventID) {
+      setFlash("Bitte zuerst ein Event auswaehlen.", "error");
+      return;
+    }
+
+    const formData = new FormData(ui.manualRegistrationForm);
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const phone = String(formData.get("phone") || "").trim();
+    const participationType = String(formData.get("participation_type") || "onsite").trim() || "onsite";
+
+    if (!name || !email) {
+      setFlash("Name und E-Mail sind Pflichtfelder.", "error");
+      return;
+    }
+
+    setButtonBusy(ui.manualRegistrationSubmitBtn, true, "Speichere...");
+    try {
+      const payload = await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/registrations/manual`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          participation_type: participationType,
+        }),
+      });
+      ui.manualRegistrationForm.reset();
+      const typeSelect = ui.manualRegistrationForm.querySelector("select[name='participation_type']");
+      if (typeSelect) {
+        typeSelect.value = "onsite";
+      }
+
+      await Promise.all([
+        loadRegistrations(eventID, false),
+        loadDashboard(false),
+      ]);
+      const status = String(payload?.item?.status || "confirmed");
+      setFlash(`Teilnehmer wurde hinzugefuegt (${status}).`);
+    } catch (err) {
+      setFlash(`Teilnehmer konnte nicht hinzugefuegt werden: ${errorMessage(err)}`, "error");
+    } finally {
+      setButtonBusy(ui.manualRegistrationSubmitBtn, false, "Teilnehmer hinzufuegen");
+    }
+  }
+
   function renderRegistrations(items) {
     if (!items.length) {
       ui.registrationsTableBody.innerHTML = rowMessage("Keine Teilnehmer fuer dieses Event.", 6);
@@ -458,6 +520,141 @@
         }
       });
     });
+  }
+
+  async function loadSnippets(notify) {
+    try {
+      const payload = await apiRequest("/api/v1/admin/snippets");
+      const items = Array.isArray(payload?.items) ? payload.items.slice() : [];
+      items.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      state.snippets = items;
+      renderSnippets(items);
+      if (notify) {
+        setFlash("Snippet-Liste aktualisiert.");
+      }
+    } catch (err) {
+      setFlash(`Snippets konnten nicht geladen werden: ${errorMessage(err)}`, "error");
+    }
+  }
+
+  function renderSnippets(items) {
+    if (!items.length) {
+      ui.snippetsTableBody.innerHTML = rowMessage("Noch keine Snippets vorhanden.", 5);
+      return;
+    }
+
+    ui.snippetsTableBody.innerHTML = items
+      .map((item) => {
+        return `
+          <tr>
+            <td>${escapeHTML(item.name || "-")}</td>
+            <td>${escapeHTML(item.slug || "-")}</td>
+            <td>${escapeHTML(item.view_type || "-")}</td>
+            <td>${item.is_active ? "Ja" : "Nein"}</td>
+            <td>
+              <div class="row-actions">
+                <button class="btn tiny light" type="button" data-snippet-action="embed" data-snippet-id="${escapeAttr(item.id)}">Embed</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    ui.snippetsTableBody.querySelectorAll("button[data-snippet-action]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const action = String(btn.dataset.snippetAction || "");
+        const snippetID = String(btn.dataset.snippetId || "");
+        if (action !== "embed" || !snippetID) {
+          return;
+        }
+
+        setButtonBusy(btn, true, "...");
+        try {
+          await loadSnippetEmbedCode(snippetID);
+          setFlash("Embed-Code geladen.");
+        } catch (err) {
+          setFlash(`Embed-Code konnte nicht geladen werden: ${errorMessage(err)}`, "error");
+        } finally {
+          setButtonBusy(btn, false);
+        }
+      });
+    });
+  }
+
+  async function onSnippetCreateSubmit(event) {
+    event.preventDefault();
+    clearFlash();
+
+    const formData = new FormData(ui.snippetForm);
+    const name = String(formData.get("name") || "").trim();
+    const providedSlug = String(formData.get("slug") || "").trim();
+    const viewType = String(formData.get("view_type") || "cards").trim() || "cards";
+    const series = String(formData.get("series") || "").trim();
+    const limitRaw = String(formData.get("limit") || "").trim();
+    const includePast = ui.snippetForm.querySelector("input[name='include_past']")?.checked === true;
+    const isActive = ui.snippetForm.querySelector("input[name='is_active']")?.checked !== false;
+
+    if (!name) {
+      setFlash("Snippet-Name ist ein Pflichtfeld.", "error");
+      return;
+    }
+
+    const slug = providedSlug || slugify(name) || `snippet-${Math.floor(Date.now() / 1000)}`;
+    const eventFilter = {};
+    if (series) {
+      eventFilter.series = series;
+    }
+    if (includePast) {
+      eventFilter.include_past = true;
+    }
+    if (limitRaw) {
+      const parsedLimit = Number(limitRaw);
+      if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+        setFlash("Snippet-Limit muss eine ganze Zahl > 0 sein.", "error");
+        return;
+      }
+      eventFilter.limit = parsedLimit;
+    }
+
+    const body = {
+      name,
+      slug,
+      view_type: viewType,
+      event_filter: eventFilter,
+      display_options: {},
+      is_active: isActive,
+    };
+
+    setButtonBusy(ui.snippetSubmitBtn, true, "Speichere...");
+    try {
+      await apiRequest("/api/v1/admin/snippets", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      ui.snippetForm.reset();
+      const activeCheckbox = ui.snippetForm.querySelector("input[name='is_active']");
+      if (activeCheckbox) {
+        activeCheckbox.checked = true;
+      }
+      await loadSnippets(false);
+      setFlash("Snippet wurde angelegt.");
+      activateTab("snippets");
+    } catch (err) {
+      setFlash(`Snippet konnte nicht angelegt werden: ${errorMessage(err)}`, "error");
+    } finally {
+      setButtonBusy(ui.snippetSubmitBtn, false, "Snippet speichern");
+    }
+  }
+
+  async function loadSnippetEmbedCode(snippetID) {
+    const payload = await apiRequest(`/api/v1/admin/snippets/${encodeURIComponent(snippetID)}/embed-code`);
+    const embedCode = String(payload?.embed_code || "").trim();
+    ui.snippetEmbedOutput.value = embedCode;
+    if (embedCode) {
+      ui.snippetEmbedOutput.focus();
+      ui.snippetEmbedOutput.select();
+    }
   }
 
   function statusPill(value) {

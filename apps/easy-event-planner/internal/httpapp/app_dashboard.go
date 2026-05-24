@@ -1,6 +1,7 @@
 package httpapp
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -80,6 +81,41 @@ func (a *App) handleAdminEventRegistrationList(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": result,
 		"total": len(result),
+	})
+}
+
+func (a *App) handleAdminEventRegistrationManualCreate(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	var request struct {
+		Name              string `json:"name"`
+		Email             string `json:"email"`
+		Phone             string `json:"phone"`
+		ParticipationType string `json:"participation_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
+		return
+	}
+
+	item, err := a.regService.CreateManualRegistration(r.Context(), registration.ManualRegistrationInput{
+		TenantID:          principal.TenantID,
+		EventID:           eventID,
+		Name:              request.Name,
+		Email:             request.Email,
+		Phone:             request.Phone,
+		ParticipationType: request.ParticipationType,
+	})
+	if err != nil {
+		a.writeRegistrationError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"item": adminRegistrationPayload(item),
 	})
 }
 
@@ -356,6 +392,14 @@ func (a *App) writeRegistrationError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, registration.ErrEventNotFound):
 		writeAPIError(w, http.StatusNotFound, "EVENT_NOT_FOUND", "Veranstaltung nicht gefunden.")
+	case errors.Is(err, registration.ErrRegistrationDisabled), errors.Is(err, registration.ErrRegistrationClosed):
+		writeAPIError(w, http.StatusConflict, "REGISTRATION_CLOSED", "Anmeldung ist fuer diese Veranstaltung derzeit nicht moeglich.")
+	case errors.Is(err, registration.ErrAlreadyRegistered):
+		writeAPIError(w, http.StatusConflict, "ALREADY_REGISTERED", "Teilnahme ist bereits bestaetigt.")
+	case errors.Is(err, registration.ErrAlreadyWaitlisted):
+		writeAPIError(w, http.StatusConflict, "ALREADY_WAITLISTED", "Teilnahme steht bereits auf der Warteliste.")
+	case errors.Is(err, registration.ErrEventFull):
+		writeAPIError(w, http.StatusConflict, "EVENT_FULL", "Die Veranstaltung ist ausgebucht. Eine Warteliste ist verfuegbar.")
 	case errors.Is(err, registration.ErrRegistrationNotFound):
 		writeAPIError(w, http.StatusNotFound, "REGISTRATION_NOT_FOUND", "Teilnahme nicht gefunden.")
 	case errors.Is(err, registration.ErrRegistrationAttendNotAllowed):
