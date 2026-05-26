@@ -276,9 +276,15 @@ func (a *App) handlePublicSnippetEvents(w http.ResponseWriter, r *http.Request, 
 	viewType := defaultSnippetViewType
 	filter := event.PublicEventFilter{}
 	eventSlug := ""
-	configSlug := strings.TrimSpace(r.URL.Query().Get("config"))
+	query := r.URL.Query()
+	configSlug := strings.TrimSpace(query.Get("config"))
 	var configPayload any
 	if configSlug != "" {
+		if err := validateSnippetConfigOnlyQuery(query); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+			return
+		}
+
 		configItem, err := a.snippetRepo.GetConfigBySlug(r.Context(), tenantItem.ID, configSlug)
 		if err != nil {
 			if errors.Is(err, snippet.ErrSnippetNotFound) {
@@ -310,15 +316,15 @@ func (a *App) handlePublicSnippetEvents(w http.ResponseWriter, r *http.Request, 
 			"view_type":       configItem.ViewType,
 			"display_options": displayOptions,
 		}
-	}
-
-	queryOptionsView := ""
-	if err := applySnippetOptionsFromValues(r.URL.Query(), &filter, &eventSlug, &queryOptionsView); err != nil {
-		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
-		return
-	}
-	if queryOptionsView != "" {
-		viewType = queryOptionsView
+	} else {
+		queryOptionsView := ""
+		if err := applySnippetOptionsFromValues(query, &filter, &eventSlug, &queryOptionsView); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+			return
+		}
+		if queryOptionsView != "" {
+			viewType = queryOptionsView
+		}
 	}
 	if strings.TrimSpace(viewType) == "" {
 		viewType = defaultSnippetViewType
@@ -478,12 +484,23 @@ func buildSnippetIncludeJS(tenantSlug string) string {
   if (!script) return;
 
   const source = new URL(script.src);
-  const params = new URLSearchParams(source.search);
+  const rawParams = new URLSearchParams(source.search);
+  const params = new URLSearchParams();
+  const config = rawParams.get("config");
+  if (config) {
+    params.set("config", config);
+  } else {
+    rawParams.forEach(function (value, key) {
+      params.append(key, value);
+    });
+  }
+  const dataTarget = script.getAttribute("data-target");
+  const targetSelector = dataTarget || (config ? "" : rawParams.get("target"));
   const tenantSlug = %q;
   const apiURL = source.origin + "/api/v1/public/" + encodeURIComponent(tenantSlug) + "/snippet/events?" + params.toString();
 
   ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
-  const container = resolveContainer(script, params.get("target"));
+  const container = resolveContainer(script, targetSelector);
   container.classList.add("eep-widget");
   container.classList.add("eep-loading");
 
@@ -587,6 +604,22 @@ func buildSnippetIncludeJS(tenantSlug string) string {
       .replace(/'/g, "&#39;");
   }
 })();`, tenantSlug)
+}
+
+func validateSnippetConfigOnlyQuery(values url.Values) error {
+	if strings.TrimSpace(values.Get("config")) == "" {
+		return fmt.Errorf("config query parameter must not be empty")
+	}
+	for key, items := range values {
+		normalizedKey := strings.ToLower(strings.TrimSpace(key))
+		if normalizedKey != "config" {
+			return fmt.Errorf("config-based snippets only allow the config query parameter")
+		}
+		if len(items) != 1 {
+			return fmt.Errorf("config query parameter must be provided exactly once")
+		}
+	}
+	return nil
 }
 
 const snippetCSS = `.eep-widget {

@@ -25,6 +25,10 @@ Diese Liste sammelt die sicherheits- und betriebskritischen Aufgaben vor dem pro
 - [ ] Geplanter Restore-Drill (monatlich oder quartalsweise) mit dokumentierter Dauer und Findings.
 - [ ] Sicherheits-Header-Haertung im HTTP-Layer (z. B. HSTS/CSP/X-Frame-Options je nach UI-Plan).
 - [ ] Rate-Limit-/Abuse-Review fuer oeffentliche Endpunkte mit Lastprofil.
+- [ ] Include-Haertung: bei config-basierten Snippets nur ein Parameter (`config`) erlauben, keine Query-Overrides.
+- [ ] Include-Multitenancy absichern: Tenant-Trennung fuer `include.js` und Snippet-Config in Tests und Monitoring explizit pruefen.
+- [ ] Opaque Include-Slug/Token einfuehren (kryptischer Wert statt sprechendem Slug) und rotierbar machen.
+- [ ] Snippet-Event-Response-Caching mit Invalidation bei DB-Aenderungen (ETag/Last-Modified oder in-memory Cache).
 
 ## Konkrete Infra-Umsetzungspunkte
 
@@ -32,4 +36,3 @@ Diese Liste sammelt die sicherheits- und betriebskritischen Aufgaben vor dem pro
 - [ ] `scripts/infra-restore.sh` um Easy-Event-Planner-Restore-Schritte erweitern.
 - [ ] App-spezifische Skripte `eep-backup.sh` und `eep-restore.sh` einfuehren (inkl. Safety-Backup vor Restore).
 - [ ] Post-Restore-Smoke-Flow standardisieren (`/healthz`, `/readyz`, Kern-Endpunkte).
-

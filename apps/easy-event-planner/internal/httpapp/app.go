@@ -139,6 +139,7 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/admin/", a.handleAdminUIRoutes)
 	a.mux.HandleFunc("/admin-ui.css", a.handleAdminUIRoutes)
 	a.mux.HandleFunc("/admin-ui.js", a.handleAdminUIRoutes)
+	a.mux.HandleFunc("/smoke/footer-include.html", a.handleAdminUIRoutes)
 	a.mux.HandleFunc("/", a.handleTenantAssetRoutes)
 }
 

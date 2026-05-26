@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Easy Event Planner - Footer Include Smoke</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      line-height: 1.5;
+      color: #1f2f36;
+      background: #f6f8fa;
+    }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .content {
+      min-height: 58vh;
+      background: #ffffff;
+      border: 1px solid #d8e2e8;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    footer {
+      margin-top: 20px;
+      background: #ffffff;
+      border: 1px solid #d8e2e8;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .hint {
+      color: #5a6b74;
+      font-size: 0.92rem;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, monospace;
+      background: #f1f4f6;
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="content">
+      <h1>Dummy-Seite fuer Footer-Include-Test</h1>
+      <p>Diese Seite dient nur dem finalen Smoke-Test fuer das Include-Skript.</p>
+      <p class="hint">Aufruf: <code>/smoke/footer-include.html?tenant=demo&config=dein-snippet-slug</code></p>
+    </main>
+
+    <footer>
+      <h2>Event-Teaser im Footer</h2>
+      <p class="hint">Empfohlene Form: genau ein Parameter (<code>config</code>).</p>
+      <div id="smokeIncludeHint" class="hint"></div>
+      <script>
+        (function () {
+          var params = new URLSearchParams(window.location.search || "");
+          var config = (params.get("config") || "").trim();
+          var tenant = (params.get("tenant") || "demo").trim();
+          var hint = document.getElementById("smokeIncludeHint");
+          if (!config) {
+            if (hint) {
+              hint.textContent = "Bitte ?config=... in der URL setzen.";
+            }
+            return;
+          }
+          if (!tenant) {
+            tenant = "demo";
+          }
+          if (hint) {
+            hint.textContent = "Aktiver Tenant: " + tenant + " | config: " + config;
+          }
+          var script = document.createElement("script");
+          script.src = "/" + encodeURIComponent(tenant) + "/include.js?config=" + encodeURIComponent(config);
+          script.defer = true;
+          document.currentScript.parentNode.appendChild(script);
+        })();
+      </script>
+    </footer>
+  </div>
+</body>
+</html>

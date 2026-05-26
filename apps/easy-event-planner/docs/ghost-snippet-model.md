@@ -26,6 +26,8 @@ Das Snippet ist reine Darstellung. Es darf keine Kapazität final entscheiden, k
 <script src="https://events.geller.men/customerxyz/include.js?config=footer-upcoming" defer></script>
 ```
 
+Hinweis (Haertung): In produktiven Setups sollte nur die config-basierte Form verwendet werden. Bei `config=...` werden keine weiteren Query-Parameter akzeptiert.
+
 ## Rendering
 
 `include.js` lädt Config, lädt optional CSS, findet/erzeugt Container, ruft Public API auf, rendert HTML und bindet Eventhandler.

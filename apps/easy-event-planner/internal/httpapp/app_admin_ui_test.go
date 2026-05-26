@@ -46,6 +46,14 @@ func TestAdminUIRoutesServeShellAndAssets(t *testing.T) {
 			wantContains: "apiRequest",
 		},
 		{
+			name:         "smoke footer include page",
+			method:       http.MethodGet,
+			path:         "/smoke/footer-include.html",
+			wantStatus:   http.StatusOK,
+			wantType:     "text/html",
+			wantContains: "/smoke/footer-include.html?tenant=demo&config=dein-snippet-slug",
+		},
+		{
 			name:         "admin slash redirects",
 			method:       http.MethodGet,
 			path:         "/admin/",

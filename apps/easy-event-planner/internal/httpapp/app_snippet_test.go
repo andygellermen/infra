@@ -220,6 +220,18 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 		t.Fatalf("expected snippet view list, got %v", eventsPayload["view"])
 	}
 
+	tamperedReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=public-snippet&limit=50", nil)
+	tamperedRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(tamperedRec, tamperedReq)
+	if tamperedRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected tampered config request status 400, got %d", tamperedRec.Code)
+	}
+	tamperedPayload := decodeBody[map[string]any](t, tamperedRec)
+	tamperedErr := tamperedPayload["error"].(map[string]any)
+	if tamperedErr["code"] != "VALIDATION_ERROR" {
+		t.Fatalf("expected VALIDATION_ERROR for tampered config request, got %v", tamperedErr["code"])
+	}
+
 	missingReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=missing", nil)
 	missingRec := httptest.NewRecorder()
 	app.Handler().ServeHTTP(missingRec, missingReq)

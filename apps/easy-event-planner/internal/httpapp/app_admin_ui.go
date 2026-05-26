@@ -38,6 +38,9 @@ func (a *App) handleAdminUIRoutes(w http.ResponseWriter, r *http.Request) {
 	case "/admin-ui.js":
 		a.serveAdminUIAsset(w, r, "app.js", "application/javascript; charset=utf-8", false)
 		return
+	case "/smoke/footer-include.html":
+		a.serveAdminUIAsset(w, r, "footer-include-smoke.html", "text/html; charset=utf-8", true)
+		return
 	default:
 		if strings.HasPrefix(path, "/admin/") {
 			// Keep tenant slug "admin" assets reachable via /admin/include.js etc.
