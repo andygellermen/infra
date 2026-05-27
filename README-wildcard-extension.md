@@ -19,6 +19,7 @@ Diese Erweiterung bereitet den Stack für automatisch erneuerbare Wildcard-Zerti
 - [distribution.example.yml](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/distribution.example.yml)
 - [wildcard-distribute-on-change.service](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.service)
 - [wildcard-distribute-on-change.path](/Users/andygellermann/Documents/Projects/infra/infra/ansible/wildcards/systemd/wildcard-distribute-on-change.path)
+- [README-wildcard-watcher-runbook.md](/Users/andygellermann/Documents/Projects/infra/infra/README-wildcard-watcher-runbook.md)
 
 ## Secrets
 Die AutoDNS-Zugangsdaten liegen unsynced in `ansible/secrets/secrets.yml`.
