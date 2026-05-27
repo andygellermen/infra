@@ -6,6 +6,10 @@ Description=Watch Traefik ACME storage for wildcard certificate changes
 # zeigen. Wenn dein Traefik-Storage woanders liegt, muss nur dieser Teil
 # angepasst werden.
 PathChanged=/home/andy/infra/data/traefik/acme/acme.json
+# Entschaerft eventuelle Event-Bursts, damit der Watcher nicht in einen
+# Trigger-Limit-Fehler faellt.
+TriggerLimitIntervalSec=30s
+TriggerLimitBurst=50
 # Nur PathChanged, um Trigger-Schleifen mit kurzlebigen oneshot-Services zu vermeiden.
 Unit=wildcard-distribute-on-change.service
 
