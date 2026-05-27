@@ -9,43 +9,43 @@ wildcard_exports:
         host: 116.203.182.136
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/miethaenger.com/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/miethaenger.com/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"
 
       - name: backup-server
         host: 49.13.158.205
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/miethaenger.com/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/miethaenger.com/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"
 
       - name: test-server
         host: 188.245.223.161
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/miethaenger.com/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/miethaenger.com/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"
 
   - source_domain: anhaenger.berlin
     acme_file: /home/andy/infra/data/traefik/acme/acme.json
@@ -54,40 +54,40 @@ wildcard_exports:
         host: 116.203.182.136
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/anhaenger.berlin/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/anhaenger.berlin/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"
 
       - name: backup-server
         host: 49.13.158.205
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/anhaenger.berlin/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/anhaenger.berlin/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"
 
       - name: test-server
         host: 188.245.223.161
         user: root
         port: 22
-        identity_file: /home/andy/.ssh/id_wildcard_stage
-        known_hosts_file: /home/andy/.ssh/known_hosts
+        identity_file: /root/.ssh/id_wildcard_stage
+        known_hosts_file: /root/.ssh/known_hosts
         remote_fullchain_path: /etc/letsencrypt/live/anhaenger.berlin/fullchain.pem
         remote_privkey_path: /etc/letsencrypt/live/anhaenger.berlin/privkey.pem
         owner: root
         group: root
         fullchain_mode: "0644"
         privkey_mode: "0600"
-        post_deploy_command: "apachectl configtest && systemctl reload apache2"
+        post_deploy_command: "apache2ctl -t && systemctl reload apache2"

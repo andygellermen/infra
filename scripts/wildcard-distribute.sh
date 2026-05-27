@@ -146,6 +146,7 @@ if [[ "$LIST_EXPORTS" -eq 0 ]]; then
   require_cmd python3
   require_cmd ssh
   require_cmd openssl
+  require_cmd base64
 fi
 
 DOMAIN=""
@@ -458,6 +459,10 @@ for line in "${TARGET_LINES[@]}"; do
 
   remote_fullchain_tmp="${remote_fullchain_path}.tmp.$$"
   remote_privkey_tmp="${remote_privkey_path}.tmp.$$"
+  post_deploy_command_b64=""
+  if [[ -n "$post_deploy_command" ]]; then
+    post_deploy_command_b64="$(printf '%s' "$post_deploy_command" | base64 | tr -d '\r\n')"
+  fi
 
   upload_file_via_ssh "$CURRENT_EXPORT_DIR/fullchain.pem" "$remote_fullchain_tmp" "${ssh_args[@]}"
   upload_file_via_ssh "$CURRENT_EXPORT_DIR/privkey.pem" "$remote_privkey_tmp" "${ssh_args[@]}"
@@ -471,7 +476,7 @@ for line in "${TARGET_LINES[@]}"; do
     "$privkey_mode" \
     "$owner" \
     "$group" \
-    "$post_deploy_command" <<'REMOTE'
+    "$post_deploy_command_b64" <<'REMOTE'
 set -eu
 
 remote_fullchain_path="$1"
@@ -482,7 +487,12 @@ fullchain_mode="$5"
 privkey_mode="$6"
 owner="$7"
 group="$8"
-post_deploy_command="$9"
+post_deploy_command_b64="${9:-}"
+
+post_deploy_command=""
+if [ -n "$post_deploy_command_b64" ]; then
+  post_deploy_command="$(printf '%s' "$post_deploy_command_b64" | base64 -d)"
+fi
 
 mkdir -p "$(dirname "$remote_fullchain_path")"
 mkdir -p "$(dirname "$remote_privkey_path")"
