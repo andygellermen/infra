@@ -724,10 +724,46 @@ Optional koennen die Zusatztexte spaeter pro Domain direkt in `ansible/hostvars/
 - API-Hotspots: `/ghost/api`, `/.ghost`, `/members/api` über `crowdsec-api@docker`
 - Diese Middleware-Defaults werden bei neuen Hostvars automatisch gesetzt und bei Restore alter Backups ergänzt.
 
+### eep-add.sh
+
+**Beschreibung:**  
+Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-Pruefung, Token-Pepper, Traefik-Aliases und optionalem Wildcard-TLS-Setup.
+
+**Syntax:**
+```bash
+./scripts/eep-add.sh <domain> [alias1 alias2 ...] [--tenant-slug=<slug>] [--tenant-name=<name>] [--base-url=<url>] [--mail-provider=<log|smtp|ses>] [--mail-from=<email>] [--mail-from-name=<name>] [--seed-enabled=<true|false>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--skip-dns-check]
+```
+
+**Hinweise:**
+- Schreibt nach `ansible/hostvars/<domain>.yml`.
+- Fuegt standardmaessig `www.<domain>` als Alias hinzu.
+- Das eigentliche Deployment startet anschliessend mit `./scripts/eep-redeploy.sh`.
+- `--skip-dns-check` ist hilfreich, wenn du die Hostvars lokal vorbereitest, aber DNS noch nicht final auf den Zielhost zeigt.
+
+### eep-redeploy.sh
+
+**Beschreibung:**  
+Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine einzelne Domain oder alle `eep_enabled`-Instanzen.
+
+**Syntax:**
+```bash
+# Alle EEP-Instanzen deployen
+./scripts/eep-redeploy.sh --all
+
+# Einzelne Domain deployen
+./scripts/eep-redeploy.sh events.geller.men
+
+# Nur Build
+./scripts/eep-redeploy.sh --build-only
+
+# Check-Mode
+./scripts/eep-redeploy.sh --all --check-only
+```
+
 ### redeploy-all-web.sh
 
 **Beschreibung:**  
-Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_domain_db` / `wp_domain_db`).
+Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_domain_db` / `wp_domain_db` / `eep_enabled` etc.).
 
 **Syntax:**
 ```bash
@@ -740,6 +776,9 @@ Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_d
 # Nur Ghost oder nur WordPress
 ./scripts/redeploy-all-web.sh --only=ghost
 ./scripts/redeploy-all-web.sh --only=wp
+
+# Nur Easy-Event-Planner
+./scripts/redeploy-all-web.sh --only=eep
 
 # Parallelisiert (z. B. 4 gleichzeitige Redeploys)
 ./scripts/redeploy-all-web.sh --parallel=4

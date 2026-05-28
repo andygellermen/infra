@@ -179,6 +179,7 @@ def parse_hostvars_file(path: Path) -> dict[str, Any]:
                     "static_enabled",
                     "sheet_helper_enabled",
                     "static_editor_enabled",
+                    "eep_enabled",
                 }:
                     payload[key] = parse_scalar(value)
                 continue
@@ -279,6 +280,8 @@ def hostvars_has_public_service(payload: dict[str, Any]) -> bool:
     if parse_bool(payload.get("sheet_helper_enabled")):
         return True
     if parse_bool(payload.get("static_editor_enabled")):
+        return True
+    if parse_bool(payload.get("eep_enabled")):
         return True
     return False
 

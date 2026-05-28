@@ -1,0 +1,9 @@
+---
+- name: Deploy Easy Event Planner
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  roles:
+    - easy-event-planner

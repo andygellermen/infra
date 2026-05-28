@@ -9,16 +9,17 @@ STATIC_REDEPLOY="$ROOT_DIR/scripts/static-redeploy.sh"
 REDIRECT_REDEPLOY="$ROOT_DIR/scripts/redirect-redeploy.sh"
 SHEETHELPER_REDEPLOY="$ROOT_DIR/scripts/sheethelper-redeploy.sh"
 STATICEDITOR_REDEPLOY="$ROOT_DIR/scripts/staticeditor-redeploy.sh"
+EEP_REDEPLOY="$ROOT_DIR/scripts/eep-redeploy.sh"
 source "$ROOT_DIR/scripts/lib/error-notify.sh"
 setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp|static|redirect|sheethelper|staticeditor] [--parallel=<n>] [--continue-on-error]
+  ./scripts/redeploy-all-web.sh [--check-only] [--only=all|ghost|wp|static|redirect|sheethelper|staticeditor|eep] [--parallel=<n>] [--continue-on-error]
 
 Description:
-  Redeployt alle Web-Container und Redirects (Ghost + WordPress + Static + Redirect + Sheet Helper + Static Inline Editor) basierend auf Hostvars/Konfiguration.
+  Redeployt alle Web-Container und Redirects (Ghost + WordPress + Static + Redirect + Sheet Helper + Static Inline Editor + Easy Event Planner) basierend auf Hostvars/Konfiguration.
 USAGE
 }
 
@@ -43,7 +44,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$ONLY" =~ ^(all|ghost|wp|static|redirect|sheethelper|staticeditor)$ ]] || die "--only muss all|ghost|wp|static|redirect|sheethelper|staticeditor sein."
+[[ "$ONLY" =~ ^(all|ghost|wp|static|redirect|sheethelper|staticeditor|eep)$ ]] || die "--only muss all|ghost|wp|static|redirect|sheethelper|staticeditor|eep sein."
 [[ "$PARALLEL" =~ ^[0-9]+$ ]] || die "--parallel muss eine Zahl >= 1 sein."
 (( PARALLEL >= 1 )) || die "--parallel muss >= 1 sein."
 [[ -d "$HOSTVARS_DIR" ]] || die "Hostvars-Verzeichnis fehlt: $HOSTVARS_DIR"
@@ -53,6 +54,7 @@ done
 [[ -x "$REDIRECT_REDEPLOY" ]] || die "Script nicht ausführbar: $REDIRECT_REDEPLOY"
 [[ -x "$SHEETHELPER_REDEPLOY" ]] || die "Script nicht ausführbar: $SHEETHELPER_REDEPLOY"
 [[ -x "$STATICEDITOR_REDEPLOY" ]] || die "Script nicht ausführbar: $STATICEDITOR_REDEPLOY"
+[[ -x "$EEP_REDEPLOY" ]] || die "Script nicht ausführbar: $EEP_REDEPLOY"
 
 mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
@@ -62,6 +64,7 @@ wp_domains=()
 static_domains=()
 sheethelper_domains=()
 staticeditor_domains=()
+eep_domains=()
 
 for file in "${HOSTVAR_FILES[@]}"; do
   domain="$(basename "$file" .yml)"
@@ -70,6 +73,7 @@ for file in "${HOSTVAR_FILES[@]}"; do
   grep -q '^static_enabled:[[:space:]]*true' "$file" && static_domains+=("$domain")
   grep -q '^sheet_helper_enabled:[[:space:]]*true' "$file" && sheethelper_domains+=("$domain")
   grep -q '^static_editor_enabled:[[:space:]]*true' "$file" && staticeditor_domains+=("$domain")
+  grep -q '^eep_enabled:[[:space:]]*true' "$file" && eep_domains+=("$domain")
 done
 
 run_redeploy() {
@@ -220,6 +224,18 @@ if [[ "$ONLY" == "all" || "$ONLY" == "staticeditor" ]]; then
       [[ "$CONTINUE_ON_ERROR" -eq 1 ]] || exit 1
     else
       ok "Static-Inline-Editor erfolgreich: shared"
+    fi
+  fi
+fi
+
+if [[ "$ONLY" == "all" || "$ONLY" == "eep" ]]; then
+  info "Easy-Event-Planner-Domains: ${#eep_domains[@]}"
+  if [[ ${#eep_domains[@]} -gt 0 ]]; then
+    if ! "$EEP_REDEPLOY" --all $([[ "$CHECK_ONLY" -eq 1 ]] && printf '%s' '--check-only'); then
+      failed+=("eep:shared")
+      [[ "$CONTINUE_ON_ERROR" -eq 1 ]] || exit 1
+    else
+      ok "Easy-Event-Planner erfolgreich: shared"
     fi
   fi
 fi

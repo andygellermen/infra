@@ -1,0 +1,283 @@
+---
+- name: Collect easy-event-planner hostvars files
+  ansible.builtin.set_fact:
+    eep_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+
+- name: Build easy-event-planner sites list
+  ansible.builtin.set_fact:
+    eep_sites: "{{ (eep_sites | default([])) + [ eep_site_vars ] }}"
+  vars:
+    eep_site_vars: "{{ lookup('file', item) | from_yaml }}"
+  loop: "{{ eep_hostvar_files }}"
+  when: (lookup('file', item) | from_yaml).eep_enabled | default(false)
+
+- name: Default easy-event-planner sites list when empty
+  ansible.builtin.set_fact:
+    eep_sites: "{{ eep_sites | default([]) }}"
+
+- name: Validate requested easy-event-planner domain exists
+  ansible.builtin.assert:
+    that:
+      - "target_domain in (eep_sites | map(attribute='domain') | list)"
+    fail_msg: "Keine Easy-Event-Planner-Instanz fuer {{ target_domain }} in ansible/hostvars gefunden."
+  when:
+    - target_domain is defined
+    - target_domain | length > 0
+
+- name: Build effective easy-event-planner site list
+  ansible.builtin.set_fact:
+    eep_sites_effective: >-
+      {{
+        eep_sites
+        if not (target_domain is defined and (target_domain | length) > 0)
+        else (eep_sites | selectattr('domain', 'equalto', target_domain) | list)
+      }}
+
+- name: Ensure traefik docker network exists for easy-event-planner
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: eep_sites_effective | length > 0
+
+- name: Build easy-event-planner directory list
+  ansible.builtin.set_fact:
+    eep_directories: >-
+      {{
+        (eep_directories | default([]))
+        + [
+          '/srv/easy-event-planner/' ~ item.domain,
+          '/srv/easy-event-planner/' ~ item.domain ~ '/data',
+          '/srv/easy-event-planner/' ~ item.domain ~ '/certificates',
+          '/srv/easy-event-planner/' ~ item.domain ~ '/uploads'
+        ]
+      }}
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Ensure easy-event-planner directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ (eep_directories | default([])) | unique }}"
+  when: eep_sites_effective | length > 0
+
+- name: Render per-domain easy-event-planner env files
+  ansible.builtin.copy:
+    dest: "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      EEP_ENV={{ item.eep_env | default('production', true) }}
+      EEP_HTTP_ADDR={{ item.eep_http_addr | default(':8080', true) }}
+      EEP_BASE_URL={{ item.eep_base_url | default('https://' ~ item.domain, true) }}
+      EEP_DB_DRIVER={{ item.eep_db_driver | default('sqlite', true) }}
+      EEP_DB_PATH={{ item.eep_db_path | default('/data/easy-event-planner.sqlite', true) }}
+      EEP_CERTIFICATE_STORAGE_DIR={{ item.eep_certificate_storage_dir | default('/certificates', true) }}
+      EEP_TOKEN_PEPPER={{ item.eep_token_pepper | default('change-me', true) }}
+      EEP_SESSION_COOKIE_NAME={{ item.eep_session_cookie_name | default('eep_session', true) }}
+      EEP_SECURE_COOKIES={{ (item.eep_secure_cookies | default(true, true) | bool) | ternary('true', 'false') }}
+      EEP_MAIL_PROVIDER={{ item.eep_mail_provider | default('log', true) }}
+      EEP_MAIL_FROM={{ item.eep_mail_from | default('noreply@' ~ item.domain, true) }}
+      EEP_MAIL_FROM_NAME={{ item.eep_mail_from_name | default('', true) }}
+      EEP_SES_REGION={{ item.eep_ses_region | default('eu-north-1', true) }}
+      EEP_SES_SMTP_HOST={{ item.eep_ses_smtp_host | default('', true) }}
+      EEP_SES_SMTP_PORT={{ item.eep_ses_smtp_port | default(587, true) }}
+      EEP_SES_SMTP_USER={{ item.eep_ses_smtp_user | default('', true) }}
+      EEP_SES_SMTP_PASS={{ item.eep_ses_smtp_pass | default('', true) }}
+      EEP_PAYPAL_USE_REAL_API={{ (item.eep_paypal_use_real_api | default(false, true) | bool) | ternary('true', 'false') }}
+      EEP_PAYPAL_CLIENT_ID={{ item.eep_paypal_client_id | default('', true) }}
+      EEP_PAYPAL_CLIENT_SECRET={{ item.eep_paypal_client_secret | default('', true) }}
+      EEP_PAYPAL_WEBHOOK_ID={{ item.eep_paypal_webhook_id | default('', true) }}
+      EEP_PAYPAL_SANDBOX_API_BASE_URL={{ item.eep_paypal_sandbox_api_base_url | default('https://api-m.sandbox.paypal.com', true) }}
+      EEP_PAYPAL_LIVE_API_BASE_URL={{ item.eep_paypal_live_api_base_url | default('https://api-m.paypal.com', true) }}
+      EEP_PAYPAL_HTTP_TIMEOUT={{ item.eep_paypal_http_timeout | default('15s', true) }}
+      EEP_EMAIL_WORKER_POLL_INTERVAL={{ item.eep_email_worker_poll_interval | default('3s', true) }}
+      EEP_EMAIL_WORKER_BATCH_SIZE={{ item.eep_email_worker_batch_size | default(10, true) }}
+      EEP_SEED_TENANT_SLUG={{ item.eep_seed_tenant_slug | default('demo', true) }}
+      EEP_SEED_TENANT_NAME={{ item.eep_seed_tenant_name | default('Demo Tenant', true) }}
+      EEP_SEED_TENANT_PUBLIC_BASE_URL={{ item.eep_seed_tenant_public_base_url | default((item.eep_base_url | default('https://' ~ item.domain, true)) ~ '/' ~ (item.eep_seed_tenant_slug | default('demo', true)), true) }}
+      EEP_SEED_TENANT_TIMEZONE={{ item.eep_seed_tenant_timezone | default('Europe/Berlin', true) }}
+      EEP_SEED_TENANT_LOCALE={{ item.eep_seed_tenant_locale | default('de-DE', true) }}
+      EEP_SEED_RETENTION_DAYS={{ item.eep_seed_retention_days | default(30, true) }}
+      EEP_SEED_SENDER_EMAIL={{ item.eep_seed_sender_email | default(item.eep_mail_from | default('noreply@' ~ item.domain, true), true) }}
+      EEP_SEED_SENDER_NAME={{ item.eep_seed_sender_name | default(item.eep_mail_from_name | default('', true), true) }}
+      EEP_SEED_PAYPAL_MODE={{ item.eep_seed_paypal_mode | default('disabled', true) }}
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Remove stale easy-event-planner migration containers
+  community.docker.docker_container:
+    name: "easy-event-planner-{{ item.domain | replace('.', '-') }}-migrate"
+    state: absent
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Remove stale easy-event-planner seed containers
+  community.docker.docker_container:
+    name: "easy-event-planner-{{ item.domain | replace('.', '-') }}-seed"
+    state: absent
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Run easy-event-planner migrations
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "easy-event-planner-{{ item.domain | replace('.', '-') }}-migrate"
+      - --env-file
+      - "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner.env"
+      - -v
+      - "/srv/easy-event-planner/{{ item.domain }}/data:/data"
+      - -v
+      - "/srv/easy-event-planner/{{ item.domain }}/certificates:/certificates"
+      - "{{ item.eep_image | default('easy-event-planner:latest', true) }}"
+      - easy-event-planner-migrate
+  changed_when: true
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Run easy-event-planner seed command (optional)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "easy-event-planner-{{ item.domain | replace('.', '-') }}-seed"
+      - --env-file
+      - "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner.env"
+      - -v
+      - "/srv/easy-event-planner/{{ item.domain }}/data:/data"
+      - -v
+      - "/srv/easy-event-planner/{{ item.domain }}/certificates:/certificates"
+      - "{{ item.eep_image | default('easy-event-planner:latest', true) }}"
+      - easy-event-planner-seed
+  changed_when: true
+  loop: "{{ eep_sites_effective }}"
+  when:
+    - eep_sites_effective | length > 0
+    - item.eep_seed_enabled | default(false) | bool
+
+- name: Deploy easy-event-planner app containers
+  community.docker.docker_container:
+    name: "{{ item.eep_container_name | default('easy-event-planner-' ~ eep_site_id, true) }}"
+    image: "{{ item.eep_image | default('easy-event-planner:latest', true) }}"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+    volumes:
+      - "/srv/easy-event-planner/{{ item.domain }}/data:/data"
+      - "/srv/easy-event-planner/{{ item.domain }}/certificates:/certificates"
+      - "/srv/easy-event-planner/{{ item.domain }}/uploads:/uploads"
+    env_file: "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner.env"
+    labels: "{{ eep_site_labels }}"
+    state: started
+  vars:
+    eep_site_id: "{{ item.domain | replace('.', '-') }}"
+    eep_service_name: "easy-event-planner-{{ eep_site_id }}"
+    eep_router_name: "easy-event-planner-{{ eep_site_id }}"
+    eep_aliases: "{{ (item.traefik.aliases | default([], true)) | difference([item.domain]) | unique }}"
+    eep_primary_rule: "Host(`{{ item.domain }}`)"
+    eep_alias_rule: "{{ eep_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+    eep_middleware_default: "{{ item.eep_traefik_middleware_default | default('', true) }}"
+    eep_tls_mode: "{{ item.tls_mode | default('standard', true) }}"
+    eep_tls_wildcard_domain: "{{ item.tls_wildcard_domain | default('', true) }}"
+    eep_tls_certresolver: "{{ 'letsEncryptDns' if ((item.tls_mode | default('standard', true)) == 'wildcard' and (item.tls_wildcard_domain | default('', true) | length) > 0) else 'letsEncrypt' }}"
+    eep_tls_domain_labels: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ eep_router_name ~ '.tls.domains[0].main'): eep_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ eep_router_name ~ '.tls.domains[0].sans'): '*.' ~ eep_tls_wildcard_domain
+        }
+        if (eep_tls_mode == 'wildcard' and (eep_tls_wildcard_domain | length) > 0)
+        else {}
+      }}
+    eep_tls_domain_labels_alias: >-
+      {{
+        {
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.tls.domains[0].main'): eep_tls_wildcard_domain,
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.tls.domains[0].sans'): '*.' ~ eep_tls_wildcard_domain
+        }
+        if (eep_tls_mode == 'wildcard' and (eep_tls_wildcard_domain | length) > 0 and (eep_aliases | length > 0))
+        else {}
+      }}
+    eep_alias_labels: >-
+      {{
+        {
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-path.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-path.redirectregex.permanent'): 'true',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.rule'): eep_alias_rule,
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.priority'): '300',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.tls'): 'true',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.tls.certresolver'): eep_tls_certresolver,
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.middlewares'): eep_router_name ~ '-alias-redirect-url,' ~ eep_router_name ~ '-alias-redirect-path',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias.service'): 'noop@internal',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias-web.rule'): eep_alias_rule,
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias-web.priority'): '300',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias-web.middlewares'): eep_router_name ~ '-alias-redirect-url,' ~ eep_router_name ~ '-alias-redirect-path',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-alias-web.service'): 'noop@internal'
+        }
+        | combine(eep_tls_domain_labels_alias)
+        if (eep_aliases | length > 0)
+        else {}
+      }}
+    eep_site_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik',
+          ('traefik.http.services.' ~ eep_service_name ~ '.loadbalancer.server.port'): '8080',
+          ('traefik.http.routers.' ~ eep_router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ eep_router_name ~ '.rule'): eep_primary_rule,
+          ('traefik.http.routers.' ~ eep_router_name ~ '.priority'): '100',
+          ('traefik.http.routers.' ~ eep_router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ eep_router_name ~ '.tls.certresolver'): eep_tls_certresolver,
+          ('traefik.http.routers.' ~ eep_router_name ~ '.service'): eep_service_name,
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-web.rule'): eep_primary_rule,
+          ('traefik.http.routers.' ~ eep_router_name ~ '-web.priority'): '100',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-web.middlewares'): eep_router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ eep_router_name ~ '-web.service'): 'noop@internal'
+        }
+        | combine(({ ('traefik.http.routers.' ~ eep_router_name ~ '.middlewares'): eep_middleware_default }) if (eep_middleware_default | length > 0) else {})
+        | combine(eep_tls_domain_labels)
+        | combine(eep_alias_labels)
+      }}
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Deploy easy-event-planner worker containers
+  community.docker.docker_container:
+    name: "{{ item.eep_worker_container_name | default('easy-event-planner-worker-' ~ (item.domain | replace('.', '-')), true) }}"
+    image: "{{ item.eep_image | default('easy-event-planner:latest', true) }}"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    command: ["easy-event-planner-worker"]
+    networks:
+      - name: traefik
+    volumes:
+      - "/srv/easy-event-planner/{{ item.domain }}/data:/data"
+      - "/srv/easy-event-planner/{{ item.domain }}/certificates:/certificates"
+      - "/srv/easy-event-planner/{{ item.domain }}/uploads:/uploads"
+    env_file: "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner.env"
+    state: started
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0

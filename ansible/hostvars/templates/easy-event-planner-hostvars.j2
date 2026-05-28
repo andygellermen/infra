@@ -1,0 +1,56 @@
+# Hostvars fuer {{ domain }} (Easy Event Planner)
+domain: {{ domain }}
+
+traefik:
+  domain: {{ domain }}
+  aliases:
+    - www.{{ domain }}
+
+eep_enabled: true
+eep_image: "easy-event-planner:latest"
+eep_env: "production"
+eep_http_addr: ":8080"
+eep_base_url: "https://{{ domain }}"
+eep_db_driver: "sqlite"
+eep_db_path: "/data/easy-event-planner.sqlite"
+eep_certificate_storage_dir: "/certificates"
+eep_token_pepper: ""
+eep_session_cookie_name: "eep_session"
+eep_secure_cookies: true
+
+eep_mail_provider: "log"
+eep_mail_from: "noreply@{{ domain }}"
+eep_mail_from_name: "Easy Event Planner"
+eep_ses_region: "eu-north-1"
+eep_ses_smtp_host: ""
+eep_ses_smtp_port: 587
+eep_ses_smtp_user: ""
+eep_ses_smtp_pass: ""
+
+eep_paypal_use_real_api: false
+eep_paypal_client_id: ""
+eep_paypal_client_secret: ""
+eep_paypal_webhook_id: ""
+eep_paypal_sandbox_api_base_url: "https://api-m.sandbox.paypal.com"
+eep_paypal_live_api_base_url: "https://api-m.paypal.com"
+eep_paypal_http_timeout: "15s"
+
+eep_email_worker_poll_interval: "3s"
+eep_email_worker_batch_size: 10
+
+eep_seed_enabled: false
+eep_seed_tenant_slug: "demo"
+eep_seed_tenant_name: "Demo Tenant"
+eep_seed_tenant_public_base_url: "https://{{ domain }}/demo"
+eep_seed_tenant_timezone: "Europe/Berlin"
+eep_seed_tenant_locale: "de-DE"
+eep_seed_retention_days: 30
+eep_seed_sender_email: "noreply@{{ domain }}"
+eep_seed_sender_name: "Easy Event Planner"
+eep_seed_paypal_mode: "disabled"
+
+eep_traefik_middleware_default: ""
+
+tls_mode: "standard"
+tls_wildcard_domain: ""
+tls_dns_account: ""
