@@ -241,6 +241,7 @@ Aktuell angebunden sind:
 - `scripts/infra-update-all.sh`
 - `scripts/infra-backup.sh`
 - `scripts/redeploy-all-web.sh`
+- `scripts/ghost-backup-all.sh`
 - `scripts/ghost-upgrade-all.sh`
 - `scripts/wildcard-distribute.sh`
 
@@ -618,6 +619,29 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 - Standard: DB + Content, aber bestehende Hostvars bleiben unverändert (sicheres Default).
 - `--restore-hostvars`: stellt zusätzlich Hostvars (und optional CrowdSec-Dateien) aus dem Backup wieder her.
 - `--content-only`: **nur** Ghost-Content-Volume wird wiederhergestellt; Domain-Setup/Hostvars/DB/CrowdSec bleiben unverändert. Ideal zum Duplizieren in bestehende Ziel-Instanzen.
+
+### ghost-backup-all.sh
+
+**Beschreibung:**  
+Erstellt in einem Lauf Backups für alle Ghost-Instanzen. Die Domains werden automatisch über `ansible/hostvars/*.yml` erkannt (Marker: `ghost_domain_db`).
+
+**Syntax:**
+```bash
+./scripts/ghost-backup-all.sh [--output-dir <dir>] [--dry-run] [--continue-on-error]
+```
+
+**Parameter:**
+- `--output-dir <dir>` – Zielbasisverzeichnis für alle erzeugten Backups (Default: `./backups/ghost`)
+- `--dry-run` – zeigt nur den geplanten Backup-Lauf inkl. Zielpfaden, ohne Backups zu erstellen
+- `--continue-on-error` – setzt den Batch bei Domain-Fehlern fort und listet Fehler am Ende gesammelt
+
+**Beispiele:**
+```bash
+./scripts/ghost-backup-all.sh
+./scripts/ghost-backup-all.sh --output-dir /tmp/ghost-bulk-backups
+./scripts/ghost-backup-all.sh --dry-run
+./scripts/ghost-backup-all.sh --continue-on-error
+```
 
 ### ghost-smoke-check.sh
 
