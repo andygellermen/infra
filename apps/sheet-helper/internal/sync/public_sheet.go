@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -47,9 +48,12 @@ func (s *PublicSheetSyncer) Sync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("fetch routes sheet: %w", err)
 	}
-	routes, err := parseRoutes(routesRows)
+	routes, warnings, err := parseRoutes(routesRows)
 	if err != nil {
 		return fmt.Errorf("parse routes sheet: %w", err)
+	}
+	for _, warning := range warnings {
+		log.Printf("sheet sync %s: %s", s.cfg.Domain, warning)
 	}
 	routes = normalizeRouteListSheets(routes, s.cfg.DefaultListPref)
 
@@ -224,26 +228,42 @@ func normalizeRouteListSheets(routes []model.Route, prefix string) []model.Route
 	return out
 }
 
-func parseRoutes(rows [][]string) ([]model.Route, error) {
+func parseRoutes(rows [][]string) ([]model.Route, []string, error) {
 	records, err := toRecordMaps(rows)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]model.Route, 0, len(records))
-	for _, record := range records {
+	warnings := make([]string, 0, len(records))
+	for idx, record := range records {
+		rawPath := record["path"]
+		normalizedPath := normalizePath(rawPath)
+		if normalizedPath != strings.TrimSpace(rawPath) {
+			warnings = append(warnings, fmt.Sprintf("normalized routes.path in row %d from %q to %q", idx+2, rawPath, normalizedPath))
+		}
+
+		routeType := model.RouteType(strings.ToLower(record["type"]))
+		target := record["target"]
+		if routeType == model.RouteTypeLink {
+			if normalizedTarget, changed := normalizeInternalLinkTarget(target); changed {
+				warnings = append(warnings, fmt.Sprintf("normalized routes.target in row %d from %q to %q", idx+2, target, normalizedTarget))
+				target = normalizedTarget
+			}
+		}
+
 		out = append(out, model.Route{
 			Domain:      record["domain"],
-			Path:        normalizePath(record["path"]),
-			Type:        model.RouteType(strings.ToLower(record["type"])),
+			Path:        normalizedPath,
+			Type:        routeType,
 			Passphrase:  record["passphrase"],
-			Target:      record["target"],
+			Target:      target,
 			Title:       record["title"],
 			Description: record["description"],
 			ListSheet:   record["listsheet"],
 			Enabled:     parseBool(record["enabled"], true),
 		})
 	}
-	return out, nil
+	return out, warnings, nil
 }
 
 func parseVCards(rows [][]string) ([]model.VCardEntry, error) {
@@ -349,6 +369,29 @@ func normalizeHeader(value string) string {
 
 func normalizePath(path string) string {
 	return pathutil.Normalize(path)
+}
+
+func normalizeInternalLinkTarget(target string) (string, bool) {
+	raw := strings.TrimSpace(target)
+	if raw == "" || !strings.HasPrefix(raw, "/") {
+		return raw, false
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return raw, false
+	}
+	if parsed.Scheme != "" || parsed.Host != "" {
+		return raw, false
+	}
+
+	normalizedPath := pathutil.Normalize(parsed.Path)
+	if normalizedPath == parsed.Path {
+		return raw, false
+	}
+
+	parsed.Path = normalizedPath
+	return parsed.String(), true
 }
 
 func parseBool(value string, fallback bool) bool {

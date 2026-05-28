@@ -9,7 +9,7 @@ func TestParseRoutes(t *testing.T) {
 		{"geller.men", "agileebooks/", "list", "scrum", "Downloads", "Agile", "Liste", "list_agileebooks", "true"},
 	}
 
-	routes, err := parseRoutes(rows)
+	routes, warnings, err := parseRoutes(rows)
 	if err != nil {
 		t.Fatalf("parseRoutes returned error: %v", err)
 	}
@@ -22,10 +22,13 @@ func TestParseRoutes(t *testing.T) {
 	if routes[1].ListSheet != "list_agileebooks" {
 		t.Fatalf("expected list sheet to survive parsing, got %q", routes[1].ListSheet)
 	}
+	if got := len(warnings); got != 1 {
+		t.Fatalf("expected 1 normalization warning for trailing slash path, got %d", got)
+	}
 }
 
 func TestCollectListSheets(t *testing.T) {
-	routes, err := parseRoutes([][]string{
+	routes, _, err := parseRoutes([][]string{
 		{"Domain", "Path", "Type", "ListSheet"},
 		{"geller.men", "/a", "list", "list_agileebooks"},
 		{"geller.men", "/b", "list", "list_agileebooks"},
@@ -44,7 +47,7 @@ func TestCollectListSheets(t *testing.T) {
 }
 
 func TestNormalizeRouteListSheets(t *testing.T) {
-	routes, err := parseRoutes([][]string{
+	routes, _, err := parseRoutes([][]string{
 		{"Domain", "Path", "Type", "ListSheet"},
 		{"geller.men", "/a", "list", "agileebooks"},
 	})
@@ -55,6 +58,38 @@ func TestNormalizeRouteListSheets(t *testing.T) {
 	normalized := normalizeRouteListSheets(routes, "list_")
 	if normalized[0].ListSheet != "list_agileebooks" {
 		t.Fatalf("expected normalized list sheet name, got %q", normalized[0].ListSheet)
+	}
+}
+
+func TestParseRoutesNormalizesInternalLinkTarget(t *testing.T) {
+	routes, warnings, err := parseRoutes([][]string{
+		{"Domain", "Path", "Type", "Target"},
+		{"geller.men", "/go", "link", "/ghost-image-editor/"},
+	})
+	if err != nil {
+		t.Fatalf("parseRoutes returned error: %v", err)
+	}
+	if got := routes[0].Target; got != "/ghost-image-editor" {
+		t.Fatalf("expected normalized internal link target, got %q", got)
+	}
+	if got := len(warnings); got != 1 {
+		t.Fatalf("expected 1 normalization warning for internal link target, got %d", got)
+	}
+}
+
+func TestParseRoutesKeepsExternalLinkTarget(t *testing.T) {
+	routes, warnings, err := parseRoutes([][]string{
+		{"Domain", "Path", "Type", "Target"},
+		{"geller.men", "/go", "link", "https://example.org/"},
+	})
+	if err != nil {
+		t.Fatalf("parseRoutes returned error: %v", err)
+	}
+	if got := routes[0].Target; got != "https://example.org/" {
+		t.Fatalf("expected external target to stay unchanged, got %q", got)
+	}
+	if got := len(warnings); got != 0 {
+		t.Fatalf("expected no normalization warnings for external target, got %d", got)
 	}
 }
 
