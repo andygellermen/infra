@@ -45,6 +45,30 @@ Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_versio
 - Führt auch bei unveränderter Zielversion ein Redeploy aus, damit Floating-Tags wie `latest` neu gezogen werden
 - Führt danach ein reguläres `ansible-playbook` Deployment aus
 
+### ghost-upgrade-all.sh
+
+**Beschreibung:**  
+Führt ein Bulk-Upgrade für alle Ghost-Domains aus, die in `ansible/hostvars/*.yml` per `ghost_domain_db` erkannt werden. Intern wird pro Domain `ghost-upgrade.sh` aufgerufen.
+
+**Syntax:**
+```bash
+./scripts/ghost-upgrade-all.sh --version=<major|major.minor|major.minor.patch|latest> [--force-major-jump] [--dry-run] [--continue-on-error]
+```
+
+**Parameter:**
+- `--version=<major|major.minor|major.minor.patch|latest>` – Zielversion für alle Ghost-Instanzen
+- `--force-major-jump` – erlaubt Major-Sprünge größer als +1 (pro Domain)
+- `--dry-run` – führt nur die Hostvars-Änderungen/Prüflogik aus, ohne Deployment
+- `--continue-on-error` – setzt den Batch bei Domain-Fehlern fort und listet Fehler am Ende gesammelt
+
+**Beispiele:**
+```bash
+./scripts/ghost-upgrade-all.sh --version=6
+./scripts/ghost-upgrade-all.sh --version=6.18.2
+./scripts/ghost-upgrade-all.sh --version=latest --continue-on-error
+./scripts/ghost-upgrade-all.sh --version=5 --force-major-jump --dry-run
+```
+
 ### ghost-delete.sh
 
 **Beschreibung:**  
@@ -217,6 +241,7 @@ Aktuell angebunden sind:
 - `scripts/infra-update-all.sh`
 - `scripts/infra-backup.sh`
 - `scripts/redeploy-all-web.sh`
+- `scripts/ghost-upgrade-all.sh`
 - `scripts/wildcard-distribute.sh`
 
 ## Domain Health Monitor
