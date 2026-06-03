@@ -1,0 +1,7 @@
+backend/.gocache/
+backend/.gomodcache/
+backend/apps/
+backend/data/
+frontend/node_modules/
+frontend/dist/
+docs/.DS_Store

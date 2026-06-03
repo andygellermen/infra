@@ -1,0 +1,23 @@
+services:
+  easy-author-backend:
+    build:
+      context: ./backend
+    environment:
+      EASY_AUTHOR_ADDR: 0.0.0.0:8086
+      EASY_AUTHOR_DB_PATH: /srv/easy-author/data/easy-author.sqlite
+      EASY_AUTHOR_LIBRARY_DIR: /srv/easy-author/data/library
+      EASY_AUTHOR_ALLOWED_ORIGIN: http://127.0.0.1:5173
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./backend/data:/srv/easy-author/data
+
+  easy-author-frontend:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_BASE_URL: http://127.0.0.1:8086
+    ports:
+      - "5173:5173"
+    depends_on:
+      - easy-author-backend
