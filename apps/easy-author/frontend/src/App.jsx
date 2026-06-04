@@ -44,6 +44,7 @@ function App() {
     () => bookBundle?.chapters?.find((chapter) => chapter.id === selectedChapterId) || null,
     [bookBundle, selectedChapterId],
   );
+  const currentChapterId = currentChapter?.id || "";
 
   const pinnedSlots = useMemo(
     () =>
@@ -101,22 +102,23 @@ function App() {
   }, [selectedBookId]);
 
   useEffect(() => {
-    if (!selectedChapterId) {
+    if (!selectedChapterId || !currentChapter) {
       setAnchors([]);
       setChapterDraft(EMPTY_DRAFT);
+      setErrorMessage("");
+      setSaveState("Synchron");
       return;
     }
-    const chapter = bookBundle?.chapters?.find((entry) => entry.id === selectedChapterId);
-    if (chapter) {
-      skipAutosaveRef.current = true;
-      setChapterDraft({
-        title: chapter.title,
-        markdown_content: chapter.markdown_content || "",
-        editor_json: chapter.editor_json || "",
-      });
-      loadAnchors(chapter.id);
-    }
-  }, [selectedChapterId, bookBundle]);
+    skipAutosaveRef.current = true;
+    setErrorMessage("");
+    setSaveState("Synchron");
+    setChapterDraft({
+      title: currentChapter.title,
+      markdown_content: currentChapter.markdown_content || "",
+      editor_json: currentChapter.editor_json || "",
+    });
+    loadAnchors(currentChapter.id);
+  }, [selectedChapterId, currentChapterId]);
 
   useEffect(() => {
     if (!currentChapter) {
@@ -164,6 +166,7 @@ function App() {
     try {
       const response = await api.get(`/api/projects/${projectId}`);
       setProjectDetail(response);
+      setErrorMessage("");
       const firstBook = response.books?.[0];
       if (!selectedBookId || !response.books?.some((book) => book.id === selectedBookId)) {
         setSelectedBookId(firstBook?.id || "");
@@ -187,6 +190,7 @@ function App() {
       const response = await api.get(`/api/books/${bookId}`);
       setBookBundle(response);
       setClipboardItems(response.clipboard || []);
+      setErrorMessage("");
       if (!selectedChapterId || !response.chapters?.some((chapter) => chapter.id === selectedChapterId)) {
         setSelectedChapterId(response.chapters?.[0]?.id || "");
       }
@@ -202,6 +206,7 @@ function App() {
     try {
       const response = await api.get(`/api/chapters/${chapterId}/anchors`);
       setAnchors(response.anchors || []);
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -219,6 +224,7 @@ function App() {
               editor_json: JSON.stringify(markdownToDoc(chapterDraft.markdown_content || "")),
             }
           : chapterDraft;
+      setErrorMessage("");
       setSaveState(manual ? "Speichert ..." : "Autosave laeuft ...");
       const updated = await api.put(`/api/chapters/${currentChapter.id}`, payload);
       setBookBundle((previous) => ({
@@ -230,6 +236,7 @@ function App() {
         markdown_content: updated.markdown_content || "",
         editor_json: updated.editor_json || "",
       });
+      setErrorMessage("");
       setSaveState(manual ? "Gespeichert" : "Autosave gespeichert");
       window.setTimeout(() => setSaveState("Synchron"), 1200);
     } catch (error) {
@@ -375,6 +382,7 @@ function App() {
         ...previous,
         workflow_boxes: previous.workflow_boxes.map((entry) => (entry.id === updated.id ? updated : entry)),
       }));
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -450,6 +458,7 @@ function App() {
         slot: nextFields.slot ?? item.slot,
       });
       setClipboardItems((previous) => previous.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -459,6 +468,7 @@ function App() {
     try {
       await api.delete(`/api/clipboard/${itemId}`);
       setClipboardItems((previous) => previous.filter((entry) => entry.id !== itemId));
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
     }

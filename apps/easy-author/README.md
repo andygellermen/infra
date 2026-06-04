@@ -70,6 +70,9 @@ nvm use
 cd apps/easy-author/frontend
 npm install
 npm run dev
+npm run test:markdown
+npm run test:editor
+npm test
 ```
 
 Frontend-URL: `http://127.0.0.1:5173`
@@ -81,6 +84,7 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 - Jedes Kapitel kann zwischen `Rich` und `Markdown` umgeschaltet werden.
 - Im Markdown-Modus bleibt Markdown die fuehrende Quelle; beim Speichern wird der Editor-Snapshot neu erzeugt.
 - `[[...]]`-Wiki-Links, ausgewaehlte Textstellen, Clipboard-Einfuegen und manuelles Speichern funktionieren in beiden Modi.
+- `npm run test:editor` deckt Editor-Smoke-Tests fuer Laden, Moduswechsel, Speichern, Textauswahl, Anker, Wissensbank-Link-Einfuegen, Clipboard, Mehrfach-Slot-Pinning, Loeschen/Freigeben von Slots, offene Wiki-Referenzen sowie mehrfache Fehler-, Anchor-/Clipboard-, Workflow-/Knowledge-, Create-/Switch-Recovery-, Retry-, Save-Konflikte, parallele Workflow-Sidebar-Aktionen und volle Mehrfach-Workflow-Last inklusive Autosave im Markdown-Modus ab.
 
 ## Datenbank und Inhalte
 
@@ -109,7 +113,7 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 ## Bekannte Einschraenkungen des Spikes
 
 - Kein Login, keine Benutzerverwaltung, keine Kollaboration
-- Kein vollstaendiger Markdown-Roundtrip fuer alle Sonderfaelle; der Parser/Serializer deckt aktuell Ueberschriften, Listen, Zitate, Code-Fences, Trennlinien, harte Umbrueche und Basis-Inline-Markup ab
+- Kein vollstaendiger Markdown-Roundtrip fuer alle Sonderfaelle; der Parser/Serializer deckt aktuell Ueberschriften, verschachtelte Listen, Zitate, Code-Fences, Trennlinien, harte Umbrueche, Escaping und Basis-Inline-Markup ab
 - Kein PDF/EPUB/DOCX-Export
 - Kein Asset-Management und keine Wissensbank-Entitaeten ausser Workflow-Boxen
 - Keine Kapitel-Reihenfolge per Drag-and-drop
