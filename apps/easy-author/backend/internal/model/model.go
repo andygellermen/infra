@@ -70,6 +70,18 @@ type ClipboardItem struct {
 	UpdatedAt      string `json:"updated_at"`
 }
 
+type KnowledgeItem struct {
+	ID        string   `json:"id"`
+	ProjectID string   `json:"project_id"`
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
+	Summary   string   `json:"summary"`
+	Body      string   `json:"body"`
+	Tags      []string `json:"tags"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+}
+
 type BookBundle struct {
 	Book          Book            `json:"book"`
 	Chapters      []Chapter       `json:"chapters"`

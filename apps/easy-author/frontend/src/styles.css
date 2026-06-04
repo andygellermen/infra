@@ -182,6 +182,8 @@ button {
 .book-stack,
 .chapter-list,
 .workflow-list,
+.knowledge-list,
+.knowledge-context-list,
 .anchor-list,
 .clipboard-list {
   display: grid;
@@ -241,6 +243,9 @@ small {
 
 .workflow-card input,
 .workflow-card select,
+.knowledge-card input,
+.knowledge-card select,
+.knowledge-card textarea,
 .chapter-title-input,
 .slot-picker input {
   width: 100%;
@@ -261,11 +266,62 @@ small {
   flex-wrap: wrap;
 }
 
+.mode-switch {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(234, 223, 209, 0.72);
+  border: 1px solid var(--line);
+}
+
+.mode-button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+}
+
+.mode-button.active {
+  background: var(--panel-strong);
+  color: var(--ink);
+  box-shadow: 0 6px 14px rgba(72, 42, 18, 0.08);
+}
+
 .checkbox-row {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--muted);
+}
+
+.knowledge-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--panel-strong);
+  border: 1px solid transparent;
+}
+
+.knowledge-card.linked {
+  border-color: rgba(158, 91, 33, 0.4);
+  background: rgba(255, 244, 229, 0.96);
+}
+
+.knowledge-card textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.knowledge-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(206, 179, 145, 0.28);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
 }
 
 .editor-header {
@@ -314,6 +370,20 @@ small {
   font-size: 1.12rem;
   line-height: 1.8;
   color: var(--ink);
+}
+
+.markdown-textarea {
+  width: 100%;
+  min-height: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: "SFMono-Regular", "Menlo", "Monaco", monospace;
+  font-size: 0.98rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
 }
 
 .editor-surface > *:first-child {
@@ -388,6 +458,11 @@ small {
 
 .context-card {
   padding: 12px;
+}
+
+.context-card.unresolved {
+  border-color: rgba(143, 61, 44, 0.24);
+  background: rgba(255, 243, 238, 0.94);
 }
 
 .context-card-header {

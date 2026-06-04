@@ -1,3 +1,16 @@
+function wrapText(text, marks = []) {
+  if (!text) {
+    return [];
+  }
+  return [
+    {
+      type: "text",
+      text,
+      ...(marks.length > 0 ? { marks } : {}),
+    },
+  ];
+}
+
 function textWithMarks(node) {
   const content = node.text || "";
   const marks = node.marks || [];
@@ -7,6 +20,8 @@ function textWithMarks(node) {
         return `**${value}**`;
       case "italic":
         return `*${value}*`;
+      case "strike":
+        return `~~${value}~~`;
       case "code":
         return `\`${value}\``;
       default:
@@ -74,29 +89,109 @@ export function docToMarkdown(doc) {
     .trim();
 }
 
-function paragraphNode(text) {
+function paragraphNode(content) {
   return {
     type: "paragraph",
-    content: text
-      ? [
-          {
-            type: "text",
-            text,
-          },
-        ]
-      : [],
+    content: Array.isArray(content) ? content : [],
   };
 }
 
-function parseInlineText(text) {
-  return text ? [{ type: "text", text }] : [];
+function hardBreakNode() {
+  return {
+    type: "hardBreak",
+  };
+}
+
+function findNextToken(text, fromIndex) {
+  const patterns = [
+    /\[\[[^[\]]+\]\]/g,
+    /\*\*[^*]+\*\*/g,
+    /\*[^*\n]+\*/g,
+    /~~[^~]+~~/g,
+    /`[^`\n]+`/g,
+  ];
+
+  let nextMatch = null;
+  for (const pattern of patterns) {
+    pattern.lastIndex = fromIndex;
+    const match = pattern.exec(text);
+    if (!match) {
+      continue;
+    }
+    if (!nextMatch || match.index < nextMatch.index) {
+      nextMatch = { index: match.index, value: match[0] };
+    }
+  }
+  return nextMatch;
+}
+
+function parseInlineMarkdown(text) {
+  if (!text) {
+    return [];
+  }
+
+  const nodes = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    const token = findNextToken(text, cursor);
+    if (!token) {
+      nodes.push(...wrapText(text.slice(cursor)));
+      break;
+    }
+
+    if (token.index > cursor) {
+      nodes.push(...wrapText(text.slice(cursor, token.index)));
+    }
+
+    const value = token.value;
+    if (value.startsWith("[[")) {
+      nodes.push(...wrapText(value));
+    } else if (value.startsWith("**")) {
+      nodes.push(...wrapText(value.slice(2, -2), [{ type: "bold" }]));
+    } else if (value.startsWith("~~")) {
+      nodes.push(...wrapText(value.slice(2, -2), [{ type: "strike" }]));
+    } else if (value.startsWith("`")) {
+      nodes.push(...wrapText(value.slice(1, -1), [{ type: "code" }]));
+    } else if (value.startsWith("*")) {
+      nodes.push(...wrapText(value.slice(1, -1), [{ type: "italic" }]));
+    } else {
+      nodes.push(...wrapText(value));
+    }
+
+    cursor = token.index + value.length;
+  }
+
+  return nodes;
+}
+
+function parseParagraphLines(lines) {
+  const content = [];
+  lines.forEach((line, index) => {
+    if (index > 0) {
+      content.push(hardBreakNode());
+    }
+    content.push(...parseInlineMarkdown(line));
+  });
+  return paragraphNode(content);
+}
+
+function isBlockBoundary(value) {
+  return (
+    /^(#{1,6})\s+/.test(value) ||
+    /^[-*]\s+/.test(value) ||
+    /^\d+\.\s+/.test(value) ||
+    value.startsWith("> ") ||
+    value.startsWith("```") ||
+    value === "---"
+  );
 }
 
 export function markdownToDoc(markdown) {
   if (!markdown || !markdown.trim()) {
     return {
       type: "doc",
-      content: [paragraphNode("")],
+      content: [paragraphNode([])],
     };
   }
 
@@ -116,7 +211,7 @@ export function markdownToDoc(markdown) {
       content.push({
         type: "heading",
         attrs: { level: headingMatch[1].length },
-        content: parseInlineText(headingMatch[2]),
+        content: parseInlineMarkdown(headingMatch[2]),
       });
       continue;
     }
@@ -135,26 +230,33 @@ export function markdownToDoc(markdown) {
       }
       content.push({
         type: "codeBlock",
-        content: parseInlineText(codeLines.join("\n")),
+        content: wrapText(codeLines.join("\n")),
       });
       continue;
     }
 
     if (trimmed.startsWith("> ")) {
+      const quoteLines = [trimmed.slice(2)];
+      while (index + 1 < lines.length && lines[index + 1].trim().startsWith("> ")) {
+        index += 1;
+        quoteLines.push(lines[index].trim().slice(2));
+      }
       content.push({
         type: "blockquote",
-        content: [paragraphNode(trimmed.slice(2))],
+        content: [parseParagraphLines(quoteLines)],
       });
       continue;
     }
 
     if (/^[-*]\s+/.test(trimmed)) {
-      const items = [{ type: "listItem", content: [paragraphNode(trimmed.replace(/^[-*]\s+/, ""))] }];
+      const items = [
+        { type: "listItem", content: [parseParagraphLines([trimmed.replace(/^[-*]\s+/, "")])] },
+      ];
       while (index + 1 < lines.length && /^[-*]\s+/.test(lines[index + 1].trim())) {
         index += 1;
         items.push({
           type: "listItem",
-          content: [paragraphNode(lines[index].trim().replace(/^[-*]\s+/, ""))],
+          content: [parseParagraphLines([lines[index].trim().replace(/^[-*]\s+/, "")])],
         });
       }
       content.push({ type: "bulletList", content: items });
@@ -162,33 +264,36 @@ export function markdownToDoc(markdown) {
     }
 
     if (/^\d+\.\s+/.test(trimmed)) {
-      const items = [{ type: "listItem", content: [paragraphNode(trimmed.replace(/^\d+\.\s+/, ""))] }];
+      const items = [
+        { type: "listItem", content: [parseParagraphLines([trimmed.replace(/^\d+\.\s+/, "")])] },
+      ];
       while (index + 1 < lines.length && /^\d+\.\s+/.test(lines[index + 1].trim())) {
         index += 1;
         items.push({
           type: "listItem",
-          content: [paragraphNode(lines[index].trim().replace(/^\d+\.\s+/, ""))],
+          content: [parseParagraphLines([lines[index].trim().replace(/^\d+\.\s+/, "")])],
         });
       }
       content.push({ type: "orderedList", content: items });
       continue;
     }
 
-    const paragraphLines = [trimmed];
-    while (index + 1 < lines.length && lines[index + 1].trim()) {
-      const next = lines[index + 1].trim();
-      if (/^(#{1,6})\s+/.test(next) || /^[-*]\s+/.test(next) || /^\d+\.\s+/.test(next) || next.startsWith("> ") || next.startsWith("```") || next === "---") {
+    const paragraphLines = [line];
+    while (index + 1 < lines.length) {
+      const nextRaw = lines[index + 1];
+      const nextTrimmed = nextRaw.trim();
+      if (!nextTrimmed || isBlockBoundary(nextTrimmed)) {
         break;
       }
       index += 1;
-      paragraphLines.push(next);
+      paragraphLines.push(nextRaw);
     }
-    content.push(paragraphNode(paragraphLines.join(" ")));
+    content.push(parseParagraphLines(paragraphLines));
   }
 
   return {
     type: "doc",
-    content: content.length > 0 ? content : [paragraphNode("")],
+    content: content.length > 0 ? content : [paragraphNode([])],
   };
 }
 

@@ -22,11 +22,13 @@ apps/easy-author/
 ## Enthalten im ersten Spike
 
 - REST-API fuer Projekte, Buecher, Kapitel, Workflow-Boxen, Anker und Clipboard
+- Erste Wissensbank mit `[[...]]`-Links fuer Personen, Orte, Ereignisse und weitere Knowledge-Typen
 - SQLite-Initialisierung mit Demo-Daten beim ersten Start
 - Markdown-Snapshots pro Kapitel unter `backend/data/library/...`
 - React-Frontend mit dreispaltigem Autoren-Cockpit
 - Tiptap-Editor mit Autosave, manuellem Speichern und Slot-Shortcuts `Cmd/Ctrl + Shift + 1-9`
-- Rechte Sidebar fuer Anker, Clipboard und gepinnte Slots
+- Umschaltbarer Editor zwischen Rich-Ansicht und rohem Markdown pro Kapitel
+- Rechte Sidebar fuer Wiki-Link-Kontext, Anker, Clipboard und gepinnte Slots
 
 ## Lokales Setup
 
@@ -48,6 +50,22 @@ curl -fsS http://127.0.0.1:8086/api/health
 
 ### Frontend
 
+Voraussetzung: `Node 20.x`. Das Frontend wurde in diesem Repo erfolgreich mit `node v20.20.2` gebaut.
+
+Wenn lokal noch ein altes globales `node` aktiv ist, hilft zum Beispiel:
+
+```bash
+export PATH="/usr/local/opt/node@20/bin:$PATH"
+node --version
+```
+
+Oder mit `nvm` direkt aus der mitgelieferten Datei:
+
+```bash
+cd apps/easy-author/frontend
+nvm use
+```
+
 ```bash
 cd apps/easy-author/frontend
 npm install
@@ -57,6 +75,12 @@ npm run dev
 Frontend-URL: `http://127.0.0.1:5173`
 
 Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
+
+### Markdown-Workflow
+
+- Jedes Kapitel kann zwischen `Rich` und `Markdown` umgeschaltet werden.
+- Im Markdown-Modus bleibt Markdown die fuehrende Quelle; beim Speichern wird der Editor-Snapshot neu erzeugt.
+- `[[...]]`-Wiki-Links, ausgewaehlte Textstellen, Clipboard-Einfuegen und manuelles Speichern funktionieren in beiden Modi.
 
 ## Datenbank und Inhalte
 
@@ -69,12 +93,14 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 - `GET /api/health`
 - `GET/POST /api/projects`
 - `GET /api/projects/:id`
+- `GET/POST /api/projects/:projectId/knowledge-items`
 - `GET /api/books/:id`
 - `POST /api/projects/:projectId/books`
 - `GET/POST /api/books/:bookId/chapters`
 - `GET/PUT /api/chapters/:id`
 - `GET/POST /api/books/:bookId/workflow-boxes`
 - `PUT /api/workflow-boxes/:id`
+- `PUT /api/knowledge-items/:id`
 - `GET/POST /api/chapters/:chapterId/anchors`
 - `DELETE /api/anchors/:id`
 - `GET/POST /api/books/:bookId/clipboard`
@@ -83,15 +109,15 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 ## Bekannte Einschraenkungen des Spikes
 
 - Kein Login, keine Benutzerverwaltung, keine Kollaboration
-- Kein echter Markdown-Roundtrip fuer alle Sonderfaelle; der Serializer deckt den StarterKit-Grundumfang ab
+- Kein vollstaendiger Markdown-Roundtrip fuer alle Sonderfaelle; der Parser/Serializer deckt aktuell Ueberschriften, Listen, Zitate, Code-Fences, Trennlinien, harte Umbrueche und Basis-Inline-Markup ab
 - Kein PDF/EPUB/DOCX-Export
 - Kein Asset-Management und keine Wissensbank-Entitaeten ausser Workflow-Boxen
 - Keine Kapitel-Reihenfolge per Drag-and-drop
 
 ## Naechste sinnvolle Schritte
 
-1. Saubere Markdown-Import/Export-Pipeline mit robusterem Roundtrip ausbauen
-2. Wissensbank-Objekte und sichtbare `[[...]]`-Links ergaenzen
-3. Workflow-Boxen mit Kapitel- und Textfilterlogik vertiefen
+1. Markdown-Roundtrip fuer verschachtelte Listen, Escaping und Sonderfaelle weiter haerten
+2. Wissensbank-Objekte und sichtbare `[[...]]`-Links weiter vertiefen
+3. Workflow-Boxen mit Kapitel- und Textfilterlogik ausbauen
 4. Asset-Verwaltung und Export-Jobs nachziehen
 5. Spaetere Benutzer- und Kommentarfluesse auf die vorhandenen Anchor-Modelle aufsetzen

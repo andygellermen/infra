@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import EditorPane from "./components/EditorPane";
 import SidebarSection from "./components/SidebarSection";
 import { api } from "./lib/api";
-import { previewText } from "./lib/markdown";
+import { markdownToDoc, previewText } from "./lib/markdown";
+import {
+  extractWikiLinks,
+  formatTagInput,
+  knowledgeReference,
+  knowledgeTypeLabel,
+  normalizeKnowledgeKey,
+  splitTagInput,
+} from "./lib/knowledge";
 
 const EMPTY_DRAFT = {
   title: "",
@@ -12,6 +20,7 @@ const EMPTY_DRAFT = {
 
 function App() {
   const editorRef = useRef(null);
+  const markdownTextareaRef = useRef(null);
   const autosaveRef = useRef(null);
   const skipAutosaveRef = useRef(true);
 
@@ -24,8 +33,10 @@ function App() {
   const [chapterDraft, setChapterDraft] = useState(EMPTY_DRAFT);
   const [anchors, setAnchors] = useState([]);
   const [clipboardItems, setClipboardItems] = useState([]);
+  const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [selectedWorkflowBoxId, setSelectedWorkflowBoxId] = useState("");
   const [hasSelection, setHasSelection] = useState(false);
+  const [editorMode, setEditorMode] = useState("rich");
   const [saveState, setSaveState] = useState("Synchron");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -42,6 +53,31 @@ function App() {
     [clipboardItems],
   );
 
+  const chapterKnowledgeRefs = useMemo(
+    () => extractWikiLinks(chapterDraft.markdown_content || currentChapter?.markdown_content || ""),
+    [chapterDraft.markdown_content, currentChapter?.markdown_content],
+  );
+
+  const chapterKnowledgeMatches = useMemo(() => {
+    const lookup = new Map(
+      knowledgeItems.map((item) => [normalizeKnowledgeKey(item.type, item.name), item]),
+    );
+    return chapterKnowledgeRefs
+      .map((reference) => ({
+        reference,
+        item: lookup.get(reference.key) || null,
+      }))
+      .filter(
+        (entry, index, items) =>
+          items.findIndex((candidate) => candidate.reference.key === entry.reference.key) === index,
+      );
+  }, [chapterKnowledgeRefs, knowledgeItems]);
+
+  const unresolvedKnowledgeRefs = useMemo(
+    () => chapterKnowledgeMatches.filter((entry) => !entry.item),
+    [chapterKnowledgeMatches],
+  );
+
   useEffect(() => {
     loadProjects();
   }, []);
@@ -51,6 +87,7 @@ function App() {
       return;
     }
     loadProject(selectedProjectId);
+    loadKnowledgeItems(selectedProjectId);
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -136,6 +173,15 @@ function App() {
     }
   }
 
+  async function loadKnowledgeItems(projectId) {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/knowledge-items`);
+      setKnowledgeItems(response.knowledge_items || []);
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
   async function loadBook(bookId) {
     try {
       const response = await api.get(`/api/books/${bookId}`);
@@ -166,12 +212,24 @@ function App() {
       return;
     }
     try {
+      const payload =
+        editorMode === "markdown"
+          ? {
+              ...chapterDraft,
+              editor_json: JSON.stringify(markdownToDoc(chapterDraft.markdown_content || "")),
+            }
+          : chapterDraft;
       setSaveState(manual ? "Speichert ..." : "Autosave laeuft ...");
-      const updated = await api.put(`/api/chapters/${currentChapter.id}`, chapterDraft);
+      const updated = await api.put(`/api/chapters/${currentChapter.id}`, payload);
       setBookBundle((previous) => ({
         ...previous,
         chapters: previous.chapters.map((chapter) => (chapter.id === updated.id ? updated : chapter)),
       }));
+      setChapterDraft({
+        title: updated.title,
+        markdown_content: updated.markdown_content || "",
+        editor_json: updated.editor_json || "",
+      });
       setSaveState(manual ? "Gespeichert" : "Autosave gespeichert");
       window.setTimeout(() => setSaveState("Synchron"), 1200);
     } catch (error) {
@@ -257,6 +315,51 @@ function App() {
     }
   }
 
+  async function createKnowledgeItem() {
+    if (!selectedProjectId) {
+      return;
+    }
+    const name = window.prompt("Name des Wissenseintrags", "Neuer Eintrag");
+    if (!name) {
+      return;
+    }
+    try {
+      const created = await api.post(`/api/projects/${selectedProjectId}/knowledge-items`, {
+        type: "person",
+        name,
+        summary: "",
+        body: "",
+        tags: [],
+      });
+      setKnowledgeItems((previous) =>
+        [...previous, created].sort((left, right) => left.name.localeCompare(right.name, "de")),
+      );
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function updateKnowledgeItem(item, nextFields) {
+    try {
+      const updated = await api.put(`/api/knowledge-items/${item.id}`, {
+        type: nextFields.type ?? item.type,
+        name: nextFields.name ?? item.name,
+        summary: nextFields.summary ?? item.summary,
+        body: nextFields.body ?? item.body,
+        tags: nextFields.tags ?? item.tags,
+      });
+      setKnowledgeItems((previous) =>
+        previous
+          .map((entry) => (entry.id === updated.id ? updated : entry))
+          .sort((left, right) => left.name.localeCompare(right.name, "de")),
+      );
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
   async function updateWorkflowBox(id, nextFields) {
     const box = bookBundle?.workflow_boxes?.find((entry) => entry.id === id);
     if (!box) {
@@ -282,7 +385,8 @@ function App() {
       setErrorMessage("Bitte zuerst ein Kapitel und eine Workflow-Box waehlen.");
       return;
     }
-    const payload = editorRef.current?.getSelectionPayload();
+    const payload =
+      editorMode === "markdown" ? getMarkdownSelectionPayload() : editorRef.current?.getSelectionPayload();
     if (!payload?.selected_text) {
       setErrorMessage("Bitte zuerst eine Textpassage im Editor markieren.");
       return;
@@ -316,7 +420,8 @@ function App() {
     if (!selectedBookId) {
       return;
     }
-    const payload = editorRef.current?.getSelectionPayload();
+    const payload =
+      editorMode === "markdown" ? getMarkdownSelectionPayload() : editorRef.current?.getSelectionPayload();
     if (!payload?.selected_text) {
       setErrorMessage("Bitte zuerst eine Textpassage im Editor markieren.");
       return;
@@ -357,6 +462,61 @@ function App() {
     } catch (error) {
       setErrorMessage(error.message);
     }
+  }
+
+  function getMarkdownSelectionPayload() {
+    const textarea = markdownTextareaRef.current;
+    if (!textarea) {
+      return null;
+    }
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    if (start === end) {
+      return null;
+    }
+    const content = chapterDraft.markdown_content || "";
+    return {
+      selected_text: content.slice(start, end),
+      start_offset: start,
+      end_offset: end,
+      context_before: content.slice(Math.max(0, start - 60), start),
+      context_after: content.slice(end, Math.min(content.length, end + 60)),
+    };
+  }
+
+  function insertIntoMarkdown(content) {
+    const textarea = markdownTextareaRef.current;
+    if (!textarea) {
+      setChapterDraft((previous) => ({
+        ...previous,
+        markdown_content: `${previous.markdown_content || ""}${content}`,
+        editor_json: "",
+      }));
+      return;
+    }
+    const start = textarea.selectionStart ?? chapterDraft.markdown_content.length;
+    const end = textarea.selectionEnd ?? chapterDraft.markdown_content.length;
+    const current = chapterDraft.markdown_content || "";
+    const nextValue = `${current.slice(0, start)}${content}${current.slice(end)}`;
+    setChapterDraft((previous) => ({
+      ...previous,
+      markdown_content: nextValue,
+      editor_json: "",
+    }));
+    window.requestAnimationFrame(() => {
+      const cursor = start + content.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+      setHasSelection(false);
+    });
+  }
+
+  function insertIntoActiveEditor(content) {
+    if (editorMode === "markdown") {
+      insertIntoMarkdown(content);
+      return;
+    }
+    editorRef.current?.insertText(content);
   }
 
   const bookTitle = bookBundle?.book?.title || "Kein Buch geladen";
@@ -479,6 +639,69 @@ function App() {
               ))}
             </div>
           </SidebarSection>
+
+          <SidebarSection eyebrow="Wissen" title="Wissensbank" actionLabel="+ Eintrag" onAction={createKnowledgeItem}>
+            <div className="knowledge-list">
+              {knowledgeItems.length === 0 ? <p className="empty-note">Noch keine Wissenseintraege vorhanden.</p> : null}
+              {knowledgeItems.map((item) => {
+                const linkedInChapter = chapterKnowledgeMatches.some((entry) => entry.reference.key === normalizeKnowledgeKey(item.type, item.name));
+                return (
+                  <article key={item.id} className={`knowledge-card ${linkedInChapter ? "linked" : ""}`}>
+                    <div className="context-card-header">
+                      <strong>{knowledgeTypeLabel(item.type)}</strong>
+                      <button type="button" className="ghost-button" onClick={() => insertIntoActiveEditor(knowledgeReference(item))}>
+                        Link
+                      </button>
+                    </div>
+                    <input
+                      value={item.name}
+                      onChange={(event) =>
+                        setKnowledgeItems((previous) =>
+                          previous.map((entry) => (entry.id === item.id ? { ...entry, name: event.target.value } : entry)),
+                        )
+                      }
+                      onBlur={(event) => updateKnowledgeItem(item, { name: event.target.value })}
+                    />
+                    <div className="workflow-row">
+                      <select value={item.type} onChange={(event) => updateKnowledgeItem(item, { type: event.target.value })}>
+                        <option value="person">person</option>
+                        <option value="location">location</option>
+                        <option value="event">event</option>
+                        <option value="thread">thread</option>
+                        <option value="motif">motif</option>
+                        <option value="term">term</option>
+                        <option value="reminder">reminder</option>
+                        <option value="research_note">research_note</option>
+                        <option value="custom">custom</option>
+                      </select>
+                      {linkedInChapter ? <span className="knowledge-chip">im Kapitel</span> : null}
+                    </div>
+                    <textarea
+                      rows="2"
+                      value={item.summary || ""}
+                      placeholder="Kurze Zusammenfassung"
+                      onChange={(event) =>
+                        setKnowledgeItems((previous) =>
+                          previous.map((entry) => (entry.id === item.id ? { ...entry, summary: event.target.value } : entry)),
+                        )
+                      }
+                      onBlur={(event) => updateKnowledgeItem(item, { summary: event.target.value })}
+                    />
+                    <input
+                      value={formatTagInput(item.tags)}
+                      placeholder="Tags, komma-getrennt"
+                      onChange={(event) =>
+                        setKnowledgeItems((previous) =>
+                          previous.map((entry) => (entry.id === item.id ? { ...entry, tags: splitTagInput(event.target.value) } : entry)),
+                        )
+                      }
+                      onBlur={(event) => updateKnowledgeItem(item, { tags: splitTagInput(event.target.value) })}
+                    />
+                  </article>
+                );
+              })}
+            </div>
+          </SidebarSection>
         </aside>
 
         <section className="editor-panel">
@@ -494,6 +717,22 @@ function App() {
               />
             </div>
             <div className="editor-actions">
+              <div className="mode-switch" role="tablist" aria-label="Editor-Modus">
+                <button
+                  type="button"
+                  className={`mode-button ${editorMode === "rich" ? "active" : ""}`}
+                  onClick={() => setEditorMode("rich")}
+                >
+                  Rich
+                </button>
+                <button
+                  type="button"
+                  className={`mode-button ${editorMode === "markdown" ? "active" : ""}`}
+                  onClick={() => setEditorMode("markdown")}
+                >
+                  Markdown
+                </button>
+              </div>
               <button type="button" className="secondary-button" onClick={createAnchor} disabled={!hasSelection}>
                 Anker setzen
               </button>
@@ -506,25 +745,76 @@ function App() {
           <div className="editor-meta">
             <span>{currentChapter ? `Aktiv: ${currentChapter.title}` : "Noch kein Kapitel aktiv"}</span>
             <span>{selectedWorkflowBoxId ? `Zielbox: ${bookBundle?.workflow_boxes?.find((item) => item.id === selectedWorkflowBoxId)?.title || ""}` : "Keine Workflow-Box gewaehlt"}</span>
+            <span>{editorMode === "markdown" ? "Markdown ist aktuell die Quelle" : "Tiptap-Editor mit Markdown-Snapshot"}</span>
           </div>
 
           <div className="editor-frame">
-            <EditorPane
-              ref={editorRef}
-              chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
-              pinnedSlots={pinnedSlots}
-              onSelectionChange={setHasSelection}
-              onDocumentChange={(nextDocument) =>
-                setChapterDraft((previous) => ({
-                  ...previous,
-                  ...nextDocument,
-                }))
-              }
-            />
+            {editorMode === "markdown" ? (
+              <textarea
+                ref={markdownTextareaRef}
+                className="markdown-textarea"
+                value={chapterDraft.markdown_content}
+                placeholder="Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten."
+                onFocus={() => setHasSelection(false)}
+                onSelect={(event) => {
+                  const target = event.target;
+                  setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                }}
+                onKeyUp={(event) => {
+                  const target = event.target;
+                  setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                }}
+                onClick={(event) => {
+                  const target = event.target;
+                  setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                }}
+                onChange={(event) =>
+                  setChapterDraft((previous) => ({
+                    ...previous,
+                    markdown_content: event.target.value,
+                    editor_json: "",
+                  }))
+                }
+              />
+            ) : (
+              <EditorPane
+                ref={editorRef}
+                chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
+                pinnedSlots={pinnedSlots}
+                onSelectionChange={setHasSelection}
+                onDocumentChange={(nextDocument) =>
+                  setChapterDraft((previous) => ({
+                    ...previous,
+                    ...nextDocument,
+                  }))
+                }
+              />
+            )}
           </div>
         </section>
 
         <aside className="workspace-panel right-panel">
+          <SidebarSection eyebrow="Kontext" title="Wiki-Links im Kapitel">
+            <div className="knowledge-context-list">
+              {chapterKnowledgeMatches.length === 0 ? (
+                <p className="empty-note">Noch keine `[[...]]`-Referenzen im aktuellen Kapitel.</p>
+              ) : null}
+              {chapterKnowledgeMatches.map((entry) => (
+                <article key={entry.reference.key} className={`context-card ${entry.item ? "" : "unresolved"}`}>
+                  <div className="context-card-header">
+                    <strong>{entry.item ? entry.item.name : entry.reference.raw}</strong>
+                    <span className="knowledge-chip">{knowledgeTypeLabel(entry.item?.type || entry.reference.type)}</span>
+                  </div>
+                  <p>{entry.item?.summary || "Noch kein passender Wissenseintrag vorhanden."}</p>
+                  <small>{entry.item ? knowledgeReference(entry.item) : `[[${entry.reference.raw}]]`}</small>
+                </article>
+              ))}
+              {unresolvedKnowledgeRefs.length > 0 ? (
+                <p className="empty-note">Offene Referenzen koennen links als Wissenseintrag angelegt oder umbenannt werden.</p>
+              ) : null}
+            </div>
+          </SidebarSection>
+
           <SidebarSection eyebrow="Anker" title="Aktuelle Textstelle">
             <div className="anchor-list">
               {anchors.length === 0 ? <p className="empty-note">Noch keine Anker fuer dieses Kapitel.</p> : null}
@@ -589,7 +879,7 @@ function App() {
                         onChange={(event) => updateClipboard(item, { slot: Number(event.target.value) })}
                       />
                     </label>
-                    <button type="button" className="ghost-button" onClick={() => editorRef.current?.insertClipboardContent(item.content)}>
+                    <button type="button" className="ghost-button" onClick={() => insertIntoActiveEditor(item.content)}>
                       einfuegen
                     </button>
                   </div>

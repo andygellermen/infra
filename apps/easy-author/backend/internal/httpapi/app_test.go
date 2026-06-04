@@ -46,6 +46,13 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		"visibility": "private",
 	})["id"].(string)
 
+	knowledgeItemID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/knowledge-items", map[string]any{
+		"type":    "person",
+		"name":    "Mara",
+		"summary": "Mutige Protagonistin",
+		"tags":    []string{"figur", "perspektive"},
+	})["id"].(string)
+
 	chapterID := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/chapters", map[string]any{
 		"title":            "Kapitel A",
 		"markdown_content": "# Hallo\n\nDies ist ein Test.",
@@ -83,6 +90,17 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		t.Fatalf("expected slot 1, got %#v", clipboard["slot"])
 	}
 
+	updatedKnowledge := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/knowledge-items/"+knowledgeItemID, map[string]any{
+		"type":    "person",
+		"name":    "Mara",
+		"summary": "Mutige Hauptfigur",
+		"body":    "Kennt den stillen Garten.",
+		"tags":    []string{"figur", "demo"},
+	}, http.StatusOK)
+	if updatedKnowledge["summary"].(string) != "Mutige Hauptfigur" {
+		t.Fatalf("expected updated summary, got %#v", updatedKnowledge["summary"])
+	}
+
 	snapshotPath := filepath.Join(tempDir, "library")
 	if _, err := os.Stat(snapshotPath); err != nil {
 		t.Fatalf("expected markdown snapshot root to exist: %v", err)
@@ -91,6 +109,11 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	bookBundle := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID, nil)
 	if len(bookBundle["chapters"].([]any)) == 0 {
 		t.Fatalf("expected chapters in book bundle")
+	}
+
+	knowledgeItems := requestJSON(t, app.Handler(), http.MethodGet, "/api/projects/"+projectID+"/knowledge-items", nil)
+	if len(knowledgeItems["knowledge_items"].([]any)) == 0 {
+		t.Fatalf("expected knowledge items in project response")
 	}
 }
 

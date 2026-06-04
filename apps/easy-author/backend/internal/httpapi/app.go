@@ -38,6 +38,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /api/projects", a.handleListProjects)
 	a.mux.HandleFunc("POST /api/projects", a.handleCreateProject)
 	a.mux.HandleFunc("GET /api/projects/{id}", a.handleGetProject)
+	a.mux.HandleFunc("GET /api/projects/{projectId}/knowledge-items", a.handleListKnowledgeItems)
+	a.mux.HandleFunc("POST /api/projects/{projectId}/knowledge-items", a.handleCreateKnowledgeItem)
 	a.mux.HandleFunc("GET /api/books/{id}", a.handleGetBook)
 	a.mux.HandleFunc("POST /api/projects/{projectId}/books", a.handleCreateBook)
 	a.mux.HandleFunc("GET /api/books/{bookId}/chapters", a.handleListChapters)
@@ -54,6 +56,7 @@ func (a *App) routes() {
 	a.mux.HandleFunc("POST /api/books/{bookId}/clipboard", a.handleCreateClipboard)
 	a.mux.HandleFunc("PUT /api/clipboard/{id}", a.handleUpdateClipboard)
 	a.mux.HandleFunc("DELETE /api/clipboard/{id}", a.handleDeleteClipboard)
+	a.mux.HandleFunc("PUT /api/knowledge-items/{id}", a.handleUpdateKnowledgeItem)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -96,6 +99,29 @@ func (a *App) handleGetProject(w http.ResponseWriter, r *http.Request) {
 		"project": project,
 		"books":   books,
 	})
+}
+
+func (a *App) handleListKnowledgeItems(w http.ResponseWriter, r *http.Request) {
+	items, err := a.store.ListKnowledgeItems(r.Context(), r.PathValue("projectId"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"knowledge_items": items})
+}
+
+func (a *App) handleCreateKnowledgeItem(w http.ResponseWriter, r *http.Request) {
+	var input store.CreateKnowledgeItemInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := a.store.CreateKnowledgeItem(r.Context(), r.PathValue("projectId"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, item)
 }
 
 func (a *App) handleGetBook(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +304,20 @@ func (a *App) handleDeleteClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) handleUpdateKnowledgeItem(w http.ResponseWriter, r *http.Request) {
+	var input store.UpdateKnowledgeItemInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := a.store.UpdateKnowledgeItem(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (a *App) withCORS(next http.Handler) http.Handler {

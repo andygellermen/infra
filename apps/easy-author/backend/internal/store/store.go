@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -81,6 +82,22 @@ type UpdateClipboardItemInput struct {
 	Content  string `json:"content"`
 	Slot     int    `json:"slot"`
 	IsPinned bool   `json:"is_pinned"`
+}
+
+type CreateKnowledgeItemInput struct {
+	Type    string   `json:"type"`
+	Name    string   `json:"name"`
+	Summary string   `json:"summary"`
+	Body    string   `json:"body"`
+	Tags    []string `json:"tags"`
+}
+
+type UpdateKnowledgeItemInput struct {
+	Type    string   `json:"type"`
+	Name    string   `json:"name"`
+	Summary string   `json:"summary"`
+	Body    string   `json:"body"`
+	Tags    []string `json:"tags"`
 }
 
 func New(db *sql.DB, libraryDir string) *Store {
@@ -160,6 +177,18 @@ func (s *Store) Init(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS knowledge_items (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			type TEXT NOT NULL,
+			name TEXT NOT NULL,
+			summary TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL DEFAULT '',
+			tags_json TEXT NOT NULL DEFAULT '[]',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+		);`,
 	}
 
 	for _, statement := range statements {
@@ -219,6 +248,15 @@ Sie blieb noch einen Moment am Tor stehen und notierte sich im Kopf, was spaeter
 			Type:        boxType,
 			IsCollapsed: index > 1,
 		}, index+1); err != nil {
+			return err
+		}
+	}
+	for _, item := range []CreateKnowledgeItemInput{
+		{Type: "person", Name: "Mara", Summary: "Hauptfigur im Demokapitel."},
+		{Type: "location", Name: "Alter Garten", Summary: "Ort der stillen Eröffnungsszene."},
+		{Type: "event", Name: "Erste Begegnung", Summary: "Tragendes Ereignis fuer den spaeteren Plot."},
+	} {
+		if _, err := s.CreateKnowledgeItem(ctx, project.ID, item); err != nil {
 			return err
 		}
 	}
@@ -660,6 +698,101 @@ func (s *Store) DeleteClipboardItem(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *Store) ListKnowledgeItems(ctx context.Context, projectID string) ([]model.KnowledgeItem, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, project_id, type, name, summary, body, tags_json, created_at, updated_at FROM knowledge_items WHERE project_id = ? ORDER BY type ASC, name COLLATE NOCASE ASC`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list knowledge items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []model.KnowledgeItem
+	for rows.Next() {
+		item, err := scanKnowledgeItem(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) CreateKnowledgeItem(ctx context.Context, projectID string, input CreateKnowledgeItemInput) (model.KnowledgeItem, error) {
+	if _, _, err := s.GetProject(ctx, projectID); err != nil {
+		return model.KnowledgeItem{}, err
+	}
+
+	now := nowUTC()
+	item := model.KnowledgeItem{
+		ID:        newID(),
+		ProjectID: projectID,
+		Type:      normalizeKnowledgeType(input.Type),
+		Name:      fallback(strings.TrimSpace(input.Name), "Neuer Wissenseintrag"),
+		Summary:   strings.TrimSpace(input.Summary),
+		Body:      strings.TrimSpace(input.Body),
+		Tags:      normalizeTags(input.Tags),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	_, err := s.db.ExecContext(ctx, `INSERT INTO knowledge_items (id, project_id, type, name, summary, body, tags_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.ProjectID, item.Type, item.Name, item.Summary, item.Body, encodeTags(item.Tags), item.CreatedAt, item.UpdatedAt,
+	)
+	if err != nil {
+		return model.KnowledgeItem{}, fmt.Errorf("create knowledge item: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, now, projectID); err != nil {
+		return model.KnowledgeItem{}, fmt.Errorf("touch project: %w", err)
+	}
+	return item, nil
+}
+
+func (s *Store) UpdateKnowledgeItem(ctx context.Context, id string, input UpdateKnowledgeItemInput) (model.KnowledgeItem, error) {
+	item, err := s.getKnowledgeItem(ctx, id)
+	if err != nil {
+		return model.KnowledgeItem{}, err
+	}
+
+	item.Type = normalizeKnowledgeType(input.Type)
+	item.Name = fallback(strings.TrimSpace(input.Name), item.Name)
+	item.Summary = strings.TrimSpace(input.Summary)
+	item.Body = strings.TrimSpace(input.Body)
+	item.Tags = normalizeTags(input.Tags)
+	item.UpdatedAt = nowUTC()
+
+	_, err = s.db.ExecContext(ctx, `UPDATE knowledge_items SET type = ?, name = ?, summary = ?, body = ?, tags_json = ?, updated_at = ? WHERE id = ?`,
+		item.Type, item.Name, item.Summary, item.Body, encodeTags(item.Tags), item.UpdatedAt, item.ID,
+	)
+	if err != nil {
+		return model.KnowledgeItem{}, fmt.Errorf("update knowledge item: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, item.UpdatedAt, item.ProjectID); err != nil {
+		return model.KnowledgeItem{}, fmt.Errorf("touch project: %w", err)
+	}
+	return item, nil
+}
+
+func (s *Store) getKnowledgeItem(ctx context.Context, id string) (model.KnowledgeItem, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, project_id, type, name, summary, body, tags_json, created_at, updated_at FROM knowledge_items WHERE id = ?`, id)
+	item, err := scanKnowledgeItem(row.Scan)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.KnowledgeItem{}, ErrNotFound
+		}
+		return model.KnowledgeItem{}, err
+	}
+	return item, nil
+}
+
+func scanKnowledgeItem(scan func(dest ...any) error) (model.KnowledgeItem, error) {
+	var item model.KnowledgeItem
+	var tagsJSON string
+	if err := scan(&item.ID, &item.ProjectID, &item.Type, &item.Name, &item.Summary, &item.Body, &tagsJSON, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		return model.KnowledgeItem{}, fmt.Errorf("scan knowledge item: %w", err)
+	}
+	item.Tags = decodeTags(tagsJSON)
+	return item, nil
+}
+
 func (s *Store) syncChapterSnapshot(ctx context.Context, chapter model.Chapter) error {
 	var projectID string
 	err := s.db.QueryRowContext(ctx, `SELECT books.project_id FROM books WHERE books.id = ?`, chapter.BookID).Scan(&projectID)
@@ -727,6 +860,52 @@ func normalizeSlot(value int) int {
 		return 0
 	}
 	return value
+}
+
+func normalizeKnowledgeType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "person", "location", "event", "thread", "motif", "term", "reminder", "research_note", "custom":
+		return strings.TrimSpace(value)
+	default:
+		return "person"
+	}
+}
+
+func normalizeTags(values []string) []string {
+	var tags []string
+	seen := make(map[string]struct{})
+	for _, value := range values {
+		tag := strings.TrimSpace(value)
+		if tag == "" {
+			continue
+		}
+		key := strings.ToLower(tag)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		tags = append(tags, tag)
+	}
+	return tags
+}
+
+func encodeTags(values []string) string {
+	encoded, err := json.Marshal(normalizeTags(values))
+	if err != nil {
+		return "[]"
+	}
+	return string(encoded)
+}
+
+func decodeTags(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	var tags []string
+	if err := json.Unmarshal([]byte(value), &tags); err != nil {
+		return nil
+	}
+	return normalizeTags(tags)
 }
 
 func truncateRunes(value string, limit int) string {

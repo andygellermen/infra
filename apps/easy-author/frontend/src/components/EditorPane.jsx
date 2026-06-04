@@ -120,6 +120,12 @@ const EditorPane = forwardRef(function EditorPane(
         }
         editor.chain().focus().insertContent(content).run();
       },
+      insertText(content) {
+        if (!editor) {
+          return;
+        }
+        editor.chain().focus().insertContent(content).run();
+      },
       focus() {
         editor?.commands.focus();
       },
