@@ -33,6 +33,13 @@ type CreateBookInput struct {
 	Visibility string `json:"visibility"`
 }
 
+type UpdateBookInput struct {
+	Title      string `json:"title"`
+	Subtitle   string `json:"subtitle"`
+	Author     string `json:"author"`
+	Visibility string `json:"visibility"`
+}
+
 type CreateChapterInput struct {
 	Title           string `json:"title"`
 	MarkdownContent string `json:"markdown_content"`
@@ -43,6 +50,10 @@ type UpdateChapterInput struct {
 	Title           string `json:"title"`
 	MarkdownContent string `json:"markdown_content"`
 	EditorJSON      string `json:"editor_json"`
+}
+
+type ReorderChaptersInput struct {
+	ChapterIDs []string `json:"chapter_ids"`
 }
 
 type CreateWorkflowBoxInput struct {
@@ -391,6 +402,35 @@ func (s *Store) GetBook(ctx context.Context, bookID string) (model.BookBundle, e
 	}, nil
 }
 
+func (s *Store) UpdateBook(ctx context.Context, id string, input UpdateBookInput) (model.Book, error) {
+	var item model.Book
+	err := s.db.QueryRowContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, created_at, updated_at FROM books WHERE id = ?`, id).
+		Scan(&item.ID, &item.ProjectID, &item.Title, &item.Subtitle, &item.Author, &item.Visibility, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Book{}, ErrNotFound
+		}
+		return model.Book{}, fmt.Errorf("get book: %w", err)
+	}
+
+	item.Title = fallback(strings.TrimSpace(input.Title), item.Title)
+	item.Subtitle = strings.TrimSpace(input.Subtitle)
+	item.Author = strings.TrimSpace(input.Author)
+	item.Visibility = normalizeVisibility(input.Visibility)
+	item.UpdatedAt = nowUTC()
+
+	_, err = s.db.ExecContext(ctx, `UPDATE books SET title = ?, subtitle = ?, author = ?, visibility = ?, updated_at = ? WHERE id = ?`,
+		item.Title, item.Subtitle, item.Author, item.Visibility, item.UpdatedAt, item.ID,
+	)
+	if err != nil {
+		return model.Book{}, fmt.Errorf("update book: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, item.UpdatedAt, item.ProjectID); err != nil {
+		return model.Book{}, fmt.Errorf("touch project: %w", err)
+	}
+	return item, nil
+}
+
 func (s *Store) ListChapters(ctx context.Context, bookID string) ([]model.Chapter, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE book_id = ? ORDER BY position ASC`, bookID)
 	if err != nil {
@@ -469,6 +509,72 @@ func (s *Store) UpdateChapter(ctx context.Context, id string, input UpdateChapte
 		return model.Chapter{}, err
 	}
 	return item, nil
+}
+
+func (s *Store) ReorderChapters(ctx context.Context, bookID string, input ReorderChaptersInput) ([]model.Chapter, error) {
+	chapters, err := s.ListChapters(ctx, bookID)
+	if err != nil {
+		return nil, err
+	}
+	if len(chapters) == 0 {
+		return nil, nil
+	}
+	if len(input.ChapterIDs) != len(chapters) {
+		return nil, fmt.Errorf("chapter_ids must contain every chapter exactly once")
+	}
+
+	existingIDs := make(map[string]model.Chapter, len(chapters))
+	for _, chapter := range chapters {
+		existingIDs[chapter.ID] = chapter
+	}
+
+	seen := make(map[string]bool, len(input.ChapterIDs))
+	for _, id := range input.ChapterIDs {
+		if _, ok := existingIDs[id]; !ok {
+			return nil, fmt.Errorf("chapter %s does not belong to book", id)
+		}
+		if seen[id] {
+			return nil, fmt.Errorf("chapter_ids must not contain duplicates")
+		}
+		seen[id] = true
+	}
+
+	now := nowUTC()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin reorder chapters tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	for index, id := range input.ChapterIDs {
+		if _, err := tx.ExecContext(ctx, `UPDATE chapters SET position = ?, updated_at = ? WHERE id = ? AND book_id = ?`,
+			1000+index, now, id, bookID,
+		); err != nil {
+			return nil, fmt.Errorf("stage chapter reorder: %w", err)
+		}
+	}
+
+	for index, id := range input.ChapterIDs {
+		if _, err := tx.ExecContext(ctx, `UPDATE chapters SET position = ?, updated_at = ? WHERE id = ? AND book_id = ?`,
+			index+1, now, id, bookID,
+		); err != nil {
+			return nil, fmt.Errorf("apply chapter reorder: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE books SET updated_at = ? WHERE id = ?`, now, bookID); err != nil {
+		return nil, fmt.Errorf("touch book: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit reorder chapters: %w", err)
+	}
+
+	if err := s.syncBookChapterSnapshots(ctx, bookID); err != nil {
+		return nil, err
+	}
+
+	return s.ListChapters(ctx, bookID)
 }
 
 func (s *Store) ListWorkflowBoxes(ctx context.Context, bookID string) ([]model.WorkflowBox, error) {
@@ -794,19 +900,53 @@ func scanKnowledgeItem(scan func(dest ...any) error) (model.KnowledgeItem, error
 }
 
 func (s *Store) syncChapterSnapshot(ctx context.Context, chapter model.Chapter) error {
-	var projectID string
-	err := s.db.QueryRowContext(ctx, `SELECT books.project_id FROM books WHERE books.id = ?`, chapter.BookID).Scan(&projectID)
+	projectID, err := s.lookupBookProjectID(ctx, chapter.BookID)
 	if err != nil {
-		return fmt.Errorf("lookup chapter project: %w", err)
+		return err
 	}
+	targetDir := filepath.Join(s.libraryDir, projectID, chapter.BookID, "chapters")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir chapter snapshot dir: %w", err)
+	}
+	return s.writeChapterSnapshotFile(filepath.Join(targetDir, fmt.Sprintf("%03d-%s.md", chapter.Position, chapter.ID[:8])), chapter)
+}
 
-	if err := os.MkdirAll(filepath.Join(s.libraryDir, projectID, chapter.BookID, "chapters"), 0o755); err != nil {
+func (s *Store) syncBookChapterSnapshots(ctx context.Context, bookID string) error {
+	projectID, err := s.lookupBookProjectID(ctx, bookID)
+	if err != nil {
+		return err
+	}
+	targetDir := filepath.Join(s.libraryDir, projectID, bookID, "chapters")
+	if err := os.RemoveAll(targetDir); err != nil {
+		return fmt.Errorf("reset chapter snapshot dir: %w", err)
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return fmt.Errorf("mkdir chapter snapshot dir: %w", err)
 	}
 
-	filename := fmt.Sprintf("%03d-%s.md", chapter.Position, chapter.ID[:8])
-	target := filepath.Join(s.libraryDir, projectID, chapter.BookID, "chapters", filename)
+	chapters, err := s.ListChapters(ctx, bookID)
+	if err != nil {
+		return err
+	}
+	for _, chapter := range chapters {
+		target := filepath.Join(targetDir, fmt.Sprintf("%03d-%s.md", chapter.Position, chapter.ID[:8]))
+		if err := s.writeChapterSnapshotFile(target, chapter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func (s *Store) lookupBookProjectID(ctx context.Context, bookID string) (string, error) {
+	var projectID string
+	err := s.db.QueryRowContext(ctx, `SELECT books.project_id FROM books WHERE books.id = ?`, bookID).Scan(&projectID)
+	if err != nil {
+		return "", fmt.Errorf("lookup chapter project: %w", err)
+	}
+	return projectID, nil
+}
+
+func (s *Store) writeChapterSnapshotFile(target string, chapter model.Chapter) error {
 	content := strings.TrimSpace(chapter.MarkdownContent)
 	if content == "" {
 		content = "# " + chapter.Title + "\n"
@@ -830,8 +970,10 @@ func fallback(value, defaultValue string) string {
 
 func normalizeVisibility(value string) string {
 	switch strings.TrimSpace(value) {
-	case "registered", "public":
-		return strings.TrimSpace(value)
+	case "shared", "registered":
+		return "shared"
+	case "public":
+		return "public"
 	default:
 		return "private"
 	}

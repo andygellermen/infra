@@ -11,11 +11,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:markdown": "node --test src/lib/markdown.test.js",
-    "test:editor": "vitest run src/App.test.jsx",
+    "test:editor": "vitest run src/App.test.jsx src/components/EditorPane.test.jsx",
     "test": "npm run test:markdown && npm run test:editor"
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/extension-table": "^2.11.5",
+    "@tiptap/extension-table-cell": "^2.11.5",
+    "@tiptap/extension-table-header": "^2.11.5",
+    "@tiptap/extension-table-row": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
     "react": "^18.3.1",

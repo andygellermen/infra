@@ -26,8 +26,9 @@ apps/easy-author/
 - SQLite-Initialisierung mit Demo-Daten beim ersten Start
 - Markdown-Snapshots pro Kapitel unter `backend/data/library/...`
 - React-Frontend mit dreispaltigem Autoren-Cockpit
-- Tiptap-Editor mit Autosave, manuellem Speichern und Slot-Shortcuts `Cmd/Ctrl + Shift + 1-9`
+- Tiptap-Editor mit Autosave, manuellem Speichern, Tabellen-Tools, Zitat-/Fussnoten-Helfern und Slot-Shortcuts `Cmd/Ctrl + Shift + 1-9`
 - Umschaltbarer Editor zwischen Rich-Ansicht und rohem Markdown pro Kapitel
+- Editor-Hilfe und Editor-Einstellungen im zentralen Schreibbereich fuer Markdown-Support, Tabellen, Clipboard-Slots und Workflow-Anker
 - Rechte Sidebar fuer Wiki-Link-Kontext, Anker, Clipboard und gepinnte Slots
 
 ## Lokales Setup
@@ -83,7 +84,9 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 
 - Jedes Kapitel kann zwischen `Rich` und `Markdown` umgeschaltet werden.
 - Im Markdown-Modus bleibt Markdown die fuehrende Quelle; beim Speichern wird der Editor-Snapshot neu erzeugt.
-- `[[...]]`-Wiki-Links, ausgewaehlte Textstellen, Clipboard-Einfuegen und manuelles Speichern funktionieren in beiden Modi.
+- `[[...]]`-Wiki-Links, einfache Pipe-Tabellen, Blockquotes, Fussnoten, ausgewaehlte Textstellen, Clipboard-Einfuegen und manuelles Speichern funktionieren in beiden Modi.
+- Im Rich-Editor stehen Tabellenwerkzeuge fuer Einfuegen, Zeilen/Spalten und Kopfzeilen bereit; abgetippte Pipe-Tabellen werden beim Weiterschreiben automatisch in Rich-Tabellen uebernommen.
+- `Zitat` schaltet Blockquotes um; `Fussnote` erzeugt im Rich-Editor Referenz plus Notizblock und im Markdown-Modus eine passende `[^1]`-Struktur.
 - `npm run test:editor` deckt Editor-Smoke-Tests fuer Laden, Moduswechsel, Speichern, Textauswahl, Anker, Wissensbank-Link-Einfuegen, Clipboard, Mehrfach-Slot-Pinning, Loeschen/Freigeben von Slots, offene Wiki-Referenzen sowie mehrfache Fehler-, Anchor-/Clipboard-, Workflow-/Knowledge-, Create-/Switch-Recovery-, Retry-, Save-Konflikte, parallele Workflow-Sidebar-Aktionen und volle Mehrfach-Workflow-Last inklusive Autosave im Markdown-Modus ab.
 
 ## Datenbank und Inhalte

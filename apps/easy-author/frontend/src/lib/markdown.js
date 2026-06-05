@@ -24,10 +24,53 @@ function hardBreakNode() {
   };
 }
 
+function footnoteReferenceNode(noteId) {
+  return {
+    type: "footnoteReference",
+    attrs: {
+      noteId: String(noteId || ""),
+    },
+  };
+}
+
+function footnoteDefinitionNode(noteId, content) {
+  return {
+    type: "footnoteDefinition",
+    attrs: {
+      noteId: String(noteId || ""),
+    },
+    content: Array.isArray(content) && content.length > 0 ? content : [paragraphNode([])],
+  };
+}
+
 function codeBlockNode(value) {
   return {
     type: "codeBlock",
     content: wrapText(value),
+  };
+}
+
+function tableCellNode(content, isHeader = false) {
+  return {
+    type: isHeader ? "tableHeader" : "tableCell",
+    content: [paragraphNode(Array.isArray(content) ? content : wrapText(String(content || "")))],
+  };
+}
+
+function tableRowNode(cells, header = false) {
+  return {
+    type: "tableRow",
+    content: cells.map((cell) => tableCellNode(parseInlineMarkdown(String(cell || "")), header)),
+  };
+}
+
+function tableNode(headerCells, bodyRows) {
+  return {
+    type: "table",
+    content: [
+      tableRowNode(headerCells, true),
+      ...bodyRows.map((cells) => tableRowNode(cells, false)),
+    ],
   };
 }
 
@@ -76,6 +119,10 @@ function inlineLines(content = []) {
   content.forEach((node) => {
     if (node.type === "text") {
       lines[lines.length - 1] += textWithMarks(node);
+      return;
+    }
+    if (node.type === "footnoteReference") {
+      lines[lines.length - 1] += `[^${node.attrs?.noteId || ""}]`;
       return;
     }
     if (node.type === "hardBreak") {
@@ -168,6 +215,60 @@ function blockquoteToLines(node, depth) {
   return lines;
 }
 
+function cellContentToMarkdown(node) {
+  const blocks = node.content || [];
+  if (blocks.length === 0) {
+    return "";
+  }
+  return blocks
+    .map((child) => {
+      if (child.type === "paragraph") {
+        return inlineLines(child.content).join("<br>");
+      }
+      return blockToLines(child).join(" ");
+    })
+    .join("<br>");
+}
+
+function tableToLines(node) {
+  const rows = node.content || [];
+  if (rows.length === 0) {
+    return [];
+  }
+  const headerRow = rows[0];
+  const columnCount = headerRow.content?.length || 0;
+  if (columnCount === 0) {
+    return [];
+  }
+  const headerCells = headerRow.content.map((cell) => cellContentToMarkdown(cell));
+  const separator = Array.from({ length: columnCount }, () => "---");
+  const bodyLines = rows.slice(1).map((row) => row.content.map((cell) => cellContentToMarkdown(cell)));
+  return [
+    `| ${headerCells.join(" | ")} |`,
+    `| ${separator.join(" | ")} |`,
+    ...bodyLines.map((cells) => `| ${cells.join(" | ")} |`),
+  ];
+}
+
+function footnoteDefinitionToLines(node) {
+  const noteId = node.attrs?.noteId || "";
+  const children = node.content || [];
+  if (children.length === 0) {
+    return [`[^${noteId}]: `];
+  }
+
+  const blockLines = children.flatMap((child, index) => {
+    const lines = blockToLines(child);
+    if (index === 0) {
+      return lines;
+    }
+    return ["", ...lines];
+  });
+
+  const [firstLine = "", ...rest] = blockLines;
+  return [`[^${noteId}]: ${firstLine}`, ...rest.map((line) => (line ? `  ${line}` : ""))];
+}
+
 function blockToLines(node, depth = 0) {
   switch (node.type) {
     case "heading":
@@ -188,6 +289,10 @@ function blockToLines(node, depth = 0) {
     }
     case "horizontalRule":
       return ["---"];
+    case "table":
+      return tableToLines(node);
+    case "footnoteDefinition":
+      return footnoteDefinitionToLines(node);
     default:
       return [];
   }
@@ -258,6 +363,19 @@ function parseInlineMarkdown(text) {
         nodes.push(...wrapText(text.slice(cursor, closing + 2)));
         cursor = closing + 2;
         continue;
+      }
+    }
+
+    if (text.startsWith("[^", cursor)) {
+      const closing = findClosingToken(text, "]", cursor + 2);
+      if (closing !== -1) {
+        const noteId = text.slice(cursor + 2, closing).trim();
+        if (noteId) {
+          flushPlainText(buffer, nodes);
+          nodes.push(footnoteReferenceNode(noteId));
+          cursor = closing + 1;
+          continue;
+        }
       }
     }
 
@@ -361,6 +479,7 @@ function isBlockBoundary(line) {
   }
   return (
     /^(#{1,6})\s+/.test(trimmed) ||
+    /^\[\^[^\]]+\]:/.test(trimmed) ||
     isListLine(line) ||
     isQuoteLine(line) ||
     trimmed.startsWith("```") ||
@@ -377,6 +496,169 @@ function stripQuoteMarker(line) {
     return trimmedStart.slice(2);
   }
   return trimmedStart;
+}
+
+function splitPipeTableRow(line) {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|")) {
+    return null;
+  }
+  const normalized = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = normalized.split("|").map((cell) => cell.trim());
+  return cells.length >= 2 ? cells : null;
+}
+
+function isTableSeparatorLine(line, expectedColumns) {
+  const cells = splitPipeTableRow(line);
+  if (!cells || cells.length !== expectedColumns) {
+    return false;
+  }
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function isPipeTableRow(line, expectedColumns) {
+  const cells = splitPipeTableRow(line);
+  if (!cells || cells.length < 2) {
+    return false;
+  }
+  return expectedColumns ? cells.length === expectedColumns : true;
+}
+
+function parsePipeTable(lines, startIndex) {
+  const headerCells = splitPipeTableRow(lines[startIndex]);
+  const separatorLine = lines[startIndex + 1];
+  if (!headerCells || !separatorLine || !isTableSeparatorLine(separatorLine, headerCells.length)) {
+    return null;
+  }
+
+  const bodyRows = [];
+  let index = startIndex + 2;
+  while (index < lines.length && isPipeTableRow(lines[index], headerCells.length)) {
+    const rowCells = splitPipeTableRow(lines[index]);
+    if (!rowCells) {
+      break;
+    }
+    bodyRows.push(rowCells);
+    index += 1;
+  }
+
+  if (bodyRows.length === 0) {
+    bodyRows.push(Array.from({ length: headerCells.length }, () => ""));
+  }
+
+  return {
+    node: tableNode(headerCells, bodyRows),
+    nextIndex: index,
+  };
+}
+
+function parseFootnoteDefinition(lines, startIndex) {
+  const match = lines[startIndex].trim().match(/^\[\^([^\]]+)\]:\s*(.*)$/);
+  if (!match) {
+    return null;
+  }
+
+  const noteId = match[1];
+  const bodyLines = [match[2] || ""];
+  let index = startIndex + 1;
+
+  while (index < lines.length) {
+    const nextLine = lines[index];
+    if (!nextLine.trim()) {
+      bodyLines.push("");
+      index += 1;
+      continue;
+    }
+    if (/^\s{2,}/.test(nextLine)) {
+      bodyLines.push(nextLine.replace(/^\s{2}/, ""));
+      index += 1;
+      continue;
+    }
+    break;
+  }
+
+  while (bodyLines.length > 0 && !bodyLines[bodyLines.length - 1].trim()) {
+    bodyLines.pop();
+  }
+
+  return {
+    node: footnoteDefinitionNode(noteId, parseBlocks(bodyLines)),
+    nextIndex: index,
+  };
+}
+
+function extractPlainParagraphLine(node) {
+  if (!node || node.type !== "paragraph") {
+    return null;
+  }
+  let value = "";
+  for (const child of node.content || []) {
+    if (child.type === "text") {
+      value += child.text || "";
+      continue;
+    }
+    if (child.type === "hardBreak") {
+      return null;
+    }
+    return null;
+  }
+  return value;
+}
+
+export function normalizeRichTableMarkdown(doc) {
+  if (!doc || doc.type !== "doc" || !Array.isArray(doc.content)) {
+    return { doc, changed: false };
+  }
+
+  const nextContent = [];
+  let changed = false;
+
+  for (let index = 0; index < doc.content.length; index += 1) {
+    const current = doc.content[index];
+    const headerLine = extractPlainParagraphLine(current);
+    const separatorLine = extractPlainParagraphLine(doc.content[index + 1]);
+
+    if (
+      headerLine &&
+      separatorLine &&
+      isPipeTableRow(headerLine) &&
+      isTableSeparatorLine(separatorLine, splitPipeTableRow(headerLine)?.length || 0)
+    ) {
+      const bodyLines = [];
+      let cursor = index + 2;
+      const expectedColumns = splitPipeTableRow(headerLine)?.length || 0;
+      while (cursor < doc.content.length) {
+        const candidate = extractPlainParagraphLine(doc.content[cursor]);
+        if (!candidate || !isPipeTableRow(candidate, expectedColumns)) {
+          break;
+        }
+        bodyLines.push(candidate);
+        cursor += 1;
+      }
+
+      if (bodyLines.length > 0) {
+        const normalized = parsePipeTable([headerLine, separatorLine, ...bodyLines], 0);
+        if (normalized) {
+          nextContent.push(normalized.node);
+          index = cursor - 1;
+          changed = true;
+          continue;
+        }
+      }
+    }
+
+    nextContent.push(current);
+  }
+
+  return changed
+    ? {
+        doc: {
+          ...doc,
+          content: nextContent,
+        },
+        changed: true,
+      }
+    : { doc, changed: false };
 }
 
 function parseBlocks(lines) {
@@ -402,6 +684,20 @@ function parseBlocks(lines) {
 
     if (trimmed === "---") {
       content.push({ type: "horizontalRule" });
+      continue;
+    }
+
+    const footnote = parseFootnoteDefinition(lines, index);
+    if (footnote) {
+      content.push(footnote.node);
+      index = footnote.nextIndex - 1;
+      continue;
+    }
+
+    const table = parsePipeTable(lines, index);
+    if (table) {
+      content.push(table.node);
+      index = table.nextIndex - 1;
       continue;
     }
 

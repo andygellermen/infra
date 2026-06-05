@@ -42,9 +42,23 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 
 	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{
 		"title":      "Testbuch",
+		"subtitle":   "Erste Beschreibung",
 		"author":     "Codex",
 		"visibility": "private",
 	})["id"].(string)
+
+	updatedBook := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID, map[string]any{
+		"title":      "Testbuch",
+		"subtitle":   "Geschaerfte Positionierung",
+		"author":     "Codex",
+		"visibility": "shared",
+	}, http.StatusOK)
+	if updatedBook["subtitle"].(string) != "Geschaerfte Positionierung" {
+		t.Fatalf("expected updated subtitle, got %#v", updatedBook["subtitle"])
+	}
+	if updatedBook["visibility"].(string) != "shared" {
+		t.Fatalf("expected updated visibility, got %#v", updatedBook["visibility"])
+	}
 
 	knowledgeItemID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/knowledge-items", map[string]any{
 		"type":    "person",
@@ -58,6 +72,19 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		"markdown_content": "# Hallo\n\nDies ist ein Test.",
 		"editor_json":      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Dies ist ein Test."}]}]}`,
 	})["id"].(string)
+	chapterTwoID := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/chapters", map[string]any{
+		"title":            "Kapitel B",
+		"markdown_content": "# Zweites Kapitel\n\nNoch ein Test.",
+		"editor_json":      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Noch ein Test."}]}]}`,
+	})["id"].(string)
+
+	reordered := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/chapters/reorder", map[string]any{
+		"chapter_ids": []string{chapterTwoID, chapterID},
+	}, http.StatusOK)
+	reorderedChapters := reordered["chapters"].([]any)
+	if reorderedChapters[0].(map[string]any)["id"].(string) != chapterTwoID {
+		t.Fatalf("expected reordered chapter first, got %#v", reorderedChapters[0])
+	}
 
 	_ = createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/workflow-boxes", map[string]any{
 		"title":        "Notizen",

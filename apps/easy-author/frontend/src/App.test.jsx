@@ -6,6 +6,9 @@ import App from "./App";
 import { api } from "./lib/api";
 import { markdownToDoc } from "./lib/markdown";
 
+const RICH_SNAPSHOT_MARKDOWN = "# Kapitel 1\n\nRich Snapshot aus dem Editor";
+let mockRichSnapshotMarkdown = null;
+
 vi.mock("./lib/api", () => ({
   api: {
     get: vi.fn(),
@@ -19,8 +22,25 @@ vi.mock("./components/EditorPane", () => ({
   default: forwardRef(function MockEditorPane({ chapter, onSelectionChange }, ref) {
     useImperativeHandle(ref, () => ({
       getSelectionPayload: () => null,
+      getDocumentSnapshot: () => {
+        const markdown = mockRichSnapshotMarkdown ?? chapter?.markdown_content ?? "";
+        return {
+          markdown_content: markdown,
+          editor_json: JSON.stringify(markdownToDoc(markdown)),
+        };
+      },
       insertClipboardContent: () => {},
       insertText: () => {},
+      insertTable: () => {},
+      toggleBlockquote: () => {},
+      insertFootnote: () => {},
+      addColumnAfter: () => {},
+      addRowAfter: () => {},
+      deleteColumn: () => {},
+      deleteRow: () => {},
+      toggleHeaderRow: () => {},
+      deleteTable: () => {},
+      isTableActive: () => false,
       focus: () => {},
     }));
 
@@ -47,18 +67,24 @@ const projectTwo = {
 const book = {
   id: "book-1",
   title: "Buch Eins",
+  subtitle: "Erste Buchbeschreibung",
+  author: "A. Autor",
   visibility: "private",
 };
 
 const bookTwo = {
   id: "book-2",
   title: "Buch Zwei",
+  subtitle: "",
+  author: "",
   visibility: "private",
 };
 
 const bookThree = {
   id: "book-3",
   title: "Buch Drei",
+  subtitle: "",
+  author: "",
   visibility: "private",
 };
 
@@ -191,6 +217,8 @@ function mockApi() {
       const created = {
         id: `book-${Object.values(state.booksByProject).flat().length + 1}`,
         title: payload.title,
+        subtitle: payload.subtitle || "",
+        author: payload.author || "",
         visibility: payload.visibility || "private",
       };
       state.booksByProject[projectId] = [...(state.booksByProject[projectId] || []), created];
@@ -246,6 +274,40 @@ function mockApi() {
   });
 
   api.put.mockImplementation(async (path, payload) => {
+    if (path.endsWith("/chapters/reorder")) {
+      const bookId = path.split("/")[3];
+      const orderedIds = payload.chapter_ids;
+      const existing = state.chaptersByBook[bookId] || [];
+      const lookup = new Map(existing.map((entry) => [entry.id, entry]));
+      const reordered = orderedIds.map((id, index) => ({
+        ...lookup.get(id),
+        position: index + 1,
+      }));
+      state.chaptersByBook[bookId] = reordered;
+      return { chapters: reordered };
+    }
+
+    if (path.startsWith("/api/books/")) {
+      const bookId = path.split("/").pop();
+      const existing = Object.values(state.booksByProject)
+        .flat()
+        .find((entry) => entry.id === bookId);
+      if (!existing) {
+        throw new Error(`Unexpected book ${path}`);
+      }
+      const updated = {
+        ...existing,
+        ...payload,
+      };
+      state.booksByProject = Object.fromEntries(
+        Object.entries(state.booksByProject).map(([projectId, books]) => [
+          projectId,
+          books.map((entry) => (entry.id === bookId ? updated : entry)),
+        ]),
+      );
+      return updated;
+    }
+
     if (path.startsWith("/api/chapters/")) {
       const chapterId = path.split("/").pop();
       const existing = Object.values(state.chaptersByBook)
@@ -328,6 +390,7 @@ function mockApi() {
 describe("App editor smoke test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRichSnapshotMarkdown = null;
     mockApi();
   });
 
@@ -362,6 +425,175 @@ describe("App editor smoke test", () => {
     await user.click(screen.getByRole("button", { name: "Rich" }));
 
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
+  });
+
+  it("hydrates markdown mode from the current rich editor snapshot", async () => {
+    const user = userEvent.setup();
+    mockRichSnapshotMarkdown = RICH_SNAPSHOT_MARKDOWN;
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    expect(screen.getByTestId("editor-pane")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+
+    expect(await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(RICH_SNAPSHOT_MARKDOWN);
+    expect(screen.getByText("Markdown ist aktuell die Quelle")).toBeInTheDocument();
+  });
+
+  it("saves markdown content via Cmd/Ctrl+S instead of the browser default", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+    const nextMarkdown = "# Kapitel 1\n\nShortcut Save";
+
+    fireEvent.change(textarea, {
+      target: { value: nextMarkdown },
+    });
+
+    const keyboardEvent = new KeyboardEvent("keydown", {
+      key: "s",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(keyboardEvent);
+
+    expect(keyboardEvent.defaultPrevented).toBe(true);
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, {
+        title: "Kapitel 1",
+        markdown_content: nextMarkdown,
+        editor_json: JSON.stringify(markdownToDoc(nextMarkdown)),
+      });
+    });
+  });
+
+  it("toggles editor fullscreen and exits it with Escape", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+
+    expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
+    expect(screen.getByRole("button", { name: "Fullscreen verlassen" })).toBeInTheDocument();
+
+    const keyboardEvent = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(keyboardEvent);
+
+    await waitFor(() => {
+      expect(container.querySelector(".workspace-grid")?.className).not.toContain("editor-fullscreen");
+    });
+  });
+
+  it("edits and persists book description metadata", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    const descriptionField = screen.getByRole("textbox", { name: "Beschreibung" });
+    await user.clear(descriptionField);
+    await user.type(descriptionField, "Neue kompakte Buchbeschreibung");
+    fireEvent.blur(descriptionField);
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(`/api/books/${book.id}`, {
+        title: "Buch Eins",
+        subtitle: "Neue kompakte Buchbeschreibung",
+        author: "A. Autor",
+        visibility: "private",
+      });
+    });
+  });
+
+  it("reorders chapters via drag and drop and persists the new order", async () => {
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    const chapterOneButton = screen.getByRole("button", { name: /Kapitel 1/ });
+    const chapterTwoButton = screen.getByRole("button", { name: /Kapitel 2/ });
+
+    fireEvent.dragStart(chapterOneButton);
+    fireEvent.dragOver(chapterTwoButton);
+    fireEvent.drop(chapterTwoButton);
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(`/api/books/${book.id}/chapters/reorder`, {
+        chapter_ids: [chapterTwo.id, chapter.id],
+      });
+    });
+
+    const chapterButtons = screen.getAllByRole("button", { name: /Kapitel [12]/ });
+    expect(chapterButtons[0]).toHaveTextContent("Kapitel 2");
+    expect(chapterButtons[1]).toHaveTextContent("Kapitel 1");
+  });
+
+  it("shows contextual editor help for markdown, workflow, and clipboard usage", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hilfe" }));
+
+    expect(screen.getByRole("dialog", { name: "Editor-Hilfe" })).toBeInTheDocument();
+    expect(screen.getByText("MVP-Referenz fuer Schreiben, Workflow und Einfuegen")).toBeInTheDocument();
+    expect(screen.getByText(/verschachtelte Listen, Zitate, Code-Fences/)).toBeInTheDocument();
+    expect(screen.getByText(/einfache Pipe-Tabellen/)).toBeInTheDocument();
+    expect(screen.getByText(/Cmd\/Ctrl \+ Shift \+ 1-9/)).toBeInTheDocument();
+    expect(screen.getByText(/aktive Box erscheint als `Zielbox`/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Schliessen" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Editor-Hilfe" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens editor settings and updates the editor appearance controls", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const editorFrame = container.querySelector(".editor-frame");
+    const workspaceGrid = container.querySelector(".workspace-grid");
+    expect(editorFrame).toBeTruthy();
+    expect(workspaceGrid).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Einstellungen/ }));
+
+    expect(screen.getByRole("dialog", { name: "Editor-Einstellungen" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Farbprofil" }), "night");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Textbreite" }), "1040");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Vollbild-Breite" }), "1200");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Vollbild-Hintergrund" }), "dusk");
+
+    expect(editorFrame.className).toContain("surface-night");
+    expect(editorFrame.style.getPropertyValue("--editor-max-width")).toBe("1040px");
+    expect(editorFrame.style.getPropertyValue("--editor-fullscreen-max-width")).toBe("1200px");
+    expect(workspaceGrid?.getAttribute("data-fullscreen-backdrop")).toBe("dusk");
+
+    await user.click(screen.getByRole("button", { name: "Schliessen" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Editor-Einstellungen" })).not.toBeInTheDocument();
+    });
   });
 
   it("creates an anchor and clipboard item from markdown selection", async () => {
@@ -422,6 +654,31 @@ describe("App editor smoke test", () => {
     expect(screen.queryByText("Noch keine Clipboard-Eintraege vorhanden.")).not.toBeInTheDocument();
 
     promptSpy.mockRestore();
+  });
+
+  it("captures a markdown copy event directly into the clipboard list", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+
+    const selectedText = "Alter Text";
+    selectMarkdownText(textarea, selectedText);
+    fireEvent.copy(textarea);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(`/api/books/${book.id}/clipboard`, {
+        chapter_id: chapter.id,
+        content: selectedText,
+        content_type: "text/markdown",
+        source_anchor_id: "",
+        is_pinned: false,
+        slot: 0,
+      });
+    });
+
+    expect(await screen.findByText(selectedText, { selector: ".context-card strong" })).toBeInTheDocument();
   });
 
   it("inserts a knowledge link, reinserts clipboard content, and saves the markdown roundtrip", async () => {
@@ -572,7 +829,7 @@ describe("App editor smoke test", () => {
       });
     });
 
-    expect(await screen.findByText("Ort:Verlassenes Haus")).toBeInTheDocument();
+    expect((await screen.findAllByText("Ort:Verlassenes Haus")).length).toBeGreaterThan(0);
     expect(screen.getByText("Noch kein passender Wissenseintrag vorhanden.")).toBeInTheDocument();
     expect(
       screen.getByText("Offene Referenzen koennen links als Wissenseintrag angelegt oder umbenannt werden."),
@@ -601,7 +858,7 @@ describe("App editor smoke test", () => {
     });
 
     expect(screen.getByText("Alter Text", { selector: ".slot-card span" })).toBeInTheDocument();
-    expect(screen.getByText("Ort:Verlassenes Haus")).toBeInTheDocument();
+    expect(screen.getAllByText("Ort:Verlassenes Haus").length).toBeGreaterThan(0);
   });
 
   it("keeps multiple pinned clipboard slots stable across reassignment and editor switching", async () => {
@@ -729,6 +986,106 @@ describe("App editor smoke test", () => {
 
     expect(slotCards[1].textContent).toContain(secondSelection);
     expect(slotCards[3].textContent).toContain(firstSelection);
+  });
+
+  it("opens the floating clipboard list and assigns a fixed slot directly there", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+
+    const selectedText = "Alter Text";
+    selectMarkdownText(textarea, selectedText);
+
+    const clipboardButton = screen.getByRole("button", { name: "In Clipboard uebernehmen" });
+    await waitFor(() => {
+      expect(clipboardButton).toBeEnabled();
+    });
+    await user.click(clipboardButton);
+
+    const paletteToggle = await screen.findByRole("button", { name: "Clipboard-Floating-Liste" });
+    await user.click(paletteToggle);
+
+    const palette = await screen.findByRole("dialog", { name: "Clipboard-Liste" });
+    expect(within(palette).getByText("Gesammelte Ausschnitte und feste Slots")).toBeInTheDocument();
+
+    await user.click(within(palette).getByRole("button", { name: "Slot 6 zuweisen" }));
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith("/api/clipboard/clipboard-1", {
+        content: selectedText,
+        is_pinned: true,
+        slot: 6,
+      });
+    });
+
+    const slotCards = Array.from(container.querySelectorAll(".slot-card"));
+    expect(slotCards[5].textContent).toContain(selectedText);
+
+    await user.click(within(palette).getByRole("button", { name: "Schliessen" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Clipboard-Liste" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("inserts pinned slot content directly from the slot card", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+
+    const selectedText = "Alter Text";
+    selectMarkdownText(textarea, selectedText);
+
+    await user.click(screen.getByRole("button", { name: "In Clipboard uebernehmen" }));
+
+    const pinCheckbox = await screen.findByRole("checkbox", { name: "anpinnen" });
+    await user.click(pinCheckbox);
+
+    const slotInput = screen.getByRole("spinbutton");
+    await user.clear(slotInput);
+    await user.type(slotInput, "2");
+
+    await act(async () => {
+      textarea.focus();
+      textarea.setSelectionRange(0, 0);
+      fireEvent.select(textarea);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Slot 2 einfuegen" }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(`Alter Text${chapter.markdown_content}`);
+    });
+  });
+
+  it("anchors a selection directly from the workflow cockpit without prompting", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+
+    selectMarkdownText(textarea, "Alter Text");
+
+    const workflowCockpit = screen.getByText("Zielbox aktiv").closest(".workflow-target-card");
+    expect(workflowCockpit).toBeTruthy();
+
+    await user.click(within(workflowCockpit).getByRole("button", { name: "Auswahl ankern" }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(`/api/chapters/${chapter.id}/anchors`, expect.objectContaining({
+        selected_text: "Alter Text",
+        workflow_box_id: workflowBox.id,
+        note: "",
+      }));
+    });
+
+    await waitFor(() => {
+      expect(within(workflowCockpit).getAllByText("Alter Text").length).toBeGreaterThan(0);
+    });
   });
 
   it("deletes pinned clipboard entries cleanly and completes markdown autosave", async () => {

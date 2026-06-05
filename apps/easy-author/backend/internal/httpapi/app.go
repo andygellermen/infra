@@ -42,8 +42,10 @@ func (a *App) routes() {
 	a.mux.HandleFunc("POST /api/projects/{projectId}/knowledge-items", a.handleCreateKnowledgeItem)
 	a.mux.HandleFunc("GET /api/books/{id}", a.handleGetBook)
 	a.mux.HandleFunc("POST /api/projects/{projectId}/books", a.handleCreateBook)
+	a.mux.HandleFunc("PUT /api/books/{id}", a.handleUpdateBook)
 	a.mux.HandleFunc("GET /api/books/{bookId}/chapters", a.handleListChapters)
 	a.mux.HandleFunc("POST /api/books/{bookId}/chapters", a.handleCreateChapter)
+	a.mux.HandleFunc("PUT /api/books/{bookId}/chapters/reorder", a.handleReorderChapters)
 	a.mux.HandleFunc("GET /api/chapters/{id}", a.handleGetChapter)
 	a.mux.HandleFunc("PUT /api/chapters/{id}", a.handleUpdateChapter)
 	a.mux.HandleFunc("GET /api/books/{bookId}/workflow-boxes", a.handleListWorkflowBoxes)
@@ -147,6 +149,20 @@ func (a *App) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, book)
 }
 
+func (a *App) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
+	var input store.UpdateBookInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	book, err := a.store.UpdateBook(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, book)
+}
+
 func (a *App) handleListChapters(w http.ResponseWriter, r *http.Request) {
 	items, err := a.store.ListChapters(r.Context(), r.PathValue("bookId"))
 	if err != nil {
@@ -168,6 +184,20 @@ func (a *App) handleCreateChapter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, item)
+}
+
+func (a *App) handleReorderChapters(w http.ResponseWriter, r *http.Request) {
+	var input store.ReorderChaptersInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	items, err := a.store.ReorderChapters(r.Context(), r.PathValue("bookId"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"chapters": items})
 }
 
 func (a *App) handleGetChapter(w http.ResponseWriter, r *http.Request) {

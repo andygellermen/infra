@@ -13,9 +13,21 @@ async function request(path, options = {}) {
     return null;
   }
 
-  const data = await response.json();
+  const contentType = response.headers.get("Content-Type") || "";
+  let data = null;
+  let text = "";
+
+  if (contentType.includes("application/json")) {
+    data = await response.json();
+  } else {
+    text = await response.text();
+  }
+
   if (!response.ok) {
-    throw new Error(data.error || `Request failed with ${response.status}`);
+    const message = data?.error || text.trim() || `Request failed with ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
