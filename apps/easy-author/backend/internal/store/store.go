@@ -26,6 +26,11 @@ type CreateProjectInput struct {
 	Description string `json:"description"`
 }
 
+type UpdateProjectInput struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 type CreateBookInput struct {
 	Title      string `json:"title"`
 	Subtitle   string `json:"subtitle"`
@@ -57,15 +62,17 @@ type ReorderChaptersInput struct {
 }
 
 type CreateWorkflowBoxInput struct {
-	Title       string `json:"title"`
-	Type        string `json:"type"`
-	IsCollapsed bool   `json:"is_collapsed"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Tags        []string `json:"tags"`
+	IsCollapsed bool     `json:"is_collapsed"`
 }
 
 type UpdateWorkflowBoxInput struct {
-	Title       string `json:"title"`
-	Type        string `json:"type"`
-	IsCollapsed bool   `json:"is_collapsed"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Tags        []string `json:"tags"`
+	IsCollapsed bool     `json:"is_collapsed"`
 }
 
 type CreateAnchorInput struct {
@@ -152,6 +159,7 @@ func (s *Store) Init(ctx context.Context) error {
 			book_id TEXT NOT NULL,
 			title TEXT NOT NULL,
 			type TEXT NOT NULL,
+			tags_json TEXT NOT NULL DEFAULT '[]',
 			position INTEGER NOT NULL,
 			is_collapsed INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL,
@@ -207,6 +215,9 @@ func (s *Store) Init(ctx context.Context) error {
 			return fmt.Errorf("init schema: %w", err)
 		}
 	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE workflow_boxes ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate workflow tags: %w", err)
+	}
 
 	return s.ensureDemoContent(ctx)
 }
@@ -254,9 +265,16 @@ Sie blieb noch einen Moment am Tor stehen und notierte sich im Kopf, was spaeter
 			"research":  "Recherche",
 			"clipboard": "Clipboard",
 		}[boxType]
+		tags := map[string][]string{
+			"notes":     {"idee", "notiz", "frage", "offen"},
+			"persons":   {"figur", "person", "charakter", "mara"},
+			"research":  {"quelle", "fakt", "recherche", "datum", "jahr"},
+			"clipboard": {"snippet", "textbaustein", "clipboard"},
+		}[boxType]
 		if _, err := s.createWorkflowBoxWithPosition(ctx, book.ID, CreateWorkflowBoxInput{
 			Title:       title,
 			Type:        boxType,
+			Tags:        tags,
 			IsCollapsed: index > 1,
 		}, index+1); err != nil {
 			return err
@@ -312,6 +330,32 @@ func (s *Store) CreateProject(ctx context.Context, input CreateProjectInput) (mo
 		return model.Project{}, fmt.Errorf("create project: %w", err)
 	}
 	return item, nil
+}
+
+func (s *Store) UpdateProject(ctx context.Context, id string, input UpdateProjectInput) (model.Project, error) {
+	project, _, err := s.GetProject(ctx, id)
+	if err != nil {
+		return model.Project{}, err
+	}
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		title = project.Title
+	}
+	project.Title = title
+	project.Description = strings.TrimSpace(input.Description)
+	project.UpdatedAt = nowUTC()
+	_, err = s.db.ExecContext(
+		ctx,
+		`UPDATE projects SET title = ?, description = ?, updated_at = ? WHERE id = ?`,
+		project.Title,
+		project.Description,
+		project.UpdatedAt,
+		project.ID,
+	)
+	if err != nil {
+		return model.Project{}, fmt.Errorf("update project: %w", err)
+	}
+	return project, nil
 }
 
 func (s *Store) GetProject(ctx context.Context, id string) (model.Project, []model.Book, error) {
@@ -578,7 +622,7 @@ func (s *Store) ReorderChapters(ctx context.Context, bookID string, input Reorde
 }
 
 func (s *Store) ListWorkflowBoxes(ctx context.Context, bookID string) ([]model.WorkflowBox, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, type, position, is_collapsed, created_at, updated_at FROM workflow_boxes WHERE book_id = ? ORDER BY position ASC`, bookID)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, type, tags_json, position, is_collapsed, created_at, updated_at FROM workflow_boxes WHERE book_id = ? ORDER BY position ASC`, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("list workflow boxes: %w", err)
 	}
@@ -588,9 +632,11 @@ func (s *Store) ListWorkflowBoxes(ctx context.Context, bookID string) ([]model.W
 	for rows.Next() {
 		var item model.WorkflowBox
 		var collapsed int
-		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Type, &item.Position, &collapsed, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		var tagsJSON string
+		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Type, &tagsJSON, &item.Position, &collapsed, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan workflow box: %w", err)
 		}
+		item.Tags = decodeTags(tagsJSON)
 		item.IsCollapsed = collapsed == 1
 		items = append(items, item)
 	}
@@ -612,13 +658,14 @@ func (s *Store) createWorkflowBoxWithPosition(ctx context.Context, bookID string
 		BookID:      bookID,
 		Title:       fallback(strings.TrimSpace(input.Title), "Neue Workflow-Box"),
 		Type:        normalizeWorkflowType(input.Type),
+		Tags:        normalizeTags(input.Tags),
 		Position:    position,
 		IsCollapsed: input.IsCollapsed,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO workflow_boxes (id, book_id, title, type, position, is_collapsed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.BookID, item.Title, item.Type, item.Position, boolToInt(item.IsCollapsed), item.CreatedAt, item.UpdatedAt,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO workflow_boxes (id, book_id, title, type, tags_json, position, is_collapsed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.BookID, item.Title, item.Type, encodeTags(item.Tags), item.Position, boolToInt(item.IsCollapsed), item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.WorkflowBox{}, fmt.Errorf("create workflow box: %w", err)
@@ -629,21 +676,24 @@ func (s *Store) createWorkflowBoxWithPosition(ctx context.Context, bookID string
 func (s *Store) UpdateWorkflowBox(ctx context.Context, id string, input UpdateWorkflowBoxInput) (model.WorkflowBox, error) {
 	var item model.WorkflowBox
 	var collapsed int
-	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, type, position, is_collapsed, created_at, updated_at FROM workflow_boxes WHERE id = ?`, id).
-		Scan(&item.ID, &item.BookID, &item.Title, &item.Type, &item.Position, &collapsed, &item.CreatedAt, &item.UpdatedAt)
+	var tagsJSON string
+	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, type, tags_json, position, is_collapsed, created_at, updated_at FROM workflow_boxes WHERE id = ?`, id).
+		Scan(&item.ID, &item.BookID, &item.Title, &item.Type, &tagsJSON, &item.Position, &collapsed, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.WorkflowBox{}, ErrNotFound
 		}
 		return model.WorkflowBox{}, fmt.Errorf("get workflow box: %w", err)
 	}
+	item.Tags = decodeTags(tagsJSON)
 	item.IsCollapsed = collapsed == 1
 	item.Title = fallback(strings.TrimSpace(input.Title), item.Title)
 	item.Type = normalizeWorkflowType(input.Type)
+	item.Tags = normalizeTags(input.Tags)
 	item.IsCollapsed = input.IsCollapsed
 	item.UpdatedAt = nowUTC()
-	_, err = s.db.ExecContext(ctx, `UPDATE workflow_boxes SET title = ?, type = ?, is_collapsed = ?, updated_at = ? WHERE id = ?`,
-		item.Title, item.Type, boolToInt(item.IsCollapsed), item.UpdatedAt, item.ID,
+	_, err = s.db.ExecContext(ctx, `UPDATE workflow_boxes SET title = ?, type = ?, tags_json = ?, is_collapsed = ?, updated_at = ? WHERE id = ?`,
+		item.Title, item.Type, encodeTags(item.Tags), boolToInt(item.IsCollapsed), item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return model.WorkflowBox{}, fmt.Errorf("update workflow box: %w", err)

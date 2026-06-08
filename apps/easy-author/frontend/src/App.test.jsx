@@ -92,6 +92,15 @@ const workflowBox = {
   id: "box-1",
   title: "Notizen",
   type: "notes",
+  tags: ["Alter", "Text", "idee"],
+  is_collapsed: false,
+};
+
+const workflowTimeBox = {
+  id: "box-2",
+  title: "Timeline",
+  type: "research",
+  tags: ["zeit", "datum", "jahr"],
   is_collapsed: false,
 };
 
@@ -155,7 +164,7 @@ function mockApi() {
       [bookTwo.id]: [{ ...chapter }, { ...chapterTwo }],
       [bookThree.id]: [{ ...chapter }, { ...chapterTwo }],
     },
-    workflowBoxes: [{ ...workflowBox }],
+    workflowBoxes: [{ ...workflowBox }, { ...workflowTimeBox }],
     knowledgeItems: [{ ...knowledgeItem }],
   };
 
@@ -245,6 +254,7 @@ function mockApi() {
         id: `box-${state.workflowBoxes.length + 1}`,
         title: payload.title,
         type: payload.type || "custom",
+        tags: payload.tags || [],
         is_collapsed: Boolean(payload.is_collapsed),
       };
       state.workflowBoxes = [...state.workflowBoxes, created];
@@ -391,6 +401,7 @@ describe("App editor smoke test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRichSnapshotMarkdown = null;
+    window.localStorage.clear();
     mockApi();
   });
 
@@ -420,7 +431,7 @@ describe("App editor smoke test", () => {
     });
 
     expect(api.put).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Markdown ist aktuell die Quelle")).toBeInTheDocument();
+    expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Rich" }));
 
@@ -439,7 +450,7 @@ describe("App editor smoke test", () => {
     await user.click(screen.getByRole("button", { name: "Markdown" }));
 
     expect(await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(RICH_SNAPSHOT_MARKDOWN);
-    expect(screen.getByText("Markdown ist aktuell die Quelle")).toBeInTheDocument();
+    expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
   });
 
   it("saves markdown content via Cmd/Ctrl+S instead of the browser default", async () => {
@@ -504,6 +515,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "Buch ändern" }));
     const descriptionField = screen.getByRole("textbox", { name: "Beschreibung" });
     await user.clear(descriptionField);
     await user.type(descriptionField, "Neue kompakte Buchbeschreibung");
@@ -567,7 +579,7 @@ describe("App editor smoke test", () => {
 
   it("opens editor settings and updates the editor appearance controls", async () => {
     const user = userEvent.setup();
-    const { container } = render(<App />);
+    const { container, unmount } = render(<App />);
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
     const editorFrame = container.querySelector(".editor-frame");
@@ -588,12 +600,32 @@ describe("App editor smoke test", () => {
     expect(editorFrame.style.getPropertyValue("--editor-max-width")).toBe("1040px");
     expect(editorFrame.style.getPropertyValue("--editor-fullscreen-max-width")).toBe("1200px");
     expect(workspaceGrid?.getAttribute("data-fullscreen-backdrop")).toBe("dusk");
+    expect(editorFrame?.getAttribute("data-fullscreen-backdrop")).toBe("dusk");
+    expect(JSON.parse(window.localStorage.getItem("easy-author.editor-appearance.v1"))).toEqual(
+      expect.objectContaining({
+        surfacePreset: "night",
+        contentWidth: 1040,
+        fullscreenContentWidth: 1200,
+        fullscreenBackdrop: "dusk",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+    expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
+    expect(editorFrame?.style.getPropertyValue("--fullscreen-backdrop-start")).toBe("#ede1d9");
+    await user.click(screen.getByRole("button", { name: "Fullscreen verlassen" }));
 
     await user.click(screen.getByRole("button", { name: "Schliessen" }));
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Editor-Einstellungen" })).not.toBeInTheDocument();
     });
+
+    unmount();
+
+    const rerendered = render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    expect(rerendered.container.querySelector(".workspace-grid")?.getAttribute("data-fullscreen-backdrop")).toBe("dusk");
   });
 
   it("creates an anchor and clipboard item from markdown selection", async () => {
@@ -652,6 +684,152 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByRole("button", { name: "einfuegen" })).toBeInTheDocument();
     expect(screen.queryByText("Noch keine Clipboard-Eintraege vorhanden.")).not.toBeInTheDocument();
+
+    promptSpy.mockRestore();
+  });
+
+  it("shows workflow suggestions in the selection popup and anchors directly into the suggested box", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+    const { start, end } = selectMarkdownText(textarea, "Alter Text");
+
+    expect(screen.queryByRole("dialog", { name: "Auswahl-Aktionen" })).not.toBeInTheDocument();
+
+    const popup = await screen.findByRole("dialog", { name: "Auswahl-Aktionen" }, { timeout: 2600 });
+    expect(within(popup).getByRole("button", { name: "Zu Notizen" })).toBeInTheDocument();
+
+    await user.click(within(popup).getByRole("button", { name: "Zu Notizen" }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        `/api/chapters/${chapter.id}/anchors`,
+        expect.objectContaining({
+          selected_text: "Alter Text",
+          start_offset: start,
+          end_offset: end,
+          workflow_box_id: workflowBox.id,
+          note: "",
+        }),
+      );
+    });
+  });
+
+  it("boosts workflow suggestions for explicit time cues", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+    fireEvent.change(textarea, {
+      target: { value: "# Kapitel 1\n\nAm 1.4.2011 begann die Reise bis 2014." },
+    });
+
+    selectMarkdownText(textarea, "1.4.2011 begann die Reise bis 2014");
+
+    const popup = await screen.findByRole("dialog", { name: "Auswahl-Aktionen" }, { timeout: 2600 });
+    expect(within(popup).getByRole("button", { name: "Zu Timeline" })).toBeInTheDocument();
+  });
+
+  it("marks workflow boxes semantically as focused when context strongly matches", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+    fireEvent.change(textarea, {
+      target: { value: "# Kapitel 1\n\nAm 1.4.2011 begann die Reise bis 2014." },
+    });
+
+    selectMarkdownText(textarea, "1.4.2011 begann die Reise bis 2014");
+
+    await screen.findByRole("dialog", { name: "Auswahl-Aktionen" }, { timeout: 2600 });
+
+    const workflowCards = () => Array.from(container.querySelectorAll(".workflow-card"));
+    const timelineInput = screen.getByDisplayValue("Timeline");
+    const timelineCard = workflowCards().find((card) => card.contains(timelineInput));
+
+    expect(timelineCard).toBeTruthy();
+    expect(within(timelineCard).getByText("Auto-Ziel")).toBeInTheDocument();
+    expect(within(timelineCard).getByText(/Zeitbezug|Zeitraum|Faktenbezug/)).toBeInTheDocument();
+  });
+
+  it("uses the temporary auto target from the selection popup without overwriting the manual base target", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("");
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    const textarea = await openMarkdownEditor(user);
+    fireEvent.change(textarea, {
+      target: { value: "# Kapitel 1\n\nAm 1.4.2011 begann die Reise bis 2014." },
+    });
+
+    selectMarkdownText(textarea, "1.4.2011 begann die Reise bis 2014");
+
+    const popup = await screen.findByRole("dialog", { name: "Auswahl-Aktionen" }, { timeout: 2600 });
+    expect(screen.getByText(/Auto-Ziel: Timeline · Basis: Notizen/)).toBeInTheDocument();
+
+    await user.click(within(popup).getByRole("button", { name: "Anker · Timeline" }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        `/api/chapters/${chapter.id}/anchors`,
+        expect.objectContaining({
+          selected_text: "1.4.2011 begann die Reise bis 2014",
+          workflow_box_id: "box-2",
+          note: "",
+        }),
+      );
+    });
+
+    promptSpy.mockRestore();
+  });
+
+  it("activates multiple workflow boxes together for a scene combination", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi
+      .spyOn(window, "prompt")
+      .mockReturnValueOnce("Figurenboard")
+      .mockReturnValueOnce("Ereignisboard");
+    const { container } = render(<App />);
+
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "+ Box" }));
+    await user.click(screen.getByRole("button", { name: "+ Box" }));
+
+    await screen.findByDisplayValue("Figurenboard");
+    await screen.findByDisplayValue("Ereignisboard");
+
+    const workflowCards = () => Array.from(container.querySelectorAll(".workflow-card"));
+    const figuresCard = workflowCards().find((card) => card.contains(screen.getByDisplayValue("Figurenboard")));
+    const eventsCard = workflowCards().find((card) => card.contains(screen.getByDisplayValue("Ereignisboard")));
+
+    fireEvent.change(within(figuresCard).getByDisplayValue("custom"), { target: { value: "persons" } });
+    fireEvent.change(within(eventsCard).getByDisplayValue("custom"), { target: { value: "events" } });
+
+    const notesCard = workflowCards().find((card) => card.contains(screen.getByDisplayValue("Notizen")));
+    await user.click(notesCard);
+
+    const textarea = await openMarkdownEditor(user);
+    fireEvent.change(textarea, {
+      target: { value: "# Kapitel 1\n\nAm 1.4.2011 traf Mara eine Entscheidung." },
+    });
+
+    selectMarkdownText(textarea, "1.4.2011 traf Mara eine Entscheidung");
+
+    await screen.findByRole("dialog", { name: "Auswahl-Aktionen" }, { timeout: 2600 });
+
+    const timelineCard = workflowCards().find((card) => card.contains(screen.getByDisplayValue("Timeline")));
+
+    expect(within(timelineCard).getByText("Auto-Ziel")).toBeInTheDocument();
+    expect(within(figuresCard).getByText("Kombi")).toBeInTheDocument();
+    expect(within(eventsCard).getByText("Kombi")).toBeInTheDocument();
+    expect(screen.getByText(/Kombi: Zeit · Figur · Ereignis/)).toBeInTheDocument();
 
     promptSpy.mockRestore();
   });
@@ -754,7 +932,7 @@ describe("App editor smoke test", () => {
     });
 
     expect(api.put).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Markdown ist aktuell die Quelle")).toBeInTheDocument();
+    expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
   });
 
   it("pins clipboard content into a slot, survives rich-markdown switching, and shows unresolved wiki refs", async () => {
@@ -1685,6 +1863,7 @@ describe("App editor smoke test", () => {
       return defaultGet(path);
     });
 
+    await user.click(screen.getByRole("button", { name: /Buch wechseln/ }));
     await user.click(screen.getByRole("button", { name: /Buch Zwei/ }));
 
     await waitFor(() => {
@@ -1694,6 +1873,7 @@ describe("App editor smoke test", () => {
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(resilientDraft);
     expect(screen.getByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: /Buch wechseln/ }));
     await user.click(screen.getByRole("button", { name: /Buch Eins/ }));
 
     await waitFor(() => {
@@ -1709,6 +1889,7 @@ describe("App editor smoke test", () => {
       return defaultGet(path);
     });
 
+    await user.click(screen.getByRole("button", { name: /Projekt wechseln/ }));
     await user.click(screen.getByRole("button", { name: /Sachbuchprojekt/ }));
 
     await waitFor(() => {
@@ -1718,7 +1899,8 @@ describe("App editor smoke test", () => {
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(resilientDraft);
     expect(screen.getByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Romanprojekt/ }));
+    await user.click(screen.getByRole("button", { name: /Projekt wechseln/ }));
+    await user.click(screen.getAllByRole("button", { name: /Romanprojekt/ }).at(-1));
 
     await waitFor(() => {
       expect(screen.queryByText("Projektwechsel momentan nicht moeglich")).not.toBeInTheDocument();
@@ -1817,6 +1999,7 @@ describe("App editor smoke test", () => {
       expect(screen.getByRole("button", { name: /Buch Neu/ })).toBeInTheDocument();
     });
 
+    await user.click(screen.getByRole("button", { name: /Buch wechseln/ }));
     await user.click(screen.getByRole("button", { name: /Buch Eins/ }));
     await waitFor(() => {
       expect(screen.getByDisplayValue("Kapitel 1")).toBeInTheDocument();
@@ -1872,9 +2055,10 @@ describe("App editor smoke test", () => {
     });
 
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-2", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
         title: "Sprint Box Plus",
         type: "custom",
+        tags: [],
         is_collapsed: false,
       });
     });
@@ -1882,9 +2066,10 @@ describe("App editor smoke test", () => {
     const sprintTypeSelect = within(sprintCard).getByDisplayValue("custom");
     fireEvent.change(sprintTypeSelect, { target: { value: "research" } });
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-2", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
         title: "Sprint Box Plus",
         type: "research",
+        tags: [],
         is_collapsed: false,
       });
     });
@@ -1892,9 +2077,10 @@ describe("App editor smoke test", () => {
     const collapsedCheckbox = within(sprintCard).getByRole("checkbox");
     fireEvent.click(collapsedCheckbox);
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-2", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
         title: "Sprint Box Plus",
         type: "research",
+        tags: [],
         is_collapsed: true,
       });
     });
@@ -1962,6 +2148,7 @@ describe("App editor smoke test", () => {
       expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-1", {
         title: "Notizen Master",
         type: "notes",
+        tags: ["Alter", "Text", "idee"],
         is_collapsed: false,
       });
     });
@@ -1991,9 +2178,10 @@ describe("App editor smoke test", () => {
       fireEvent.change(figuresTypeSelect, { target: { value: "persons" } });
     });
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-2", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
         title: "Figurenfokus",
         type: "persons",
+        tags: [],
         is_collapsed: false,
       });
     });
@@ -2004,7 +2192,7 @@ describe("App editor smoke test", () => {
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(`/api/chapters/${chapter.id}/anchors`, expect.objectContaining({
         selected_text: "Alter Text",
-        workflow_box_id: "box-2",
+        workflow_box_id: "box-3",
         note: "Anker zu Figuren",
       }));
     });
@@ -2023,9 +2211,10 @@ describe("App editor smoke test", () => {
     });
 
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-4", {
         title: "Research Sprint Plus",
         type: "custom",
+        tags: [],
         is_collapsed: false,
       });
       expect(screen.getByText(/Zielbox: Research Sprint Plus/)).toBeInTheDocument();
@@ -2038,9 +2227,10 @@ describe("App editor smoke test", () => {
       fireEvent.change(researchTypeSelect, { target: { value: "research" } });
     });
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-4", {
         title: "Research Sprint Plus",
         type: "research",
+        tags: [],
         is_collapsed: false,
       });
     });
@@ -2050,9 +2240,10 @@ describe("App editor smoke test", () => {
       fireEvent.click(researchCollapsedCheckbox);
     });
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-3", {
+      expect(api.put).toHaveBeenCalledWith("/api/workflow-boxes/box-4", {
         title: "Research Sprint Plus",
         type: "research",
+        tags: [],
         is_collapsed: true,
       });
     });
@@ -2063,7 +2254,7 @@ describe("App editor smoke test", () => {
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(`/api/chapters/${chapter.id}/anchors`, expect.objectContaining({
         selected_text: "Workflow Vollgas",
-        workflow_box_id: "box-3",
+        workflow_box_id: "box-4",
         note: "Anker zu Research",
       }));
     });

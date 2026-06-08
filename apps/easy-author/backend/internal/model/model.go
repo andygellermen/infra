@@ -31,14 +31,15 @@ type Chapter struct {
 }
 
 type WorkflowBox struct {
-	ID          string `json:"id"`
-	BookID      string `json:"book_id"`
-	Title       string `json:"title"`
-	Type        string `json:"type"`
-	Position    int    `json:"position"`
-	IsCollapsed bool   `json:"is_collapsed"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          string   `json:"id"`
+	BookID      string   `json:"book_id"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Tags        []string `json:"tags"`
+	Position    int      `json:"position"`
+	IsCollapsed bool     `json:"is_collapsed"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type Anchor struct {

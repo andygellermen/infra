@@ -28,6 +28,51 @@ const DEFAULT_EDITOR_APPEARANCE = {
   surfacePreset: "warm",
 };
 
+const EDITOR_APPEARANCE_STORAGE_KEY = "easy-author.editor-appearance.v1";
+const POPUP_HOLD_DELAY_MS = 2000;
+const POPUP_FADE_IN_DELAY_MS = 24;
+const ALLOWED_FULLSCREEN_BACKDROPS = new Set(["linen", "paper", "dusk", "night"]);
+const ALLOWED_SURFACE_PRESETS = new Set(["warm", "paper", "night"]);
+const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono"]);
+const FULLSCREEN_BACKDROP_THEME = {
+  linen: {
+    glow: "rgba(228, 183, 137, 0.12)",
+    start: "#f7f0e5",
+    end: "#efe4d4",
+    cardStart: "rgba(255, 252, 247, 0.78)",
+    cardEnd: "rgba(250, 243, 231, 0.72)",
+    cardBorder: "rgba(110, 82, 54, 0.12)",
+    cardShadow: "0 26px 60px rgba(72, 42, 18, 0.12)",
+  },
+  paper: {
+    glow: "rgba(255, 255, 255, 0.36)",
+    start: "#fbfaf6",
+    end: "#f0ebe1",
+    cardStart: "rgba(255, 255, 255, 0.82)",
+    cardEnd: "rgba(251, 249, 244, 0.72)",
+    cardBorder: "rgba(129, 118, 100, 0.12)",
+    cardShadow: "0 26px 60px rgba(70, 60, 44, 0.1)",
+  },
+  dusk: {
+    glow: "rgba(164, 118, 88, 0.18)",
+    start: "#ede1d9",
+    end: "#d9c9c1",
+    cardStart: "rgba(250, 243, 239, 0.72)",
+    cardEnd: "rgba(239, 229, 223, 0.62)",
+    cardBorder: "rgba(122, 84, 60, 0.12)",
+    cardShadow: "0 28px 64px rgba(78, 48, 32, 0.14)",
+  },
+  night: {
+    glow: "rgba(110, 90, 82, 0.18)",
+    start: "#201b18",
+    end: "#141110",
+    cardStart: "rgba(33, 28, 25, 0.74)",
+    cardEnd: "rgba(24, 20, 18, 0.66)",
+    cardBorder: "rgba(243, 237, 229, 0.12)",
+    cardShadow: "0 28px 68px rgba(0, 0, 0, 0.34)",
+  },
+};
+
 const WORKFLOW_TYPE_META = {
   notes: {
     label: "Notizen",
@@ -67,11 +112,351 @@ function workflowTypeMeta(type) {
   return WORKFLOW_TYPE_META[type] || WORKFLOW_TYPE_META.custom;
 }
 
+const STORY_TIME_KEYWORDS = [
+  "zeit",
+  "zeitpunkt",
+  "datum",
+  "jahr",
+  "jahre",
+  "uhr",
+  "morgen",
+  "abend",
+  "nacht",
+  "fruehling",
+  "sommer",
+  "herbst",
+  "winter",
+  "spaeter",
+  "damals",
+  "heute",
+  "gestern",
+  "morgen",
+];
+
+const STORY_DATE_REGEX = /\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4})\b/g;
+const STORY_TIME_RANGE_REGEX =
+  /\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s*(?:bis|-)\s*\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}\s*(?:bis|-)\s*\d{4})\b/g;
+const WORKFLOW_TYPE_HINTS = {
+  notes: ["idee", "gedanke", "notiz", "motiv", "bild", "frage", "ton", "szene"],
+  persons: ["figur", "person", "charakter", "protagonist", "antagonist", "beziehung", "stimme"],
+  events: ["ereignis", "wendepunkt", "szene", "ankunft", "abschied", "begegnung", "unfall", "entscheidung"],
+  threads: ["konflikt", "spur", "ziel", "motiv", "geheimnis", "handlung", "subplot", "folge"],
+  reminders: ["todo", "offen", "spaeter", "später", "pruefen", "prüfen", "merken", "ueberarbeiten", "überarbeiten"],
+  research: ["quelle", "fakt", "datum", "jahr", "histor", "ort", "beleg", "referenz", "wiki"],
+  clipboard: ["snippet", "zitat", "dialog", "formulierung", "textbaustein", "wortlaut"],
+};
+const REMINDER_REGEX = /\b(?:todo|fixme|offen|pruefen|prüfen|nachtragen|spaeter|später|ueberarbeiten|überarbeiten|merken)\b/gi;
+const QUOTE_REGEX = /["“”„‚'`].+?["“”„‚'`]/g;
+const HASHTAG_REGEX = /#([\p{L}\p{N}_-]+)/gu;
+const TOKEN_REGEX = /[\p{L}\p{N}_-]+/gu;
+const PROPER_NAME_REGEX = /\b[A-ZÄÖÜ][\p{L}-]{2,}\b/gu;
+const EVENT_REGEX = /\b(?:begann|beginnt|begonnen|traf|treffen|ankam|ankommt|verlor|fand|fanden|entdeckte|entschied|passierte|stirbt|starb|kündigte|kuendigte|explodierte|verschwand)\b/gi;
+const THREAD_REGEX = /\b(?:konflikt|ziel|spur|folge|geheimnis|hindernis|motiv|frage|spannung|subplot|offenbarung)\b/gi;
+const WORKFLOW_MIN_SCORES = {
+  notes: 2,
+  persons: 4,
+  events: 4,
+  threads: 4,
+  reminders: 3,
+  research: 4,
+  clipboard: 3,
+  custom: 4,
+};
+const WORKFLOW_COMBINATION_RULES = [
+  {
+    key: "scene-triad",
+    label: "Zeit · Figur · Ereignis",
+    description: "Szenische Kombination",
+    types: ["research", "persons", "events"],
+    when: (signals) => signals.hasTimeCue && signals.properNames.length > 0 && signals.eventHits.length > 0,
+  },
+  {
+    key: "story-thread",
+    label: "Figur · Konflikt · Handlung",
+    description: "Handlungsfaden aktiv",
+    types: ["persons", "threads", "events"],
+    when: (signals) => signals.properNames.length > 0 && signals.threadHits.length > 0,
+  },
+  {
+    key: "research-reminder",
+    label: "Zeit · Frage · Recherche",
+    description: "Pruefbedarf aktiv",
+    types: ["research", "reminders"],
+    when: (signals) => signals.hasTimeCue && signals.hasQuestion,
+  },
+  {
+    key: "reference-pack",
+    label: "Zitat · Wissen · Notiz",
+    description: "Referenzpaket aktiv",
+    types: ["clipboard", "research", "notes"],
+    when: (signals) => signals.quoteHits.length > 0 && (signals.wikiLinks.length > 0 || /\d/.test(signals.source)),
+  },
+];
+
+function normalizeWorkflowTag(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeTagsLocal(values) {
+  const seen = new Set();
+  return (values || [])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function detectStoryTimeCues(text) {
+  const source = String(text || "");
+  const lowered = source.toLowerCase();
+  const keywordHits = STORY_TIME_KEYWORDS.filter((keyword) => lowered.includes(keyword));
+  const dateHits = source.match(STORY_DATE_REGEX) || [];
+  const rangeHits = source.match(STORY_TIME_RANGE_REGEX) || [];
+  return {
+    keywordHits,
+    dateHits,
+    rangeHits,
+    hasTimeCue: keywordHits.length > 0 || dateHits.length > 0 || rangeHits.length > 0,
+  };
+}
+
+function sanitizeEditorAppearance(value) {
+  const next = {
+    ...DEFAULT_EDITOR_APPEARANCE,
+    ...(value && typeof value === "object" ? value : {}),
+  };
+  next.fontFamily = ALLOWED_FONT_FAMILIES.has(next.fontFamily) ? next.fontFamily : DEFAULT_EDITOR_APPEARANCE.fontFamily;
+  next.surfacePreset = ALLOWED_SURFACE_PRESETS.has(next.surfacePreset)
+    ? next.surfacePreset
+    : DEFAULT_EDITOR_APPEARANCE.surfacePreset;
+  next.fullscreenBackdrop = ALLOWED_FULLSCREEN_BACKDROPS.has(next.fullscreenBackdrop)
+    ? next.fullscreenBackdrop
+    : DEFAULT_EDITOR_APPEARANCE.fullscreenBackdrop;
+  next.fontSize = Math.min(24, Math.max(16, Number(next.fontSize) || DEFAULT_EDITOR_APPEARANCE.fontSize));
+  next.lineHeight = Math.min(2.2, Math.max(1.5, Number(next.lineHeight) || DEFAULT_EDITOR_APPEARANCE.lineHeight));
+  next.contentWidth = [720, 860, 1040].includes(Number(next.contentWidth))
+    ? Number(next.contentWidth)
+    : DEFAULT_EDITOR_APPEARANCE.contentWidth;
+  next.fullscreenContentWidth = [860, 1040, 1200, 1360].includes(Number(next.fullscreenContentWidth))
+    ? Number(next.fullscreenContentWidth)
+    : DEFAULT_EDITOR_APPEARANCE.fullscreenContentWidth;
+  return next;
+}
+
+function loadStoredEditorAppearance() {
+  if (typeof window === "undefined") {
+    return DEFAULT_EDITOR_APPEARANCE;
+  }
+  try {
+    const raw = window.localStorage.getItem(EDITOR_APPEARANCE_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_EDITOR_APPEARANCE;
+    }
+    return sanitizeEditorAppearance(JSON.parse(raw));
+  } catch {
+    return DEFAULT_EDITOR_APPEARANCE;
+  }
+}
+
+function tokenizeSelectionText(text) {
+  return Array.from(String(text || "").matchAll(TOKEN_REGEX), (match) => normalizeWorkflowTag(match[0])).filter(Boolean);
+}
+
+function detectWorkflowSignals(text) {
+  const source = String(text || "");
+  const lowered = source.toLowerCase();
+  const tokens = tokenizeSelectionText(source);
+  const hashtags = Array.from(source.matchAll(HASHTAG_REGEX), (match) => normalizeWorkflowTag(match[1])).filter(Boolean);
+  const wikiLinks = extractWikiLinks(source);
+  const reminderHits = Array.from(source.matchAll(REMINDER_REGEX), (match) => normalizeWorkflowTag(match[0]));
+  const quoteHits = source.match(QUOTE_REGEX) || [];
+  const properNames = Array.from(source.matchAll(PROPER_NAME_REGEX), (match) => match[0]).filter(Boolean);
+  const eventHits = Array.from(source.matchAll(EVENT_REGEX), (match) => normalizeWorkflowTag(match[0]));
+  const threadHits = Array.from(source.matchAll(THREAD_REGEX), (match) => normalizeWorkflowTag(match[0]));
+  const time = detectStoryTimeCues(source);
+  return {
+    source,
+    lowered,
+    tokens,
+    hashtags,
+    wikiLinks,
+    reminderHits,
+    quoteHits,
+    properNames,
+    eventHits,
+    threadHits,
+    lineCount: source.split("\n").filter((line) => line.trim()).length,
+    hasQuestion: source.includes("?"),
+    hasTimeCue: time.hasTimeCue,
+    timeKeywordHits: time.keywordHits,
+    timeDateHits: time.dateHits,
+    timeRangeHits: time.rangeHits,
+    hasPipeTable: source.includes("|"),
+  };
+}
+
+function detectWorkflowCombinations(signals) {
+  return WORKFLOW_COMBINATION_RULES.filter((rule) => rule.when(signals));
+}
+
+function combinationReasonForType(combinations, type) {
+  const match = (combinations || []).find((entry) => entry.types.includes(type));
+  return match ? `${match.description} · ${match.label}` : "";
+}
+
+function scoreWorkflowSuggestion(box, chapterText, selectionText) {
+  const tags = (box.tags || []).map(normalizeWorkflowTag).filter(Boolean);
+  const title = normalizeWorkflowTag(box.title);
+  if (tags.length === 0 && !title && !box.type) {
+    return 0;
+  }
+  const chapterSource = String(chapterText || "").toLowerCase();
+  const selectionSignals = detectWorkflowSignals(selectionText);
+  const chapterSignals = detectWorkflowSignals(chapterText);
+  const selectionCombinations = detectWorkflowCombinations(selectionSignals);
+  const chapterCombinations = detectWorkflowCombinations(chapterSignals);
+  const reasons = new Set();
+  const hasSelectionFocus = Boolean(selectionSignals.source.trim());
+
+  let score = 0;
+  const uniqueSelectionWords = new Set(selectionSignals.tokens);
+  const uniqueSelectionTags = new Set(selectionSignals.hashtags);
+
+  tags.forEach((tag) => {
+    if (uniqueSelectionTags.has(tag)) {
+      score += 5;
+      reasons.add(`#${tag}`);
+      return;
+    }
+    if (uniqueSelectionWords.has(tag)) {
+      score += 4;
+      reasons.add(`Tag ${tag}`);
+      return;
+    }
+    if (selectionSignals.lowered.includes(tag)) {
+      score += 2;
+      reasons.add(`Kontext ${tag}`);
+      return;
+    }
+    if (!hasSelectionFocus && chapterSource.includes(tag)) {
+      score += 1;
+    }
+  });
+
+  if (title && selectionSignals.lowered.includes(title)) {
+    score += 2;
+    reasons.add(`Titel ${box.title}`);
+  }
+
+  const typeHints = WORKFLOW_TYPE_HINTS[box.type] || [];
+  const matchedTypeHints = typeHints.filter((hint) => selectionSignals.lowered.includes(hint));
+  if (matchedTypeHints.length > 0) {
+    score += Math.min(6, matchedTypeHints.length * 2);
+    reasons.add(matchedTypeHints[0]);
+  }
+
+  const timeTagged = tags.some((tag) =>
+    ["zeit", "datum", "jahr", "jahreszahl", "kalender", "uhr", "timeline", "timeline-story"].includes(tag),
+  );
+  if (timeTagged) {
+    if (selectionSignals.hasTimeCue) {
+      score += 4;
+      reasons.add("Zeitbezug");
+    } else if (chapterSignals.hasTimeCue) {
+      score += 2;
+    }
+  }
+
+  if ((box.type === "research" || box.type === "events" || box.type === "threads") && selectionSignals.timeRangeHits.length > 0) {
+    score += 3;
+    reasons.add("Zeitraum");
+  }
+
+  if (box.type === "persons") {
+    if (selectionSignals.properNames.length > 0 || selectionSignals.wikiLinks.some((item) => item.type === "person")) {
+      score += 3;
+      reasons.add("Figurenhinweis");
+    }
+  }
+
+  if (box.type === "events" && (selectionSignals.eventHits.length > 0 || selectionSignals.hasTimeCue)) {
+    score += selectionSignals.eventHits.length > 0 ? 3 : 2;
+    reasons.add(selectionSignals.eventHits.length > 0 ? "Ereignis" : "Zeitfenster");
+  }
+
+  if (box.type === "threads" && (selectionSignals.threadHits.length > 0 || selectionSignals.hasQuestion)) {
+    score += selectionSignals.threadHits.length > 0 ? 3 : 2;
+    reasons.add(selectionSignals.threadHits.length > 0 ? "Handlungsfaden" : "offene Frage");
+  }
+
+  if (box.type === "reminders" && (selectionSignals.hasQuestion || selectionSignals.reminderHits.length > 0)) {
+    score += selectionSignals.reminderHits.length > 0 ? 4 : 2;
+    reasons.add(selectionSignals.reminderHits.length > 0 ? "To-do" : "Frage");
+  }
+
+  if (box.type === "research" && (selectionSignals.wikiLinks.length > 0 || /\d/.test(selectionText || ""))) {
+    score += 2;
+    reasons.add(selectionSignals.wikiLinks.length > 0 ? "Wiki-Bezug" : "Faktenbezug");
+  }
+
+  if (box.type === "clipboard" && (selectionSignals.quoteHits.length > 0 || selectionSignals.lineCount <= 3)) {
+    score += 2;
+    reasons.add(selectionSignals.quoteHits.length > 0 ? "Zitat" : "Snippet");
+  }
+
+  const selectionComboReason = combinationReasonForType(selectionCombinations, box.type);
+  if (selectionComboReason) {
+    score += 3;
+    reasons.add(selectionComboReason);
+  }
+
+  if (!hasSelectionFocus) {
+    const chapterComboReason = combinationReasonForType(chapterCombinations, box.type);
+    if (chapterComboReason) {
+      score += 1;
+      reasons.add(chapterComboReason);
+    }
+  }
+
+  if (box.type === "notes" && score === 0 && hasSelectionFocus && selectionSignals.lineCount <= 5) {
+    score += 1;
+    reasons.add("Allgemein");
+  }
+
+  if (!hasSelectionFocus && score > 0) {
+    score = Math.max(0, score - 1);
+  }
+
+  return {
+    score,
+    reasons: Array.from(reasons).slice(0, 3),
+  };
+}
+
+function minimumWorkflowScore(type, hasSelectionFocus) {
+  const base = WORKFLOW_MIN_SCORES[type] || WORKFLOW_MIN_SCORES.custom;
+  return hasSelectionFocus ? base : base + 2;
+}
+
+function activationReasonText(reasons) {
+  return Array.isArray(reasons) && reasons.length > 0 ? reasons.join(" · ") : "Noch keine aktiven Signale";
+}
+
 function App() {
   const editorRef = useRef(null);
   const markdownTextareaRef = useRef(null);
   const autosaveRef = useRef(null);
   const skipAutosaveRef = useRef(true);
+  const selectionPopupDelayRef = useRef(null);
+  const selectionPopupFadeRef = useRef(null);
 
   const [projects, setProjects] = useState([]);
   const [projectDetail, setProjectDetail] = useState(null);
@@ -93,11 +478,18 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showEditorHelp, setShowEditorHelp] = useState(false);
   const [showEditorSettings, setShowEditorSettings] = useState(false);
+  const [showWritingTools, setShowWritingTools] = useState(false);
   const [showClipboardPalette, setShowClipboardPalette] = useState(false);
+  const [selectionContext, setSelectionContext] = useState(null);
+  const [selectionPopupVisible, setSelectionPopupVisible] = useState(false);
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [draggedChapterId, setDraggedChapterId] = useState("");
   const [chapterDropTargetId, setChapterDropTargetId] = useState("");
-  const [editorAppearance, setEditorAppearance] = useState(DEFAULT_EDITOR_APPEARANCE);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showBookPicker, setShowBookPicker] = useState(false);
+  const [showProjectEdit, setShowProjectEdit] = useState(false);
+  const [showBookEdit, setShowBookEdit] = useState(false);
+  const [editorAppearance, setEditorAppearance] = useState(loadStoredEditorAppearance);
   const slotNumbers = Array.from({ length: 9 }, (_, index) => index + 1);
 
   const currentChapter = useMemo(
@@ -108,6 +500,10 @@ function App() {
   const currentBook = useMemo(
     () => projectDetail?.books?.find((book) => book.id === selectedBookId) || bookBundle?.book || null,
     [projectDetail, selectedBookId, bookBundle],
+  );
+  const currentProject = useMemo(
+    () => projectDetail?.project || projects.find((project) => project.id === selectedProjectId) || null,
+    [projectDetail, projects, selectedProjectId],
   );
   const chaptersById = useMemo(
     () => new Map((bookBundle?.chapters || []).map((chapter) => [chapter.id, chapter])),
@@ -171,7 +567,7 @@ function App() {
     [chapterKnowledgeMatches, selectedKnowledgeRefKey],
   );
 
-  const activeWorkflowBox = useMemo(
+  const manualWorkflowBox = useMemo(
     () => bookBundle?.workflow_boxes?.find((item) => item.id === selectedWorkflowBoxId) || null,
     [bookBundle, selectedWorkflowBoxId],
   );
@@ -197,9 +593,145 @@ function App() {
     });
     return latest;
   }, [anchors]);
+  const activeSelectionPayload = selectionContext?.payload || null;
+  const hasSelectionFocus = Boolean(activeSelectionPayload?.selected_text?.trim());
+  const chapterTextForWorkflow = chapterDraft.markdown_content || currentChapter?.markdown_content || "";
+  const workflowSuggestions = useMemo(() => {
+    const selectionText = activeSelectionPayload?.selected_text || "";
+    return (bookBundle?.workflow_boxes || [])
+      .map((box) => ({
+        box,
+        ...scoreWorkflowSuggestion(box, chapterTextForWorkflow, selectionText),
+      }))
+      .filter((entry) => entry.score >= minimumWorkflowScore(entry.box.type, Boolean(selectionText.trim())))
+      .sort((left, right) => right.score - left.score)
+      .slice(0, hasSelectionFocus ? 3 : 2);
+  }, [bookBundle?.workflow_boxes, chapterTextForWorkflow, activeSelectionPayload?.selected_text, hasSelectionFocus]);
+  const showWorkflowSuggestionCloud =
+    workflowSuggestions.length > 0 && (selectionPopupVisible || hasSelectionFocus || workflowSuggestions[0]?.score >= 7);
+  const primaryWorkflowSuggestion = workflowSuggestions[0] || null;
+  const activeSelectionCombinations = useMemo(
+    () => (hasSelectionFocus ? detectWorkflowCombinations(detectWorkflowSignals(activeSelectionPayload?.selected_text || "")) : []),
+    [activeSelectionPayload?.selected_text, hasSelectionFocus],
+  );
+  const autoWorkflowBoxId = useMemo(() => {
+    if (!hasSelectionFocus || !primaryWorkflowSuggestion) {
+      return "";
+    }
+    const threshold = minimumWorkflowScore(primaryWorkflowSuggestion.box.type, true) + 1;
+    return primaryWorkflowSuggestion.score >= threshold ? primaryWorkflowSuggestion.box.id : "";
+  }, [hasSelectionFocus, primaryWorkflowSuggestion]);
+  const hasTemporaryAutoTarget = Boolean(autoWorkflowBoxId && autoWorkflowBoxId !== selectedWorkflowBoxId);
+  const effectiveWorkflowBoxId = autoWorkflowBoxId || selectedWorkflowBoxId;
+  const activeWorkflowBox = useMemo(
+    () => bookBundle?.workflow_boxes?.find((item) => item.id === effectiveWorkflowBoxId) || null,
+    [bookBundle, effectiveWorkflowBoxId],
+  );
   const activeWorkflowAnchors = useMemo(
-    () => anchorsByWorkflowBox.get(selectedWorkflowBoxId) || [],
-    [anchorsByWorkflowBox, selectedWorkflowBoxId],
+    () => anchorsByWorkflowBox.get(effectiveWorkflowBoxId) || [],
+    [anchorsByWorkflowBox, effectiveWorkflowBoxId],
+  );
+  const workflowActivationById = useMemo(() => {
+    const selectionText = activeSelectionPayload?.selected_text || "";
+    const suggestionLookup = new Map(workflowSuggestions.map((entry, index) => [entry.box.id, { ...entry, rank: index }]));
+    const selectionSignals = detectWorkflowSignals(selectionText);
+    const chapterSignals = detectWorkflowSignals(chapterTextForWorkflow);
+    const selectionCombinations = hasSelectionFocus ? detectWorkflowCombinations(selectionSignals) : [];
+    const chapterCombinations = detectWorkflowCombinations(chapterSignals);
+    return new Map(
+      (bookBundle?.workflow_boxes || []).map((box) => {
+        const anchorCount = anchorCountByWorkflowBox.get(box.id) || 0;
+        const chapterActivation = scoreWorkflowSuggestion(box, chapterTextForWorkflow, "");
+        const selectionActivation = hasSelectionFocus
+          ? scoreWorkflowSuggestion(box, chapterTextForWorkflow, selectionText)
+          : { score: 0, reasons: [] };
+        const suggestion = suggestionLookup.get(box.id) || null;
+        const selectionCombinationReason = combinationReasonForType(selectionCombinations, box.type);
+        const chapterCombinationReason = combinationReasonForType(chapterCombinations, box.type);
+        let tone = "idle";
+        let label = "Ruhend";
+        let reason = activationReasonText(chapterActivation.reasons);
+
+        if (hasTemporaryAutoTarget && autoWorkflowBoxId === box.id) {
+          tone = "focus";
+          label = "Auto-Ziel";
+          reason = activationReasonText(selectionActivation.reasons);
+        } else if (hasTemporaryAutoTarget && selectedWorkflowBoxId === box.id) {
+          tone = "selected";
+          label = "Basis";
+          reason = `Manuelles Ziel · kehrt nach der Auswahl zu ${box.title} zurueck`;
+        } else if (selectedWorkflowBoxId === box.id && hasSelectionFocus && selectionActivation.score > 0) {
+          tone = "focus";
+          label = "Im Fokus";
+          reason = activationReasonText(selectionActivation.reasons);
+        } else if (selectedWorkflowBoxId === box.id) {
+          tone = "selected";
+          label = "Ziel";
+          reason = anchorCount > 0 ? `${anchorCount} Anker im Kapitel` : "Manuell als Ziel gesetzt";
+        } else if (selectionCombinationReason) {
+          tone = "combo";
+          label = "Kombi";
+          reason = selectionCombinationReason;
+        } else if (suggestion && suggestion.rank === 0) {
+          tone = "focus";
+          label = "Im Fokus";
+          reason = activationReasonText(suggestion.reasons);
+        } else if (suggestion) {
+          tone = "ready";
+          label = "Bereit";
+          reason = activationReasonText(suggestion.reasons);
+        } else if (chapterCombinationReason) {
+          tone = "combo";
+          label = "Kombi";
+          reason = chapterCombinationReason;
+        } else if (chapterActivation.score >= minimumWorkflowScore(box.type, false)) {
+          tone = "context";
+          label = "Im Kontext";
+          reason = activationReasonText(chapterActivation.reasons);
+        } else if (anchorCount > 0) {
+          tone = "linked";
+          label = "Verbunden";
+          reason = `${anchorCount} Anker im Kapitel`;
+        }
+
+        return [
+          box.id,
+          {
+            tone,
+            label,
+            reason,
+            anchorCount,
+            selectionScore: selectionActivation.score,
+            chapterScore: chapterActivation.score,
+            isSuggested: Boolean(suggestion),
+            isPrimary: suggestion?.rank === 0,
+            comboReason: selectionCombinationReason || chapterCombinationReason || "",
+          },
+        ];
+      }),
+    );
+  }, [
+    activeSelectionPayload?.selected_text,
+    anchorCountByWorkflowBox,
+    autoWorkflowBoxId,
+    bookBundle?.workflow_boxes,
+    chapterTextForWorkflow,
+    hasSelectionFocus,
+    hasTemporaryAutoTarget,
+    selectedWorkflowBoxId,
+    workflowSuggestions,
+  ]);
+  const fullscreenBackdropTheme = FULLSCREEN_BACKDROP_THEME[editorAppearance.fullscreenBackdrop] || FULLSCREEN_BACKDROP_THEME.linen;
+  const activeWorkflowState = activeWorkflowBox ? workflowActivationById.get(activeWorkflowBox.id) || null : null;
+  const showWorkflowTargetDetails = Boolean(
+    activeWorkflowBox &&
+      (hasSelection ||
+        hasSelectionFocus ||
+        hasTemporaryAutoTarget ||
+        activeWorkflowAnchors.length > 0 ||
+        activeWorkflowState?.comboReason ||
+        activeWorkflowState?.tone === "focus" ||
+        activeWorkflowState?.tone === "combo"),
   );
 
   const editorSurfaceStyle = useMemo(
@@ -220,18 +752,71 @@ function App() {
         editorAppearance.surfacePreset === "night" ? "rgba(243, 237, 229, 0.16)" : "rgba(158, 91, 33, 0.14)",
       "--editor-selection-text":
         editorAppearance.surfacePreset === "night" ? "#f7f1ea" : "var(--editor-ink)",
+      "--fullscreen-backdrop-glow": fullscreenBackdropTheme.glow,
+      "--fullscreen-backdrop-start": fullscreenBackdropTheme.start,
+      "--fullscreen-backdrop-end": fullscreenBackdropTheme.end,
+      "--fullscreen-card-start": fullscreenBackdropTheme.cardStart,
+      "--fullscreen-card-end": fullscreenBackdropTheme.cardEnd,
+      "--fullscreen-card-border": fullscreenBackdropTheme.cardBorder,
+      "--fullscreen-card-shadow": fullscreenBackdropTheme.cardShadow,
     }),
-    [editorAppearance],
+    [editorAppearance, fullscreenBackdropTheme],
   );
+
+  function clearSelectionPopup() {
+    window.clearTimeout(selectionPopupDelayRef.current);
+    window.clearTimeout(selectionPopupFadeRef.current);
+    setSelectionPopupVisible(false);
+    setSelectionContext(null);
+  }
+
+  function showSelectionPopup(nextContext, delay = 0) {
+    window.clearTimeout(selectionPopupDelayRef.current);
+    window.clearTimeout(selectionPopupFadeRef.current);
+    setSelectionPopupVisible(false);
+
+    const reveal = () => {
+      setSelectionContext(nextContext);
+      selectionPopupFadeRef.current = window.setTimeout(() => {
+        setSelectionPopupVisible(true);
+      }, POPUP_FADE_IN_DELAY_MS);
+    };
+
+    if (delay > 0) {
+      setSelectionContext(null);
+      selectionPopupDelayRef.current = window.setTimeout(reveal, delay);
+      return;
+    }
+
+    reveal();
+  }
 
   useEffect(() => {
     loadProjects();
   }, []);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(EDITOR_APPEARANCE_STORAGE_KEY, JSON.stringify(editorAppearance));
+    } catch {
+      // ignore local persistence failures
+    }
+  }, [editorAppearance]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(selectionPopupDelayRef.current);
+      window.clearTimeout(selectionPopupFadeRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
     if (!selectedProjectId) {
       return;
     }
+    setShowProjectPicker(false);
+    setShowProjectEdit(false);
     loadProject(selectedProjectId);
     loadKnowledgeItems(selectedProjectId);
   }, [selectedProjectId]);
@@ -254,8 +839,13 @@ function App() {
       setSelectedChapterId("");
       setClipboardItems([]);
       setShowClipboardPalette(false);
+      setShowBookEdit(false);
+      setShowBookPicker(false);
+      clearSelectionPopup();
       return;
     }
+    setShowBookPicker(false);
+    setShowBookEdit(false);
     loadBook(selectedBookId);
   }, [selectedBookId]);
 
@@ -271,11 +861,13 @@ function App() {
       setChapterDraft(EMPTY_DRAFT);
       setErrorMessage("");
       setSaveState("Synchron");
+      clearSelectionPopup();
       return;
     }
     skipAutosaveRef.current = true;
     setErrorMessage("");
     setSaveState("Synchron");
+    clearSelectionPopup();
     setChapterDraft({
       title: currentChapter.title,
       markdown_content: currentChapter.markdown_content || "",
@@ -463,6 +1055,7 @@ function App() {
       const project = await api.post("/api/projects", { title, description: "" });
       await loadProjects();
       setSelectedProjectId(project.id);
+      setShowProjectPicker(false);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -485,6 +1078,7 @@ function App() {
       });
       await loadProject(selectedProjectId);
       setSelectedBookId(book.id);
+      setShowBookPicker(false);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -558,22 +1152,24 @@ function App() {
     }
   }
 
-  async function createWorkflowBox() {
+  async function createWorkflowBox(defaults = {}) {
     if (!selectedBookId) {
       return;
     }
-    const title = window.prompt("Name der Workflow-Box", "Neue Box");
+    const title = window.prompt("Name der Workflow-Box", defaults.title || "Neue Box");
     if (!title) {
       return;
     }
     try {
       const box = await api.post(`/api/books/${selectedBookId}/workflow-boxes`, {
         title,
-        type: "custom",
+        type: defaults.type || "custom",
+        tags: defaults.tags || [],
         is_collapsed: false,
       });
       await loadBook(selectedBookId);
       setSelectedWorkflowBoxId(box.id);
+      return box;
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -647,6 +1243,40 @@ function App() {
     );
   }
 
+  function patchLocalProject(projectId, nextFields) {
+    setProjects((previous) =>
+      previous.map((entry) => (entry.id === projectId ? { ...entry, ...nextFields } : entry)),
+    );
+    setProjectDetail((previous) =>
+      previous?.project?.id === projectId
+        ? {
+            ...previous,
+            project: {
+              ...previous.project,
+              ...nextFields,
+            },
+          }
+        : previous,
+    );
+  }
+
+  async function updateProject(projectId, nextFields) {
+    const project = currentProject?.id === projectId ? currentProject : projects.find((entry) => entry.id === projectId);
+    if (!project) {
+      return;
+    }
+    try {
+      const updated = await api.put(`/api/projects/${projectId}`, {
+        title: nextFields.title ?? project.title,
+        description: nextFields.description ?? project.description ?? "",
+      });
+      patchLocalProject(projectId, updated);
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
   async function updateBook(bookId, nextFields) {
     const book = currentBook?.id === bookId ? currentBook : projectDetail?.books?.find((entry) => entry.id === bookId);
     if (!book) {
@@ -679,6 +1309,7 @@ function App() {
       const updated = await api.put(`/api/workflow-boxes/${id}`, {
         title: nextFields.title ?? box.title,
         type: nextFields.type ?? box.type,
+        tags: nextFields.tags ?? box.tags ?? [],
         is_collapsed: nextFields.is_collapsed ?? box.is_collapsed,
       });
       setBookBundle((previous) => ({
@@ -716,6 +1347,20 @@ function App() {
       setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
+    }
+  }
+
+  async function attachSelectionToNewWorkflowBox() {
+    const selectedText = activeSelectionPayload?.selected_text || "";
+    const suggestedTags = normalizeTagsLocal(
+      detectStoryTimeCues(selectedText).hasTimeCue ? ["zeit", "datum", ...selectedText.split(/\s+/).slice(0, 2)] : selectedText.split(/\s+/).slice(0, 3),
+    );
+    const created = await createWorkflowBox({
+      title: previewText(selectedText || "Neue Box", 32),
+      tags: suggestedTags,
+    });
+    if (created?.id) {
+      await createAnchor(created.id, { promptForNote: false });
     }
   }
 
@@ -823,6 +1468,13 @@ function App() {
     if (!textarea) {
       return null;
     }
+    return getMarkdownSelectionPayloadFromTarget(textarea);
+  }
+
+  function getMarkdownSelectionPayloadFromTarget(textarea) {
+    if (!textarea) {
+      return null;
+    }
     const start = textarea.selectionStart ?? 0;
     const end = textarea.selectionEnd ?? 0;
     if (start === end) {
@@ -838,9 +1490,29 @@ function App() {
     };
   }
 
+  function updateMarkdownSelectionState(target) {
+    const payload = getMarkdownSelectionPayloadFromTarget(target);
+    const hasActiveSelection = Boolean(payload?.selected_text);
+    setHasSelection(hasActiveSelection);
+    if (!hasActiveSelection) {
+      clearSelectionPopup();
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    showSelectionPopup({
+      kind: "text",
+      source: "markdown",
+      payload,
+      tableActive: false,
+      x: rect.left + Math.min(rect.width / 2, 260),
+      y: rect.top + 18,
+    }, POPUP_HOLD_DELAY_MS);
+  }
+
   function insertIntoMarkdown(content) {
     const textarea = markdownTextareaRef.current;
     if (!textarea) {
+      clearSelectionPopup();
       setChapterDraft((previous) => ({
         ...previous,
         markdown_content: `${previous.markdown_content || ""}${content}`,
@@ -852,6 +1524,7 @@ function App() {
     const end = textarea.selectionEnd ?? chapterDraft.markdown_content.length;
     const current = chapterDraft.markdown_content || "";
     const nextValue = `${current.slice(0, start)}${content}${current.slice(end)}`;
+    clearSelectionPopup();
     setChapterDraft((previous) => ({
       ...previous,
       markdown_content: nextValue,
@@ -871,6 +1544,31 @@ function App() {
       return;
     }
     editorRef.current?.insertText(content);
+  }
+
+  function insertWikiLinkFromSelection() {
+    const selectedText = activeSelectionPayload?.selected_text;
+    if (!selectedText) {
+      return;
+    }
+    insertIntoActiveEditor(`[[${selectedText.trim()}]]`);
+    clearSelectionPopup();
+    setHasSelection(false);
+  }
+
+  function applyEditorSelectionContext(nextContext) {
+    if (!nextContext) {
+      clearSelectionPopup();
+      return;
+    }
+    const hasTextSelection = Boolean(nextContext.payload?.selected_text);
+    setHasSelection(hasTextSelection);
+    const normalizedContext = {
+      x: nextContext.x ?? 360,
+      y: nextContext.y ?? 160,
+      ...nextContext,
+    };
+    showSelectionPopup(normalizedContext, hasTextSelection ? POPUP_HOLD_DELAY_MS : 0);
   }
 
   function clipboardSourceLabel(item) {
@@ -935,10 +1633,12 @@ function App() {
   }
 
   function updateEditorAppearance(field, value) {
-    setEditorAppearance((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
+    setEditorAppearance((previous) =>
+      sanitizeEditorAppearance({
+        ...previous,
+        [field]: value,
+      }),
+    );
   }
 
   function insertTable() {
@@ -979,6 +1679,7 @@ function App() {
       }
     }
     setHasSelection(false);
+    clearSelectionPopup();
     setEditorMode(nextMode);
   }
 
@@ -1007,86 +1708,190 @@ function App() {
       >
         <aside className="workspace-panel left-panel">
           <SidebarSection eyebrow="Projekt" title="Arbeitsraum" actionLabel="+ Projekt" onAction={createProject}>
-            <div className="pill-list">
-              {projects.map((project) => (
+            {currentProject ? (
+              <>
                 <button
-                  key={project.id}
                   type="button"
-                  className={`pill-button ${project.id === selectedProjectId ? "active" : ""}`}
-                  onClick={() => setSelectedProjectId(project.id)}
+                  className={`pill-button active picker-toggle-button ${showProjectPicker ? "is-open" : ""}`}
+                  onClick={() => setShowProjectPicker((previous) => !previous)}
                 >
-                  <strong>{project.title}</strong>
-                  <span>{project.description || "Ohne Beschreibung"}</span>
+                  <div>
+                    <strong>{currentProject.title}</strong>
+                    <span>{currentProject.description || "Ohne Beschreibung"}</span>
+                  </div>
+                  <small>{showProjectPicker ? "Auswahl ausblenden" : "Projekt wechseln"}</small>
                 </button>
-              ))}
-            </div>
+                {showProjectPicker ? (
+                  <div className="pill-list compact-picker-list">
+                    {projects
+                      .filter((project) => project.id !== selectedProjectId)
+                      .map((project) => (
+                        <button
+                          key={project.id}
+                          type="button"
+                          className="pill-button"
+                          onClick={() => {
+                            setSelectedProjectId(project.id);
+                            setShowProjectPicker(false);
+                          }}
+                        >
+                          <strong>{project.title}</strong>
+                          <span>{project.description || "Ohne Beschreibung"}</span>
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
+                <div className="book-meta-card">
+                  <div className="context-card-header">
+                    <strong>Projektdetails</strong>
+                    <span className="knowledge-chip">aktiv</span>
+                  </div>
+                  {showProjectEdit ? (
+                    <>
+                      <div className="detail-card-toolbar">
+                        <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(false)}>
+                          Fertig
+                        </button>
+                      </div>
+                      <label className="editor-setting">
+                        <span>Titel</span>
+                        <input
+                          value={currentProject.title || ""}
+                          onChange={(event) => patchLocalProject(currentProject.id, { title: event.target.value })}
+                          onBlur={(event) => updateProject(currentProject.id, { title: event.target.value })}
+                        />
+                      </label>
+                      <label className="editor-setting">
+                        <span>Projektbeschreibung</span>
+                        <textarea
+                          rows="3"
+                          value={currentProject.description || ""}
+                          placeholder="Worum geht es in diesem Projekt?"
+                          onChange={(event) => patchLocalProject(currentProject.id, { description: event.target.value })}
+                          onBlur={(event) => updateProject(currentProject.id, { description: event.target.value })}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <div className="detail-card-summary">
+                      <p>{currentProject.description || "Ohne Beschreibung"}</p>
+                      <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(true)}>
+                        Projekt ändern
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="empty-note">Noch kein Projekt ausgewaehlt.</p>
+            )}
           </SidebarSection>
 
           <SidebarSection eyebrow="Buch" title={projectDetail?.project?.title || "Noch kein Projekt"} actionLabel="+ Buch" onAction={createBook}>
-            <div className="book-stack">
-              {(projectDetail?.books || []).map((book) => (
-                <button
-                  key={book.id}
-                  type="button"
-                  className={`book-card ${book.id === selectedBookId ? "active" : ""}`}
-                  onClick={() => setSelectedBookId(book.id)}
-                >
-                  <strong>{book.title}</strong>
-                  <span>{book.subtitle || "Ohne Beschreibung"}</span>
-                  <small>{book.visibility}</small>
-                </button>
-              ))}
-            </div>
             {currentBook ? (
-              <div className="book-meta-card">
-                <div className="context-card-header">
-                  <strong>Buchdetails</strong>
-                  <span className="knowledge-chip">{currentBook.visibility}</span>
+              <>
+                <button
+                  type="button"
+                  className={`book-card active picker-toggle-button ${showBookPicker ? "is-open" : ""}`}
+                  onClick={() => setShowBookPicker((previous) => !previous)}
+                >
+                  <div>
+                    <strong>{currentBook.title}</strong>
+                    <span>{currentBook.subtitle || "Ohne Beschreibung"}</span>
+                  </div>
+                  <small>{showBookPicker ? "Auswahl ausblenden" : "Buch wechseln"}</small>
+                </button>
+                {showBookPicker ? (
+                  <div className="book-stack compact-picker-list">
+                    {(projectDetail?.books || [])
+                      .filter((book) => book.id !== selectedBookId)
+                      .map((book) => (
+                        <button
+                          key={book.id}
+                          type="button"
+                          className="book-card"
+                          onClick={() => {
+                            setSelectedBookId(book.id);
+                            setShowBookPicker(false);
+                          }}
+                        >
+                          <strong>{book.title}</strong>
+                          <span>{book.subtitle || "Ohne Beschreibung"}</span>
+                          <small>{book.visibility}</small>
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
+                <div className="book-meta-card">
+                  <div className="context-card-header">
+                    <strong>Buchdetails</strong>
+                    <span className="knowledge-chip">{currentBook.visibility}</span>
+                  </div>
+                  {showBookEdit ? (
+                    <>
+                      <div className="detail-card-toolbar">
+                        <button type="button" className="ghost-button" onClick={() => setShowBookEdit(false)}>
+                          Fertig
+                        </button>
+                      </div>
+                      <label className="editor-setting">
+                        <span>Titel</span>
+                        <input
+                          value={currentBook.title || ""}
+                          onChange={(event) => patchLocalBook(currentBook.id, { title: event.target.value })}
+                          onBlur={(event) => updateBook(currentBook.id, { title: event.target.value })}
+                        />
+                      </label>
+                      <label className="editor-setting">
+                        <span>Beschreibung</span>
+                        <textarea
+                          rows="3"
+                          value={currentBook.subtitle || ""}
+                          placeholder="Kurzbeschreibung oder Positionierung des Buchs"
+                          onChange={(event) => patchLocalBook(currentBook.id, { subtitle: event.target.value })}
+                          onBlur={(event) => updateBook(currentBook.id, { subtitle: event.target.value })}
+                        />
+                      </label>
+                      <div className="book-meta-grid">
+                        <label className="editor-setting">
+                          <span>Autor</span>
+                          <input
+                            value={currentBook.author || ""}
+                            placeholder="Autor oder Arbeitstitel"
+                            onChange={(event) => patchLocalBook(currentBook.id, { author: event.target.value })}
+                            onBlur={(event) => updateBook(currentBook.id, { author: event.target.value })}
+                          />
+                        </label>
+                        <label className="editor-setting">
+                          <span>Sichtbarkeit</span>
+                          <select
+                            value={currentBook.visibility || "private"}
+                            onChange={(event) => {
+                              patchLocalBook(currentBook.id, { visibility: event.target.value });
+                              void updateBook(currentBook.id, { visibility: event.target.value });
+                            }}
+                          >
+                            <option value="private">private</option>
+                            <option value="shared">shared</option>
+                            <option value="public">public</option>
+                          </select>
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="detail-card-summary">
+                      <p>{currentBook.subtitle || "Ohne Beschreibung"}</p>
+                      <div className="detail-card-meta">
+                        <span className="knowledge-chip">{currentBook.author || "ohne Autor"}</span>
+                        <span className="knowledge-chip">{currentBook.visibility || "private"}</span>
+                      </div>
+                      <button type="button" className="ghost-button" onClick={() => setShowBookEdit(true)}>
+                        Buch ändern
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <label className="editor-setting">
-                  <span>Titel</span>
-                  <input
-                    value={currentBook.title || ""}
-                    onChange={(event) => patchLocalBook(currentBook.id, { title: event.target.value })}
-                    onBlur={(event) => updateBook(currentBook.id, { title: event.target.value })}
-                  />
-                </label>
-                <label className="editor-setting">
-                  <span>Beschreibung</span>
-                  <textarea
-                    rows="3"
-                    value={currentBook.subtitle || ""}
-                    placeholder="Kurzbeschreibung oder Positionierung des Buchs"
-                    onChange={(event) => patchLocalBook(currentBook.id, { subtitle: event.target.value })}
-                    onBlur={(event) => updateBook(currentBook.id, { subtitle: event.target.value })}
-                  />
-                </label>
-                <div className="book-meta-grid">
-                  <label className="editor-setting">
-                    <span>Autor</span>
-                    <input
-                      value={currentBook.author || ""}
-                      placeholder="Autor oder Arbeitstitel"
-                      onChange={(event) => patchLocalBook(currentBook.id, { author: event.target.value })}
-                      onBlur={(event) => updateBook(currentBook.id, { author: event.target.value })}
-                    />
-                  </label>
-                  <label className="editor-setting">
-                    <span>Sichtbarkeit</span>
-                    <select
-                      value={currentBook.visibility || "private"}
-                      onChange={(event) => {
-                        patchLocalBook(currentBook.id, { visibility: event.target.value });
-                        void updateBook(currentBook.id, { visibility: event.target.value });
-                      }}
-                    >
-                      <option value="private">private</option>
-                      <option value="shared">shared</option>
-                      <option value="public">public</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
+              </>
             ) : (
               <p className="empty-note">Noch kein Buch ausgewaehlt.</p>
             )}
@@ -1133,16 +1938,37 @@ function App() {
             </div>
           </SidebarSection>
 
-          <SidebarSection eyebrow="Workflow" title="Workflow-Boxen" actionLabel="+ Box" onAction={createWorkflowBox}>
+          <SidebarSection eyebrow="Workflow" title="Workflow-Boxen" actionLabel="+ Box" onAction={() => createWorkflowBox()}>
+            {showWorkflowSuggestionCloud ? (
+              <div className="workflow-suggestion-cloud">
+                {workflowSuggestions.map(({ box, score, reasons }) => (
+                  <button
+                    key={box.id}
+                    type="button"
+                    className={`cloud-chip ${effectiveWorkflowBoxId === box.id ? "active" : ""}`}
+                    onClick={() => setSelectedWorkflowBoxId(box.id)}
+                    title={reasons?.length ? `Ausgeloest durch: ${reasons.join(", ")}` : "Vorgeschlagene Workflow-Box"}
+                  >
+                    <span>{box.title}</span>
+                    <small>{reasons?.[0] || (score >= 4 ? "stark passend" : "vorgeschlagen")}</small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {activeWorkflowBox ? (
-              <div className="workflow-target-card">
+              <div className={`workflow-target-card ${showWorkflowTargetDetails ? "is-expanded" : "is-compact"} tone-${workflowActivationById.get(activeWorkflowBox.id)?.tone || "selected"}`}>
                 <div className="context-card-header">
                   <strong>Zielbox aktiv</strong>
                   <span className="knowledge-chip">{activeWorkflowBox.type}</span>
                 </div>
                 <p>{activeWorkflowBox.title}</p>
-                <small>{workflowTypeMeta(activeWorkflowBox.type).hint}</small>
                 <div className="workflow-target-meta">
+                  <span className={`workflow-status-chip tone-${workflowActivationById.get(activeWorkflowBox.id)?.tone || "selected"}`}>
+                    {workflowActivationById.get(activeWorkflowBox.id)?.label || "Ziel"}
+                  </span>
+                  {workflowActivationById.get(activeWorkflowBox.id)?.comboReason ? (
+                    <span className="knowledge-chip">Kombi aktiv</span>
+                  ) : null}
                   <span className="knowledge-chip">
                     {anchorCountByWorkflowBox.get(activeWorkflowBox.id) || 0} Anker im aktuellen Kapitel
                   </span>
@@ -1150,54 +1976,69 @@ function App() {
                     {activeWorkflowAnchors.length > 0 ? "bereits verbunden" : "bereit fuer erste Passage"}
                   </span>
                 </div>
-                <div className="workflow-target-actions">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => createAnchor(activeWorkflowBox.id, { promptForNote: false })}
-                    disabled={!hasSelection || !selectedChapterId}
-                  >
-                    Auswahl ankern
-                  </button>
-                  <button type="button" className="ghost-button" onClick={() => setShowEditorHelp(true)}>
-                    Workflow-Hilfe
-                  </button>
-                </div>
-                <div className="workflow-anchor-list">
-                  {activeWorkflowAnchors.length === 0 ? (
-                    <p className="empty-note">Noch keine Passagen in dieser Box. Markiere Text und verankere ihn direkt hier.</p>
-                  ) : (
-                    activeWorkflowAnchors.slice(-3).reverse().map((anchor) => (
-                      <article key={anchor.id} className="workflow-anchor-card">
-                        <strong>{anchor.title || "Passage"}</strong>
-                        <p>{previewText(anchor.selected_text, 120)}</p>
-                        <small>{anchor.note || "ohne Notiz"}</small>
-                      </article>
-                    ))
-                  )}
-                </div>
+                <p className="workflow-activation-note">
+                  {workflowActivationById.get(activeWorkflowBox.id)?.reason || "Diese Box ist als Ziel gesetzt."}
+                </p>
+                {showWorkflowTargetDetails ? (
+                  <>
+                    <small className="workflow-target-hint">{workflowTypeMeta(activeWorkflowBox.type).hint}</small>
+                    <div className="workflow-target-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => createAnchor(activeWorkflowBox.id, { promptForNote: false })}
+                        disabled={!hasSelection || !selectedChapterId}
+                      >
+                        Auswahl ankern
+                      </button>
+                      <button type="button" className="ghost-button" onClick={() => setShowEditorHelp(true)}>
+                        Workflow-Hilfe
+                      </button>
+                    </div>
+                    <div className="workflow-anchor-list">
+                      {activeWorkflowAnchors.length === 0 ? (
+                        <p className="empty-note">Noch keine Passagen in dieser Box. Markiere Text und verankere ihn direkt hier.</p>
+                      ) : (
+                        activeWorkflowAnchors.slice(-3).reverse().map((anchor) => (
+                          <article key={anchor.id} className="workflow-anchor-card">
+                            <strong>{anchor.title || "Passage"}</strong>
+                            <p>{previewText(anchor.selected_text, 120)}</p>
+                            <small>{anchor.note || "ohne Notiz"}</small>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </>
+                ) : null}
               </div>
             ) : null}
             <div className="workflow-list">
-              {(bookBundle?.workflow_boxes || []).map((box) => (
-                <div
-                  key={box.id}
-                  className={`workflow-card ${box.id === selectedWorkflowBoxId ? "active" : ""}`}
-                  onClick={() => setSelectedWorkflowBoxId(box.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      setSelectedWorkflowBoxId(box.id);
-                    }
-                  }}
-                >
+              {(bookBundle?.workflow_boxes || []).map((box) => {
+                const activation = workflowActivationById.get(box.id) || {
+                  tone: "idle",
+                  label: "Ruhend",
+                  reason: "Noch keine aktiven Signale",
+                };
+                return (
+                  <div
+                    key={box.id}
+                    className={`workflow-card ${box.id === selectedWorkflowBoxId ? "active" : ""} tone-${activation.tone}`}
+                    onClick={() => setSelectedWorkflowBoxId(box.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        setSelectedWorkflowBoxId(box.id);
+                      }
+                    }}
+                  >
                   <div className="workflow-card-header">
                     <div>
                       <strong>{workflowTypeMeta(box.type).label}</strong>
                       <small>{anchorCountByWorkflowBox.get(box.id) || 0} Anker im Kapitel</small>
                     </div>
                     <div className="workflow-card-actions">
+                      <span className={`workflow-status-chip tone-${activation.tone}`}>{activation.label}</span>
                       {selectedWorkflowBoxId === box.id ? <span className="knowledge-chip">Ziel</span> : null}
                       <button
                         type="button"
@@ -1212,6 +2053,7 @@ function App() {
                     </div>
                   </div>
                   <input
+                    className="workflow-title-input"
                     value={box.title}
                     onChange={(event) =>
                       setBookBundle((previous) => ({
@@ -1223,6 +2065,21 @@ function App() {
                     }
                     onBlur={(event) => updateWorkflowBox(box.id, { title: event.target.value })}
                   />
+                  <input
+                    className="workflow-tag-input"
+                    value={formatTagInput(box.tags)}
+                    placeholder="Trigger-Tags, komma-getrennt"
+                    onChange={(event) =>
+                      setBookBundle((previous) => ({
+                        ...previous,
+                        workflow_boxes: previous.workflow_boxes.map((entry) =>
+                          entry.id === box.id ? { ...entry, tags: splitTagInput(event.target.value) } : entry,
+                        ),
+                      }))
+                    }
+                    onBlur={(event) => updateWorkflowBox(box.id, { tags: splitTagInput(event.target.value) })}
+                  />
+                  <p className="workflow-activation-note">{activation.reason}</p>
                   {!box.is_collapsed ? (
                     <>
                       <div className="workflow-row">
@@ -1287,8 +2144,9 @@ function App() {
                       ) : null}
                     </div>
                   )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </SidebarSection>
 
@@ -1410,69 +2268,174 @@ function App() {
               />
             </div>
             <div className="editor-actions">
-              <button
-                type="button"
-                className="ghost-button"
-                aria-expanded={showEditorHelp}
-                onClick={() => setShowEditorHelp((previous) => !previous)}
-              >
-                {showEditorHelp ? "Hilfe ausblenden" : "Hilfe"}
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                aria-expanded={showEditorSettings}
-                onClick={() => setShowEditorSettings((previous) => !previous)}
-              >
-                {showEditorSettings ? "⚙ Einstellungen ausblenden" : "⚙ Einstellungen"}
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                aria-pressed={isEditorFullscreen}
-                onClick={() => setIsEditorFullscreen((previous) => !previous)}
-              >
-                {isEditorFullscreen ? "Vollbild aus" : "Vollbild"}
-              </button>
-              <div className="mode-switch" role="tablist" aria-label="Editor-Modus">
+              <div className="editor-action-group editor-action-group--chrome">
                 <button
                   type="button"
-                  className={`mode-button ${editorMode === "rich" ? "active" : ""}`}
-                  onClick={() => switchEditorMode("rich")}
+                  className="ghost-button"
+                  aria-expanded={showEditorHelp}
+                  onClick={() => setShowEditorHelp((previous) => !previous)}
                 >
-                  Rich
+                  {showEditorHelp ? "Hilfe ausblenden" : "Hilfe"}
                 </button>
                 <button
                   type="button"
-                  className={`mode-button ${editorMode === "markdown" ? "active" : ""}`}
-                  onClick={() => switchEditorMode("markdown")}
+                  className="ghost-button"
+                  aria-expanded={showEditorSettings}
+                  onClick={() => setShowEditorSettings((previous) => !previous)}
                 >
-                  Markdown
+                  {showEditorSettings ? "⚙ Einstellungen ausblenden" : "⚙ Einstellungen"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  aria-pressed={isEditorFullscreen}
+                  onClick={() => setIsEditorFullscreen((previous) => !previous)}
+                >
+                  {isEditorFullscreen ? "Vollbild aus" : "Vollbild"}
                 </button>
               </div>
-              <button type="button" className="secondary-button" onClick={() => createAnchor()} disabled={!hasSelection}>
-                Anker setzen
-              </button>
-              <button type="button" className="secondary-button" onClick={createClipboardItem} disabled={!hasSelection}>
-                In Clipboard uebernehmen
-              </button>
-              <button type="button" className="secondary-button" onClick={insertTable} disabled={!currentChapter}>
-                Tabelle
-              </button>
-              <button type="button" className="secondary-button" onClick={toggleQuote} disabled={!currentChapter}>
-                Zitat
-              </button>
-              <button type="button" className="secondary-button" onClick={insertFootnote} disabled={!currentChapter}>
-                Fussnote
-              </button>
+              <div className="editor-action-group editor-action-group--mode">
+                <div className="mode-switch" role="tablist" aria-label="Editor-Modus">
+                  <button
+                    type="button"
+                    className={`mode-button ${editorMode === "rich" ? "active" : ""}`}
+                    onClick={() => switchEditorMode("rich")}
+                  >
+                    Rich
+                  </button>
+                  <button
+                    type="button"
+                    className={`mode-button ${editorMode === "markdown" ? "active" : ""}`}
+                    onClick={() => switchEditorMode("markdown")}
+                  >
+                    Markdown
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className={`ghost-button ${showWritingTools ? "active-ghost" : ""}`}
+                  aria-expanded={showWritingTools}
+                  onClick={() => setShowWritingTools((previous) => !previous)}
+                >
+                  {showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"}
+                </button>
+              </div>
+              <div className={`editor-action-group editor-action-group--context ${hasSelection ? "is-awake" : "is-muted"}`}>
+                <button type="button" className="secondary-button" onClick={() => createAnchor()} disabled={!hasSelection}>
+                  Anker setzen
+                </button>
+                <button type="button" className="secondary-button" onClick={createClipboardItem} disabled={!hasSelection}>
+                  In Clipboard uebernehmen
+                </button>
+                {!hasSelection ? <span className="editor-selection-hint">Text markieren fuer Schnellaktionen.</span> : null}
+              </div>
+              {showWritingTools ? (
+                <div className="editor-action-group editor-action-group--tools is-awake">
+                  <button type="button" className="secondary-button subtle-button" onClick={insertTable} disabled={!currentChapter}>
+                    Tabelle
+                  </button>
+                  <button type="button" className="secondary-button subtle-button" onClick={toggleQuote} disabled={!currentChapter}>
+                    Zitat
+                  </button>
+                  <button type="button" className="secondary-button subtle-button" onClick={insertFootnote} disabled={!currentChapter}>
+                    Fussnote
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
 
           <div className="editor-meta">
-            <span>{currentChapter ? `Aktiv: ${currentChapter.title}` : "Noch kein Kapitel aktiv"}</span>
-            <span>{selectedWorkflowBoxId ? `Zielbox: ${bookBundle?.workflow_boxes?.find((item) => item.id === selectedWorkflowBoxId)?.title || ""}` : "Keine Workflow-Box gewaehlt"}</span>
-            <span>{editorMode === "markdown" ? "Markdown ist aktuell die Quelle" : "Tiptap-Editor mit Markdown-Snapshot"}</span>
+            <span className="editor-meta-chip">{currentChapter ? `Aktiv: ${currentChapter.title}` : "Noch kein Kapitel aktiv"}</span>
+            <span className="editor-meta-chip">
+              {effectiveWorkflowBoxId
+                ? hasTemporaryAutoTarget
+                  ? `Auto-Ziel: ${activeWorkflowBox?.title || ""} · Basis: ${manualWorkflowBox?.title || ""}`
+                  : `Zielbox: ${activeWorkflowBox?.title || ""}`
+                : "Keine Workflow-Box gewaehlt"}
+            </span>
+            <span className="editor-meta-chip is-subtle">{editorMode === "markdown" ? "Modus · Markdown" : "Modus · Rich"}</span>
           </div>
+
+          {selectionContext ? (
+            <div
+              className={`selection-context-popup ${selectionPopupVisible ? "is-visible" : ""}`}
+              role="dialog"
+              aria-label="Auswahl-Aktionen"
+              aria-hidden={!selectionPopupVisible}
+              style={{
+                left: `${selectionContext.x}px`,
+                top: `${selectionContext.y}px`,
+              }}
+            >
+              <div className="selection-context-header">
+                <strong>{selectionContext.tableActive && !selectionContext.payload?.selected_text ? "Tabellen-Kontext" : "Auswahl"}</strong>
+                <small>
+                  {selectionContext.payload?.selected_text
+                    ? previewText(selectionContext.payload.selected_text, 42)
+                    : "Werkzeuge fuer die aktuelle Tabelle"}
+                </small>
+                {primaryWorkflowSuggestion?.reasons?.length && selectionContext.payload?.selected_text ? (
+                  <small className="selection-context-trigger">
+                    Vorschlag: {primaryWorkflowSuggestion.box.title} · {primaryWorkflowSuggestion.reasons.join(" · ")}
+                  </small>
+                ) : null}
+                {activeSelectionCombinations.length > 0 ? (
+                  <small className="selection-context-trigger">
+                    Kombi: {activeSelectionCombinations.map((entry) => entry.label).join(" + ")}
+                  </small>
+                ) : null}
+              </div>
+              <div className="selection-context-actions">
+                {selectionContext.payload?.selected_text ? (
+                  <>
+                    <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
+                      {hasTemporaryAutoTarget && activeWorkflowBox ? `Anker · ${activeWorkflowBox.title}` : "Anker"}
+                    </button>
+                    <button type="button" className="secondary-button" onClick={createClipboardItem}>
+                      Clipboard
+                    </button>
+                    <button type="button" className="ghost-button" onClick={insertWikiLinkFromSelection}>
+                      Wiki-Link
+                    </button>
+                  </>
+                ) : null}
+                {workflowSuggestions.slice(0, 2).map(({ box, reasons }, index) => (
+                  <button
+                    key={box.id}
+                    type="button"
+                    className={index === 0 ? "secondary-button" : "ghost-button"}
+                    title={reasons?.length ? `Ausgeloest durch: ${reasons.join(", ")}` : undefined}
+                    onClick={() => {
+                      setSelectedWorkflowBoxId(box.id);
+                      void createAnchor(box.id, { promptForNote: false });
+                    }}
+                    disabled={!selectionContext.payload?.selected_text}
+                  >
+                    Zu {box.title}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void attachSelectionToNewWorkflowBox()}
+                  disabled={!selectionContext.payload?.selected_text}
+                >
+                  Neue Box
+                </button>
+                {selectionContext.tableActive ? (
+                  <>
+                    <button type="button" className="ghost-button" onClick={() => editorRef.current?.addColumnAfter()}>
+                      + Spalte
+                    </button>
+                    <button type="button" className="ghost-button" onClick={() => editorRef.current?.addRowAfter()}>
+                      + Zeile
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {showEditorHelp ? (
             <section className="editor-help" role="dialog" aria-label="Editor-Hilfe">
@@ -1634,6 +2597,7 @@ function App() {
             className={`editor-frame surface-${editorAppearance.surfacePreset}`}
             style={editorSurfaceStyle}
             data-surface={editorAppearance.surfacePreset}
+            data-fullscreen-backdrop={editorAppearance.fullscreenBackdrop}
           >
             <div className="editor-frame-inner">
               {editorMode === "markdown" ? (
@@ -1642,18 +2606,18 @@ function App() {
                   className="markdown-textarea"
                   value={chapterDraft.markdown_content}
                   placeholder="Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten."
-                  onFocus={() => setHasSelection(false)}
+                  onFocus={() => {
+                    setHasSelection(false);
+                    clearSelectionPopup();
+                  }}
                   onSelect={(event) => {
-                    const target = event.target;
-                    setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                    updateMarkdownSelectionState(event.target);
                   }}
                   onKeyUp={(event) => {
-                    const target = event.target;
-                    setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                    updateMarkdownSelectionState(event.target);
                   }}
                   onClick={(event) => {
-                    const target = event.target;
-                    setHasSelection((target.selectionStart ?? 0) !== (target.selectionEnd ?? 0));
+                    updateMarkdownSelectionState(event.target);
                   }}
                   onCopy={() => handleEditorCopy(getMarkdownSelectionPayload())}
                   onCut={() => handleEditorCopy(getMarkdownSelectionPayload())}
@@ -1671,6 +2635,7 @@ function App() {
                   chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
                   pinnedSlots={pinnedSlots}
                   onSelectionChange={setHasSelection}
+                  onSelectionContextChange={applyEditorSelectionContext}
                   onClipboardCapture={handleEditorCopy}
                   onDocumentChange={(nextDocument) =>
                     setChapterDraft((previous) => ({

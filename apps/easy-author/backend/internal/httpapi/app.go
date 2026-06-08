@@ -38,6 +38,7 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /api/projects", a.handleListProjects)
 	a.mux.HandleFunc("POST /api/projects", a.handleCreateProject)
 	a.mux.HandleFunc("GET /api/projects/{id}", a.handleGetProject)
+	a.mux.HandleFunc("PUT /api/projects/{id}", a.handleUpdateProject)
 	a.mux.HandleFunc("GET /api/projects/{projectId}/knowledge-items", a.handleListKnowledgeItems)
 	a.mux.HandleFunc("POST /api/projects/{projectId}/knowledge-items", a.handleCreateKnowledgeItem)
 	a.mux.HandleFunc("GET /api/books/{id}", a.handleGetBook)
@@ -101,6 +102,20 @@ func (a *App) handleGetProject(w http.ResponseWriter, r *http.Request) {
 		"project": project,
 		"books":   books,
 	})
+}
+
+func (a *App) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
+	var input store.UpdateProjectInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	project, err := a.store.UpdateProject(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, project)
 }
 
 func (a *App) handleListKnowledgeItems(w http.ResponseWriter, r *http.Request) {

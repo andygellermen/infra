@@ -67,6 +67,8 @@ cd apps/easy-author/frontend
 nvm use
 ```
 
+Wenn `nvm` in `zsh` geladen ist, wird die passende Version beim Betreten des Frontend-Ordners automatisch aus `.nvmrc` aktiviert.
+
 ```bash
 cd apps/easy-author/frontend
 npm install
@@ -94,6 +96,10 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 - SQLite-Datei: `apps/easy-author/backend/data/easy-author.sqlite`
 - Markdown-Snapshots: `apps/easy-author/backend/data/library/<project>/<book>/chapters/*.md`
 - Beim ersten Backend-Start wird ein Demo-Projekt mit Buch, Kapitel und Workflow-Boxen angelegt.
+
+## Orientierung und UI-Kassensturz
+
+- Strategische UI-/Autoren-Uebersicht: `apps/easy-author/docs/business-case/easy-author-author-strategy-audit.md`
 
 ## API-Ueberblick
 

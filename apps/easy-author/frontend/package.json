@@ -7,11 +7,12 @@
     "node": ">=20 <21"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test:markdown": "node --test src/lib/markdown.test.js",
-    "test:editor": "vitest run src/App.test.jsx src/components/EditorPane.test.jsx",
+    "check:node": "node -e \"var major=+process.versions.node.split('.')[0]; if(major<20||major>=21){console.error('easy-author frontend requires Node 20.x. Current: '+process.version+'\\nRun: nvm use (inside apps/easy-author/frontend)'); process.exit(1)}\"",
+    "dev": "npm run check:node && vite",
+    "build": "npm run check:node && vite build",
+    "preview": "npm run check:node && vite preview",
+    "test:markdown": "npm run check:node && node --test src/lib/markdown.test.js",
+    "test:editor": "npm run check:node && vitest run src/App.test.jsx src/components/EditorPane.test.jsx",
     "test": "npm run test:markdown && npm run test:editor"
   },
   "dependencies": {

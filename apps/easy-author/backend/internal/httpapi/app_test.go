@@ -40,6 +40,17 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		"description": "Konzepttest",
 	})["id"].(string)
 
+	updatedProject := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/projects/"+projectID, map[string]any{
+		"title":       "Testprojekt Alpha",
+		"description": "Geschaerfter Projektrahmen",
+	}, http.StatusOK)
+	if updatedProject["title"].(string) != "Testprojekt Alpha" {
+		t.Fatalf("expected updated project title, got %#v", updatedProject["title"])
+	}
+	if updatedProject["description"].(string) != "Geschaerfter Projektrahmen" {
+		t.Fatalf("expected updated project description, got %#v", updatedProject["description"])
+	}
+
 	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{
 		"title":      "Testbuch",
 		"subtitle":   "Erste Beschreibung",

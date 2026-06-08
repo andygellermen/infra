@@ -28,6 +28,31 @@ function selectionPayloadFromState(state) {
   };
 }
 
+function selectionAnchorFromEditor(editor) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const selection = window.getSelection?.();
+  if (selection?.rangeCount) {
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    if (rect.width || rect.height) {
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top - 14,
+      };
+    }
+  }
+  const position = editor?.state?.selection?.from;
+  if (!editor?.view?.coordsAtPos || typeof position !== "number") {
+    return null;
+  }
+  const coords = editor.view.coordsAtPos(position);
+  return {
+    x: coords.left,
+    y: coords.top - 14,
+  };
+}
+
 function resolveChapterContent(chapter) {
   if (!chapter) {
     return markdownToDoc("");
@@ -47,11 +72,12 @@ function serializeDocument(document) {
 }
 
 const EditorPane = forwardRef(function EditorPane(
-  { chapter, pinnedSlots, onDocumentChange, onSelectionChange, onClipboardCapture },
+  { chapter, pinnedSlots, onDocumentChange, onSelectionChange, onClipboardCapture, onSelectionContextChange },
   ref,
 ) {
   const pinnedSlotsRef = useRef(pinnedSlots);
   const clipboardCaptureRef = useRef(onClipboardCapture);
+  const selectionContextRef = useRef(onSelectionContextChange);
   const lastChapterIdRef = useRef(null);
   const [activeStates, setActiveStates] = useState({
     table: false,
@@ -65,6 +91,10 @@ const EditorPane = forwardRef(function EditorPane(
   useEffect(() => {
     clipboardCaptureRef.current = onClipboardCapture;
   }, [onClipboardCapture]);
+
+  useEffect(() => {
+    selectionContextRef.current = onSelectionContextChange;
+  }, [onSelectionContextChange]);
 
   const initialContent = useMemo(() => resolveChapterContent(chapter), [chapter]);
 
@@ -91,11 +121,25 @@ const EditorPane = forwardRef(function EditorPane(
       },
     },
     onSelectionUpdate: ({ editor: activeEditor }) => {
+      const table = activeEditor.isActive("table");
+      const payload = selectionPayloadFromState(activeEditor.state);
+      const anchor = selectionAnchorFromEditor(activeEditor) || {};
       onSelectionChange?.(!activeEditor.state.selection.empty);
       setActiveStates({
-        table: activeEditor.isActive("table"),
+        table,
         blockquote: activeEditor.isActive("blockquote"),
       });
+      selectionContextRef.current?.(
+        !payload?.selected_text && !table
+          ? null
+          : {
+              kind: table && !payload?.selected_text ? "table" : "text",
+              source: "rich",
+              tableActive: table,
+              payload,
+              ...anchor,
+            },
+      );
     },
     onUpdate: ({ editor: activeEditor }) => {
       const json = activeEditor.getJSON();
@@ -131,6 +175,7 @@ const EditorPane = forwardRef(function EditorPane(
 
     editor.commands.setContent(nextContent, false);
     onSelectionChange?.(false);
+    onSelectionContextChange?.(null);
   }, [chapter?.id, chapter?.editor_json, chapter?.markdown_content, editor, onSelectionChange]);
 
   useEffect(() => {
