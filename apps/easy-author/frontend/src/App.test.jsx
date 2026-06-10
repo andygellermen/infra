@@ -31,6 +31,9 @@ vi.mock("./components/EditorPane", () => ({
       },
       insertClipboardContent: () => {},
       insertText: () => {},
+      applyReviewCommentMark: () => {},
+      removeReviewCommentMark: () => {},
+      replaceReviewCommentText: () => {},
       insertTable: () => {},
       toggleBlockquote: () => {},
       insertFootnote: () => {},
@@ -158,6 +161,10 @@ function mockApi() {
       [chapter.id]: [],
       [chapterTwo.id]: [],
     },
+    comments: {
+      [chapter.id]: [],
+      [chapterTwo.id]: [],
+    },
     clipboard: [],
     chaptersByBook: {
       [book.id]: [{ ...chapter }, { ...chapterTwo }],
@@ -204,6 +211,10 @@ function mockApi() {
         return { anchors: state.anchors[chapter.id] };
       case `/api/chapters/${chapterTwo.id}/anchors`:
         return { anchors: state.anchors[chapterTwo.id] };
+      case `/api/chapters/${chapter.id}/comments`:
+        return { comments: state.comments[chapter.id] };
+      case `/api/chapters/${chapterTwo.id}/comments`:
+        return { comments: state.comments[chapterTwo.id] };
       default:
         throw new Error(`Unexpected GET ${path}`);
     }
@@ -258,6 +269,28 @@ function mockApi() {
         is_collapsed: Boolean(payload.is_collapsed),
       };
       state.workflowBoxes = [...state.workflowBoxes, created];
+      return created;
+    }
+
+    if (path.startsWith("/api/chapters/") && path.endsWith("/comments")) {
+      const chapterId = path.split("/")[3];
+      const created = {
+        id: `comment-${state.comments[chapterId]?.length || 0}`,
+        comment_type: payload.comment_type || "comment",
+        author: payload.author || "Review",
+        body: payload.body || "",
+        suggested_text: payload.suggested_text || "",
+        selected_text: payload.selected_text || "",
+        start_offset: payload.start_offset || 0,
+        end_offset: payload.end_offset || 0,
+        context_before: payload.context_before || "",
+        context_after: payload.context_after || "",
+        status: payload.status || "open",
+        is_todo_done: Boolean(payload.is_todo_done),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      state.comments[chapterId] = [created, ...(state.comments[chapterId] || [])];
       return created;
     }
 
@@ -353,6 +386,21 @@ function mockApi() {
       return updated;
     }
 
+    if (path.startsWith("/api/comments/")) {
+      const commentId = path.split("/").pop();
+      const chapterId = Object.keys(state.comments).find((key) => state.comments[key].some((entry) => entry.id === commentId));
+      if (!chapterId) {
+        throw new Error(`Unexpected comment ${path}`);
+      }
+      const existing = state.comments[chapterId].find((entry) => entry.id === commentId);
+      const updated = {
+        ...existing,
+        ...payload,
+      };
+      state.comments[chapterId] = state.comments[chapterId].map((entry) => (entry.id === commentId ? updated : entry));
+      return updated;
+    }
+
     if (path.startsWith("/api/workflow-boxes/")) {
       const boxId = path.split("/").pop();
       const existing = state.workflowBoxes.find((entry) => entry.id === boxId);
@@ -389,6 +437,16 @@ function mockApi() {
     if (path.startsWith("/api/clipboard/")) {
       const itemId = path.split("/").pop();
       state.clipboard = state.clipboard.filter((item) => item.id !== itemId);
+      return null;
+    }
+    if (path.startsWith("/api/comments/")) {
+      const commentId = path.split("/").pop();
+      state.comments = Object.fromEntries(
+        Object.entries(state.comments).map(([chapterId, comments]) => [
+          chapterId,
+          comments.filter((entry) => entry.id !== commentId),
+        ]),
+      );
       return null;
     }
     return null;
@@ -494,7 +552,7 @@ describe("App editor smoke test", () => {
     await user.click(screen.getByRole("button", { name: "Vollbild" }));
 
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
-    expect(screen.getByRole("button", { name: "Fullscreen verlassen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vollbild" })).not.toBeInTheDocument();
 
     const keyboardEvent = new KeyboardEvent("keydown", {
       key: "Escape",
@@ -515,6 +573,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "Buchdetails" }));
     await user.click(screen.getByRole("button", { name: "Buch ändern" }));
     const descriptionField = screen.getByRole("textbox", { name: "Beschreibung" });
     await user.clear(descriptionField);
@@ -613,11 +672,14 @@ describe("App editor smoke test", () => {
     await user.click(screen.getByRole("button", { name: "Vollbild" }));
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
     expect(editorFrame?.style.getPropertyValue("--fullscreen-backdrop-start")).toBe("#ede1d9");
-    await user.click(screen.getByRole("button", { name: "Fullscreen verlassen" }));
-
-    await user.click(screen.getByRole("button", { name: "Schliessen" }));
+    fireEvent.keyDown(window, {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
 
     await waitFor(() => {
+      expect(container.querySelector(".workspace-grid")?.className).not.toContain("editor-fullscreen");
       expect(screen.queryByRole("dialog", { name: "Editor-Einstellungen" })).not.toBeInTheDocument();
     });
 

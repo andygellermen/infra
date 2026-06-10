@@ -10,6 +10,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import { docToMarkdown, markdownToDoc, normalizeRichTableMarkdown } from "../lib/markdown";
 import FootnoteReference from "../extensions/FootnoteReference";
 import FootnoteDefinition from "../extensions/FootnoteDefinition";
+import ReviewComment from "../extensions/ReviewComment";
 
 function selectionPayloadFromState(state) {
   if (!state || state.selection.empty) {
@@ -72,12 +73,22 @@ function serializeDocument(document) {
 }
 
 const EditorPane = forwardRef(function EditorPane(
-  { chapter, pinnedSlots, onDocumentChange, onSelectionChange, onClipboardCapture, onSelectionContextChange },
+  {
+    chapter,
+    pinnedSlots,
+    activeReviewCommentId,
+    onDocumentChange,
+    onSelectionChange,
+    onClipboardCapture,
+    onSelectionContextChange,
+    onReviewCommentActivate,
+  },
   ref,
 ) {
   const pinnedSlotsRef = useRef(pinnedSlots);
   const clipboardCaptureRef = useRef(onClipboardCapture);
   const selectionContextRef = useRef(onSelectionContextChange);
+  const reviewActivationRef = useRef(onReviewCommentActivate);
   const lastChapterIdRef = useRef(null);
   const [activeStates, setActiveStates] = useState({
     table: false,
@@ -96,6 +107,10 @@ const EditorPane = forwardRef(function EditorPane(
     selectionContextRef.current = onSelectionContextChange;
   }, [onSelectionContextChange]);
 
+  useEffect(() => {
+    reviewActivationRef.current = onReviewCommentActivate;
+  }, [onReviewCommentActivate]);
+
   const initialContent = useMemo(() => resolveChapterContent(chapter), [chapter]);
 
   const editor = useEditor({
@@ -110,6 +125,7 @@ const EditorPane = forwardRef(function EditorPane(
       TableCell,
       FootnoteReference,
       FootnoteDefinition,
+      ReviewComment,
       Placeholder.configure({
         placeholder: "Schreibe hier an deinem Kapitel weiter ...",
       }),
@@ -222,6 +238,59 @@ const EditorPane = forwardRef(function EditorPane(
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor?.view?.dom?.querySelectorAll) {
+      return;
+    }
+    const nodes = editor.view.dom.querySelectorAll("[data-review-comment-id]");
+    nodes.forEach((node) => {
+      const isActive = node.getAttribute("data-review-comment-id") === activeReviewCommentId;
+      node.classList.toggle("is-active-review-comment", isActive);
+    });
+  }, [activeReviewCommentId, editor, chapter?.id, chapter?.editor_json]);
+
+  useEffect(() => {
+    if (!editor?.view?.dom?.addEventListener) {
+      return undefined;
+    }
+    const target = editor.view.dom;
+    const handler = (event) => {
+      const marker = event.target?.closest?.("[data-review-comment-id]");
+      if (!marker) {
+        return;
+      }
+      const rect = marker.getBoundingClientRect();
+      reviewActivationRef.current?.(marker.getAttribute("data-review-comment-id") || "", {
+        x: rect.left + rect.width / 2,
+        y: rect.bottom + 16,
+      });
+    };
+    target.addEventListener("click", handler);
+    return () => target.removeEventListener("click", handler);
+  }, [editor]);
+
+  function rangesForReviewComment(commentId) {
+    if (!editor || !commentId) {
+      return [];
+    }
+    const ranges = [];
+    editor.state.doc.descendants((node, position) => {
+      if (!node.isText || !Array.isArray(node.marks)) {
+        return;
+      }
+      const hasComment = node.marks.some(
+        (mark) => mark.type.name === "reviewComment" && mark.attrs?.commentId === commentId,
+      );
+      if (hasComment) {
+        ranges.push({
+          from: position,
+          to: position + node.nodeSize,
+        });
+      }
+    });
+    return ranges;
+  }
+
   useImperativeHandle(
     ref,
     () => ({
@@ -242,6 +311,76 @@ const EditorPane = forwardRef(function EditorPane(
           return;
         }
         editor.chain().focus().insertContent(content).run();
+      },
+      applyReviewCommentMark(comment) {
+        if (!editor || !comment?.id) {
+          return;
+        }
+        const from = Math.max(1, Number(comment.start_offset) || 0);
+        const to = Math.max(from, Number(comment.end_offset) || 0);
+        if (from === to) {
+          return;
+        }
+        const markType = editor.state.schema.marks.reviewComment;
+        if (!markType) {
+          return;
+        }
+        let transaction = editor.state.tr.removeMark(from, to, markType);
+        transaction = transaction.addMark(
+          from,
+          to,
+          markType.create({
+            commentId: comment.id,
+            commentType: comment.comment_type || "comment",
+            commentState: comment.status || "open",
+          }),
+        );
+        editor.view.dispatch(transaction);
+      },
+      removeReviewCommentMark(commentId) {
+        if (!editor || !commentId) {
+          return;
+        }
+        const markType = editor.state.schema.marks.reviewComment;
+        if (!markType) {
+          return;
+        }
+        const ranges = rangesForReviewComment(commentId);
+        if (ranges.length === 0) {
+          return;
+        }
+        let transaction = editor.state.tr;
+        ranges.forEach((range) => {
+          transaction = transaction.removeMark(range.from, range.to, markType);
+        });
+        editor.view.dispatch(transaction);
+      },
+      replaceReviewCommentText({ commentId, text, keepMark = false, commentType = "comment", commentState = "open" }) {
+        if (!editor || !commentId) {
+          return;
+        }
+        const ranges = rangesForReviewComment(commentId);
+        if (ranges.length === 0) {
+          return;
+        }
+        const from = Math.min(...ranges.map((range) => range.from));
+        const to = Math.max(...ranges.map((range) => range.to));
+        let transaction = editor.state.tr.insertText(text || "", from, to);
+        if (keepMark && text) {
+          const markType = editor.state.schema.marks.reviewComment;
+          if (markType) {
+            transaction = transaction.addMark(
+              from,
+              from + String(text).length,
+              markType.create({
+                commentId,
+                commentType,
+                commentState,
+              }),
+            );
+          }
+        }
+        editor.view.dispatch(transaction);
       },
       getDocumentSnapshot() {
         if (!editor) {

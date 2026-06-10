@@ -55,6 +55,10 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /api/chapters/{chapterId}/anchors", a.handleListAnchors)
 	a.mux.HandleFunc("POST /api/chapters/{chapterId}/anchors", a.handleCreateAnchor)
 	a.mux.HandleFunc("DELETE /api/anchors/{id}", a.handleDeleteAnchor)
+	a.mux.HandleFunc("GET /api/chapters/{chapterId}/comments", a.handleListReviewComments)
+	a.mux.HandleFunc("POST /api/chapters/{chapterId}/comments", a.handleCreateReviewComment)
+	a.mux.HandleFunc("PUT /api/comments/{id}", a.handleUpdateReviewComment)
+	a.mux.HandleFunc("DELETE /api/comments/{id}", a.handleDeleteReviewComment)
 	a.mux.HandleFunc("GET /api/books/{bookId}/clipboard", a.handleListClipboard)
 	a.mux.HandleFunc("POST /api/books/{bookId}/clipboard", a.handleCreateClipboard)
 	a.mux.HandleFunc("PUT /api/clipboard/{id}", a.handleUpdateClipboard)
@@ -300,6 +304,51 @@ func (a *App) handleCreateAnchor(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleDeleteAnchor(w http.ResponseWriter, r *http.Request) {
 	if err := a.store.DeleteAnchor(r.Context(), r.PathValue("id")); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) handleListReviewComments(w http.ResponseWriter, r *http.Request) {
+	items, err := a.store.ListReviewComments(r.Context(), r.PathValue("chapterId"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"comments": items})
+}
+
+func (a *App) handleCreateReviewComment(w http.ResponseWriter, r *http.Request) {
+	var input store.CreateReviewCommentInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := a.store.CreateReviewComment(r.Context(), r.PathValue("chapterId"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, item)
+}
+
+func (a *App) handleUpdateReviewComment(w http.ResponseWriter, r *http.Request) {
+	var input store.UpdateReviewCommentInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeClientError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := a.store.UpdateReviewComment(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (a *App) handleDeleteReviewComment(w http.ResponseWriter, r *http.Request) {
+	if err := a.store.DeleteReviewComment(r.Context(), r.PathValue("id")); err != nil {
 		writeError(w, err)
 		return
 	}

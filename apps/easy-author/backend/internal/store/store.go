@@ -47,12 +47,14 @@ type UpdateBookInput struct {
 
 type CreateChapterInput struct {
 	Title           string `json:"title"`
+	Summary         string `json:"summary"`
 	MarkdownContent string `json:"markdown_content"`
 	EditorJSON      string `json:"editor_json"`
 }
 
 type UpdateChapterInput struct {
 	Title           string `json:"title"`
+	Summary         string `json:"summary"`
 	MarkdownContent string `json:"markdown_content"`
 	EditorJSON      string `json:"editor_json"`
 }
@@ -102,6 +104,29 @@ type UpdateClipboardItemInput struct {
 	IsPinned bool   `json:"is_pinned"`
 }
 
+type CreateReviewCommentInput struct {
+	CommentType   string `json:"comment_type"`
+	Author        string `json:"author"`
+	Body          string `json:"body"`
+	SuggestedText string `json:"suggested_text"`
+	SelectedText  string `json:"selected_text"`
+	StartOffset   int    `json:"start_offset"`
+	EndOffset     int    `json:"end_offset"`
+	ContextBefore string `json:"context_before"`
+	ContextAfter  string `json:"context_after"`
+	Status        string `json:"status"`
+	IsTodoDone    bool   `json:"is_todo_done"`
+}
+
+type UpdateReviewCommentInput struct {
+	CommentType   string `json:"comment_type"`
+	Author        string `json:"author"`
+	Body          string `json:"body"`
+	SuggestedText string `json:"suggested_text"`
+	Status        string `json:"status"`
+	IsTodoDone    bool   `json:"is_todo_done"`
+}
+
 type CreateKnowledgeItemInput struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
@@ -146,6 +171,7 @@ func (s *Store) Init(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
 			title TEXT NOT NULL,
+			summary TEXT NOT NULL DEFAULT '',
 			position INTEGER NOT NULL,
 			markdown_content TEXT NOT NULL DEFAULT '',
 			editor_json TEXT NOT NULL DEFAULT '',
@@ -183,6 +209,24 @@ func (s *Store) Init(ctx context.Context) error {
 			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
 			FOREIGN KEY(workflow_box_id) REFERENCES workflow_boxes(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS review_comments (
+			id TEXT PRIMARY KEY,
+			chapter_id TEXT NOT NULL,
+			comment_type TEXT NOT NULL DEFAULT 'comment',
+			author TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL DEFAULT '',
+			suggested_text TEXT NOT NULL DEFAULT '',
+			selected_text TEXT NOT NULL DEFAULT '',
+			start_offset INTEGER NOT NULL DEFAULT 0,
+			end_offset INTEGER NOT NULL DEFAULT 0,
+			context_before TEXT NOT NULL DEFAULT '',
+			context_after TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'open',
+			is_todo_done INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS clipboard_items (
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
@@ -217,6 +261,9 @@ func (s *Store) Init(ctx context.Context) error {
 	}
 	if _, err := s.db.ExecContext(ctx, `ALTER TABLE workflow_boxes ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
 		return fmt.Errorf("migrate workflow tags: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN summary TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter summary: %w", err)
 	}
 
 	return s.ensureDemoContent(ctx)
@@ -476,7 +523,7 @@ func (s *Store) UpdateBook(ctx context.Context, id string, input UpdateBookInput
 }
 
 func (s *Store) ListChapters(ctx context.Context, bookID string) ([]model.Chapter, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE book_id = ? ORDER BY position ASC`, bookID)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE book_id = ? ORDER BY position ASC`, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("list chapters: %w", err)
 	}
@@ -485,7 +532,7 @@ func (s *Store) ListChapters(ctx context.Context, bookID string) ([]model.Chapte
 	var chapters []model.Chapter
 	for rows.Next() {
 		var item model.Chapter
-		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan chapter: %w", err)
 		}
 		chapters = append(chapters, item)
@@ -503,14 +550,15 @@ func (s *Store) CreateChapter(ctx context.Context, bookID string, input CreateCh
 		ID:              newID(),
 		BookID:          bookID,
 		Title:           fallback(strings.TrimSpace(input.Title), fmt.Sprintf("Kapitel %d", nextPosition)),
+		Summary:         strings.TrimSpace(input.Summary),
 		Position:        nextPosition,
 		MarkdownContent: strings.TrimSpace(input.MarkdownContent),
 		EditorJSON:      strings.TrimSpace(input.EditorJSON),
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO chapters (id, book_id, title, position, markdown_content, editor_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.BookID, item.Title, item.Position, item.MarkdownContent, item.EditorJSON, item.CreatedAt, item.UpdatedAt,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO chapters (id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.BookID, item.Title, item.Summary, item.Position, item.MarkdownContent, item.EditorJSON, item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.Chapter{}, fmt.Errorf("create chapter: %w", err)
@@ -523,8 +571,8 @@ func (s *Store) CreateChapter(ctx context.Context, bookID string, input CreateCh
 
 func (s *Store) GetChapter(ctx context.Context, id string) (model.Chapter, error) {
 	var item model.Chapter
-	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE id = ?`, id).
-		Scan(&item.ID, &item.BookID, &item.Title, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE id = ?`, id).
+		Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Chapter{}, ErrNotFound
@@ -540,11 +588,12 @@ func (s *Store) UpdateChapter(ctx context.Context, id string, input UpdateChapte
 		return model.Chapter{}, err
 	}
 	item.Title = fallback(strings.TrimSpace(input.Title), item.Title)
+	item.Summary = strings.TrimSpace(input.Summary)
 	item.MarkdownContent = strings.TrimSpace(input.MarkdownContent)
 	item.EditorJSON = strings.TrimSpace(input.EditorJSON)
 	item.UpdatedAt = nowUTC()
-	_, err = s.db.ExecContext(ctx, `UPDATE chapters SET title = ?, markdown_content = ?, editor_json = ?, updated_at = ? WHERE id = ?`,
-		item.Title, item.MarkdownContent, item.EditorJSON, item.UpdatedAt, item.ID,
+	_, err = s.db.ExecContext(ctx, `UPDATE chapters SET title = ?, summary = ?, markdown_content = ?, editor_json = ?, updated_at = ? WHERE id = ?`,
+		item.Title, item.Summary, item.MarkdownContent, item.EditorJSON, item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return model.Chapter{}, fmt.Errorf("update chapter: %w", err)
@@ -759,6 +808,138 @@ func (s *Store) DeleteAnchor(ctx context.Context, id string) error {
 	affected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("delete anchor rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) ListReviewComments(ctx context.Context, chapterID string) ([]model.ReviewComment, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE chapter_id = ? ORDER BY created_at DESC`, chapterID)
+	if err != nil {
+		return nil, fmt.Errorf("list review comments: %w", err)
+	}
+	defer rows.Close()
+
+	var items []model.ReviewComment
+	for rows.Next() {
+		var item model.ReviewComment
+		var todoDone int
+		if err := rows.Scan(
+			&item.ID,
+			&item.ChapterID,
+			&item.CommentType,
+			&item.Author,
+			&item.Body,
+			&item.SuggestedText,
+			&item.SelectedText,
+			&item.StartOffset,
+			&item.EndOffset,
+			&item.ContextBefore,
+			&item.ContextAfter,
+			&item.Status,
+			&todoDone,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan review comment: %w", err)
+		}
+		item.IsTodoDone = todoDone == 1
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) CreateReviewComment(ctx context.Context, chapterID string, input CreateReviewCommentInput) (model.ReviewComment, error) {
+	now := nowUTC()
+	item := model.ReviewComment{
+		ID:            newID(),
+		ChapterID:     chapterID,
+		CommentType:   normalizeReviewCommentType(input.CommentType),
+		Author:        fallback(strings.TrimSpace(input.Author), "Review"),
+		Body:          strings.TrimSpace(input.Body),
+		SuggestedText: strings.TrimSpace(input.SuggestedText),
+		SelectedText:  strings.TrimSpace(input.SelectedText),
+		StartOffset:   max(input.StartOffset, 0),
+		EndOffset:     max(input.EndOffset, 0),
+		ContextBefore: strings.TrimSpace(input.ContextBefore),
+		ContextAfter:  strings.TrimSpace(input.ContextAfter),
+		Status:        normalizeReviewCommentStatus(input.Status),
+		IsTodoDone:    input.IsTodoDone,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if item.Body == "" && item.SuggestedText == "" {
+		return model.ReviewComment{}, fmt.Errorf("body or suggested_text must not be empty")
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO review_comments (id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.ChapterID, item.CommentType, item.Author, item.Body, item.SuggestedText, item.SelectedText, item.StartOffset, item.EndOffset, item.ContextBefore, item.ContextAfter, item.Status, boolToInt(item.IsTodoDone), item.CreatedAt, item.UpdatedAt,
+	)
+	if err != nil {
+		return model.ReviewComment{}, fmt.Errorf("create review comment: %w", err)
+	}
+	return item, nil
+}
+
+func (s *Store) UpdateReviewComment(ctx context.Context, id string, input UpdateReviewCommentInput) (model.ReviewComment, error) {
+	var item model.ReviewComment
+	var todoDone int
+	err := s.db.QueryRowContext(ctx, `SELECT id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE id = ?`, id).
+		Scan(
+			&item.ID,
+			&item.ChapterID,
+			&item.CommentType,
+			&item.Author,
+			&item.Body,
+			&item.SuggestedText,
+			&item.SelectedText,
+			&item.StartOffset,
+			&item.EndOffset,
+			&item.ContextBefore,
+			&item.ContextAfter,
+			&item.Status,
+			&todoDone,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ReviewComment{}, ErrNotFound
+		}
+		return model.ReviewComment{}, fmt.Errorf("get review comment: %w", err)
+	}
+
+	item.IsTodoDone = todoDone == 1
+	item.CommentType = normalizeReviewCommentType(input.CommentType)
+	item.Author = fallback(strings.TrimSpace(input.Author), item.Author)
+	if strings.TrimSpace(input.Body) != "" || strings.TrimSpace(input.SuggestedText) == "" {
+		item.Body = strings.TrimSpace(input.Body)
+	}
+	if strings.TrimSpace(input.SuggestedText) != "" || item.CommentType == "suggestion" || item.CommentType == "delete_request" {
+		item.SuggestedText = strings.TrimSpace(input.SuggestedText)
+	}
+	item.Status = normalizeReviewCommentStatus(input.Status)
+	item.IsTodoDone = input.IsTodoDone
+	item.UpdatedAt = nowUTC()
+
+	_, err = s.db.ExecContext(ctx, `UPDATE review_comments SET comment_type = ?, author = ?, body = ?, suggested_text = ?, status = ?, is_todo_done = ?, updated_at = ? WHERE id = ?`,
+		item.CommentType, item.Author, item.Body, item.SuggestedText, item.Status, boolToInt(item.IsTodoDone), item.UpdatedAt, item.ID,
+	)
+	if err != nil {
+		return model.ReviewComment{}, fmt.Errorf("update review comment: %w", err)
+	}
+	return item, nil
+}
+
+func (s *Store) DeleteReviewComment(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM review_comments WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete review comment: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete review comment rows affected: %w", err)
 	}
 	if affected == 0 {
 		return ErrNotFound
@@ -1001,6 +1182,9 @@ func (s *Store) writeChapterSnapshotFile(target string, chapter model.Chapter) e
 	if content == "" {
 		content = "# " + chapter.Title + "\n"
 	}
+	if strings.TrimSpace(chapter.Summary) != "" {
+		content = fmt.Sprintf("<!-- summary: %s -->\n\n%s", strings.TrimSpace(chapter.Summary), content)
+	}
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
@@ -1044,6 +1228,24 @@ func normalizeAnchorType(value string) string {
 		return strings.TrimSpace(value)
 	default:
 		return "passage"
+	}
+}
+
+func normalizeReviewCommentType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "comment", "todo", "suggestion", "delete_request", "warning":
+		return strings.TrimSpace(value)
+	default:
+		return "comment"
+	}
+}
+
+func normalizeReviewCommentStatus(value string) string {
+	switch strings.TrimSpace(value) {
+	case "open", "resolved", "applied", "rejected":
+		return strings.TrimSpace(value)
+	default:
+		return "open"
 	}
 }
 

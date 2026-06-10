@@ -116,6 +116,30 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	})
 	anchorID := anchor["id"].(string)
 
+	reviewComment := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/comments", map[string]any{
+		"comment_type":   "suggestion",
+		"author":         "Lektorat",
+		"body":           "Satzbau wie folgt aendern.",
+		"suggested_text": "Der neue Satzbau ist nun viel einfacher strukturiert und leichter lesbar.",
+		"selected_text":  "Dies ist ein Test.",
+		"start_offset":   0,
+		"end_offset":     18,
+		"status":         "open",
+	})
+	reviewCommentID := reviewComment["id"].(string)
+
+	updatedReviewComment := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/comments/"+reviewCommentID, map[string]any{
+		"comment_type":   "suggestion",
+		"author":         "Lektorat",
+		"body":           "Bitte uebernehmen.",
+		"suggested_text": "Lesbarer Testsatz.",
+		"status":         "applied",
+		"is_todo_done":   true,
+	}, http.StatusOK)
+	if updatedReviewComment["status"].(string) != "applied" {
+		t.Fatalf("expected updated review comment status, got %#v", updatedReviewComment["status"])
+	}
+
 	clipboard := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/clipboard", map[string]any{
 		"chapter_id":       chapterID,
 		"content":          "Dies ist ein Test.",
@@ -147,6 +171,11 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	bookBundle := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID, nil)
 	if len(bookBundle["chapters"].([]any)) == 0 {
 		t.Fatalf("expected chapters in book bundle")
+	}
+
+	comments := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/comments", nil)
+	if len(comments["comments"].([]any)) != 1 {
+		t.Fatalf("expected one review comment, got %#v", comments["comments"])
 	}
 
 	knowledgeItems := requestJSON(t, app.Handler(), http.MethodGet, "/api/projects/"+projectID+"/knowledge-items", nil)

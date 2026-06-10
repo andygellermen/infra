@@ -14,18 +14,21 @@ import {
 
 const EMPTY_DRAFT = {
   title: "",
+  summary: "",
   markdown_content: "",
   editor_json: "",
 };
 
 const DEFAULT_EDITOR_APPEARANCE = {
   fontFamily: "serif",
+  googleFontName: "Cormorant Garamond",
   fontSize: 18,
   lineHeight: 1.8,
   contentWidth: 860,
   fullscreenContentWidth: 1040,
   fullscreenBackdrop: "linen",
   surfacePreset: "warm",
+  caretColor: "#76c7ff",
 };
 
 const EDITOR_APPEARANCE_STORAGE_KEY = "easy-author.editor-appearance.v1";
@@ -33,7 +36,21 @@ const POPUP_HOLD_DELAY_MS = 2000;
 const POPUP_FADE_IN_DELAY_MS = 24;
 const ALLOWED_FULLSCREEN_BACKDROPS = new Set(["linen", "paper", "dusk", "night"]);
 const ALLOWED_SURFACE_PRESETS = new Set(["warm", "paper", "night"]);
-const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono"]);
+const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono", "google"]);
+const GOOGLE_FONT_PRESETS = [
+  "Cormorant Garamond",
+  "Crimson Pro",
+  "EB Garamond",
+  "Libre Baskerville",
+  "Lora",
+  "Merriweather",
+  "Newsreader",
+  "Playfair Display",
+  "Source Serif 4",
+  "Spectral",
+  "Inter",
+  "Work Sans",
+];
 const FULLSCREEN_BACKDROP_THEME = {
   linen: {
     glow: "rgba(228, 183, 137, 0.12)",
@@ -108,8 +125,40 @@ const WORKFLOW_TYPE_META = {
   },
 };
 
+const REVIEW_COMMENT_TYPE_META = {
+  comment: {
+    label: "Kommentar",
+    hint: "Freier Hinweis oder Lektoratskommentar.",
+    actionLabel: "Kommentar",
+  },
+  todo: {
+    label: "To-do",
+    hint: "Offener Punkt mit spaeterer Erledigung.",
+    actionLabel: "To-do",
+  },
+  suggestion: {
+    label: "Korrekturvorschlag",
+    hint: "Konkreter Ersatztext zum Uebernehmen oder Anpassen.",
+    actionLabel: "Vorschlag",
+  },
+  delete_request: {
+    label: "Loeschbitte",
+    hint: "Diese Passage sollte entfernt werden.",
+    actionLabel: "Loeschung",
+  },
+  warning: {
+    label: "Hinweis",
+    hint: "Auffaelligkeit oder Warnung im Text.",
+    actionLabel: "Hinweis",
+  },
+};
+
 function workflowTypeMeta(type) {
   return WORKFLOW_TYPE_META[type] || WORKFLOW_TYPE_META.custom;
+}
+
+function reviewCommentTypeMeta(type) {
+  return REVIEW_COMMENT_TYPE_META[type] || REVIEW_COMMENT_TYPE_META.comment;
 }
 
 const STORY_TIME_KEYWORDS = [
@@ -234,6 +283,7 @@ function sanitizeEditorAppearance(value) {
     ...(value && typeof value === "object" ? value : {}),
   };
   next.fontFamily = ALLOWED_FONT_FAMILIES.has(next.fontFamily) ? next.fontFamily : DEFAULT_EDITOR_APPEARANCE.fontFamily;
+  next.googleFontName = String(next.googleFontName || DEFAULT_EDITOR_APPEARANCE.googleFontName).trim().slice(0, 80) || DEFAULT_EDITOR_APPEARANCE.googleFontName;
   next.surfacePreset = ALLOWED_SURFACE_PRESETS.has(next.surfacePreset)
     ? next.surfacePreset
     : DEFAULT_EDITOR_APPEARANCE.surfacePreset;
@@ -242,12 +292,16 @@ function sanitizeEditorAppearance(value) {
     : DEFAULT_EDITOR_APPEARANCE.fullscreenBackdrop;
   next.fontSize = Math.min(24, Math.max(16, Number(next.fontSize) || DEFAULT_EDITOR_APPEARANCE.fontSize));
   next.lineHeight = Math.min(2.2, Math.max(1.5, Number(next.lineHeight) || DEFAULT_EDITOR_APPEARANCE.lineHeight));
-  next.contentWidth = [720, 860, 1040].includes(Number(next.contentWidth))
+  next.contentWidth = [640, 720, 860, 960, 1040, 1160].includes(Number(next.contentWidth))
     ? Number(next.contentWidth)
     : DEFAULT_EDITOR_APPEARANCE.contentWidth;
   next.fullscreenContentWidth = [860, 1040, 1200, 1360].includes(Number(next.fullscreenContentWidth))
     ? Number(next.fullscreenContentWidth)
     : DEFAULT_EDITOR_APPEARANCE.fullscreenContentWidth;
+  next.caretColor =
+    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(next.caretColor || "").trim())
+      ? String(next.caretColor).trim()
+      : DEFAULT_EDITOR_APPEARANCE.caretColor;
   return next;
 }
 
@@ -264,6 +318,40 @@ function loadStoredEditorAppearance() {
   } catch {
     return DEFAULT_EDITOR_APPEARANCE;
   }
+}
+
+function emptyReviewCommentDraft() {
+  return {
+    comment_type: "comment",
+    author: "Review",
+    body: "",
+    suggested_text: "",
+    selected_text: "",
+    start_offset: 0,
+    end_offset: 0,
+    context_before: "",
+    context_after: "",
+    status: "open",
+    is_todo_done: false,
+  };
+}
+
+function googleFontHref(fontName) {
+  return `https://fonts.googleapis.com/css2?family=${String(fontName || "").trim().split(/\s+/).join("+")}&display=swap`;
+}
+
+function formatReviewTimestamp(value) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function tokenizeSelectionText(text) {
@@ -457,6 +545,15 @@ function App() {
   const skipAutosaveRef = useRef(true);
   const selectionPopupDelayRef = useRef(null);
   const selectionPopupFadeRef = useRef(null);
+  const editorHeaderHideRef = useRef(null);
+  const projectSectionRef = useRef(null);
+  const bookSectionRef = useRef(null);
+  const chapterSectionRef = useRef(null);
+  const workflowSectionRef = useRef(null);
+  const knowledgeSectionRef = useRef(null);
+  const contextSectionRef = useRef(null);
+  const anchorSectionRef = useRef(null);
+  const clipboardSectionRef = useRef(null);
 
   const [projects, setProjects] = useState([]);
   const [projectDetail, setProjectDetail] = useState(null);
@@ -466,6 +563,7 @@ function App() {
   const [selectedChapterId, setSelectedChapterId] = useState("");
   const [chapterDraft, setChapterDraft] = useState(EMPTY_DRAFT);
   const [anchors, setAnchors] = useState([]);
+  const [reviewComments, setReviewComments] = useState([]);
   const [clipboardItems, setClipboardItems] = useState([]);
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
@@ -482,14 +580,27 @@ function App() {
   const [showClipboardPalette, setShowClipboardPalette] = useState(false);
   const [selectionContext, setSelectionContext] = useState(null);
   const [selectionPopupVisible, setSelectionPopupVisible] = useState(false);
+  const [showReviewComposer, setShowReviewComposer] = useState(false);
+  const [reviewCommentDraft, setReviewCommentDraft] = useState(emptyReviewCommentDraft);
+  const [activeReviewCommentId, setActiveReviewCommentId] = useState("");
+  const [reviewBubblePosition, setReviewBubblePosition] = useState(null);
+  const [isEditingReviewSuggestion, setIsEditingReviewSuggestion] = useState(false);
+  const [reviewSuggestionDraft, setReviewSuggestionDraft] = useState("");
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [draggedChapterId, setDraggedChapterId] = useState("");
   const [chapterDropTargetId, setChapterDropTargetId] = useState("");
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [showBookPicker, setShowBookPicker] = useState(false);
+  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const [showBookDetails, setShowBookDetails] = useState(false);
   const [showProjectEdit, setShowProjectEdit] = useState(false);
   const [showBookEdit, setShowBookEdit] = useState(false);
+  const [showLeftOverlay, setShowLeftOverlay] = useState(false);
+  const [showRightOverlay, setShowRightOverlay] = useState(false);
+  const [activeLeftSection, setActiveLeftSection] = useState("chapter");
+  const [activeRightSection, setActiveRightSection] = useState("clipboard");
   const [editorAppearance, setEditorAppearance] = useState(loadStoredEditorAppearance);
+  const [showEditorHeader, setShowEditorHeader] = useState(false);
   const slotNumbers = Array.from({ length: 9 }, (_, index) => index + 1);
 
   const currentChapter = useMemo(
@@ -594,6 +705,10 @@ function App() {
     return latest;
   }, [anchors]);
   const activeSelectionPayload = selectionContext?.payload || null;
+  const activeReviewComment = useMemo(
+    () => reviewComments.find((comment) => comment.id === activeReviewCommentId) || null,
+    [activeReviewCommentId, reviewComments],
+  );
   const hasSelectionFocus = Boolean(activeSelectionPayload?.selected_text?.trim());
   const chapterTextForWorkflow = chapterDraft.markdown_content || currentChapter?.markdown_content || "";
   const workflowSuggestions = useMemo(() => {
@@ -733,21 +848,33 @@ function App() {
         activeWorkflowState?.tone === "focus" ||
         activeWorkflowState?.tone === "combo"),
   );
+  const showFloatingStatus = !["Synchron", "Gespeichert", "Autosave gespeichert"].includes(saveState);
+  const editorMetaItems = [
+    effectiveWorkflowBoxId
+      ? hasTemporaryAutoTarget
+        ? `Auto-Ziel: ${activeWorkflowBox?.title || ""} · Basis: ${manualWorkflowBox?.title || ""}`
+        : `Zielbox: ${activeWorkflowBox?.title || ""}`
+      : "",
+    editorMode === "markdown" ? "Modus · Markdown" : "",
+  ].filter(Boolean);
 
   const editorSurfaceStyle = useMemo(
     () => ({
       "--editor-font-family":
-        editorAppearance.fontFamily === "sans"
+        editorAppearance.fontFamily === "google"
+          ? `"${editorAppearance.googleFontName}", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif`
+          : editorAppearance.fontFamily === "sans"
           ? '"Avenir Next", "Segoe UI", sans-serif'
           : editorAppearance.fontFamily === "mono"
             ? '"SFMono-Regular", "Menlo", "Monaco", monospace'
             : '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif',
       "--editor-font-size": `${editorAppearance.fontSize}px`,
       "--editor-line-height": String(editorAppearance.lineHeight),
+      "--editor-table-cell-padding-y": `${Math.max(10, Math.round(editorAppearance.fontSize * editorAppearance.lineHeight * 0.34))}px`,
+      "--editor-table-cell-padding-x": `${Math.max(12, Math.round(editorAppearance.fontSize * editorAppearance.lineHeight * 0.4))}px`,
       "--editor-max-width": `${editorAppearance.contentWidth}px`,
       "--editor-fullscreen-max-width": `${editorAppearance.fullscreenContentWidth}px`,
-      "--editor-caret-color":
-        editorAppearance.surfacePreset === "night" ? "rgba(243, 237, 229, 0.76)" : "rgba(109, 59, 16, 0.58)",
+      "--editor-caret-color": editorAppearance.caretColor,
       "--editor-selection-bg":
         editorAppearance.surfacePreset === "night" ? "rgba(243, 237, 229, 0.16)" : "rgba(158, 91, 33, 0.14)",
       "--editor-selection-text":
@@ -768,6 +895,21 @@ function App() {
     window.clearTimeout(selectionPopupFadeRef.current);
     setSelectionPopupVisible(false);
     setSelectionContext(null);
+  }
+
+  function closeTransientPanels() {
+    clearSelectionPopup();
+    setShowLeftOverlay(false);
+    setShowRightOverlay(false);
+    setShowEditorHelp(false);
+    setShowEditorSettings(false);
+    setShowClipboardPalette(false);
+    setShowReviewComposer(false);
+    setShowEditorHeader(false);
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft("");
   }
 
   function showSelectionPopup(nextContext, delay = 0) {
@@ -816,6 +958,7 @@ function App() {
       return;
     }
     setShowProjectPicker(false);
+    setShowProjectDetails(false);
     setShowProjectEdit(false);
     loadProject(selectedProjectId);
     loadKnowledgeItems(selectedProjectId);
@@ -839,15 +982,41 @@ function App() {
       setSelectedChapterId("");
       setClipboardItems([]);
       setShowClipboardPalette(false);
+      setShowBookDetails(false);
       setShowBookEdit(false);
       setShowBookPicker(false);
       clearSelectionPopup();
       return;
     }
     setShowBookPicker(false);
+    setShowBookDetails(false);
     setShowBookEdit(false);
     loadBook(selectedBookId);
   }, [selectedBookId]);
+
+  useEffect(() => {
+    const lookup = {
+      project: projectSectionRef,
+      book: bookSectionRef,
+      chapter: chapterSectionRef,
+      workflow: workflowSectionRef,
+      knowledge: knowledgeSectionRef,
+    };
+    if (showLeftOverlay && lookup[activeLeftSection]?.current) {
+      lookup[activeLeftSection].current.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, [activeLeftSection, showLeftOverlay]);
+
+  useEffect(() => {
+    const lookup = {
+      context: contextSectionRef,
+      anchor: anchorSectionRef,
+      clipboard: clipboardSectionRef,
+    };
+    if (showRightOverlay && lookup[activeRightSection]?.current) {
+      lookup[activeRightSection].current.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, [activeRightSection, showRightOverlay]);
 
   useEffect(() => {
     if (clipboardItems.length === 0) {
@@ -856,12 +1025,32 @@ function App() {
   }, [clipboardItems.length]);
 
   useEffect(() => {
+    if (activeReviewCommentId && !reviewComments.some((comment) => comment.id === activeReviewCommentId)) {
+      setActiveReviewCommentId("");
+      setReviewBubblePosition(null);
+    }
+  }, [activeReviewCommentId, reviewComments]);
+
+  useEffect(() => {
+    if (!activeReviewComment || activeReviewComment.comment_type !== "suggestion") {
+      setIsEditingReviewSuggestion(false);
+      setReviewSuggestionDraft("");
+      return;
+    }
+    setReviewSuggestionDraft(activeReviewComment.suggested_text || activeReviewComment.selected_text || "");
+  }, [activeReviewComment]);
+
+  useEffect(() => {
     if (!selectedChapterId || !currentChapter) {
       setAnchors([]);
+      setReviewComments([]);
       setChapterDraft(EMPTY_DRAFT);
       setErrorMessage("");
       setSaveState("Synchron");
       clearSelectionPopup();
+      setActiveReviewCommentId("");
+      setReviewBubblePosition(null);
+      setShowReviewComposer(false);
       return;
     }
     skipAutosaveRef.current = true;
@@ -870,10 +1059,12 @@ function App() {
     clearSelectionPopup();
     setChapterDraft({
       title: currentChapter.title,
+      summary: currentChapter.summary || "",
       markdown_content: currentChapter.markdown_content || "",
       editor_json: currentChapter.editor_json || "",
     });
     loadAnchors(currentChapter.id);
+    loadReviewComments(currentChapter.id);
   }, [selectedChapterId, currentChapterId]);
 
   useEffect(() => {
@@ -887,6 +1078,7 @@ function App() {
 
     const changed =
       chapterDraft.title !== currentChapter.title ||
+      chapterDraft.summary !== (currentChapter.summary || "") ||
       chapterDraft.markdown_content !== (currentChapter.markdown_content || "") ||
       chapterDraft.editor_json !== (currentChapter.editor_json || "");
 
@@ -912,9 +1104,9 @@ function App() {
         return;
       }
 
-      if (event.key === "Escape" && showClipboardPalette) {
+      if (event.key === "Escape" && (showLeftOverlay || showRightOverlay || showEditorHelp || showEditorSettings || showClipboardPalette || showReviewComposer || activeReviewCommentId || selectionContext)) {
         event.preventDefault();
-        setShowClipboardPalette(false);
+        closeTransientPanels();
         return;
       }
 
@@ -926,7 +1118,52 @@ function App() {
 
     window.addEventListener("keydown", handleGlobalShortcuts);
     return () => window.removeEventListener("keydown", handleGlobalShortcuts);
-  }, [showClipboardPalette, isEditorFullscreen, currentChapter, chapterDraft, editorMode]);
+  }, [
+    showLeftOverlay,
+    showRightOverlay,
+    showEditorHelp,
+    showEditorSettings,
+    showClipboardPalette,
+    showReviewComposer,
+    activeReviewCommentId,
+    selectionContext,
+    isEditorFullscreen,
+    currentChapter,
+    chapterDraft,
+    editorMode,
+  ]);
+
+  useEffect(() => () => clearTimeout(editorHeaderHideRef.current), []);
+
+  useEffect(() => {
+    if (!isEditorFullscreen) {
+      return;
+    }
+    closeTransientPanels();
+    setShowEditorHeader(false);
+  }, [isEditorFullscreen]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const linkId = "easy-author-google-font";
+    const existing = document.getElementById(linkId);
+    if (editorAppearance.fontFamily !== "google" || !editorAppearance.googleFontName) {
+      existing?.remove();
+      return;
+    }
+    const href = googleFontHref(editorAppearance.googleFontName);
+    if (existing) {
+      existing.setAttribute("href", href);
+      return;
+    }
+    const link = document.createElement("link");
+    link.id = linkId;
+    link.rel = "stylesheet";
+    link.href = href;
+    document.head.appendChild(link);
+  }, [editorAppearance.fontFamily, editorAppearance.googleFontName]);
 
   async function loadProjects() {
     try {
@@ -992,6 +1229,16 @@ function App() {
     }
   }
 
+  async function loadReviewComments(chapterId) {
+    try {
+      const response = await api.get(`/api/chapters/${chapterId}/comments`);
+      setReviewComments(response.comments || []);
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
   async function saveChapter(manual) {
     if (!currentChapter) {
       return;
@@ -1018,15 +1265,20 @@ function App() {
       if (payload !== chapterDraft) {
         setChapterDraft(payload);
       }
+      const requestPayload = { ...payload };
+      if (!requestPayload.summary && !(currentChapter?.summary || "")) {
+        delete requestPayload.summary;
+      }
       setErrorMessage("");
       setSaveState(manual ? "Speichert ..." : "Autosave laeuft ...");
-      const updated = await api.put(`/api/chapters/${currentChapter.id}`, payload);
+      const updated = await api.put(`/api/chapters/${currentChapter.id}`, requestPayload);
       setBookBundle((previous) => ({
         ...previous,
         chapters: previous.chapters.map((chapter) => (chapter.id === updated.id ? updated : chapter)),
       }));
       const nextDraft = {
         title: updated.title,
+        summary: updated.summary || "",
         markdown_content: updated.markdown_content || "",
         editor_json: updated.editor_json || "",
       };
@@ -1095,6 +1347,7 @@ function App() {
     try {
       const chapter = await api.post(`/api/books/${selectedBookId}/chapters`, {
         title,
+        summary: "",
         markdown_content: `# ${title}\n`,
         editor_json: "",
       });
@@ -1273,6 +1526,10 @@ function App() {
       patchLocalProject(projectId, updated);
       setErrorMessage("");
     } catch (error) {
+      if (error.status === 405) {
+        setErrorMessage("Projekt-Details konnten noch nicht gespeichert werden. Bitte den easy-author-Backend-Prozess einmal neu starten.");
+        return;
+      }
       setErrorMessage(error.message);
     }
   }
@@ -1371,6 +1628,213 @@ function App() {
     } catch (error) {
       setErrorMessage(error.message);
     }
+  }
+
+  function openReviewComposerFromSelection(defaultType = "comment") {
+    if (editorMode !== "rich") {
+      setErrorMessage("Kommentare und Review-Markierungen stehen aktuell im Rich-Editor zur Verfuegung.");
+      return;
+    }
+    const payload = activeSelectionPayload;
+    if (!payload?.selected_text) {
+      setErrorMessage("Bitte zuerst eine Textpassage im Editor markieren.");
+      return;
+    }
+    setReviewCommentDraft({
+      ...emptyReviewCommentDraft(),
+      comment_type: defaultType,
+      author: "Review",
+      selected_text: payload.selected_text,
+      start_offset: payload.start_offset,
+      end_offset: payload.end_offset,
+      context_before: payload.context_before,
+      context_after: payload.context_after,
+    });
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setShowReviewComposer(true);
+  }
+
+  function closeReviewComposer() {
+    setShowReviewComposer(false);
+    setReviewCommentDraft(emptyReviewCommentDraft());
+  }
+
+  function startReviewSuggestionEdit(comment) {
+    if (!comment) {
+      return;
+    }
+    setReviewSuggestionDraft(comment.suggested_text || comment.selected_text || "");
+    setIsEditingReviewSuggestion(true);
+  }
+
+  function cancelReviewSuggestionEdit() {
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft(activeReviewComment?.suggested_text || activeReviewComment?.selected_text || "");
+  }
+
+  async function createReviewComment() {
+    if (!selectedChapterId) {
+      return;
+    }
+    if (!reviewCommentDraft.selected_text?.trim()) {
+      setErrorMessage("Bitte zuerst eine Textstelle fuer den Kommentar markieren.");
+      return;
+    }
+    if (!reviewCommentDraft.body.trim() && !reviewCommentDraft.suggested_text.trim()) {
+      setErrorMessage("Bitte einen Kommentartext oder einen Vorschlag eintragen.");
+      return;
+    }
+
+    try {
+      const created = await api.post(`/api/chapters/${selectedChapterId}/comments`, reviewCommentDraft);
+      setReviewComments((previous) => [created, ...previous]);
+      editorRef.current?.applyReviewCommentMark?.(created);
+      setActiveReviewCommentId(created.id);
+      setReviewBubblePosition(
+        selectionContext
+          ? {
+              x: selectionContext.x,
+              y: selectionContext.y + 22,
+            }
+          : null,
+      );
+      closeReviewComposer();
+      clearSelectionPopup();
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function updateReviewComment(commentId, nextFields) {
+    const comment = reviewComments.find((entry) => entry.id === commentId);
+    if (!comment) {
+      return null;
+    }
+    try {
+      const updated = await api.put(`/api/comments/${commentId}`, {
+        comment_type: nextFields.comment_type ?? comment.comment_type,
+        author: nextFields.author ?? comment.author,
+        body: nextFields.body ?? comment.body,
+        suggested_text: nextFields.suggested_text ?? comment.suggested_text,
+        status: nextFields.status ?? comment.status,
+        is_todo_done: nextFields.is_todo_done ?? comment.is_todo_done,
+      });
+      setReviewComments((previous) => previous.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setErrorMessage("");
+      return updated;
+    } catch (error) {
+      setErrorMessage(error.message);
+      return null;
+    }
+  }
+
+  async function removeReviewComment(commentId) {
+    try {
+      await api.delete(`/api/comments/${commentId}`);
+      editorRef.current?.removeReviewCommentMark?.(commentId);
+      setReviewComments((previous) => previous.filter((entry) => entry.id !== commentId));
+      if (activeReviewCommentId === commentId) {
+        setActiveReviewCommentId("");
+        setReviewBubblePosition(null);
+      }
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  function activateReviewComment(commentId, coords = null) {
+    if (!commentId) {
+      setActiveReviewCommentId("");
+      setReviewBubblePosition(null);
+      return;
+    }
+    clearSelectionPopup();
+    setActiveReviewCommentId(commentId);
+    setReviewBubblePosition(coords);
+  }
+
+  async function applyReviewSuggestion(comment, replacementText = comment?.suggested_text || "") {
+    if (!comment || !replacementText.trim()) {
+      return;
+    }
+    editorRef.current?.replaceReviewCommentText?.({
+      commentId: comment.id,
+      text: replacementText.trim(),
+      keepMark: false,
+    });
+    await updateReviewComment(comment.id, {
+      status: "applied",
+      body: comment.body,
+      suggested_text: replacementText.trim(),
+      is_todo_done: true,
+    });
+    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft("");
+  }
+
+  async function applyDeleteRequest(comment) {
+    if (!comment) {
+      return;
+    }
+    editorRef.current?.replaceReviewCommentText?.({
+      commentId: comment.id,
+      text: "",
+      keepMark: false,
+    });
+    await updateReviewComment(comment.id, {
+      status: "applied",
+      body: comment.body,
+      suggested_text: comment.suggested_text,
+      is_todo_done: true,
+    });
+    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft("");
+  }
+
+  async function resolveReviewComment(comment) {
+    if (!comment) {
+      return;
+    }
+    await updateReviewComment(comment.id, {
+      status: "resolved",
+      body: comment.body,
+      suggested_text: comment.suggested_text,
+      is_todo_done: true,
+    });
+    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft("");
+  }
+
+  async function rejectReviewComment(comment) {
+    if (!comment) {
+      return;
+    }
+    const updated = await updateReviewComment(comment.id, {
+      status: "rejected",
+      body: comment.body,
+      suggested_text: comment.suggested_text,
+      is_todo_done: false,
+    });
+    if (!updated) {
+      return;
+    }
+    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
+    setIsEditingReviewSuggestion(false);
+    setReviewSuggestionDraft("");
   }
 
   async function createClipboardItem() {
@@ -1680,34 +2144,109 @@ function App() {
     }
     setHasSelection(false);
     clearSelectionPopup();
+    setActiveReviewCommentId("");
+    setReviewBubblePosition(null);
     setEditorMode(nextMode);
   }
 
+  function revealEditorHeader() {
+    clearTimeout(editorHeaderHideRef.current);
+    setShowEditorHeader(true);
+  }
+
+  function hideEditorHeaderSoon() {
+    clearTimeout(editorHeaderHideRef.current);
+    editorHeaderHideRef.current = window.setTimeout(() => {
+      if (!showEditorHelp && !showEditorSettings) {
+        setShowEditorHeader(false);
+      }
+    }, 220);
+  }
+
+  function toggleLeftOverlay(section) {
+    if (showLeftOverlay && activeLeftSection === section) {
+      setShowLeftOverlay(false);
+      return;
+    }
+    setActiveLeftSection(section);
+    setShowLeftOverlay(true);
+  }
+
+  function toggleRightOverlay(section) {
+    if (showRightOverlay && activeRightSection === section) {
+      setShowRightOverlay(false);
+      return;
+    }
+    setActiveRightSection(section);
+    setShowRightOverlay(true);
+  }
+
   const bookTitle = bookBundle?.book?.title || "Kein Buch geladen";
+  const showFocusScrim =
+    showLeftOverlay ||
+    showRightOverlay ||
+    showEditorHelp ||
+    showEditorSettings ||
+    showReviewComposer ||
+    showClipboardPalette ||
+    Boolean(activeReviewCommentId);
+  const isWidgetFocusActive = showFocusScrim || showEditorHelp || showEditorSettings;
+  const showTopRail = !isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings || showFloatingStatus);
+  const leftSectionClass = (section) =>
+    `widget-panel-section ${activeLeftSection === section ? "is-active-widget is-selected" : "is-inactive-widget"}`;
+  const rightSectionClass = (section) =>
+    `widget-panel-section ${activeRightSection === section ? "is-active-widget is-selected" : "is-inactive-widget"}`;
 
   return (
-    <div className={`app-shell ${isEditorFullscreen ? "editor-fullscreen-shell" : ""}`}>
-      <header className="topbar">
-        <div>
-          <div className="brand-kicker">Markdown-first Author Studio</div>
-          <h1>easy-author</h1>
-        </div>
-        <div className="topbar-actions">
-          <span className="status-pill">{saveState}</span>
-          <button className="primary-button" type="button" onClick={() => saveChapter(true)} disabled={!currentChapter}>
-            Kapitel speichern
-          </button>
-        </div>
-      </header>
-
+    <div
+      className={`app-shell ${isEditorFullscreen ? "editor-fullscreen-shell" : ""} ${showLeftOverlay ? "has-left-overlay" : ""} ${showRightOverlay ? "has-right-overlay" : ""} ${isWidgetFocusActive ? "has-widget-focus" : ""}`}
+    >
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
+      {showFocusScrim ? <div className="focus-scrim" aria-hidden="true" onClick={closeTransientPanels} /> : null}
+
+      {!isEditorFullscreen ? (
+        <div className="floating-rail floating-rail--left" aria-label="Navigation">
+          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "project" ? "active" : ""}`} aria-label="Projekt" onClick={() => toggleLeftOverlay("project")}>⌂</button>
+          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "book" ? "active" : ""}`} aria-label="Buch" onClick={() => toggleLeftOverlay("book")}>📘</button>
+          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "chapter" ? "active" : ""}`} aria-label="Kapitel" onClick={() => toggleLeftOverlay("chapter")}>☰</button>
+          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "workflow" ? "active" : ""}`} aria-label="Workflow" onClick={() => toggleLeftOverlay("workflow")}>◎</button>
+          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "knowledge" ? "active" : ""}`} aria-label="Wissen" onClick={() => toggleLeftOverlay("knowledge")}>✦</button>
+        </div>
+      ) : null}
+
+      {!isEditorFullscreen ? (
+        <div className={`floating-rail floating-rail--top ${showTopRail ? "is-revealed" : "is-dormant"}`} aria-label="Editor-Steuerung">
+          <span className={`floating-status-pill ${showFloatingStatus ? "is-visible" : "is-idle"}`} title={saveState}>
+            {saveState}
+          </span>
+          <button className="icon-button top-icon top-icon--save" type="button" aria-label="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>💾</button>
+          <button type="button" className={`icon-button top-icon top-icon--mode ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" onClick={() => switchEditorMode("rich")}>✍</button>
+          <button type="button" className={`icon-button top-icon top-icon--mode ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" onClick={() => switchEditorMode("markdown")}>#</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility ${showWritingTools ? "active" : ""}`} aria-label={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} onClick={() => setShowWritingTools((previous) => !previous)}>✚</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility ${showEditorHelp ? "active" : ""}`} aria-label={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} onClick={() => setShowEditorHelp((previous) => !previous)}>?</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility ${showEditorSettings ? "active" : ""}`} aria-label={showEditorSettings ? "⚙ Einstellungen ausblenden" : "⚙ Einstellungen"} onClick={() => setShowEditorSettings((previous) => !previous)}>⚙</button>
+          <button type="button" className={`icon-button top-icon top-icon--focus ${isEditorFullscreen ? "active" : ""}`} aria-label={isEditorFullscreen ? "Vollbild aus" : "Vollbild"} aria-pressed={isEditorFullscreen} onClick={() => setIsEditorFullscreen((previous) => !previous)}>⛶</button>
+        </div>
+      ) : null}
+
+      {!isEditorFullscreen ? (
+        <div className="floating-rail floating-rail--right" aria-label="Kontext">
+          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "context" ? "active" : ""}`} aria-label="Wiki-Links" onClick={() => toggleRightOverlay("context")}>🔗</button>
+          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "anchor" ? "active" : ""}`} aria-label="Anker" onClick={() => toggleRightOverlay("anchor")}>⚓</button>
+          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "clipboard" ? "active" : ""}`} aria-label="Clipboard" onClick={() => toggleRightOverlay("clipboard")}>📋</button>
+        </div>
+      ) : null}
 
       <main
         className={`workspace-grid ${isEditorFullscreen ? "editor-fullscreen" : ""}`}
         data-fullscreen-backdrop={editorAppearance.fullscreenBackdrop}
       >
-        <aside className="workspace-panel left-panel">
-          <SidebarSection eyebrow="Projekt" title="Arbeitsraum" actionLabel="+ Projekt" onAction={createProject}>
+        <aside className={`workspace-panel left-panel ${showLeftOverlay ? "is-open" : ""}`}>
+          <div className="overlay-panel-header">
+            <strong>{activeLeftSection === "project" ? "Projekt" : activeLeftSection === "book" ? "Buch" : activeLeftSection === "chapter" ? "Kapitel" : activeLeftSection === "workflow" ? "Workflow" : "Wissen"}</strong>
+            <button type="button" className="icon-button" aria-label="Navigation schließen" onClick={() => setShowLeftOverlay(false)}>×</button>
+          </div>
+          <SidebarSection sectionRef={projectSectionRef} className={leftSectionClass("project")} eyebrow="Projekt" title="Arbeitsraum" actionLabel="+ Projekt" onAction={createProject}>
             {currentProject ? (
               <>
                 <button
@@ -1741,53 +2280,65 @@ function App() {
                       ))}
                   </div>
                 ) : null}
-                <div className="book-meta-card">
-                  <div className="context-card-header">
-                    <strong>Projektdetails</strong>
-                    <span className="knowledge-chip">aktiv</span>
-                  </div>
-                  {showProjectEdit ? (
-                    <>
-                      <div className="detail-card-toolbar">
-                        <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(false)}>
-                          Fertig
+                <div className="detail-toggle-row">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    aria-label="Projektdetails"
+                    onClick={() => setShowProjectDetails((previous) => !previous)}
+                  >
+                    {showProjectDetails ? "Details schließen" : "Details"}
+                  </button>
+                </div>
+                {showProjectDetails ? (
+                  <div className="book-meta-card">
+                    <div className="context-card-header">
+                      <strong>Projektdetails</strong>
+                      <span className="knowledge-chip">aktiv</span>
+                    </div>
+                    {showProjectEdit ? (
+                      <>
+                        <div className="detail-card-toolbar">
+                          <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(false)}>
+                            Fertig
+                          </button>
+                        </div>
+                        <label className="editor-setting">
+                          <span>Titel</span>
+                          <input
+                            value={currentProject.title || ""}
+                            onChange={(event) => patchLocalProject(currentProject.id, { title: event.target.value })}
+                            onBlur={(event) => updateProject(currentProject.id, { title: event.target.value })}
+                          />
+                        </label>
+                        <label className="editor-setting">
+                          <span>Projektbeschreibung</span>
+                          <textarea
+                            rows="3"
+                            value={currentProject.description || ""}
+                            placeholder="Worum geht es in diesem Projekt?"
+                            onChange={(event) => patchLocalProject(currentProject.id, { description: event.target.value })}
+                            onBlur={(event) => updateProject(currentProject.id, { description: event.target.value })}
+                          />
+                        </label>
+                      </>
+                    ) : (
+                      <div className="detail-card-summary">
+                        <p>{currentProject.description || "Ohne Beschreibung"}</p>
+                        <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(true)}>
+                          Projekt ändern
                         </button>
                       </div>
-                      <label className="editor-setting">
-                        <span>Titel</span>
-                        <input
-                          value={currentProject.title || ""}
-                          onChange={(event) => patchLocalProject(currentProject.id, { title: event.target.value })}
-                          onBlur={(event) => updateProject(currentProject.id, { title: event.target.value })}
-                        />
-                      </label>
-                      <label className="editor-setting">
-                        <span>Projektbeschreibung</span>
-                        <textarea
-                          rows="3"
-                          value={currentProject.description || ""}
-                          placeholder="Worum geht es in diesem Projekt?"
-                          onChange={(event) => patchLocalProject(currentProject.id, { description: event.target.value })}
-                          onBlur={(event) => updateProject(currentProject.id, { description: event.target.value })}
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <div className="detail-card-summary">
-                      <p>{currentProject.description || "Ohne Beschreibung"}</p>
-                      <button type="button" className="ghost-button" onClick={() => setShowProjectEdit(true)}>
-                        Projekt ändern
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="empty-note">Noch kein Projekt ausgewaehlt.</p>
             )}
           </SidebarSection>
 
-          <SidebarSection eyebrow="Buch" title={projectDetail?.project?.title || "Noch kein Projekt"} actionLabel="+ Buch" onAction={createBook}>
+          <SidebarSection sectionRef={bookSectionRef} className={leftSectionClass("book")} eyebrow="Buch" title={projectDetail?.project?.title || "Noch kein Projekt"} actionLabel="+ Buch" onAction={createBook}>
             {currentBook ? (
               <>
                 <button
@@ -1822,82 +2373,94 @@ function App() {
                       ))}
                   </div>
                 ) : null}
-                <div className="book-meta-card">
-                  <div className="context-card-header">
-                    <strong>Buchdetails</strong>
-                    <span className="knowledge-chip">{currentBook.visibility}</span>
-                  </div>
-                  {showBookEdit ? (
-                    <>
-                      <div className="detail-card-toolbar">
-                        <button type="button" className="ghost-button" onClick={() => setShowBookEdit(false)}>
-                          Fertig
-                        </button>
-                      </div>
-                      <label className="editor-setting">
-                        <span>Titel</span>
-                        <input
-                          value={currentBook.title || ""}
-                          onChange={(event) => patchLocalBook(currentBook.id, { title: event.target.value })}
-                          onBlur={(event) => updateBook(currentBook.id, { title: event.target.value })}
-                        />
-                      </label>
-                      <label className="editor-setting">
-                        <span>Beschreibung</span>
-                        <textarea
-                          rows="3"
-                          value={currentBook.subtitle || ""}
-                          placeholder="Kurzbeschreibung oder Positionierung des Buchs"
-                          onChange={(event) => patchLocalBook(currentBook.id, { subtitle: event.target.value })}
-                          onBlur={(event) => updateBook(currentBook.id, { subtitle: event.target.value })}
-                        />
-                      </label>
-                      <div className="book-meta-grid">
+                <div className="detail-toggle-row">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    aria-label="Buchdetails"
+                    onClick={() => setShowBookDetails((previous) => !previous)}
+                  >
+                    {showBookDetails ? "Details schließen" : "Details"}
+                  </button>
+                </div>
+                {showBookDetails ? (
+                  <div className="book-meta-card">
+                    <div className="context-card-header">
+                      <strong>Buchdetails</strong>
+                      <span className="knowledge-chip">{currentBook.visibility}</span>
+                    </div>
+                    {showBookEdit ? (
+                      <>
+                        <div className="detail-card-toolbar">
+                          <button type="button" className="ghost-button" onClick={() => setShowBookEdit(false)}>
+                            Fertig
+                          </button>
+                        </div>
                         <label className="editor-setting">
-                          <span>Autor</span>
+                          <span>Titel</span>
                           <input
-                            value={currentBook.author || ""}
-                            placeholder="Autor oder Arbeitstitel"
-                            onChange={(event) => patchLocalBook(currentBook.id, { author: event.target.value })}
-                            onBlur={(event) => updateBook(currentBook.id, { author: event.target.value })}
+                            value={currentBook.title || ""}
+                            onChange={(event) => patchLocalBook(currentBook.id, { title: event.target.value })}
+                            onBlur={(event) => updateBook(currentBook.id, { title: event.target.value })}
                           />
                         </label>
                         <label className="editor-setting">
-                          <span>Sichtbarkeit</span>
-                          <select
-                            value={currentBook.visibility || "private"}
-                            onChange={(event) => {
-                              patchLocalBook(currentBook.id, { visibility: event.target.value });
-                              void updateBook(currentBook.id, { visibility: event.target.value });
-                            }}
-                          >
-                            <option value="private">private</option>
-                            <option value="shared">shared</option>
-                            <option value="public">public</option>
-                          </select>
+                          <span>Beschreibung</span>
+                          <textarea
+                            rows="3"
+                            value={currentBook.subtitle || ""}
+                            placeholder="Kurzbeschreibung oder Positionierung des Buchs"
+                            onChange={(event) => patchLocalBook(currentBook.id, { subtitle: event.target.value })}
+                            onBlur={(event) => updateBook(currentBook.id, { subtitle: event.target.value })}
+                          />
                         </label>
+                        <div className="book-meta-grid">
+                          <label className="editor-setting">
+                            <span>Autor</span>
+                            <input
+                              value={currentBook.author || ""}
+                              placeholder="Autor oder Arbeitstitel"
+                              onChange={(event) => patchLocalBook(currentBook.id, { author: event.target.value })}
+                              onBlur={(event) => updateBook(currentBook.id, { author: event.target.value })}
+                            />
+                          </label>
+                          <label className="editor-setting">
+                            <span>Sichtbarkeit</span>
+                            <select
+                              value={currentBook.visibility || "private"}
+                              onChange={(event) => {
+                                patchLocalBook(currentBook.id, { visibility: event.target.value });
+                                void updateBook(currentBook.id, { visibility: event.target.value });
+                              }}
+                            >
+                              <option value="private">private</option>
+                              <option value="shared">shared</option>
+                              <option value="public">public</option>
+                            </select>
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="detail-card-summary">
+                        <p>{currentBook.subtitle || "Ohne Beschreibung"}</p>
+                        <div className="detail-card-meta">
+                          <span className="knowledge-chip">{currentBook.author || "ohne Autor"}</span>
+                          <span className="knowledge-chip">{currentBook.visibility || "private"}</span>
+                        </div>
+                        <button type="button" className="ghost-button" onClick={() => setShowBookEdit(true)}>
+                          Buch ändern
+                        </button>
                       </div>
-                    </>
-                  ) : (
-                    <div className="detail-card-summary">
-                      <p>{currentBook.subtitle || "Ohne Beschreibung"}</p>
-                      <div className="detail-card-meta">
-                        <span className="knowledge-chip">{currentBook.author || "ohne Autor"}</span>
-                        <span className="knowledge-chip">{currentBook.visibility || "private"}</span>
-                      </div>
-                      <button type="button" className="ghost-button" onClick={() => setShowBookEdit(true)}>
-                        Buch ändern
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="empty-note">Noch kein Buch ausgewaehlt.</p>
             )}
           </SidebarSection>
 
-          <SidebarSection eyebrow="Kapitel" title={bookTitle} actionLabel="+ Kapitel" onAction={createChapter}>
+          <SidebarSection sectionRef={chapterSectionRef} className={leftSectionClass("chapter")} eyebrow="Kapitel" title={bookTitle} actionLabel="+ Kapitel" onAction={createChapter}>
             <div className="chapter-list">
               {(bookBundle?.chapters || []).map((chapter) => (
                 <button
@@ -1938,7 +2501,7 @@ function App() {
             </div>
           </SidebarSection>
 
-          <SidebarSection eyebrow="Workflow" title="Workflow-Boxen" actionLabel="+ Box" onAction={() => createWorkflowBox()}>
+          <SidebarSection sectionRef={workflowSectionRef} className={leftSectionClass("workflow")} eyebrow="Workflow" title="Workflow-Boxen" actionLabel="+ Box" onAction={() => createWorkflowBox()}>
             {showWorkflowSuggestionCloud ? (
               <div className="workflow-suggestion-cloud">
                 {workflowSuggestions.map(({ box, score, reasons }) => (
@@ -2150,7 +2713,7 @@ function App() {
             </div>
           </SidebarSection>
 
-          <SidebarSection eyebrow="Wissen" title="Wissensbank" actionLabel="+ Eintrag" onAction={createKnowledgeItem}>
+          <SidebarSection sectionRef={knowledgeSectionRef} className={leftSectionClass("knowledge")} eyebrow="Wissen" title="Wissensbank" actionLabel="+ Eintrag" onAction={createKnowledgeItem}>
             <div className="knowledge-list compact">
               <input
                 value={knowledgeQuery}
@@ -2246,115 +2809,73 @@ function App() {
         </aside>
 
         <section className="editor-panel">
-          {isEditorFullscreen ? (
-            <button
-              type="button"
-              className="fullscreen-exit-button"
-              aria-label="Fullscreen verlassen"
-              onClick={() => setIsEditorFullscreen(false)}
-            >
-              ⎋
-            </button>
+          {!isEditorFullscreen ? (
+            <div
+              className="editor-top-hover-zone"
+              aria-hidden="true"
+              onMouseEnter={revealEditorHeader}
+              onMouseLeave={hideEditorHeaderSoon}
+            />
           ) : null}
-          <div className="editor-header">
-            <div>
-              <div className="panel-eyebrow">Editor</div>
-              <input
-                className="chapter-title-input"
-                value={chapterDraft.title}
-                onChange={(event) => setChapterDraft((previous) => ({ ...previous, title: event.target.value }))}
-                placeholder="Kapitelueberschrift"
-                disabled={!currentChapter}
-              />
-            </div>
-            <div className="editor-actions">
-              <div className="editor-action-group editor-action-group--chrome">
-                <button
-                  type="button"
-                  className="ghost-button"
-                  aria-expanded={showEditorHelp}
-                  onClick={() => setShowEditorHelp((previous) => !previous)}
-                >
-                  {showEditorHelp ? "Hilfe ausblenden" : "Hilfe"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  aria-expanded={showEditorSettings}
-                  onClick={() => setShowEditorSettings((previous) => !previous)}
-                >
-                  {showEditorSettings ? "⚙ Einstellungen ausblenden" : "⚙ Einstellungen"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  aria-pressed={isEditorFullscreen}
-                  onClick={() => setIsEditorFullscreen((previous) => !previous)}
-                >
-                  {isEditorFullscreen ? "Vollbild aus" : "Vollbild"}
-                </button>
+          <div
+            className={`editor-header-shell ${!isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings) ? "is-visible" : ""}`}
+            onMouseEnter={revealEditorHeader}
+            onMouseLeave={hideEditorHeaderSoon}
+            onFocusCapture={revealEditorHeader}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                hideEditorHeaderSoon();
+              }
+            }}
+          >
+            <div className="editor-header">
+              <div className="chapter-header-stack">
+                <input
+                  className="chapter-title-input"
+                  value={chapterDraft.title}
+                  onChange={(event) => setChapterDraft((previous) => ({ ...previous, title: event.target.value }))}
+                  placeholder="Kapitelueberschrift"
+                  disabled={!currentChapter}
+                />
+                <input
+                  className="chapter-summary-input"
+                  value={chapterDraft.summary}
+                  onChange={(event) => setChapterDraft((previous) => ({ ...previous, summary: event.target.value }))}
+                  placeholder="Kapitel-Merker oder Kurzbeschreibung fuer deinen Schreibfluss"
+                  disabled={!currentChapter}
+                />
               </div>
-              <div className="editor-action-group editor-action-group--mode">
-                <div className="mode-switch" role="tablist" aria-label="Editor-Modus">
-                  <button
-                    type="button"
-                    className={`mode-button ${editorMode === "rich" ? "active" : ""}`}
-                    onClick={() => switchEditorMode("rich")}
-                  >
-                    Rich
+              <div className="editor-actions">
+                <div className={`editor-action-group editor-action-group--context ${hasSelection ? "is-awake" : "is-muted"}`}>
+                  <button type="button" className="secondary-button icon-button" aria-label="Anker setzen" onClick={() => createAnchor()} disabled={!hasSelection}>
+                    ⚓
                   </button>
-                  <button
-                    type="button"
-                    className={`mode-button ${editorMode === "markdown" ? "active" : ""}`}
-                    onClick={() => switchEditorMode("markdown")}
-                  >
-                    Markdown
+                  <button type="button" className="secondary-button icon-button" aria-label="In Clipboard uebernehmen" onClick={createClipboardItem} disabled={!hasSelection}>
+                    📋
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className={`ghost-button ${showWritingTools ? "active-ghost" : ""}`}
-                  aria-expanded={showWritingTools}
-                  onClick={() => setShowWritingTools((previous) => !previous)}
-                >
-                  {showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"}
-                </button>
+                {showWritingTools ? (
+                  <div className="editor-action-group editor-action-group--tools is-awake">
+                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Tabelle" onClick={insertTable} disabled={!currentChapter}>
+                      ▦
+                    </button>
+                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Zitat" onClick={toggleQuote} disabled={!currentChapter}>
+                      ❝
+                    </button>
+                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Fussnote" onClick={insertFootnote} disabled={!currentChapter}>
+                      †
+                    </button>
+                  </div>
+                ) : null}
               </div>
-              <div className={`editor-action-group editor-action-group--context ${hasSelection ? "is-awake" : "is-muted"}`}>
-                <button type="button" className="secondary-button" onClick={() => createAnchor()} disabled={!hasSelection}>
-                  Anker setzen
-                </button>
-                <button type="button" className="secondary-button" onClick={createClipboardItem} disabled={!hasSelection}>
-                  In Clipboard uebernehmen
-                </button>
-                {!hasSelection ? <span className="editor-selection-hint">Text markieren fuer Schnellaktionen.</span> : null}
-              </div>
-              {showWritingTools ? (
-                <div className="editor-action-group editor-action-group--tools is-awake">
-                  <button type="button" className="secondary-button subtle-button" onClick={insertTable} disabled={!currentChapter}>
-                    Tabelle
-                  </button>
-                  <button type="button" className="secondary-button subtle-button" onClick={toggleQuote} disabled={!currentChapter}>
-                    Zitat
-                  </button>
-                  <button type="button" className="secondary-button subtle-button" onClick={insertFootnote} disabled={!currentChapter}>
-                    Fussnote
-                  </button>
-                </div>
-              ) : null}
             </div>
-          </div>
-
-          <div className="editor-meta">
-            <span className="editor-meta-chip">{currentChapter ? `Aktiv: ${currentChapter.title}` : "Noch kein Kapitel aktiv"}</span>
-            <span className="editor-meta-chip">
-              {effectiveWorkflowBoxId
-                ? hasTemporaryAutoTarget
-                  ? `Auto-Ziel: ${activeWorkflowBox?.title || ""} · Basis: ${manualWorkflowBox?.title || ""}`
-                  : `Zielbox: ${activeWorkflowBox?.title || ""}`
-                : "Keine Workflow-Box gewaehlt"}
-            </span>
-            <span className="editor-meta-chip is-subtle">{editorMode === "markdown" ? "Modus · Markdown" : "Modus · Rich"}</span>
+            {editorMetaItems.length > 0 ? (
+              <div className="editor-meta">
+                {editorMetaItems.map((item) => (
+                  <span key={item} className="editor-meta-chip is-subtle">{item}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {selectionContext ? (
@@ -2392,6 +2913,11 @@ function App() {
                     <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
                       {hasTemporaryAutoTarget && activeWorkflowBox ? `Anker · ${activeWorkflowBox.title}` : "Anker"}
                     </button>
+                    {editorMode === "rich" ? (
+                      <button type="button" className="secondary-button" onClick={() => openReviewComposerFromSelection("comment")}>
+                        Kommentar
+                      </button>
+                    ) : null}
                     <button type="button" className="secondary-button" onClick={createClipboardItem}>
                       Clipboard
                     </button>
@@ -2437,162 +2963,6 @@ function App() {
             </div>
           ) : null}
 
-          {showEditorHelp ? (
-            <section className="editor-help" role="dialog" aria-label="Editor-Hilfe">
-              <div className="editor-help-header">
-                <div>
-                  <div className="panel-eyebrow">Editor-Hilfe</div>
-                  <strong>MVP-Referenz fuer Schreiben, Workflow und Einfuegen</strong>
-                </div>
-                <button type="button" className="ghost-button" onClick={() => setShowEditorHelp(false)}>
-                  Schliessen
-                </button>
-              </div>
-              <div className="editor-help-grid">
-                <article className="editor-help-card">
-                  <strong>Markdown-Modus</strong>
-                  <p>
-                    Aktuell voll unterstuetzt sind Ueberschriften, Listen, verschachtelte Listen, Zitate, Code-Fences,
-                    Trennlinien, harte Umbrueche, Escaping, Inline-Code, Fett, Kursiv, Durchgestrichen,
-                    `[[...]]`-Wiki-Links und einfache Pipe-Tabellen.
-                  </p>
-                </article>
-                <article className="editor-help-card">
-                  <strong>Rich-Editor</strong>
-                  <p>
-                    Der Tiptap-Teil verarbeitet die gespeicherten Strukturen und erkennt typische Schreibmuster wie
-                    Ueberschriften, Listen, Zitate, Code-Bloecke, Trennlinien und Tabellen. Abgetippte Pipe-Tabellen
-                    wie `| Kopf | Kopf |` werden beim Weiterschreiben automatisch in eine Rich-Tabelle uebernommen.
-                  </p>
-                </article>
-                <article className="editor-help-card">
-                  <strong>Clipboard & Slots</strong>
-                  <p>
-                    Markiere Text und uebernimm ihn ueber `In Clipboard uebernehmen`. Rechts kannst du Eintraege
-                    anpinnen, Slots `1-9` zuweisen und ueber `einfuegen` an der Cursorposition einsetzen. Im Rich-Editor
-                    gehen gepinnte Slots auch per `Cmd/Ctrl + Shift + 1-9`. Die Floating-Liste sammelt alle Snippets
-                    an einer Stelle und erlaubt schnelle Slot-Zuordnung ohne den Schreibfluss zu verlassen. Gefuellte
-                    Slot-Karten lassen sich auch direkt per Klick wieder einfuegen.
-                  </p>
-                </article>
-                <article className="editor-help-card">
-                  <strong>Workflow-Anker</strong>
-                  <p>
-                    Waehle links zuerst eine Workflow-Box. Die aktive Box erscheint als `Zielbox`. Wenn du danach Text
-                    markierst und `Anker setzen` klickst, wird die Passage genau dieser Workflow-Box zugeordnet. Im
-                    Workflow-Cockpit kannst du markierte Passagen auch direkt ohne Zusatzdialog verankern.
-                  </p>
-                </article>
-                <article className="editor-help-card">
-                  <strong>Tabellen-Werkzeuge</strong>
-                  <p>
-                    `Tabelle` legt schnell eine Grundstruktur an. Sobald der Cursor in einer Tabelle steht, erscheint
-                    direkt am Editor eine kontextuelle Table-Bar fuer Spalten, Zeilen, Kopfzeile und Loeschen.
-                  </p>
-                </article>
-                <article className="editor-help-card">
-                  <strong>Zitate & Fussnoten</strong>
-                  <p>
-                    `Zitat` schaltet Blockquotes um. `Fussnote` erzeugt im Rich-Editor eine Referenz samt Notizblock und
-                    im Markdown-Modus eine `[^1]`-Referenz mit passender Definition am Kapitelende.
-                  </p>
-                </article>
-              </div>
-            </section>
-          ) : null}
-
-          {showEditorSettings ? (
-            <section className="editor-settings" role="dialog" aria-label="Editor-Einstellungen">
-              <div className="editor-help-header">
-                <div>
-                  <div className="panel-eyebrow">Einstellungen</div>
-                  <strong>Look and Feel fuer konzentriertes Schreiben</strong>
-                </div>
-                <button type="button" className="ghost-button" onClick={() => setShowEditorSettings(false)}>
-                  Schliessen
-                </button>
-              </div>
-              <div className="editor-settings-grid">
-                <label className="editor-setting">
-                  <span>Schriftfamilie</span>
-                  <select value={editorAppearance.fontFamily} onChange={(event) => updateEditorAppearance("fontFamily", event.target.value)}>
-                    <option value="serif">Serif</option>
-                    <option value="sans">Sans</option>
-                    <option value="mono">Mono</option>
-                  </select>
-                </label>
-                <label className="editor-setting">
-                  <span>Schriftgroesse</span>
-                  <input
-                    type="range"
-                    min="16"
-                    max="24"
-                    step="1"
-                    value={editorAppearance.fontSize}
-                    onChange={(event) => updateEditorAppearance("fontSize", Number(event.target.value))}
-                  />
-                </label>
-                <label className="editor-setting">
-                  <span>Zeilenhoehe</span>
-                  <input
-                    type="range"
-                    min="1.5"
-                    max="2.2"
-                    step="0.05"
-                    value={editorAppearance.lineHeight}
-                    onChange={(event) => updateEditorAppearance("lineHeight", Number(event.target.value))}
-                  />
-                </label>
-                <label className="editor-setting">
-                  <span>Textbreite</span>
-                  <select
-                    value={editorAppearance.contentWidth}
-                    onChange={(event) => updateEditorAppearance("contentWidth", Number(event.target.value))}
-                  >
-                    <option value="720">Schmal</option>
-                    <option value="860">Standard</option>
-                    <option value="1040">Breit</option>
-                  </select>
-                </label>
-                <label className="editor-setting">
-                  <span>Vollbild-Breite</span>
-                  <select
-                    value={editorAppearance.fullscreenContentWidth}
-                    onChange={(event) => updateEditorAppearance("fullscreenContentWidth", Number(event.target.value))}
-                  >
-                    <option value="860">Kompakt</option>
-                    <option value="1040">Standard</option>
-                    <option value="1200">Breit</option>
-                    <option value="1360">Sehr breit</option>
-                  </select>
-                </label>
-                <label className="editor-setting">
-                  <span>Vollbild-Hintergrund</span>
-                  <select
-                    value={editorAppearance.fullscreenBackdrop}
-                    onChange={(event) => updateEditorAppearance("fullscreenBackdrop", event.target.value)}
-                  >
-                    <option value="linen">Leinen</option>
-                    <option value="paper">Papier</option>
-                    <option value="dusk">Dusk</option>
-                    <option value="night">Nacht</option>
-                  </select>
-                </label>
-                <label className="editor-setting">
-                  <span>Farbprofil</span>
-                  <select
-                    value={editorAppearance.surfacePreset}
-                    onChange={(event) => updateEditorAppearance("surfacePreset", event.target.value)}
-                  >
-                    <option value="warm">Warm</option>
-                    <option value="paper">Papier</option>
-                    <option value="night">Nacht</option>
-                  </select>
-                </label>
-              </div>
-            </section>
-          ) : null}
-
           <div
             className={`editor-frame surface-${editorAppearance.surfacePreset}`}
             style={editorSurfaceStyle}
@@ -2634,8 +3004,10 @@ function App() {
                   ref={editorRef}
                   chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
                   pinnedSlots={pinnedSlots}
+                  activeReviewCommentId={activeReviewCommentId}
                   onSelectionChange={setHasSelection}
                   onSelectionContextChange={applyEditorSelectionContext}
+                  onReviewCommentActivate={activateReviewComment}
                   onClipboardCapture={handleEditorCopy}
                   onDocumentChange={(nextDocument) =>
                     setChapterDraft((previous) => ({
@@ -2649,8 +3021,12 @@ function App() {
           </div>
         </section>
 
-        <aside className="workspace-panel right-panel">
-          <SidebarSection eyebrow="Kontext" title="Wiki-Links im Kapitel">
+        <aside className={`workspace-panel right-panel ${showRightOverlay ? "is-open" : ""}`}>
+          <div className="overlay-panel-header">
+            <strong>{activeRightSection === "context" ? "Wiki-Links" : activeRightSection === "anchor" ? "Anker" : "Clipboard"}</strong>
+            <button type="button" className="icon-button" aria-label="Kontext schließen" onClick={() => setShowRightOverlay(false)}>×</button>
+          </div>
+          <SidebarSection sectionRef={contextSectionRef} className={rightSectionClass("context")} eyebrow="Kontext" title="Wiki-Links im Kapitel">
             <div className="knowledge-context-list compact">
               {chapterKnowledgeMatches.length === 0 ? (
                 <p className="empty-note">Noch keine `[[...]]`-Referenzen im aktuellen Kapitel.</p>
@@ -2685,7 +3061,7 @@ function App() {
             </div>
           </SidebarSection>
 
-          <SidebarSection eyebrow="Anker" title="Aktuelle Textstelle">
+          <SidebarSection sectionRef={anchorSectionRef} className={rightSectionClass("anchor")} eyebrow="Anker" title="Aktuelle Textstelle">
             <div className="anchor-list">
               {anchors.length === 0 ? <p className="empty-note">Noch keine Anker fuer dieses Kapitel.</p> : null}
               {anchors.map((anchor) => (
@@ -2705,7 +3081,7 @@ function App() {
             </div>
           </SidebarSection>
 
-          <SidebarSection eyebrow="Workflow" title="Clipboard & Slots">
+          <SidebarSection sectionRef={clipboardSectionRef} className={rightSectionClass("clipboard")} eyebrow="Workflow" title="Clipboard & Slots">
             <div className="clipboard-summary">
               <span>
                 {clipboardItems.length} Eintraege · {pinnedSlots.length} Slots fixiert
@@ -2814,7 +3190,400 @@ function App() {
         </aside>
       </main>
 
-      {clipboardItems.length > 0 ? (
+      {showEditorHelp ? (
+        <section className="editor-help" role="dialog" aria-label="Editor-Hilfe">
+          <div className="editor-help-header">
+            <div>
+              <div className="panel-eyebrow">Editor-Hilfe</div>
+              <strong>MVP-Referenz fuer Schreiben, Workflow und Einfuegen</strong>
+            </div>
+            <button type="button" className="ghost-button" onClick={() => setShowEditorHelp(false)}>
+              Schliessen
+            </button>
+          </div>
+          <div className="editor-help-grid">
+            <article className="editor-help-card">
+              <strong>Markdown-Modus</strong>
+              <p>
+                Aktuell voll unterstuetzt sind Ueberschriften, Listen, verschachtelte Listen, Zitate, Code-Fences,
+                Trennlinien, harte Umbrueche, Escaping, Inline-Code, Fett, Kursiv, Durchgestrichen,
+                `[[...]]`-Wiki-Links und einfache Pipe-Tabellen.
+              </p>
+            </article>
+            <article className="editor-help-card">
+              <strong>Rich-Editor</strong>
+              <p>
+                Der Tiptap-Teil verarbeitet die gespeicherten Strukturen und erkennt typische Schreibmuster wie
+                Ueberschriften, Listen, Zitate, Code-Bloecke, Trennlinien und Tabellen. Abgetippte Pipe-Tabellen
+                wie `| Kopf | Kopf |` werden beim Weiterschreiben automatisch in eine Rich-Tabelle uebernommen.
+              </p>
+            </article>
+            <article className="editor-help-card">
+              <strong>Clipboard & Slots</strong>
+              <p>
+                Markiere Text und uebernimm ihn ueber `In Clipboard uebernehmen`. Rechts kannst du Eintraege
+                anpinnen, Slots `1-9` zuweisen und ueber `einfuegen` an der Cursorposition einsetzen. Im Rich-Editor
+                gehen gepinnte Slots auch per `Cmd/Ctrl + Shift + 1-9`. Die Floating-Liste sammelt alle Snippets
+                an einer Stelle und erlaubt schnelle Slot-Zuordnung ohne den Schreibfluss zu verlassen. Gefuellte
+                Slot-Karten lassen sich auch direkt per Klick wieder einfuegen.
+              </p>
+            </article>
+            <article className="editor-help-card">
+              <strong>Workflow-Anker</strong>
+              <p>
+                Waehle links zuerst eine Workflow-Box. Die aktive Box erscheint als `Zielbox`. Wenn du danach Text
+                markierst und `Anker setzen` klickst, wird die Passage genau dieser Workflow-Box zugeordnet. Im
+                Workflow-Cockpit kannst du markierte Passagen auch direkt ohne Zusatzdialog verankern.
+              </p>
+            </article>
+            <article className="editor-help-card">
+              <strong>Tabellen-Werkzeuge</strong>
+              <p>
+                `Tabelle` legt schnell eine Grundstruktur an. Sobald der Cursor in einer Tabelle steht, erscheint
+                direkt am Editor eine kontextuelle Table-Bar fuer Spalten, Zeilen, Kopfzeile und Loeschen.
+              </p>
+            </article>
+            <article className="editor-help-card">
+              <strong>Zitate & Fussnoten</strong>
+              <p>
+                `Zitat` schaltet Blockquotes um. `Fussnote` erzeugt im Rich-Editor eine Referenz samt Notizblock und
+                im Markdown-Modus eine `[^1]`-Referenz mit passender Definition am Kapitelende.
+              </p>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
+      {showEditorSettings ? (
+        <section className="editor-settings" role="dialog" aria-label="Editor-Einstellungen">
+          <div className="editor-help-header">
+            <div>
+              <div className="panel-eyebrow">Einstellungen</div>
+              <strong>Look and Feel fuer konzentriertes Schreiben</strong>
+            </div>
+            <button type="button" className="ghost-button" onClick={() => setShowEditorSettings(false)}>
+              Schliessen
+            </button>
+          </div>
+          <div className="editor-settings-grid">
+            <label className="editor-setting">
+              <span>Schriftfamilie</span>
+              <select value={editorAppearance.fontFamily} onChange={(event) => updateEditorAppearance("fontFamily", event.target.value)}>
+                <option value="serif">Serif</option>
+                <option value="sans">Sans</option>
+                <option value="mono">Mono</option>
+                <option value="google">Google Font</option>
+              </select>
+            </label>
+            {editorAppearance.fontFamily === "google" ? (
+              <>
+                <label className="editor-setting">
+                  <span>Google Font Preset</span>
+                  <select
+                    value={GOOGLE_FONT_PRESETS.includes(editorAppearance.googleFontName) ? editorAppearance.googleFontName : "__custom__"}
+                    onChange={(event) => {
+                      if (event.target.value !== "__custom__") {
+                        updateEditorAppearance("googleFontName", event.target.value);
+                      }
+                    }}
+                  >
+                    {GOOGLE_FONT_PRESETS.map((fontName) => (
+                      <option key={fontName} value={fontName}>
+                        {fontName}
+                      </option>
+                    ))}
+                    <option value="__custom__">Eigener Fontname</option>
+                  </select>
+                </label>
+                <label className="editor-setting">
+                  <span>Google Font Name</span>
+                  <input
+                    value={editorAppearance.googleFontName}
+                    placeholder="z. B. EB Garamond"
+                    onChange={(event) => updateEditorAppearance("googleFontName", event.target.value)}
+                  />
+                </label>
+              </>
+            ) : null}
+            <label className="editor-setting">
+              <span>Schriftgroesse</span>
+              <input
+                type="range"
+                min="16"
+                max="24"
+                step="1"
+                value={editorAppearance.fontSize}
+                onChange={(event) => updateEditorAppearance("fontSize", Number(event.target.value))}
+              />
+            </label>
+            <label className="editor-setting">
+              <span>Zeilenhoehe</span>
+              <input
+                type="range"
+                min="1.5"
+                max="2.2"
+                step="0.05"
+                value={editorAppearance.lineHeight}
+                onChange={(event) => updateEditorAppearance("lineHeight", Number(event.target.value))}
+              />
+            </label>
+            <label className="editor-setting">
+              <span>Textbreite</span>
+              <select
+                value={editorAppearance.contentWidth}
+                onChange={(event) => updateEditorAppearance("contentWidth", Number(event.target.value))}
+              >
+                <option value="640">Sehr schmal</option>
+                <option value="720">Schmal</option>
+                <option value="860">Standard</option>
+                <option value="960">Komfort</option>
+                <option value="1040">Breit</option>
+                <option value="1160">Sehr breit</option>
+              </select>
+            </label>
+            <label className="editor-setting">
+              <span>Vollbild-Breite</span>
+              <select
+                value={editorAppearance.fullscreenContentWidth}
+                onChange={(event) => updateEditorAppearance("fullscreenContentWidth", Number(event.target.value))}
+              >
+                <option value="860">Kompakt</option>
+                <option value="1040">Standard</option>
+                <option value="1200">Breit</option>
+                <option value="1360">Sehr breit</option>
+              </select>
+            </label>
+            <label className="editor-setting">
+              <span>Vollbild-Hintergrund</span>
+              <select
+                value={editorAppearance.fullscreenBackdrop}
+                onChange={(event) => updateEditorAppearance("fullscreenBackdrop", event.target.value)}
+              >
+                <option value="linen">Leinen</option>
+                <option value="paper">Papier</option>
+                <option value="dusk">Dusk</option>
+                <option value="night">Nacht</option>
+              </select>
+            </label>
+            <label className="editor-setting">
+              <span>Farbprofil</span>
+              <select
+                value={editorAppearance.surfacePreset}
+                onChange={(event) => updateEditorAppearance("surfacePreset", event.target.value)}
+              >
+                <option value="warm">Warm</option>
+                <option value="paper">Papier</option>
+                <option value="night">Nacht</option>
+              </select>
+            </label>
+            <label className="editor-setting">
+              <span>Caret-Farbe</span>
+              <input
+                type="color"
+                value={editorAppearance.caretColor}
+                onChange={(event) => updateEditorAppearance("caretColor", event.target.value)}
+              />
+            </label>
+          </div>
+        </section>
+      ) : null}
+
+      {showReviewComposer ? (
+        <section className="review-comment-composer" role="dialog" aria-label="Kommentar verfassen">
+          <div className="editor-help-header">
+            <div>
+              <div className="panel-eyebrow">Review</div>
+              <strong>Kommentar zur markierten Passage</strong>
+            </div>
+            <button type="button" className="ghost-button" onClick={closeReviewComposer}>
+              Schliessen
+            </button>
+          </div>
+          <div className="review-comment-composer-grid">
+            <label className="editor-setting">
+              <span>Typ</span>
+              <select
+                value={reviewCommentDraft.comment_type}
+                onChange={(event) =>
+                  setReviewCommentDraft((previous) => ({
+                    ...previous,
+                    comment_type: event.target.value,
+                  }))
+                }
+              >
+                {Object.entries(REVIEW_COMMENT_TYPE_META).map(([type, meta]) => (
+                  <option key={type} value={type}>
+                    {meta.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="editor-setting">
+              <span>Autor</span>
+              <input
+                value={reviewCommentDraft.author}
+                onChange={(event) =>
+                  setReviewCommentDraft((previous) => ({
+                    ...previous,
+                    author: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="editor-setting review-comment-composer-span">
+              <span>Markierte Passage</span>
+              <textarea rows="3" value={reviewCommentDraft.selected_text} readOnly />
+            </label>
+            <label className="editor-setting review-comment-composer-span">
+              <span>{reviewCommentTypeMeta(reviewCommentDraft.comment_type).label}</span>
+              <textarea
+                rows="4"
+                value={reviewCommentDraft.body}
+                placeholder={reviewCommentTypeMeta(reviewCommentDraft.comment_type).hint}
+                onChange={(event) =>
+                  setReviewCommentDraft((previous) => ({
+                    ...previous,
+                    body: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            {reviewCommentDraft.comment_type === "suggestion" ? (
+              <label className="editor-setting review-comment-composer-span">
+                <span>Ersatztext</span>
+                <textarea
+                  rows="4"
+                  value={reviewCommentDraft.suggested_text}
+                  placeholder='z. B. "Der neue Satzbau ist nun viel einfacher strukturiert und leichter lesbar."'
+                  onChange={(event) =>
+                    setReviewCommentDraft((previous) => ({
+                      ...previous,
+                      suggested_text: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+            <div className="review-comment-composer-actions">
+              <button type="button" className="secondary-button" onClick={createReviewComment}>
+                Kommentar anlegen
+              </button>
+              <button type="button" className="ghost-button" onClick={closeReviewComposer}>
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {activeReviewComment && reviewBubblePosition ? (
+        <section
+          className={`review-comment-bubble review-comment-bubble--${activeReviewComment.comment_type || "comment"}`}
+          role="dialog"
+          aria-label="Kommentar"
+          style={{
+            left: `${reviewBubblePosition.x}px`,
+            top: `${reviewBubblePosition.y}px`,
+          }}
+        >
+          <div className="review-comment-bubble-header">
+            <div>
+              <div className={`panel-eyebrow review-comment-type-pill review-comment-type-pill--${activeReviewComment.comment_type || "comment"}`}>
+                {reviewCommentTypeMeta(activeReviewComment.comment_type).label}
+              </div>
+              <strong>{activeReviewComment.author || "Review"}</strong>
+            </div>
+            <button type="button" className="ghost-button" onClick={() => activateReviewComment("")}>
+              ×
+            </button>
+          </div>
+          <small className="review-comment-bubble-meta">
+            {formatReviewTimestamp(activeReviewComment.created_at)}
+            {activeReviewComment.status !== "open" ? ` · ${activeReviewComment.status}` : ""}
+          </small>
+          <div className="review-comment-quote">{activeReviewComment.selected_text}</div>
+          {activeReviewComment.body ? <p>{activeReviewComment.body}</p> : null}
+          {activeReviewComment.suggested_text ? (
+            <div className="review-comment-suggestion">
+              <strong>Vorschlag</strong>
+              {isEditingReviewSuggestion ? (
+                <div className="review-comment-suggestion-editor">
+                  <textarea
+                    rows="5"
+                    value={reviewSuggestionDraft}
+                    onChange={(event) => setReviewSuggestionDraft(event.target.value)}
+                  />
+                  <div className="review-comment-suggestion-editor-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => applyReviewSuggestion(activeReviewComment, reviewSuggestionDraft)}
+                    >
+                      Uebernehmen
+                    </button>
+                    <button type="button" className="ghost-button" onClick={cancelReviewSuggestionEdit}>
+                      Abbrechen
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>{activeReviewComment.suggested_text}</p>
+              )}
+            </div>
+          ) : null}
+          <div className="review-comment-bubble-actions">
+            {activeReviewComment.comment_type === "suggestion" ? (
+              <>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => applyReviewSuggestion(activeReviewComment, activeReviewComment.suggested_text)}
+                >
+                  Uebernehmen
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => startReviewSuggestionEdit(activeReviewComment)}
+                >
+                  Anpassen
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => rejectReviewComment(activeReviewComment)}
+                >
+                  Ablehnen
+                </button>
+              </>
+            ) : null}
+            {activeReviewComment.comment_type === "delete_request" ? (
+              <>
+                <button type="button" className="secondary-button" onClick={() => applyDeleteRequest(activeReviewComment)}>
+                  Loeschen
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => rejectReviewComment(activeReviewComment)}
+                >
+                  Ablehnen
+                </button>
+              </>
+            ) : null}
+            {["comment", "todo", "warning"].includes(activeReviewComment.comment_type) ? (
+              <button type="button" className="secondary-button" onClick={() => resolveReviewComment(activeReviewComment)}>
+                {activeReviewComment.comment_type === "todo" ? "Erledigt" : "Loesen"}
+              </button>
+            ) : null}
+            <button type="button" className="ghost-button" onClick={() => removeReviewComment(activeReviewComment.id)}>
+              Kommentar loeschen
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {clipboardItems.length > 0 && !isEditorFullscreen ? (
         <button
           type="button"
           className={`clipboard-fab ${showClipboardPalette ? "active" : ""}`}
@@ -2827,7 +3596,7 @@ function App() {
         </button>
       ) : null}
 
-      {showClipboardPalette ? (
+      {showClipboardPalette && !isEditorFullscreen ? (
         <section id="clipboard-palette" className="clipboard-palette" role="dialog" aria-label="Clipboard-Liste">
           <div className="clipboard-palette-header">
             <div>

@@ -23,6 +23,7 @@ type Chapter struct {
 	ID              string `json:"id"`
 	BookID          string `json:"book_id"`
 	Title           string `json:"title"`
+	Summary         string `json:"summary"`
 	Position        int    `json:"position"`
 	MarkdownContent string `json:"markdown_content"`
 	EditorJSON      string `json:"editor_json"`
@@ -54,6 +55,24 @@ type Anchor struct {
 	ContextBefore string `json:"context_before"`
 	ContextAfter  string `json:"context_after"`
 	Note          string `json:"note"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type ReviewComment struct {
+	ID            string `json:"id"`
+	ChapterID     string `json:"chapter_id"`
+	CommentType   string `json:"comment_type"`
+	Author        string `json:"author"`
+	Body          string `json:"body"`
+	SuggestedText string `json:"suggested_text"`
+	SelectedText  string `json:"selected_text"`
+	StartOffset   int    `json:"start_offset"`
+	EndOffset     int    `json:"end_offset"`
+	ContextBefore string `json:"context_before"`
+	ContextAfter  string `json:"context_after"`
+	Status        string `json:"status"`
+	IsTodoDone    bool   `json:"is_todo_done"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }

@@ -1,6 +1,6 @@
-export default function SidebarSection({ eyebrow, title, actionLabel, onAction, children }) {
+export default function SidebarSection({ eyebrow, title, actionLabel, onAction, children, className = "", sectionRef }) {
   return (
-    <section className="panel-section">
+    <section ref={sectionRef} className={`panel-section ${className}`.trim()}>
       <div className="panel-section-header">
         <div>
           {eyebrow ? <div className="panel-eyebrow">{eyebrow}</div> : null}
