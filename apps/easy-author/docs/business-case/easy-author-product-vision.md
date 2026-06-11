@@ -89,3 +89,8 @@ easy-author kann sich vom internen Autorenwerkzeug zur Plattform für bezahlende
 - Agency/Team
 
 Dabei bleibt der Kern bewusst einfach: ein hervorragender Schreibraum mit starker Organisation.
+
+## Ergänzung: Atticus-inspirierte UX-Leitlinie
+
+Aus dem Atticus-Benchmark wird für easy-author folgende Leitlinie ergänzt: easy-author soll Autoren nicht nur beim Schreiben unterstützen, sondern den gesamten Weg vom Projektstart über Werkstruktur, Buchbausteine, Proofing und Exportvorbereitung führen. Die App bleibt dabei eigenständig: Markdown-nah, Tiptap-basiert, self-hosted und workflow-orientiert.
+

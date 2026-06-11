@@ -24,4 +24,3 @@ Dieses Paket bündelt die erste konzeptionelle Grundlage für **easy-author**: e
 
 - `easy-author-workflow-instances.md` – Workflow-Boxen, Anker, Clipboard und Autoren-Cockpit
 - `easy-author-storage-format-strategy.md` – Markdown-, JSON- und Hybrid-Speicherstrategie
-- `easy-author-author-strategy-audit.md` – Kassensturz der aktuellen UI, Autoren-Kernpfade, Reibungen und Priorisierung

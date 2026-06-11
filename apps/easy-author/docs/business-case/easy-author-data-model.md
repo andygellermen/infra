@@ -311,3 +311,51 @@ Pro Kapitel wird ein hybrides Modell empfohlen:
 ```
 
 Markdown bleibt das primäre Autoren- und Exportformat. Tiptap/ProseMirror JSON dient als Editor-Snapshot für die genaue Wiederherstellung von Editorzustand, Markierungen, Custom-Nodes und komplexeren Workflow-Verknüpfungen.
+
+## Ergänzung: Datenmodell für Atticus-inspirierte UX-Erweiterung
+
+Zusätzliche Modellfelder und Entities:
+
+### Project
+
+- status
+- last_opened_at
+
+### Book
+
+- work_type
+- theme_id
+- cover_asset_id
+
+### Chapter
+
+- section_type
+- status
+- is_included_in_export
+- is_visible_in_toc
+- is_sample_content
+
+### ReusableBookPage
+
+- id
+- project_id
+- title
+- page_type
+- content_markdown
+- content_json
+- is_global
+- created_at
+- updated_at
+
+### Theme
+
+- id
+- name
+- description
+- target
+- settings_json
+- created_at
+- updated_at
+
+Proofing-Checks können zunächst berechnet werden und müssen im nächsten Spike nicht zwingend persistent gespeichert werden.
+

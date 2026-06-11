@@ -108,3 +108,8 @@ Der Autor soll ein Buchprojekt anlegen, kapitelweise schreiben, Notizen/Personen
 - Team-/Verlagskonten
 - White-Label-Optionen
 - Cloud-Speicher pro Kunde
+
+## MVP-Erweiterung: UX-Spike 02
+
+Der MVP wird um einen zweiten UX-Spike erweitert. Dieser ergänzt Dashboard, Werktypen, Front/Body/Back-Matter-Struktur, Kapitelstatus, wiederverwendbare Buchseiten, Theme-Platzhalter und eine erste Proofing-/Export-Checkliste. Nicht enthalten sind echter PDF/EPUB/DOCX-Export, DOCX-Import, Benutzerverwaltung, Cloud-Sync und Monetarisierung.
+

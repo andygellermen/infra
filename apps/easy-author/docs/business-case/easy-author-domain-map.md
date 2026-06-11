@@ -242,3 +242,16 @@ Betreibt Benutzer, Rollen, Mandanten und Systemkonfiguration.
 - Role
 - Tenant
 - SystemSetting
+
+## Ergänzte Domänen aus UX-Spike 02
+
+Neue beziehungsweise konkretisierte Domänen:
+
+- Dashboard und Projektstart
+- Werktypen und Werkstatus
+- Werkstruktur mit Front Matter, Body, Back Matter und Fragmenten
+- Kapiteloptionen und Kapitelstatus
+- wiederverwendbare Buchseiten
+- Theme-Grundmodell
+- Proofing und Exportvorbereitung
+

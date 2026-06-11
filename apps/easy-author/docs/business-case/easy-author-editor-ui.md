@@ -344,3 +344,19 @@ Nicht favorisiert für den Start:
 
 - ProseMirror direkt als alleinige Editor-Implementierung
 - MDXEditor als langfristiger Kern
+
+## Ergänzung: Atticus-inspirierte UX-Erweiterung
+
+Die Editor-UI wird um eine stärkere Autoren-Studio-Struktur ergänzt:
+
+- Dashboard als Einstieg
+- Werktypen beim Projektstart
+- linke Sidebar mit Front Matter, Kapitel, Back Matter und Fragmenten
+- Kapitelstatus direkt in der Struktur sichtbar
+- Kapiteloptionen im Seitenpanel oder Dialog
+- rechte Sidebar mit Workflow-Boxen, Clipboard, Ankern und Proofing-Hinweisen
+- Theme-Platzhalter im Buchbereich
+- wiederverwendbare Buchseiten als eigener Navigationspunkt
+
+Der Tiptap-Schreibbereich bleibt ruhig und wird nicht durch Proofing- oder Exportlogik überfrachtet.
+

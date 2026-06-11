@@ -126,3 +126,8 @@ Jeder Export erzeugt einen Datensatz:
 ## 10. Vermeidungsstrategie
 
 PDF-Layout darf nicht zu früh perfektioniert werden. Der erste Schwerpunkt liegt auf zuverlässigem Export. Feintypografie, Normseiten und Druck-PDFs folgen als Ausbauphase.
+
+## Ergänzung: Exportvorbereitung vor Exportimplementierung
+
+Vor der eigentlichen Exportpipeline wird eine Proofing-/Export-Checkliste eingeführt. Diese prüft einfache Voraussetzungen wie Buchtitel, Autor, leere Kapitel, doppelte Kapiteltitel, TODOs, fehlendes Cover, fehlendes Impressum und Asset-Lizenzdaten. Der echte Export nach PDF, EPUB und DOCX bleibt eine spätere Umsetzungsstufe.
+

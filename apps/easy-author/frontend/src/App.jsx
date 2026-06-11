@@ -2186,11 +2186,10 @@ function App() {
     showLeftOverlay ||
     showRightOverlay ||
     showEditorHelp ||
-    showEditorSettings ||
     showReviewComposer ||
     showClipboardPalette ||
     Boolean(activeReviewCommentId);
-  const isWidgetFocusActive = showFocusScrim || showEditorHelp || showEditorSettings;
+  const isWidgetFocusActive = showFocusScrim || showEditorHelp;
   const showTopRail = !isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings || showFloatingStatus);
   const leftSectionClass = (section) =>
     `widget-panel-section ${activeLeftSection === section ? "is-active-widget is-selected" : "is-inactive-widget"}`;
