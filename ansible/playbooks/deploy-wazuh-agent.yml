@@ -1,15 +1,12 @@
 ---
-- name: Deploy Traefik Reverse Proxy
+- name: Deploy Wazuh agent for host monitoring
   hosts: localhost
-  #become: true
-  #gather_facts: false
+  connection: local
+  become: true
+  gather_facts: true
+
   vars_files:
     - "{{ lookup('ansible.builtin.first_found', {'files': ['secrets.yml', 'secrets.yaml'], 'paths': [playbook_dir ~ '/../secrets']}) }}"
 
-#  roles:
-#    - role: traefik
-
-  connection: local
-
   roles:
-    - traefik
+    - wazuh_agent

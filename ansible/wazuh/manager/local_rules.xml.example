@@ -1,0 +1,81 @@
+<group name="local,wordpress,infra,crowdsec,">
+  <rule id="100500" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="source.integration">crowdsec</field>
+    <description>CrowdSec blocked or flagged a source on $(agent.name).</description>
+    <group>crowdsec,attack,</group>
+  </rule>
+
+  <rule id="100501" level="12">
+    <if_sid>100500</if_sid>
+    <field name="crowdsec.scenario" type="pcre2">(?i)(wordpress|xmlrpc|wp-login|http-cve|http-probing)</field>
+    <description>CrowdSec detected a WordPress or HTTP attack pattern on $(agent.name): $(crowdsec.scenario) from $(crowdsec.value).</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1190</id>
+    </mitre>
+    <group>crowdsec,wordpress,attack,</group>
+  </rule>
+
+  <rule id="100510" level="14">
+    <if_group>syscheck</if_group>
+    <match type="pcre2">/var/lib/docker/volumes/wp_.*_html/_data/.*/wp-config\.php</match>
+    <description>WordPress critical config changed: wp-config.php on $(agent.name).</description>
+    <mitre>
+      <id>T1574</id>
+      <id>T1505</id>
+    </mitre>
+    <group>wordpress,fim,critical,</group>
+  </rule>
+
+  <rule id="100511" level="14">
+    <if_group>syscheck</if_group>
+    <match type="pcre2">/var/lib/docker/volumes/wp_.*_html/_data/.*/wp-content/uploads/.*\.php</match>
+    <description>PHP file appeared in WordPress uploads on $(agent.name).</description>
+    <mitre>
+      <id>T1505</id>
+      <id>T1105</id>
+    </mitre>
+    <group>wordpress,fim,webshell,critical,</group>
+  </rule>
+
+  <rule id="100512" level="13">
+    <if_group>syscheck</if_group>
+    <match type="pcre2">/var/lib/docker/volumes/wp_.*_html/_data/.*/mu-plugins/.*\.php</match>
+    <description>MU plugin changed in WordPress volume on $(agent.name).</description>
+    <mitre>
+      <id>T1505</id>
+    </mitre>
+    <group>wordpress,fim,persistence,</group>
+  </rule>
+
+  <rule id="100513" level="12">
+    <if_group>syscheck</if_group>
+    <match type="pcre2">/var/lib/docker/volumes/wp_.*_html/_data/.*/(themes|plugins)/.*\.php</match>
+    <description>Theme or plugin PHP changed in WordPress volume on $(agent.name).</description>
+    <mitre>
+      <id>T1505</id>
+    </mitre>
+    <group>wordpress,fim,code_change,</group>
+  </rule>
+
+  <rule id="100514" level="12" frequency="5" timeframe="300">
+    <if_matched_group>syscheck</if_matched_group>
+    <match type="pcre2">/var/lib/docker/volumes/wp_.*_html/_data/</match>
+    <description>Multiple WordPress file changes detected within 5 minutes on $(agent.name).</description>
+    <mitre>
+      <id>T1565</id>
+    </mitre>
+    <group>wordpress,fim,mass_change,</group>
+  </rule>
+
+  <rule id="100520" level="11">
+    <if_group>syscheck</if_group>
+    <match type="pcre2">/home/andy/infra/(ansible/hostvars|ansible/playbooks|scripts|data/traefik|data/crowdsec/config)/</match>
+    <description>Infra configuration or automation code changed on $(agent.name).</description>
+    <mitre>
+      <id>T1565</id>
+    </mitre>
+    <group>infra,fim,config_change,</group>
+  </rule>
+</group>

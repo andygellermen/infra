@@ -12,6 +12,19 @@ warn(){ echo "⚠️  $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
 extract_hostvar(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$2"; }
 extract_secret(){ awk -F': ' -v k="$1" '$1==k {gsub(/"/,"",$2); gsub(/[[:space:]]+$/, "", $2); print $2; exit}' "$2"; }
+resolve_secrets_file() {
+  local candidate
+  for candidate in \
+    "$ROOT_DIR/ansible/secrets/secrets.yml" \
+    "$ROOT_DIR/ansible/secrets/secrets.yaml"
+  do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
 
 usage() {
   cat <<USAGE
@@ -149,6 +162,16 @@ hostvars_has_wp_frontend_auth() {
   grep -Eq "^[[:space:]]*scope:[[:space:]]*['\"]?frontend['\"]?[[:space:]]*$" "$hostvars_file"
 }
 
+hostvars_has_wp_xmlrpc_protection_off() {
+  local hostvars_file="$1"
+  grep -Eq "^[[:space:]]*wp_xmlrpc_protection:[[:space:]]*['\"]?off['\"]?[[:space:]]*$" "$hostvars_file"
+}
+
+hostvars_has_wp_xmlrpc_allowlist() {
+  local hostvars_file="$1"
+  grep -Eq "^[[:space:]]*wp_xmlrpc_protection:[[:space:]]*['\"]?allowlist['\"]?[[:space:]]*$" "$hostvars_file"
+}
+
 wait_for_container_running() {
   local container="$1" timeout="${2:-60}" waited=0
   while (( waited < timeout )); do
@@ -162,8 +185,8 @@ wait_for_container_running() {
 }
 
 run_post_restore_checks() {
-  local container="$1" domain="$2" frontend_auth_expected="${3:-0}"
-  local headers="" first_status="" location="" public_result="" public_status="" public_redirects="" browser_public_result=""
+  local container="$1" domain="$2" frontend_auth_expected="${3:-0}" xmlrpc_guard_check_mode="${4:-strict}"
+  local headers="" first_status="" location="" public_result="" public_status="" public_redirects="" browser_public_result="" xmlrpc_status=""
 
   info "Starte Post-Restore-Selbsttest"
 
@@ -233,6 +256,26 @@ run_post_restore_checks() {
   else
     warn "Öffentlicher HTTPS-Check konnte nicht ausgeführt werden"
   fi
+
+  case "$xmlrpc_guard_check_mode" in
+    strict)
+      xmlrpc_status="$(curl -k -sS -o /dev/null -w '%{http_code}' "https://${domain}/xmlrpc.php" 2>/dev/null || true)"
+      case "$xmlrpc_status" in
+        401|403)
+          ok "XML-RPC-Guard bestätigt (Status ${xmlrpc_status})"
+          ;;
+        "")
+          warn "XML-RPC-Guard konnte nicht geprüft werden"
+          ;;
+        *)
+          die "XML-RPC ist öffentlich erreichbar oder nicht sauber blockiert (Status ${xmlrpc_status})"
+          ;;
+      esac
+      ;;
+    skip)
+      info "XML-RPC-Guard-Selbsttest übersprungen (Hostvars verwenden allowlist/off)"
+      ;;
+  esac
 }
 
 extract_domain_from_sql() {
@@ -315,8 +358,8 @@ ensure_db_and_user_exists() {
   db_name="$(extract_hostvar wp_domain_db "$hostvars_file")"
   db_user="$(extract_hostvar wp_domain_usr "$hostvars_file")"
   db_pwd="$(extract_hostvar wp_domain_pwd "$hostvars_file")"
-  secrets_file="$ROOT_DIR/ansible/secrets/secrets.yml"
-  [[ -f "$secrets_file" ]] || die "Secrets-Datei fehlt für DB-Initialisierung: $secrets_file"
+  secrets_file="$(resolve_secrets_file || true)"
+  [[ -n "$secrets_file" && -f "$secrets_file" ]] || die "Secrets-Datei fehlt für DB-Initialisierung: $ROOT_DIR/ansible/secrets/secrets.yml oder secrets.yaml"
 
   mysql_root_password="$(extract_secret mysql_root_password "$secrets_file")"
   [[ -n "$mysql_root_password" ]] || die "mysql_root_password fehlt in $secrets_file"
@@ -329,8 +372,8 @@ ensure_db_and_user_exists() {
 
 get_mysql_root_password() {
   local secrets_file mysql_root_password
-  secrets_file="$ROOT_DIR/ansible/secrets/secrets.yml"
-  [[ -f "$secrets_file" ]] || die "Secrets-Datei fehlt: $secrets_file"
+  secrets_file="$(resolve_secrets_file || true)"
+  [[ -n "$secrets_file" && -f "$secrets_file" ]] || die "Secrets-Datei fehlt: $ROOT_DIR/ansible/secrets/secrets.yml oder secrets.yaml"
   mysql_root_password="$(extract_secret mysql_root_password "$secrets_file")"
   [[ -n "$mysql_root_password" ]] || die "mysql_root_password fehlt in $secrets_file"
   printf '%s\n' "$mysql_root_password"
@@ -667,6 +710,10 @@ fi
 
 FRONTEND_AUTH_EXPECTED=0
 hostvars_has_wp_frontend_auth "$HOSTVARS" && FRONTEND_AUTH_EXPECTED=1
-run_post_restore_checks "$CONTAINER" "$DOMAIN" "$FRONTEND_AUTH_EXPECTED"
+XMLRPC_GUARD_CHECK_MODE="strict"
+if hostvars_has_wp_xmlrpc_protection_off "$HOSTVARS" || hostvars_has_wp_xmlrpc_allowlist "$HOSTVARS"; then
+  XMLRPC_GUARD_CHECK_MODE="skip"
+fi
+run_post_restore_checks "$CONTAINER" "$DOMAIN" "$FRONTEND_AUTH_EXPECTED" "$XMLRPC_GUARD_CHECK_MODE"
 
 ok "WordPress-Restore abgeschlossen"

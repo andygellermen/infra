@@ -17,6 +17,20 @@ extract_top_level_secret() {
   ' "$file"
 }
 
+resolve_infra_secrets_file() {
+  local root_dir="$1" candidate
+  for candidate in \
+    "$root_dir/ansible/secrets/secrets.yml" \
+    "$root_dir/ansible/secrets/secrets.yaml"
+  do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 setup_error_notification() {
   local script_name="$1"
   local root_dir="$2"
@@ -30,7 +44,7 @@ setup_error_notification() {
   INFRA_NOTIFY_SCRIPT_NAME="$script_name"
   INFRA_NOTIFY_ROOT_DIR="$root_dir"
   INFRA_NOTIFY_COMMAND_LINE="$command_line"
-  INFRA_NOTIFY_SECRETS_FILE="$root_dir/ansible/secrets/secrets.yml"
+  INFRA_NOTIFY_SECRETS_FILE="$(resolve_infra_secrets_file "$root_dir" || true)"
   INFRA_NOTIFY_HOSTNAME="$(hostname -f 2>/dev/null || hostname 2>/dev/null || printf 'unknown-host')"
   INFRA_NOTIFY_TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S %Z')"
   INFRA_NOTIFY_LOG_DIR="$root_dir/logs/error-notify"
@@ -51,8 +65,8 @@ __infra_notify_on_exit() {
     exit 0
   fi
 
-  if [[ ! -f "$INFRA_NOTIFY_SECRETS_FILE" ]]; then
-    echo "⚠️  Fehler-Notification übersprungen: Secrets-Datei fehlt: $INFRA_NOTIFY_SECRETS_FILE" >&2
+  if [[ -z "${INFRA_NOTIFY_SECRETS_FILE:-}" || ! -f "$INFRA_NOTIFY_SECRETS_FILE" ]]; then
+    echo "⚠️  Fehler-Notification übersprungen: Secrets-Datei fehlt: $INFRA_NOTIFY_ROOT_DIR/ansible/secrets/secrets.yml oder secrets.yaml" >&2
     exit "$rc"
   fi
 

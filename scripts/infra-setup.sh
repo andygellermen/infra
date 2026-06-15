@@ -105,6 +105,11 @@ deploy_stack() {
     -e "crowdsec_base_dir=$ROOT_DIR/data/crowdsec" \
     "$ANSIBLE_DIR/playbooks/deploy-crowdsec.yml"
 
+  log "Deploy Wazuh Agent (falls aktiviert)"
+  ansible-playbook \
+    -i "$ANSIBLE_DIR/inventory/hosts.ini" \
+    "$ANSIBLE_DIR/playbooks/deploy-wazuh-agent.yml"
+
   verify_domain_points_here "$portainer_domain"
 
   log "Deploy Portainer"
@@ -118,7 +123,7 @@ main() {
   require_root
   cd "$ROOT_DIR"
 
-  echo "🌙 Infra Initial-Setup (Docker, Ansible, MySQL, Traefik, Portainer, CrowdSec)"
+  echo "🌙 Infra Initial-Setup (Docker, Ansible, MySQL, Traefik, CrowdSec, Wazuh, Portainer)"
   read -r -p "Portainer Domain (z.B. portainer.example.com): " PORTAINER_DOMAIN
   [[ -n "${PORTAINER_DOMAIN:-}" ]] || die "Portainer Domain darf nicht leer sein."
 

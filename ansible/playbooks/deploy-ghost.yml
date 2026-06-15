@@ -6,7 +6,7 @@
   gather_facts: false
 
   vars_files:
-    - "../secrets/secrets.yml"
+    - "{{ lookup('ansible.builtin.first_found', {'files': ['secrets.yml', 'secrets.yaml'], 'paths': [playbook_dir ~ '/../secrets']}) }}"
     - "../hostvars/{{ target_domain }}.yml"
 
   roles:

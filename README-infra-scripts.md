@@ -453,7 +453,7 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 ### infra-update-all.sh
 
 **Beschreibung:**  
-Aktualisiert die zentralen Infrastruktur-Container per Ansible (`infra-mysql`, `infra-traefik`, CrowdSec, `infra-portainer`).
+Aktualisiert die zentralen Infrastruktur-Bausteine per Ansible (`infra-mysql`, `infra-traefik`, CrowdSec, Wazuh-Agent und `infra-portainer`).
 
 **Syntax:**
 ```bash
@@ -461,7 +461,7 @@ Aktualisiert die zentralen Infrastruktur-Container per Ansible (`infra-mysql`, `
 ./scripts/infra-update-all.sh --portainer-domain=portainer.example.com
 
 # Einzelne Dienste überspringen
-./scripts/infra-update-all.sh --skip-portainer --skip-crowdsec
+./scripts/infra-update-all.sh --skip-portainer --skip-crowdsec --skip-wazuh
 ```
 
 

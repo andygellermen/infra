@@ -10,11 +10,11 @@ setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/infra-update-all.sh [--skip-mysql] [--skip-traefik] [--skip-crowdsec] [--skip-portainer] [--portainer-domain=<fqdn>]
+  ./scripts/infra-update-all.sh [--skip-mysql] [--skip-traefik] [--skip-crowdsec] [--skip-wazuh] [--skip-portainer] [--portainer-domain=<fqdn>]
 
 Description:
   Führt ein Update/Redeploy der zentralen Infra-Container durch:
-  MySQL, Traefik, CrowdSec und Portainer.
+  MySQL, Traefik, CrowdSec, Wazuh-Agent und Portainer.
 USAGE
 }
 
@@ -25,6 +25,7 @@ ok(){ echo "✅ $*"; }
 SKIP_MYSQL=0
 SKIP_TRAEFIK=0
 SKIP_CROWDSEC=0
+SKIP_WAZUH=0
 SKIP_PORTAINER=0
 PORTAINER_DOMAIN=""
 
@@ -33,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     --skip-mysql) SKIP_MYSQL=1; shift ;;
     --skip-traefik) SKIP_TRAEFIK=1; shift ;;
     --skip-crowdsec) SKIP_CROWDSEC=1; shift ;;
+    --skip-wazuh) SKIP_WAZUH=1; shift ;;
     --skip-portainer) SKIP_PORTAINER=1; shift ;;
     --portainer-domain=*) PORTAINER_DOMAIN="${1#*=}"; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -64,6 +66,12 @@ if [[ "$SKIP_CROWDSEC" -eq 0 ]]; then
   info "Update CrowdSec"
   run_playbook "$ANSIBLE_DIR/playbooks/deploy-crowdsec.yml"
   ok "CrowdSec aktualisiert"
+fi
+
+if [[ "$SKIP_WAZUH" -eq 0 ]]; then
+  info "Update Wazuh-Agent"
+  run_playbook "$ANSIBLE_DIR/playbooks/deploy-wazuh-agent.yml"
+  ok "Wazuh-Agent aktualisiert"
 fi
 
 if [[ "$SKIP_PORTAINER" -eq 0 ]]; then

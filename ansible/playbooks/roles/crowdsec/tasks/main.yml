@@ -7,12 +7,160 @@
   loop:
     - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}"
     - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config"
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/acquis.d"
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications"
     - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data"
+    - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications"
+
+- name: Resolve CrowdSec notification settings
+  ansible.builtin.set_fact:
+    crowdsec_notification_sender_raw: "{{ crowdsec_notification_sender | default(infra_error_notify_from | default(ses_from | default('', true), true), true) }}"
+    crowdsec_notification_smtp_host: "{{ crowdsec_notification_smtp_host | default(ses_smtp_host | default('email-smtp.eu-central-1.amazonaws.com', true), true) }}"
+    crowdsec_notification_smtp_username: "{{ crowdsec_notification_smtp_username | default(ses_smtp_user | default('', true), true) }}"
+    crowdsec_notification_smtp_password: "{{ crowdsec_notification_smtp_password | default(ses_smtp_password | default('', true), true) }}"
+    crowdsec_notification_smtp_port: "{{ crowdsec_notification_smtp_port | default(ses_smtp_port | default(587, true), true) }}"
+    crowdsec_notification_email_auth_type: "{{ crowdsec_notification_email_auth_type | default('login', true) }}"
+    crowdsec_notification_email_subject: "{{ crowdsec_notification_email_subject | default('[crowdsec] Security Alert', true) }}"
+    crowdsec_notification_email_group_wait: "{{ crowdsec_notification_email_group_wait | default('30s', true) }}"
+    crowdsec_notification_email_group_threshold: "{{ crowdsec_notification_email_group_threshold | default(5, true) }}"
+    crowdsec_notification_file_path: "/var/lib/crowdsec/data/notifications/crowdsec_alerts.ndjson"
+    crowdsec_notification_file_host_path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications/crowdsec_alerts.ndjson"
+    crowdsec_notification_file_enabled_resolved: "{{ crowdsec_notification_file_enabled | default(wazuh_enabled | default(false), true) }}"
+    crowdsec_notification_email_recipients: >-
+      {{
+        (
+          crowdsec_notification_email_to
+          if (crowdsec_notification_email_to is defined and crowdsec_notification_email_to is sequence and crowdsec_notification_email_to is not string)
+          else
+          ([crowdsec_notification_email_to] if (crowdsec_notification_email_to is defined and crowdsec_notification_email_to is string and (crowdsec_notification_email_to | length > 0)) else [])
+        )
+        if (crowdsec_notification_email_to is defined)
+        else
+        ([infra_error_notify_to] if (infra_error_notify_to | default('', true) | length > 0) else [])
+      }}
+
+- name: Derive CrowdSec notification sender values
+  ansible.builtin.set_fact:
+    crowdsec_notification_sender_email: >-
+      {{
+        crowdsec_notification_sender_email
+        | default(
+            (
+              crowdsec_notification_sender_raw
+              | regex_replace('^.*<([^>]+)>.*$', '\\1')
+            )
+            if ('<' in crowdsec_notification_sender_raw and '>' in crowdsec_notification_sender_raw)
+            else crowdsec_notification_sender_raw,
+            true
+          )
+      }}
+    crowdsec_notification_sender_name: >-
+      {{
+        crowdsec_notification_sender_name
+        | default(
+            (
+              crowdsec_notification_sender_raw
+              | regex_replace('^\\s*([^<]+?)\\s*<[^>]+>\\s*$', '\\1')
+            )
+            if ('<' in crowdsec_notification_sender_raw and '>' in crowdsec_notification_sender_raw)
+            else 'CrowdSec',
+            true
+          )
+      }}
+    crowdsec_notification_email_encryption_type: >-
+      {{
+        crowdsec_notification_email_encryption_type
+        | default(
+            'ssltls' if (crowdsec_notification_smtp_port | int) == 465 else
+            'starttls' if (crowdsec_notification_smtp_port | int) == 587 else
+            'none',
+            true
+          )
+      }}
+
+- name: Resolve CrowdSec notification plugin list
+  ansible.builtin.set_fact:
+    crowdsec_notification_email_enabled: >-
+      {{
+        (crowdsec_notification_email_recipients | length > 0)
+        and (crowdsec_notification_smtp_host | length > 0)
+        and (crowdsec_notification_smtp_username | length > 0)
+        and (crowdsec_notification_smtp_password | length > 0)
+        and (crowdsec_notification_sender_email | length > 0)
+      }}
+
+- name: Build CrowdSec notification plugin list
+  ansible.builtin.set_fact:
+    crowdsec_notification_plugins: >-
+      {{
+        ([] + (['email_default'] if crowdsec_notification_email_enabled else []) + (['file_default'] if (crowdsec_notification_file_enabled_resolved | bool) else []))
+      }}
 
 - name: Ensure traefik network exists
   community.docker.docker_network:
     name: traefik
     state: present
+
+- name: Configure CrowdSec docker log acquisition
+  ansible.builtin.copy:
+    dest: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/acquis.d/docker.yaml"
+    mode: "0644"
+    content: |
+      source: docker
+      use_container_labels: true
+  register: crowdsec_docker_acquisition
+
+- name: Ensure CrowdSec alert file exists for external collectors
+  ansible.builtin.file:
+    path: "{{ crowdsec_notification_file_host_path }}"
+    state: touch
+    mode: "0644"
+  when: crowdsec_notification_file_enabled_resolved | bool
+
+- name: Remove CrowdSec email notification config when disabled
+  ansible.builtin.file:
+    path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/email.yaml"
+    state: absent
+  when: not crowdsec_notification_email_enabled
+  register: crowdsec_email_notification_removed
+
+- name: Render CrowdSec email notification config
+  ansible.builtin.template:
+    src: email.yaml.j2
+    dest: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/email.yaml"
+    mode: "0644"
+  when: crowdsec_notification_email_enabled
+  register: crowdsec_email_notification_config
+
+- name: Remove CrowdSec file notification config when disabled
+  ansible.builtin.file:
+    path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/file.yaml"
+    state: absent
+  when: not (crowdsec_notification_file_enabled_resolved | bool)
+  register: crowdsec_file_notification_removed
+
+- name: Render CrowdSec file notification config
+  ansible.builtin.template:
+    src: file.yaml.j2
+    dest: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/file.yaml"
+    mode: "0644"
+  when: crowdsec_notification_file_enabled_resolved | bool
+  register: crowdsec_file_notification_config
+
+- name: Remove CrowdSec notification profile when no plugin is enabled
+  ansible.builtin.file:
+    path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/profiles.yaml.local"
+    state: absent
+  when: (crowdsec_notification_plugins | length) == 0
+  register: crowdsec_notification_profile_removed
+
+- name: Render CrowdSec notification profile
+  ansible.builtin.template:
+    src: profiles.yaml.local.j2
+    dest: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/profiles.yaml.local"
+    mode: "0644"
+  when: (crowdsec_notification_plugins | length) > 0
+  register: crowdsec_notification_profile_config
 
 - name: Deploy CrowdSec LAPI
   community.docker.docker_container:
@@ -27,6 +175,95 @@
       - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data:/var/lib/crowdsec/data"
       - "/var/log:/var/log:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+- name: Wait for CrowdSec CLI to become ready
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - crowdsec
+      - cscli
+      - version
+  register: crowdsec_cli_ready
+  changed_when: false
+  retries: 15
+  delay: 2
+  until: crowdsec_cli_ready.rc == 0
+
+- name: Install recommended CrowdSec collections for Traefik and WordPress
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - crowdsec
+      - cscli
+      - collections
+      - install
+      - crowdsecurity/linux
+      - crowdsecurity/traefik
+      - crowdsecurity/apache2
+      - crowdsecurity/wordpress
+      - crowdsecurity/http-cve
+  register: crowdsec_collections_install
+  changed_when: >-
+    ('Nothing to do' not in ((crowdsec_collections_install.stdout | default('')) ~ (crowdsec_collections_install.stderr | default(''))))
+
+- name: Restart CrowdSec after acquisition or collection changes
+  community.docker.docker_container:
+    name: crowdsec
+    state: started
+    restart: true
+  when:
+    - crowdsec_docker_acquisition is changed
+      or crowdsec_collections_install is changed
+      or (crowdsec_email_notification_config is defined and crowdsec_email_notification_config is changed)
+      or (crowdsec_email_notification_removed is defined and crowdsec_email_notification_removed is changed)
+      or (crowdsec_file_notification_config is defined and crowdsec_file_notification_config is changed)
+      or (crowdsec_file_notification_removed is defined and crowdsec_file_notification_removed is changed)
+      or (crowdsec_notification_profile_config is defined and crowdsec_notification_profile_config is changed)
+      or (crowdsec_notification_profile_removed is defined and crowdsec_notification_profile_removed is changed)
+
+- name: Wait for CrowdSec CLI after restart
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - crowdsec
+      - cscli
+      - version
+  register: crowdsec_cli_ready_after_restart
+  changed_when: false
+  retries: 15
+  delay: 2
+  until: crowdsec_cli_ready_after_restart.rc == 0
+
+- name: Inspect CrowdSec email notification plugin
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - crowdsec
+      - cscli
+      - notifications
+      - inspect
+      - email_default
+  register: crowdsec_email_notification_inspect
+  changed_when: false
+  when: crowdsec_notification_email_enabled
+
+- name: Inspect CrowdSec file notification plugin
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - crowdsec
+      - cscli
+      - notifications
+      - inspect
+      - file_default
+  register: crowdsec_file_notification_inspect
+  changed_when: false
+  when: crowdsec_notification_file_enabled_resolved | bool
 
 - name: Ensure Traefik bouncer key exists
   ansible.builtin.shell: |

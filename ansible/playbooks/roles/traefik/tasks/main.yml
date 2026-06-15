@@ -65,7 +65,7 @@
     that:
       - "(traefik_active_autodns_account_key | length) == 0 or (traefik_active_autodns_account | length) > 0"
     fail_msg: >-
-      Der angeforderte tls_dns_account '{{ traefik_active_autodns_account_key }}' fehlt in ansible/secrets/secrets.yml unter traefik_autodns_accounts.
+      Der angeforderte tls_dns_account '{{ traefik_active_autodns_account_key }}' fehlt in ansible/secrets/secrets.yml oder secrets.yaml unter traefik_autodns_accounts.
 
 - name: Guard against missing AutoDNS credentials for active wildcard usage
   ansible.builtin.assert:
@@ -73,7 +73,7 @@
       - "(traefik_wildcard_account_keys | length) == 0 or ((traefik_active_autodns_account.user | default(traefik_autodns_user | default('', true), true) | length) > 0)"
       - "(traefik_wildcard_account_keys | length) == 0 or ((traefik_active_autodns_account.password | default(traefik_autodns_password | default('', true), true) | length) > 0)"
     fail_msg: >-
-      Wildcard-TLS ist aktiv, aber es fehlen AutoDNS-Zugangsdaten in ansible/secrets/secrets.yml.
+      Wildcard-TLS ist aktiv, aber es fehlen AutoDNS-Zugangsdaten in ansible/secrets/secrets.yml oder secrets.yaml.
 
 - name: Ensure Traefik runtime directories exist
   ansible.builtin.file:
@@ -116,6 +116,8 @@
       AUTODNS_TTL: "{{ traefik_active_autodns_account.ttl | default(traefik_autodns_ttl | default('600', true), true) | string }}"
     labels:
       traefik.enable: "true"
+      crowdsec.enable: "true"
+      crowdsec.labels.type: "traefik"
       traefik.http.middlewares.crowdsec-default.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
       traefik.http.middlewares.crowdsec-default.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.crowdsec-admin.forwardauth.address: "http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"

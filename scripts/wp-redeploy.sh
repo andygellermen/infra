@@ -279,9 +279,19 @@ run_playbook_quiet() {
   return 1
 }
 
+hostvars_has_wp_xmlrpc_protection_off() {
+  local hostvars_file="$1"
+  grep -Eq "^[[:space:]]*wp_xmlrpc_protection:[[:space:]]*['\"]?off['\"]?[[:space:]]*$" "$hostvars_file"
+}
+
+hostvars_has_wp_xmlrpc_allowlist() {
+  local hostvars_file="$1"
+  grep -Eq "^[[:space:]]*wp_xmlrpc_protection:[[:space:]]*['\"]?allowlist['\"]?[[:space:]]*$" "$hostvars_file"
+}
+
 run_post_redeploy_checks() {
-  local container="$1" domain="$2" frontend_auth_expected="${3:-0}"
-  local headers="" first_status="" location="" public_result="" public_status="" public_redirects="" browser_public_result=""
+  local container="$1" domain="$2" frontend_auth_expected="${3:-0}" xmlrpc_guard_check_mode="${4:-strict}"
+  local headers="" first_status="" location="" public_result="" public_status="" public_redirects="" browser_public_result="" xmlrpc_status=""
 
   info "Starte WordPress-Selbsttest nach Redeploy"
 
@@ -351,6 +361,26 @@ run_post_redeploy_checks() {
   else
     warn "Öffentlicher HTTPS-Check konnte nicht ausgeführt werden"
   fi
+
+  case "$xmlrpc_guard_check_mode" in
+    strict)
+      xmlrpc_status="$(curl -k -sS -o /dev/null -w '%{http_code}' "https://${domain}/xmlrpc.php" 2>/dev/null || true)"
+      case "$xmlrpc_status" in
+        401|403)
+          ok "XML-RPC-Guard bestätigt (Status ${xmlrpc_status})"
+          ;;
+        "")
+          warn "XML-RPC-Guard konnte nicht geprüft werden"
+          ;;
+        *)
+          die "XML-RPC ist öffentlich erreichbar oder nicht sauber blockiert (Status ${xmlrpc_status})"
+          ;;
+      esac
+      ;;
+    skip)
+      info "XML-RPC-Guard-Selbsttest übersprungen (Hostvars verwenden allowlist/off)"
+      ;;
+  esac
 }
 
 run_wp_auth_checks() {
@@ -454,6 +484,7 @@ HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
 [[ -f "$HOSTVARS_FILE" ]] || die "Hostvars nicht gefunden: $HOSTVARS_FILE"
 [[ -f "$HOSTVARS_NORMALIZER" ]] || die "Hostvars-Normalizer fehlt: $HOSTVARS_NORMALIZER"
 CONTAINER="wp-${DOMAIN//./-}"
+XMLRPC_GUARD_CHECK_MODE="strict"
 
 python3 "$HOSTVARS_NORMALIZER" "$HOSTVARS_FILE" "$DOMAIN"
 
@@ -482,9 +513,12 @@ entries = payload.get("entries") or []
 print("1" if any(item.get("scope") == "frontend" for item in entries) else "0")
 PY
 )"
+if hostvars_has_wp_xmlrpc_protection_off "$HOSTVARS_FILE" || hostvars_has_wp_xmlrpc_allowlist "$HOSTVARS_FILE"; then
+  XMLRPC_GUARD_CHECK_MODE="skip"
+fi
 
 run_playbook_quiet "WordPress-Redeploy abgeschlossen" \
   ansible-playbook -i "$INVENTORY" -e "target_domain=${DOMAIN}" "$PLAYBOOK" \
   || die "WordPress-Redeploy fehlgeschlagen"
 run_wp_auth_checks "$AUTH_TEST_FILE" || die "Passwort-Schutz-Selbsttest fehlgeschlagen"
-run_post_redeploy_checks "$CONTAINER" "$DOMAIN" "$FRONTEND_AUTH_EXPECTED"
+run_post_redeploy_checks "$CONTAINER" "$DOMAIN" "$FRONTEND_AUTH_EXPECTED" "$XMLRPC_GUARD_CHECK_MODE"

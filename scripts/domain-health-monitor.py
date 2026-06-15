@@ -148,6 +148,16 @@ def parse_top_level_scalars(path: Path) -> dict[str, str]:
     return values
 
 
+def resolve_secrets_file(root_dir: Path) -> Path:
+    for candidate in (
+        root_dir / "ansible" / "secrets" / "secrets.yml",
+        root_dir / "ansible" / "secrets" / "secrets.yaml",
+    ):
+        if candidate.exists():
+            return candidate
+    return root_dir / "ansible" / "secrets" / "secrets.yml"
+
+
 def parse_hostvars_file(path: Path) -> dict[str, Any]:
     payload: dict[str, Any] = {"traefik": {"aliases": []}}
     in_traefik = False
@@ -619,7 +629,7 @@ def classify_changes(
 
 
 def load_secrets(root_dir: Path) -> dict[str, Any]:
-    secrets_file = root_dir / "ansible" / "secrets" / "secrets.yml"
+    secrets_file = resolve_secrets_file(root_dir)
     return parse_top_level_scalars(secrets_file)
 
 
@@ -841,7 +851,7 @@ def main() -> int:
         if mail_cfg is None:
             print(
                 "Domain monitor: Mailversand uebersprungen, "
-                "infra_error_notify_to fehlt in ansible/secrets/secrets.yml"
+                "infra_error_notify_to fehlt in ansible/secrets/secrets.yml oder secrets.yaml"
             )
         else:
             subject = build_subject(

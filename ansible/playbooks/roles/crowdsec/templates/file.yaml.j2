@@ -1,0 +1,17 @@
+type: file
+name: file_default
+log_level: info
+format: |
+  {{range . -}}
+    {{$alert := . -}}
+    {{range .Decisions -}}
+      { "crowdsec": { "program": "crowdsec", "machine_id": "{{$alert.MachineID}}", "stop_at": "{{$alert.StopAt}}", "scenario": "{{.Scenario}}", "value": "{{.Value}}", "type": "{{.Type}}", "duration": "{{.Duration}}" } }
+    {{end -}}
+  {{ end -}}
+log_path: "{{ crowdsec_notification_file_path }}"
+rotate:
+  enabled: true
+  max_size: 20
+  max_files: 10
+  max_age: 14
+  compress: true

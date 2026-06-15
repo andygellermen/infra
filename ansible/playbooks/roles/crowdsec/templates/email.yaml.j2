@@ -1,0 +1,29 @@
+type: email
+name: email_default
+log_level: info
+timeout: 20s
+group_wait: {{ crowdsec_notification_email_group_wait }}
+group_threshold: {{ crowdsec_notification_email_group_threshold }}
+format: |
+  <html><body>
+  {{range . -}}
+    {{$alert := . -}}
+    {{range .Decisions -}}
+      <p><a href="https://www.whois.com/whois/{{.Value}}">{{.Value}}</a> wird <b>{{.Type}}</b> fuer <b>{{.Duration}}</b> aufgrund von <b>{{.Scenario}}</b> auf Host <b>{{$alert.MachineID}}</b>.</p>
+      <p><a href="https://app.crowdsec.net/cti/{{.Value}}">CrowdSec CTI</a></p>
+    {{end -}}
+  {{end -}}
+  </body></html>
+smtp_host: {{ crowdsec_notification_smtp_host }}
+smtp_username: {{ crowdsec_notification_smtp_username }}
+smtp_password: {{ crowdsec_notification_smtp_password }}
+smtp_port: {{ crowdsec_notification_smtp_port }}
+auth_type: {{ crowdsec_notification_email_auth_type }}
+sender_name: "{{ crowdsec_notification_sender_name }}"
+sender_email: {{ crowdsec_notification_sender_email }}
+email_subject: "{{ crowdsec_notification_email_subject }}"
+receiver_emails:
+{% for item in crowdsec_notification_email_recipients %}
+  - {{ item }}
+{% endfor %}
+encryption_type: "{{ crowdsec_notification_email_encryption_type }}"

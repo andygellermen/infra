@@ -1,0 +1,125 @@
+---
+- name: Skip Wazuh agent role when disabled
+  ansible.builtin.debug:
+    msg: "Wazuh-Agent ist deaktiviert (wazuh_enabled=false)."
+  when: not (wazuh_enabled | bool)
+
+- name: Deploy Wazuh agent
+  when: wazuh_enabled | bool
+  block:
+    - name: Assert Debian-family host
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: "Die Wazuh-Agent-Rolle ist aktuell nur fuer Debian/Ubuntu umgesetzt."
+
+    - name: Assert required Wazuh settings
+      ansible.builtin.assert:
+        that:
+          - (wazuh_manager | default('', true) | length) > 0
+        fail_msg: "Bitte mindestens `wazuh_manager` in `ansible/secrets/secrets.yml` oder `ansible/secrets/secrets.yaml` setzen."
+
+    - name: Resolve Wazuh settings
+      ansible.builtin.set_fact:
+        wazuh_registration_server_resolved: "{{ wazuh_registration_server | default(wazuh_manager, true) }}"
+        wazuh_agent_groups_resolved: >-
+          {{
+            wazuh_agent_groups
+            if (wazuh_agent_groups is sequence and wazuh_agent_groups is not string)
+            else [wazuh_agent_groups]
+          }}
+
+    - name: Install Wazuh apt prerequisites
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Download Wazuh repository key
+      ansible.builtin.get_url:
+        url: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+        dest: "/usr/share/keyrings/wazuh.asc"
+        mode: "0644"
+      register: wazuh_repo_key_download
+
+    - name: Dearmor Wazuh repository key
+      ansible.builtin.command:
+        argv:
+          - gpg
+          - --dearmor
+          - --yes
+          - --output
+          - /usr/share/keyrings/wazuh.gpg
+          - /usr/share/keyrings/wazuh.asc
+      changed_when: wazuh_repo_key_download is changed
+
+    - name: Configure Wazuh apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+        filename: "wazuh"
+        state: present
+        update_cache: true
+
+    - name: Install Wazuh agent package
+      ansible.builtin.apt:
+        name: wazuh-agent
+        state: present
+      register: wazuh_agent_package
+
+    - name: Hold Wazuh agent package
+      ansible.builtin.dpkg_selections:
+        name: wazuh-agent
+        selection: hold
+      when: wazuh_hold_package | bool
+
+    - name: Remove stale Wazuh enrollment password file when unset
+      ansible.builtin.file:
+        path: /var/ossec/etc/authd.pass
+        state: absent
+      when: (wazuh_registration_password | default('', true) | length) == 0
+
+    - name: Write Wazuh enrollment password file
+      ansible.builtin.copy:
+        dest: /var/ossec/etc/authd.pass
+        content: "{{ wazuh_registration_password }}\n"
+        owner: root
+        group: wazuh
+        mode: "0640"
+      when: (wazuh_registration_password | default('', true) | length) > 0
+      register: wazuh_authd_pass
+
+    - name: Render Wazuh agent configuration
+      ansible.builtin.template:
+        src: ossec.conf.j2
+        dest: /var/ossec/etc/ossec.conf
+        owner: root
+        group: wazuh
+        mode: "0640"
+      register: wazuh_ossec_conf
+
+    - name: Restart Wazuh agent after package or config changes
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        daemon_reload: true
+        enabled: true
+        state: restarted
+      when:
+        - wazuh_agent_package is changed or wazuh_ossec_conf is changed or (wazuh_authd_pass is defined and wazuh_authd_pass is changed)
+
+    - name: Ensure Wazuh agent is running
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        enabled: true
+        state: started
+
+    - name: Check Wazuh agent status
+      ansible.builtin.command:
+        argv:
+          - /var/ossec/bin/wazuh-control
+          - status
+      register: wazuh_agent_status
+      changed_when: false

@@ -257,6 +257,27 @@ In `v1.7.5` wurde der öffentliche HTTPS-Check in den WordPress-Skripten browser
 - `wp-redeploy.sh` und `wp-restore.sh` verwenden dafür jetzt einen echten `GET` statt eines `HEAD`-ähnlichen Checks
 - dadurch entstehen weniger Fehlalarme mit `404`, obwohl die Website im Browser korrekt erreichbar ist
 
+## XML-RPC-Schutz (neu)
+Die WordPress-Rolle blockiert `/xmlrpc.php` jetzt standardmäßig bereits auf Traefik-Ebene, bevor der Request WordPress erreicht.
+
+Standardverhalten:
+- neue Instanzen erhalten in den Hostvars automatisch `wp_xmlrpc_protection: "block"`
+- die Sperre greift auf HTTP und HTTPS
+- Alias-Domains werden ebenfalls erfasst
+- `wp-redeploy.sh` und `wp-restore.sh` prüfen den Guard nach dem Deploy aktiv mit
+
+Optionale Hostvars:
+
+```yaml
+wp_xmlrpc_protection: "block"   # block | allowlist | off
+wp_xmlrpc_allowed_cidrs: []
+```
+
+Empfehlung:
+- `block`: sicherer Default für normale WordPress-Seiten ohne Jetpack/Mobile-App/XML-RPC-Clients
+- `allowlist`: nur wenn ein externer XML-RPC-Client wirklich gebraucht wird; dann nur mit engen CIDRs
+- `off`: nur als bewusst dokumentierte Ausnahme
+
 ## Patch-Hinweis v1.7.6
 In `v1.7.6` wurde die Alias-Behandlung fuer WordPress an das Verhalten der Ghost-Instanzen angeglichen:
 

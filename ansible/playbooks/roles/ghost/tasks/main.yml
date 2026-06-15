@@ -53,7 +53,7 @@
       - ghost_native_analytics_tracker_token_effective | length > 0
     fail_msg: >-
       Ghost Native Analytics ist aktiv, aber das Profil '{{ ghost_native_analytics_profile_key }}'
-      ist unvollständig oder fehlt in ansible/secrets/secrets.yml unter ghost_native_analytics_profiles.
+      ist unvollständig oder fehlt in ansible/secrets/secrets.yml oder secrets.yaml unter ghost_native_analytics_profiles.
   when: ghost_native_analytics_enabled_effective
 
 - name: Create MySQL database for Ghost

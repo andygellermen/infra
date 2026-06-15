@@ -1,0 +1,80 @@
+---
+wazuh_enabled: false
+
+wazuh_manager: ""
+wazuh_manager_port: 1514
+wazuh_protocol: tcp
+wazuh_keep_alive_interval: 10
+wazuh_time_reconnect: 60
+
+wazuh_registration_enabled: true
+wazuh_registration_server: ""
+wazuh_registration_port: 1515
+wazuh_registration_password: ""
+wazuh_registration_ca_path: ""
+wazuh_registration_agent_certificate_path: ""
+wazuh_registration_agent_key_path: ""
+wazuh_registration_auto_method: "yes"
+wazuh_registration_delay_after_enrollment: 20
+wazuh_registration_use_source_ip: "no"
+
+wazuh_agent_name: "{{ ansible_facts['fqdn'] | default(ansible_facts['hostname'] | default(inventory_hostname)) }}"
+wazuh_agent_groups:
+  - infra-hosts
+  - docker
+  - wordpress
+
+wazuh_infra_root: "/home/andy/infra"
+wazuh_crowdsec_alert_file: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications/crowdsec_alerts.ndjson"
+
+wazuh_syscheck_frequency: 900
+wazuh_rootcheck_frequency: 43200
+wazuh_sca_interval: "12h"
+wazuh_syscollector_interval: "12h"
+wazuh_hold_package: true
+
+wazuh_labels:
+  infra_stack: "infra"
+  runtime: "docker"
+
+wazuh_syscheck_directories:
+  - path: "/etc,/usr/bin,/usr/sbin,/bin,/sbin"
+    check_all: "yes"
+  - path: "{{ wazuh_infra_root }}/ansible/hostvars,{{ wazuh_infra_root }}/ansible/playbooks,{{ wazuh_infra_root }}/scripts"
+    check_all: "yes"
+    report_changes: "yes"
+    realtime: "yes"
+  - path: "{{ wazuh_infra_root }}/data/traefik,{{ wazuh_infra_root }}/data/crowdsec/config"
+    check_all: "yes"
+    report_changes: "yes"
+    realtime: "yes"
+  - path: "/var/lib/docker/volumes/wp_*_html/_data"
+    check_all: "yes"
+    realtime: "yes"
+    restrict: "wp-config\\.php$|.*\\/mu-plugins\\/.*\\.php$|.*\\/uploads\\/.*\\.php$|.*\\/(themes|plugins)\\/.*\\.php$"
+
+wazuh_syscheck_ignore:
+  - "{{ wazuh_infra_root }}/ansible/secrets"
+  - "{{ wazuh_infra_root }}/data/traefik/acme/acme.json"
+  - "{{ wazuh_infra_root }}/data/crowdsec/data"
+
+wazuh_syscheck_ignore_regex:
+  - "\\.log$"
+  - "\\.tmp$"
+  - "\\.swp$"
+  - "~$"
+  - "/\\.git/"
+  - "\\.pyc$"
+
+wazuh_localfiles:
+  - location: "/var/log/auth.log"
+    log_format: "syslog"
+  - location: "/var/log/syslog"
+    log_format: "syslog"
+  - location: "/var/log/kern.log"
+    log_format: "syslog"
+  - location: "{{ wazuh_crowdsec_alert_file }}"
+    log_format: "json"
+    labels:
+      source.integration: "crowdsec"
+      source.stack: "infra"

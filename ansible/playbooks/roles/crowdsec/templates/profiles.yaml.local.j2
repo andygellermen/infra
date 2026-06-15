@@ -1,0 +1,7 @@
+name: infra_notification_forwarding
+filters:
+  - Alert.Remediation == true
+notifications:
+{% for item in crowdsec_notification_plugins %}
+  - {{ item }}
+{% endfor %}

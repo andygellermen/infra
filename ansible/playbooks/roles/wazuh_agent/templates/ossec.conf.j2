@@ -1,0 +1,107 @@
+<ossec_config>
+  <client>
+    <server>
+      <address>{{ wazuh_manager }}</address>
+      <port>{{ wazuh_manager_port }}</port>
+      <protocol>{{ wazuh_protocol }}</protocol>
+    </server>
+    <notify_time>{{ wazuh_keep_alive_interval }}</notify_time>
+    <time-reconnect>{{ wazuh_time_reconnect }}</time-reconnect>
+    <auto_restart>yes</auto_restart>
+{% if wazuh_registration_enabled %}
+    <enrollment>
+      <enabled>yes</enabled>
+      <manager_address>{{ wazuh_registration_server_resolved }}</manager_address>
+      <port>{{ wazuh_registration_port }}</port>
+      <agent_name>{{ wazuh_agent_name }}</agent_name>
+      <groups>{{ wazuh_agent_groups_resolved | join(',') }}</groups>
+{% if (wazuh_registration_ca_path | default('', true) | length) > 0 %}
+      <server_ca_path>{{ wazuh_registration_ca_path }}</server_ca_path>
+{% endif %}
+{% if (wazuh_registration_agent_certificate_path | default('', true) | length) > 0 %}
+      <agent_certificate_path>{{ wazuh_registration_agent_certificate_path }}</agent_certificate_path>
+{% endif %}
+{% if (wazuh_registration_agent_key_path | default('', true) | length) > 0 %}
+      <agent_key_path>{{ wazuh_registration_agent_key_path }}</agent_key_path>
+{% endif %}
+{% if (wazuh_registration_password | default('', true) | length) > 0 %}
+      <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
+{% endif %}
+      <auto_method>{{ wazuh_registration_auto_method }}</auto_method>
+      <delay_after_enrollment>{{ wazuh_registration_delay_after_enrollment }}</delay_after_enrollment>
+      <use_source_ip>{{ wazuh_registration_use_source_ip }}</use_source_ip>
+    </enrollment>
+{% endif %}
+  </client>
+
+  <client_buffer>
+    <disabled>no</disabled>
+    <queue_size>5000</queue_size>
+    <events_per_second>500</events_per_second>
+  </client_buffer>
+
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>{{ wazuh_syscheck_frequency }}</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <alert_new_files>yes</alert_new_files>
+{% for item in wazuh_syscheck_directories %}
+    <directories
+{%- if item.check_all is defined %} check_all="{{ item.check_all }}"{% endif -%}
+{%- if item.report_changes is defined %} report_changes="{{ item.report_changes }}"{% endif -%}
+{%- if item.realtime is defined %} realtime="{{ item.realtime }}"{% endif -%}
+{%- if item.restrict is defined %} restrict="{{ item.restrict }}"{% endif -%}
+>{{ item.path }}</directories>
+{% endfor %}
+{% for item in wazuh_syscheck_ignore %}
+    <ignore>{{ item }}</ignore>
+{% endfor %}
+{% for item in wazuh_syscheck_ignore_regex %}
+    <ignore type="sregex">{{ item }}</ignore>
+{% endfor %}
+  </syscheck>
+
+  <rootcheck>
+    <disabled>no</disabled>
+    <frequency>{{ wazuh_rootcheck_frequency }}</frequency>
+  </rootcheck>
+
+  <sca>
+    <enabled>yes</enabled>
+    <scan_on_start>yes</scan_on_start>
+    <interval>{{ wazuh_sca_interval }}</interval>
+    <skip_nfs>yes</skip_nfs>
+  </sca>
+
+  <wodle name="syscollector">
+    <disabled>no</disabled>
+    <interval>{{ wazuh_syscollector_interval }}</interval>
+    <scan_on_start>yes</scan_on_start>
+    <hardware>yes</hardware>
+    <os>yes</os>
+    <network>yes</network>
+    <packages>yes</packages>
+    <ports all="no">yes</ports>
+    <processes>yes</processes>
+  </wodle>
+
+{% if wazuh_labels | length > 0 %}
+  <labels>
+{% for key, value in wazuh_labels.items() %}
+    <label key="{{ key }}">{{ value }}</label>
+{% endfor %}
+  </labels>
+{% endif %}
+
+{% for item in wazuh_localfiles %}
+  <localfile>
+    <log_format>{{ item.log_format }}</log_format>
+    <location>{{ item.location }}</location>
+{% if item.labels is defined and item.labels %}
+{% for key, value in item.labels.items() %}
+    <label key="{{ key }}">{{ value }}</label>
+{% endfor %}
+{% endif %}
+  </localfile>
+{% endfor %}
+</ossec_config>
