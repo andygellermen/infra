@@ -32,11 +32,17 @@ const DEFAULT_EDITOR_APPEARANCE = {
 };
 
 const EDITOR_APPEARANCE_STORAGE_KEY = "easy-author.editor-appearance.v1";
+const WORK_MODE_STORAGE_KEY = "easy-author.work-mode.v1";
 const POPUP_HOLD_DELAY_MS = 2000;
 const POPUP_FADE_IN_DELAY_MS = 24;
 const ALLOWED_FULLSCREEN_BACKDROPS = new Set(["linen", "paper", "dusk", "night"]);
 const ALLOWED_SURFACE_PRESETS = new Set(["warm", "paper", "night"]);
 const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono", "google"]);
+const WORK_MODES = [
+  { key: "write", label: "Schreibfluss", hint: "Schnell, direkt, ablenkungsarm" },
+  { key: "structure", label: "Struktur", hint: "Verknüpfen, Wissen, Workflow" },
+  { key: "review", label: "Finalisierung", hint: "Revision, Proofing, Verlag" },
+];
 const GOOGLE_FONT_PRESETS = [
   "Cormorant Garamond",
   "Crimson Pro",
@@ -153,12 +159,54 @@ const REVIEW_COMMENT_TYPE_META = {
   },
 };
 
+const MILESTONE_TYPE_OPTIONS = [
+  { value: "rough_draft", label: "Rohfassung" },
+  { value: "before_review", label: "Vor Review" },
+  { value: "after_review", label: "Nach Review" },
+  { value: "before_export", label: "Vor Export" },
+  { value: "final", label: "Final" },
+  { value: "publisher_submission", label: "Abgabe" },
+  { value: "reading_sample", label: "Leseprobe" },
+  { value: "custom", label: "Bookmark" },
+];
+
+const MILESTONE_TYPE_META = {
+  rough_draft: { label: "Rohfassung", shortLabel: "Roh", tone: "mist" },
+  before_review: { label: "Vor Review", shortLabel: "Review", tone: "amber" },
+  after_review: { label: "Nach Review", shortLabel: "Poliert", tone: "sage" },
+  before_export: { label: "Vor Export", shortLabel: "Export", tone: "blue" },
+  final: { label: "Final", shortLabel: "Final", tone: "plum" },
+  publisher_submission: { label: "Abgabe", shortLabel: "Abgabe", tone: "ink" },
+  reading_sample: { label: "Leseprobe", shortLabel: "Probe", tone: "rose" },
+  custom: { label: "Bookmark", shortLabel: "Marke", tone: "sand" },
+};
+
+const REVISION_PHASE_META = {
+  restore: { label: "Restore", tone: "blue", sort: 2 },
+  before_review: { label: "Vor Review", tone: "amber", sort: 3 },
+  after_review: { label: "Nach Review", tone: "sage", sort: 4 },
+  before_export: { label: "Vor Export", tone: "plum", sort: 5 },
+  session: { label: "Session", tone: "mist", sort: 6 },
+  structure_change: { label: "Struktur", tone: "rose", sort: 7 },
+  system: { label: "System", tone: "ink", sort: 8 },
+  manual: { label: "Manuell", tone: "sand", sort: 1 },
+  unlinked: { label: "Ohne Revision", tone: "mist", sort: 9 },
+};
+
 function workflowTypeMeta(type) {
   return WORKFLOW_TYPE_META[type] || WORKFLOW_TYPE_META.custom;
 }
 
 function reviewCommentTypeMeta(type) {
   return REVIEW_COMMENT_TYPE_META[type] || REVIEW_COMMENT_TYPE_META.comment;
+}
+
+function milestoneTypeMeta(value) {
+  return MILESTONE_TYPE_META[value] || MILESTONE_TYPE_META.custom;
+}
+
+function revisionPhaseMeta(value) {
+  return REVISION_PHASE_META[value] || REVISION_PHASE_META.manual;
 }
 
 const STORY_TIME_KEYWORDS = [
@@ -322,6 +370,7 @@ function loadStoredEditorAppearance() {
 
 function emptyReviewCommentDraft() {
   return {
+    revision_id: "",
     comment_type: "comment",
     author: "Review",
     body: "",
@@ -352,6 +401,34 @@ function formatReviewTimestamp(value) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function reviewCommentStatusLabel(status) {
+  switch (status) {
+    case "applied":
+      return "uebernommen";
+    case "resolved":
+      return "geloest";
+    case "rejected":
+      return "abgelehnt";
+    case "open":
+    default:
+      return "offen";
+  }
+}
+
+function isReviewCommentOpen(comment) {
+  if (!comment) {
+    return false;
+  }
+  return (comment.status || "open") === "open";
+}
+
+function reviewCommentPreview(comment) {
+  if (!comment) {
+    return "";
+  }
+  return previewText(comment.body || comment.suggested_text || comment.selected_text || "", 88);
 }
 
 function tokenizeSelectionText(text) {
@@ -538,11 +615,305 @@ function activationReasonText(reasons) {
   return Array.isArray(reasons) && reasons.length > 0 ? reasons.join(" · ") : "Noch keine aktiven Signale";
 }
 
+function createChapterSessionId(chapterId = "") {
+  return `chapter-${chapterId || "draft"}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatTimelineTimestamp(value) {
+  if (!value) {
+    return "ohne Zeit";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function autosaveReasonLabel(reason) {
+  switch (reason) {
+    case "before_navigation":
+      return "Vor Wechsel";
+    case "manual_save":
+      return "Manuelles Backup";
+    case "manual_safety_save":
+      return "Sicherungsstand";
+    case "recovery_save":
+      return "Recovery";
+    default:
+      return "Automatisch";
+  }
+}
+
+function milestoneTypeLabel(value) {
+  return milestoneTypeMeta(value).label;
+}
+
+function revisionPhaseLabel(value) {
+  return revisionPhaseMeta(value).label;
+}
+
+function parseRevisionEventMetadata(event) {
+  if (!event?.metadata) {
+    return {};
+  }
+  if (typeof event.metadata === "object") {
+    return event.metadata;
+  }
+  if (typeof event.metadata !== "string") {
+    return {};
+  }
+  try {
+    return JSON.parse(event.metadata);
+  } catch {
+    return {};
+  }
+}
+
+function revisionEventTone(event) {
+  const metadata = parseRevisionEventMetadata(event);
+  if (event?.entity_type === "milestone" || String(event?.event_type || "").startsWith("milestone_")) {
+    return milestoneTypeMeta(metadata.milestone_type).tone;
+  }
+  switch (event?.event_type) {
+    case "restore_performed":
+      return "blue";
+    case "review_started":
+      return "amber";
+    case "review_completed":
+      return "sage";
+    case "chapter_saved":
+      return "sand";
+    default:
+      return "mist";
+  }
+}
+
+function revisionEventLabel(event) {
+  const metadata = parseRevisionEventMetadata(event);
+  if (event?.entity_type === "milestone" || String(event?.event_type || "").startsWith("milestone_")) {
+    return milestoneTypeMeta(metadata.milestone_type).label;
+  }
+  switch (event?.event_type) {
+    case "restore_performed":
+      return "Restore";
+    case "review_started":
+      return "Review";
+    case "review_completed":
+      return "Review ok";
+    case "chapter_saved":
+      return "Save";
+    default:
+      return "Event";
+  }
+}
+
+function reviewCommentPhaseKey(comment, revisionById) {
+  if (!comment?.revision_id) {
+    return "unlinked";
+  }
+  return revisionById.get(comment.revision_id)?.revision_type || "manual";
+}
+
+function reviewCommentPhaseTone(comment, revisionById) {
+  return revisionPhaseMeta(reviewCommentPhaseKey(comment, revisionById)).tone;
+}
+
+function reviewCommentPhaseLabel(comment, revisionById) {
+  return revisionPhaseLabel(reviewCommentPhaseKey(comment, revisionById));
+}
+
+function loadStoredWorkMode() {
+  if (typeof window === "undefined") {
+    return "write";
+  }
+  try {
+    const stored = window.localStorage.getItem(WORK_MODE_STORAGE_KEY);
+    return WORK_MODES.some((mode) => mode.key === stored) ? stored : "write";
+  } catch {
+    return "write";
+  }
+}
+
+function normalizeHeadingTitle(value, fallback = "Unbenanntes Kapitel") {
+  const cleaned = String(value || "")
+    .replace(/\s+#+\s*$/, "")
+    .trim();
+  return cleaned || fallback;
+}
+
+function extractChapterTitleFromMarkdown(markdown, fallback = "Unbenanntes Kapitel") {
+  const match = String(markdown || "").match(/^\s*#\s+(.+?)\s*$/m);
+  if (!match) {
+    return fallback;
+  }
+  return normalizeHeadingTitle(match[1], fallback);
+}
+
+function ensureChapterHeading(markdown, fallbackTitle) {
+  const content = String(markdown || "");
+  if (/^\s*#\s+.+$/m.test(content)) {
+    return content;
+  }
+  const title = normalizeHeadingTitle(fallbackTitle);
+  const body = content.trim();
+  return body ? `# ${title}\n\n${body}` : `# ${title}\n`;
+}
+
+function trimTrailingBlankLines(lines) {
+  const nextLines = [...lines];
+  while (nextLines.length > 0 && !String(nextLines[nextLines.length - 1] || "").trim()) {
+    nextLines.pop();
+  }
+  return nextLines;
+}
+
+function extractFootnoteReferences(markdown) {
+  return Array.from(String(markdown || "").matchAll(/\[\^([^\]]+)\]/g))
+    .filter((match) => match[0] && !match[0].endsWith(":"))
+    .map((match) => match[1]);
+}
+
+function stripFootnoteDefinitions(markdown) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const keptLines = [];
+  const definitions = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const match = line.trim().match(/^\[\^([^\]]+)\]:\s*(.*)$/);
+    if (!match) {
+      keptLines.push(line);
+      continue;
+    }
+
+    const blockLines = [line];
+    index += 1;
+    while (index < lines.length) {
+      const nextLine = lines[index];
+      if (!nextLine.trim()) {
+        blockLines.push(nextLine);
+        index += 1;
+        continue;
+      }
+      if (/^\s{2,}/.test(nextLine)) {
+        blockLines.push(nextLine);
+        index += 1;
+        continue;
+      }
+      break;
+    }
+
+    index -= 1;
+    definitions.push({
+      noteId: match[1],
+      block: trimTrailingBlankLines(blockLines).join("\n"),
+    });
+  }
+
+  return {
+    content: trimTrailingBlankLines(keptLines).join("\n"),
+    definitions,
+  };
+}
+
+function appendFootnoteDefinitions(markdown, definitions) {
+  const blocks = definitions.filter((item) => item?.block).map((item) => item.block);
+  if (blocks.length === 0) {
+    return markdown;
+  }
+  const base = String(markdown || "").trimEnd();
+  return base ? `${base}\n\n${blocks.join("\n\n")}` : blocks.join("\n\n");
+}
+
+export function splitMarkdownIntoChapterSections(markdown, fallbackTitle) {
+  const source = String(markdown || "");
+  if (!source.trim()) {
+    return [
+      {
+        title: normalizeHeadingTitle(fallbackTitle),
+        content: ensureChapterHeading("", fallbackTitle),
+      },
+    ];
+  }
+
+  const lines = source.split(/\r?\n/);
+  const sections = [];
+  let currentTitle = normalizeHeadingTitle(fallbackTitle);
+  let currentLines = [];
+
+  const pushSection = () => {
+    if (currentLines.length === 0) {
+      return;
+    }
+    const rawContent = currentLines.join("\n").trimEnd();
+    sections.push({
+      title: currentTitle,
+      content: ensureChapterHeading(rawContent, currentTitle),
+    });
+  };
+
+  lines.forEach((line) => {
+    const headingMatch = line.match(/^#\s+(.+?)\s*$/);
+    if (headingMatch) {
+      if (currentLines.length > 0) {
+        pushSection();
+      }
+      currentTitle = normalizeHeadingTitle(headingMatch[1], fallbackTitle);
+      currentLines = [line];
+      return;
+    }
+    currentLines.push(line);
+  });
+
+  pushSection();
+
+  if (sections.length === 0) {
+    return [
+      {
+        title: normalizeHeadingTitle(fallbackTitle),
+        content: ensureChapterHeading(source, fallbackTitle),
+      },
+    ];
+  }
+
+  const normalizedSections = sections.map((section, sectionIndex) => {
+    const stripped = stripFootnoteDefinitions(section.content);
+    return {
+      ...section,
+      content: stripped.content,
+      references: new Set(extractFootnoteReferences(stripped.content)),
+      definitions: stripped.definitions.map((definition) => ({ ...definition, sourceSectionIndex: sectionIndex })),
+      attachedDefinitions: [],
+    };
+  });
+
+  const allDefinitions = normalizedSections.flatMap((section) => section.definitions);
+  allDefinitions.forEach((definition) => {
+    const targetIndex = [...normalizedSections.keys()]
+      .reverse()
+      .find((sectionIndex) => normalizedSections[sectionIndex].references.has(definition.noteId));
+    const resolvedIndex = typeof targetIndex === "number" ? targetIndex : definition.sourceSectionIndex;
+    normalizedSections[resolvedIndex].attachedDefinitions.push(definition);
+  });
+
+  return normalizedSections.map((section) => ({
+    title: section.title,
+    content: appendFootnoteDefinitions(section.content, section.attachedDefinitions),
+  }));
+}
+
 function App() {
   const editorRef = useRef(null);
   const markdownTextareaRef = useRef(null);
   const autosaveRef = useRef(null);
   const skipAutosaveRef = useRef(true);
+  const chapterSessionRef = useRef(createChapterSessionId());
   const selectionPopupDelayRef = useRef(null);
   const selectionPopupFadeRef = useRef(null);
   const editorHeaderHideRef = useRef(null);
@@ -554,6 +925,7 @@ function App() {
   const contextSectionRef = useRef(null);
   const anchorSectionRef = useRef(null);
   const clipboardSectionRef = useRef(null);
+  const revisionSectionRef = useRef(null);
 
   const [projects, setProjects] = useState([]);
   const [projectDetail, setProjectDetail] = useState(null);
@@ -601,6 +973,29 @@ function App() {
   const [activeRightSection, setActiveRightSection] = useState("clipboard");
   const [editorAppearance, setEditorAppearance] = useState(loadStoredEditorAppearance);
   const [showEditorHeader, setShowEditorHeader] = useState(false);
+  const [workMode, setWorkMode] = useState(loadStoredWorkMode);
+  const [showChapterOutline, setShowChapterOutline] = useState(true);
+  const [revisions, setRevisions] = useState([]);
+  const [autosaveDrafts, setAutosaveDrafts] = useState([]);
+  const [selectedRevisionId, setSelectedRevisionId] = useState("");
+  const [selectedAutosaveId, setSelectedAutosaveId] = useState("");
+  const [revisionEventsByRevisionId, setRevisionEventsByRevisionId] = useState({});
+  const [revisionSurfaceLoading, setRevisionSurfaceLoading] = useState(false);
+  const [revisionEventsLoading, setRevisionEventsLoading] = useState(false);
+  const [revisionActionId, setRevisionActionId] = useState("");
+  const [milestones, setMilestones] = useState([]);
+  const [milestoneActionRevisionId, setMilestoneActionRevisionId] = useState("");
+  const [selectedMilestoneType, setSelectedMilestoneType] = useState("custom");
+  const [timelineFilter, setTimelineFilter] = useState("all");
+  const [reviewFilter, setReviewFilter] = useState("open");
+  const [reviewPhaseFilter, setReviewPhaseFilter] = useState("all");
+  const [editingMilestoneId, setEditingMilestoneId] = useState("");
+  const [milestoneDraft, setMilestoneDraft] = useState({
+    title: "",
+    description: "",
+    milestone_type: "custom",
+    locked: true,
+  });
   const slotNumbers = Array.from({ length: 9 }, (_, index) => index + 1);
 
   const currentChapter = useMemo(
@@ -616,6 +1011,9 @@ function App() {
     () => projectDetail?.project || projects.find((project) => project.id === selectedProjectId) || null,
     [projectDetail, projects, selectedProjectId],
   );
+  const isWriteMode = workMode === "write";
+  const isStructureMode = workMode === "structure";
+  const isReviewMode = workMode === "review";
   const chaptersById = useMemo(
     () => new Map((bookBundle?.chapters || []).map((chapter) => [chapter.id, chapter])),
     [bookBundle?.chapters],
@@ -629,6 +1027,130 @@ function App() {
     [clipboardItems],
   );
   const latestClipboardItems = useMemo(() => clipboardItems.slice(0, 3), [clipboardItems]);
+  const milestonesByRevisionId = useMemo(() => {
+    const grouped = new Map();
+    milestones.forEach((item) => {
+      grouped.set(item.revision_id, [...(grouped.get(item.revision_id) || []), item]);
+    });
+    return grouped;
+  }, [milestones]);
+  const latestMilestoneByRevisionId = useMemo(() => {
+    const latest = new Map();
+    milestones.forEach((item) => {
+      if (!latest.has(item.revision_id)) {
+        latest.set(item.revision_id, item);
+      }
+    });
+    return latest;
+  }, [milestones]);
+  const timelineItems = useMemo(
+    () =>
+      [
+        ...revisions.map((item) => ({
+          kind: "revision",
+          id: item.id,
+          created_at: item.created_at,
+          title: item.title || "Revision",
+          description: item.change_summary || item.description || "",
+          payload: item,
+        })),
+        ...autosaveDrafts.map((item) => ({
+          kind: "autosave",
+          id: item.id,
+          created_at: item.created_at,
+          title: `Draft · ${autosaveReasonLabel(item.reason)}`,
+          description: previewText(item.markdown_content || "", 120),
+          payload: item,
+        })),
+      ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || ""))),
+    [revisions, autosaveDrafts],
+  );
+  const visibleTimelineItems = useMemo(() => {
+    switch (timelineFilter) {
+      case "bookmarks":
+        return timelineItems.filter((item) => item.kind === "revision" && latestMilestoneByRevisionId.get(item.id));
+      case "revisions":
+        return timelineItems.filter((item) => item.kind === "revision");
+      case "drafts":
+        return timelineItems.filter((item) => item.kind === "autosave");
+      case "manual":
+        return timelineItems.filter((item) => item.kind === "revision" && (item.payload.revision_type || "manual") === "manual");
+      default:
+        return timelineItems;
+    }
+  }, [latestMilestoneByRevisionId, timelineFilter, timelineItems]);
+  const timelineFilterOptions = useMemo(
+    () => [
+      { key: "all", label: "Alles", count: timelineItems.length },
+      {
+        key: "bookmarks",
+        label: "Bookmarks",
+        count: timelineItems.filter((item) => item.kind === "revision" && latestMilestoneByRevisionId.get(item.id)).length,
+      },
+      { key: "revisions", label: "Revisionen", count: revisions.length },
+      { key: "drafts", label: "Drafts", count: autosaveDrafts.length },
+    ],
+    [autosaveDrafts.length, latestMilestoneByRevisionId, revisions.length, timelineItems],
+  );
+  const selectedRevision = useMemo(
+    () => revisions.find((item) => item.id === selectedRevisionId) || null,
+    [revisions, selectedRevisionId],
+  );
+  const selectedAutosaveDraft = useMemo(
+    () => autosaveDrafts.find((item) => item.id === selectedAutosaveId) || null,
+    [autosaveDrafts, selectedAutosaveId],
+  );
+  const selectedTimelineItem = useMemo(() => {
+    if (selectedAutosaveDraft) {
+      return { kind: "autosave", payload: selectedAutosaveDraft };
+    }
+    if (selectedRevision) {
+      return { kind: "revision", payload: selectedRevision };
+    }
+    return null;
+  }, [selectedAutosaveDraft, selectedRevision]);
+  const selectedRevisionEvents = selectedRevisionId ? revisionEventsByRevisionId[selectedRevisionId] || [] : [];
+  const selectedRevisionMilestones = selectedRevisionId ? milestonesByRevisionId.get(selectedRevisionId) || [] : [];
+  const reviewCommentsByRevisionId = useMemo(() => {
+    const grouped = new Map();
+    reviewComments.forEach((comment) => {
+      if (!comment.revision_id) {
+        return;
+      }
+      grouped.set(comment.revision_id, [...(grouped.get(comment.revision_id) || []), comment]);
+    });
+    return grouped;
+  }, [reviewComments]);
+  const selectedRevisionComments = selectedRevisionId ? reviewCommentsByRevisionId.get(selectedRevisionId) || [] : [];
+  const selectedRevisionOpenComments = useMemo(
+    () => selectedRevisionComments.filter((comment) => isReviewCommentOpen(comment)),
+    [selectedRevisionComments],
+  );
+  const selectedRevisionPhaseKey = selectedRevision?.revision_type || "manual";
+  const selectedRevisionPhaseTone = revisionPhaseMeta(selectedRevisionPhaseKey).tone;
+  const selectedRevisionPhaseTitle = revisionPhaseLabel(selectedRevisionPhaseKey);
+  const selectedRevisionCommentSections = useMemo(() => {
+    if (selectedRevisionComments.length === 0) {
+      return [];
+    }
+    return [
+      {
+        key: selectedRevisionPhaseKey,
+        label: selectedRevisionPhaseTitle,
+        tone: selectedRevisionPhaseTone,
+        comments: selectedRevisionComments,
+      },
+    ];
+  }, [selectedRevisionComments, selectedRevisionPhaseKey, selectedRevisionPhaseTitle, selectedRevisionPhaseTone]);
+  const revisionById = useMemo(() => new Map(revisions.map((revision) => [revision.id, revision])), [revisions]);
+  const reviewCommentsForEditor = useMemo(
+    () =>
+      reviewComments.map((comment) => ({
+        ...comment,
+        comment_phase: reviewCommentPhaseKey(comment, revisionById),
+      })),
+    [reviewComments, revisionById],
+  );
 
   const chapterKnowledgeRefs = useMemo(
     () => extractWikiLinks(chapterDraft.markdown_content || currentChapter?.markdown_content || ""),
@@ -709,6 +1231,116 @@ function App() {
     () => reviewComments.find((comment) => comment.id === activeReviewCommentId) || null,
     [activeReviewCommentId, reviewComments],
   );
+  const reviewSummary = useMemo(() => {
+    const summary = {
+      total: reviewComments.length,
+      open: 0,
+      resolved: 0,
+      applied: 0,
+      rejected: 0,
+      todo: 0,
+      suggestion: 0,
+    };
+    reviewComments.forEach((comment) => {
+      if (isReviewCommentOpen(comment)) {
+        summary.open += 1;
+      }
+      if ((comment.status || "open") === "resolved") {
+        summary.resolved += 1;
+      }
+      if ((comment.status || "open") === "applied") {
+        summary.applied += 1;
+      }
+      if ((comment.status || "open") === "rejected") {
+        summary.rejected += 1;
+      }
+      if ((comment.comment_type || "comment") === "todo") {
+        summary.todo += 1;
+      }
+      if ((comment.comment_type || "comment") === "suggestion") {
+        summary.suggestion += 1;
+      }
+    });
+    return summary;
+  }, [reviewComments]);
+  const reviewPhaseGroups = useMemo(() => {
+    const grouped = new Map();
+    reviewComments.forEach((comment) => {
+      const revisionType = comment.revision_id ? revisionById.get(comment.revision_id)?.revision_type || "manual" : "unlinked";
+      const key = revisionType || "manual";
+      const current = grouped.get(key) || {
+        key,
+        label: revisionPhaseLabel(key),
+        tone: revisionPhaseMeta(key).tone,
+        sort: revisionPhaseMeta(key).sort,
+        count: 0,
+      };
+      current.count += 1;
+      grouped.set(key, current);
+    });
+    return [
+      { key: "all", label: "Alle Phasen", tone: "sand", sort: 0, count: reviewComments.length },
+      ...Array.from(grouped.values()).sort((left, right) => left.sort - right.sort || left.label.localeCompare(right.label, "de")),
+    ];
+  }, [reviewComments, revisionById]);
+  const reviewFilterOptions = useMemo(
+    () => {
+      const options = [
+        { key: "open", label: "Offen", count: reviewSummary.open },
+        { key: "suggestion", label: "Vorschlaege", count: reviewSummary.suggestion },
+        { key: "todo", label: "To-dos", count: reviewSummary.todo },
+        { key: "closed", label: "Abgeschlossen", count: reviewSummary.applied + reviewSummary.resolved + reviewSummary.rejected },
+        { key: "all", label: "Alle", count: reviewSummary.total },
+      ];
+      if (selectedRevisionId) {
+        options.unshift({ key: "linked", label: "Zur Revision", count: selectedRevisionComments.length });
+      }
+      return options;
+    },
+    [reviewSummary, selectedRevisionComments.length, selectedRevisionId],
+  );
+  const filteredReviewComments = useMemo(() => {
+    const items = [...reviewComments].sort((left, right) =>
+      String(right.created_at || "").localeCompare(String(left.created_at || "")),
+    );
+    const phaseFiltered =
+      reviewPhaseFilter === "all"
+        ? items
+        : items.filter((comment) => {
+            const revisionType = comment.revision_id ? revisionById.get(comment.revision_id)?.revision_type || "manual" : "unlinked";
+            return revisionType === reviewPhaseFilter;
+          });
+    switch (reviewFilter) {
+      case "linked":
+        return phaseFiltered.filter((comment) => comment.revision_id === selectedRevisionId);
+      case "open":
+        return phaseFiltered.filter((comment) => isReviewCommentOpen(comment));
+      case "suggestion":
+        return phaseFiltered.filter((comment) => (comment.comment_type || "comment") === "suggestion");
+      case "todo":
+        return phaseFiltered.filter((comment) => (comment.comment_type || "comment") === "todo");
+      case "closed":
+        return phaseFiltered.filter((comment) => !isReviewCommentOpen(comment));
+      default:
+        return phaseFiltered;
+    }
+  }, [reviewComments, reviewFilter, reviewPhaseFilter, revisionById, selectedRevisionId]);
+  const filteredReviewSections = useMemo(() => {
+    const grouped = new Map();
+    filteredReviewComments.forEach((comment) => {
+      const phaseKey = comment.revision_id ? revisionById.get(comment.revision_id)?.revision_type || "manual" : "unlinked";
+      const existing = grouped.get(phaseKey) || {
+        key: phaseKey,
+        label: revisionPhaseLabel(phaseKey),
+        tone: revisionPhaseMeta(phaseKey).tone,
+        sort: revisionPhaseMeta(phaseKey).sort,
+        comments: [],
+      };
+      existing.comments.push(comment);
+      grouped.set(phaseKey, existing);
+    });
+    return Array.from(grouped.values()).sort((left, right) => left.sort - right.sort || left.label.localeCompare(right.label, "de"));
+  }, [filteredReviewComments, revisionById]);
   const hasSelectionFocus = Boolean(activeSelectionPayload?.selected_text?.trim());
   const chapterTextForWorkflow = chapterDraft.markdown_content || currentChapter?.markdown_content || "";
   const workflowSuggestions = useMemo(() => {
@@ -945,6 +1577,14 @@ function App() {
     }
   }, [editorAppearance]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(WORK_MODE_STORAGE_KEY, workMode);
+    } catch {
+      // ignore local persistence failures
+    }
+  }, [workMode]);
+
   useEffect(
     () => () => {
       window.clearTimeout(selectionPopupDelayRef.current);
@@ -981,6 +1621,12 @@ function App() {
       setBookBundle(null);
       setSelectedChapterId("");
       setClipboardItems([]);
+      setRevisions([]);
+      setAutosaveDrafts([]);
+      setMilestones([]);
+      setSelectedRevisionId("");
+      setSelectedAutosaveId("");
+      setRevisionEventsByRevisionId({});
       setShowClipboardPalette(false);
       setShowBookDetails(false);
       setShowBookEdit(false);
@@ -1002,7 +1648,7 @@ function App() {
       workflow: workflowSectionRef,
       knowledge: knowledgeSectionRef,
     };
-    if (showLeftOverlay && lookup[activeLeftSection]?.current) {
+    if (showLeftOverlay && typeof lookup[activeLeftSection]?.current?.scrollIntoView === "function") {
       lookup[activeLeftSection].current.scrollIntoView({ block: "start", behavior: "smooth" });
     }
   }, [activeLeftSection, showLeftOverlay]);
@@ -1012,8 +1658,9 @@ function App() {
       context: contextSectionRef,
       anchor: anchorSectionRef,
       clipboard: clipboardSectionRef,
+      revision: revisionSectionRef,
     };
-    if (showRightOverlay && lookup[activeRightSection]?.current) {
+    if (showRightOverlay && typeof lookup[activeRightSection]?.current?.scrollIntoView === "function") {
       lookup[activeRightSection].current.scrollIntoView({ block: "start", behavior: "smooth" });
     }
   }, [activeRightSection, showRightOverlay]);
@@ -1042,8 +1689,15 @@ function App() {
 
   useEffect(() => {
     if (!selectedChapterId || !currentChapter) {
+      chapterSessionRef.current = createChapterSessionId();
       setAnchors([]);
       setReviewComments([]);
+      setRevisions([]);
+      setAutosaveDrafts([]);
+      setMilestones([]);
+      setSelectedRevisionId("");
+      setSelectedAutosaveId("");
+      setRevisionEventsByRevisionId({});
       setChapterDraft(EMPTY_DRAFT);
       setErrorMessage("");
       setSaveState("Synchron");
@@ -1054,6 +1708,7 @@ function App() {
       return;
     }
     skipAutosaveRef.current = true;
+    chapterSessionRef.current = createChapterSessionId(currentChapter.id);
     setErrorMessage("");
     setSaveState("Synchron");
     clearSelectionPopup();
@@ -1066,6 +1721,98 @@ function App() {
     loadAnchors(currentChapter.id);
     loadReviewComments(currentChapter.id);
   }, [selectedChapterId, currentChapterId]);
+
+  useEffect(() => {
+    if (workMode === "write") {
+      setShowLeftOverlay(false);
+      setShowRightOverlay(false);
+      setShowWritingTools(false);
+      return;
+    }
+    if (workMode === "structure") {
+      setActiveLeftSection("workflow");
+      setActiveRightSection("clipboard");
+      return;
+    }
+    setActiveRightSection("revision");
+  }, [workMode]);
+
+  useEffect(() => {
+    const derivedTitle = extractChapterTitleFromMarkdown(chapterDraft.markdown_content, chapterDraft.title || currentChapter?.title || "Kapitel");
+    if (!derivedTitle || derivedTitle === chapterDraft.title) {
+      return;
+    }
+    setChapterDraft((previous) => ({ ...previous, title: derivedTitle }));
+  }, [chapterDraft.markdown_content, chapterDraft.title, currentChapter?.title]);
+
+  useEffect(() => {
+    if (!showRightOverlay || activeRightSection !== "revision" || !currentChapterId) {
+      return;
+    }
+    void loadRevisionTimeline(currentChapterId, currentBook?.id || "");
+  }, [activeRightSection, currentBook?.id, currentChapterId, showRightOverlay]);
+
+  useEffect(() => {
+    const stillSelectedRevision =
+      selectedRevisionId && visibleTimelineItems.some((item) => item.kind === "revision" && item.id === selectedRevisionId);
+    const stillSelectedAutosave =
+      selectedAutosaveId && visibleTimelineItems.some((item) => item.kind === "autosave" && item.id === selectedAutosaveId);
+    if (stillSelectedRevision || stillSelectedAutosave) {
+      return;
+    }
+    const nextItem = visibleTimelineItems[0];
+    if (!nextItem) {
+      setSelectedRevisionId("");
+      setSelectedAutosaveId("");
+      return;
+    }
+    if (nextItem.kind === "revision") {
+      setSelectedRevisionId(nextItem.id);
+      setSelectedAutosaveId("");
+      return;
+    }
+    setSelectedAutosaveId(nextItem.id);
+    setSelectedRevisionId("");
+  }, [visibleTimelineItems, selectedRevisionId, selectedAutosaveId]);
+
+  useEffect(() => {
+    if (!selectedRevisionId || revisionEventsByRevisionId[selectedRevisionId]) {
+      return;
+    }
+    let cancelled = false;
+    async function run() {
+      try {
+        setRevisionEventsLoading(true);
+        const response = await api.get(`/api/revisions/${selectedRevisionId}/events`);
+        if (cancelled) {
+          return;
+        }
+        setRevisionEventsByRevisionId((previous) => ({
+          ...previous,
+          [selectedRevisionId]: response.events || [],
+        }));
+        setErrorMessage("");
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setRevisionEventsLoading(false);
+        }
+      }
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [revisionEventsByRevisionId, selectedRevisionId]);
+
+  useEffect(() => {
+    if (reviewFilter === "linked" && !selectedRevisionId) {
+      setReviewFilter("open");
+    }
+  }, [reviewFilter, selectedRevisionId]);
 
   useEffect(() => {
     if (!currentChapter) {
@@ -1239,7 +1986,80 @@ function App() {
     }
   }
 
-  async function saveChapter(manual) {
+  async function loadRevisionTimeline(chapterId, bookId) {
+    if (!chapterId || !bookId) {
+      setRevisions([]);
+      setAutosaveDrafts([]);
+      setMilestones([]);
+      return;
+    }
+    try {
+      setRevisionSurfaceLoading(true);
+      const [revisionResponse, autosaveResponse, milestoneResponse] = await Promise.all([
+        api.get(`/api/chapters/${chapterId}/revisions`),
+        api.get(`/api/chapters/${chapterId}/autosaves`),
+        api.get(`/api/books/${bookId}/milestones`),
+      ]);
+      setRevisions(revisionResponse.revisions || []);
+      setAutosaveDrafts(autosaveResponse.autosaves || []);
+      setMilestones(milestoneResponse.milestones || []);
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setRevisionSurfaceLoading(false);
+    }
+  }
+
+  function patchLocalChapter(chapterId, nextFields) {
+    setBookBundle((previous) =>
+      previous
+        ? {
+            ...previous,
+            chapters: previous.chapters.map((entry) => (entry.id === chapterId ? { ...entry, ...nextFields } : entry)),
+          }
+        : previous,
+    );
+  }
+
+  async function updateChapterMeta(chapterId, nextFields) {
+    const chapter = chaptersById.get(chapterId);
+    if (!chapter) {
+      return;
+    }
+    try {
+      const updated = await api.put(`/api/chapters/${chapterId}`, {
+        title: nextFields.title ?? chapter.title,
+        summary: nextFields.summary ?? chapter.summary ?? "",
+        markdown_content: nextFields.markdown_content ?? chapter.markdown_content ?? "",
+        editor_json:
+          nextFields.editor_json ??
+          chapter.editor_json ??
+          JSON.stringify(markdownToDoc(nextFields.markdown_content ?? chapter.markdown_content ?? "")),
+        section_type: nextFields.section_type ?? chapter.section_type ?? "body",
+        status: nextFields.status ?? chapter.status ?? "draft",
+        save_mode: "manual",
+        autosave_reason: "chapter_meta_update",
+        session_id: chapterSessionRef.current,
+        create_revision: false,
+      });
+      patchLocalChapter(chapterId, updated);
+      if (chapterId === currentChapterId) {
+        setChapterDraft((previous) => ({
+          ...previous,
+          title: updated.title,
+          summary: updated.summary || "",
+          markdown_content: updated.markdown_content || "",
+          editor_json: updated.editor_json || "",
+        }));
+      }
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function saveChapter(manual, options = {}) {
     if (!currentChapter) {
       return;
     }
@@ -1262,20 +2082,37 @@ function App() {
               editor_json: JSON.stringify(markdownToDoc(liveDraft.markdown_content || "")),
             }
           : liveDraft;
-      if (payload !== chapterDraft) {
-        setChapterDraft(payload);
+      const chapterSections = manual
+        ? splitMarkdownIntoChapterSections(payload.markdown_content || "", payload.title || currentChapter.title || "Kapitel")
+        : null;
+      const primarySection = chapterSections?.[0] || null;
+      const normalizedPayload = primarySection
+        ? {
+            ...payload,
+            title: primarySection.title,
+            markdown_content: primarySection.content,
+            editor_json: JSON.stringify(markdownToDoc(primarySection.content)),
+          }
+        : payload;
+      if (normalizedPayload !== chapterDraft) {
+        setChapterDraft(normalizedPayload);
       }
-      const requestPayload = { ...payload };
+      const requestPayload = { ...normalizedPayload };
       if (!requestPayload.summary && !(currentChapter?.summary || "")) {
         delete requestPayload.summary;
+      }
+      requestPayload.save_mode = manual ? "manual" : "autosave";
+      requestPayload.autosave_reason = options.reason || (manual ? "manual_save" : "idle_autosave");
+      requestPayload.session_id = chapterSessionRef.current;
+      requestPayload.create_revision = manual || Boolean(options.createRevision);
+      if (requestPayload.create_revision) {
+        requestPayload.revision_type = options.revisionType || "manual";
+        requestPayload.created_by = options.createdBy || "easy-author-editor";
       }
       setErrorMessage("");
       setSaveState(manual ? "Speichert ..." : "Autosave laeuft ...");
       const updated = await api.put(`/api/chapters/${currentChapter.id}`, requestPayload);
-      setBookBundle((previous) => ({
-        ...previous,
-        chapters: previous.chapters.map((chapter) => (chapter.id === updated.id ? updated : chapter)),
-      }));
+      patchLocalChapter(updated.id, updated);
       const nextDraft = {
         title: updated.title,
         summary: updated.summary || "",
@@ -1289,11 +2126,242 @@ function App() {
           ? previous
           : nextDraft,
       );
+      if (manual && chapterSections && chapterSections.length > 1 && selectedBookId) {
+        const createdChapters = [];
+        for (const section of chapterSections.slice(1)) {
+          const created = await api.post(`/api/books/${selectedBookId}/chapters`, {
+            title: section.title,
+            summary: "",
+            markdown_content: section.content,
+            editor_json: JSON.stringify(markdownToDoc(section.content)),
+          });
+          createdChapters.push(created);
+        }
+        const existingIds = (bookBundle?.chapters || []).map((chapter) => chapter.id);
+        const currentIndex = existingIds.indexOf(currentChapter.id);
+        const reorderedIds = [
+          ...existingIds.slice(0, currentIndex + 1),
+          ...createdChapters.map((chapter) => chapter.id),
+          ...existingIds.slice(currentIndex + 1),
+        ];
+        const reorderResponse = await api.put(`/api/books/${selectedBookId}/chapters/reorder`, {
+          chapter_ids: reorderedIds,
+        });
+        if (reorderResponse?.chapters) {
+          setBookBundle((previous) => ({
+            ...previous,
+            chapters: reorderResponse.chapters,
+          }));
+        } else {
+          await loadBook(selectedBookId);
+        }
+        setSaveState(`Gespeichert · ${createdChapters.length} Folgekapitel erzeugt`);
+      }
       setErrorMessage("");
-      setSaveState(manual ? "Gespeichert" : "Autosave gespeichert");
+      if (!(manual && chapterSections && chapterSections.length > 1)) {
+        setSaveState(manual ? "Gespeichert" : "Autosave gespeichert");
+      }
+      if (showRightOverlay && activeRightSection === "revision") {
+        void loadRevisionTimeline(currentChapter.id, currentBook?.id || "");
+      }
       window.setTimeout(() => setSaveState("Synchron"), 1200);
     } catch (error) {
       setSaveState("Fehler beim Speichern");
+      setErrorMessage(error.message);
+    }
+  }
+
+  function selectTimelineEntry(item) {
+    if (!item) {
+      return;
+    }
+    if (item.kind === "revision") {
+      setSelectedRevisionId(item.id);
+      setSelectedAutosaveId("");
+      return;
+    }
+    setSelectedAutosaveId(item.id);
+    setSelectedRevisionId("");
+  }
+
+  function recoverAutosaveDraft(draft) {
+    if (!draft) {
+      return;
+    }
+    setSelectedAutosaveId(draft.id);
+    setSelectedRevisionId("");
+    setChapterDraft((previous) => ({
+      ...previous,
+      markdown_content: draft.markdown_content || "",
+      editor_json: draft.editor_json || "",
+    }));
+    setSaveState("Recovery-Draft geladen");
+  }
+
+  async function restoreRevision(revision) {
+    if (!revision || !currentChapter) {
+      return;
+    }
+    const confirmed = window.confirm(`Revision „${revision.title || "Stand"}“ wirklich wiederherstellen?`);
+    if (!confirmed) {
+      return;
+    }
+    try {
+      setRevisionActionId(revision.id);
+      clearTimeout(autosaveRef.current);
+      const linkedOpenComments = (reviewCommentsByRevisionId.get(revision.id) || []).filter((comment) => isReviewCommentOpen(comment));
+      const result = await api.post(`/api/revisions/${revision.id}/restore`, {
+        created_by: "easy-author-editor",
+      });
+      const restoredChapter = result.chapter || null;
+      if (restoredChapter?.id) {
+        skipAutosaveRef.current = true;
+        setBookBundle((previous) => ({
+          ...previous,
+          chapters: previous.chapters.map((chapter) => (chapter.id === restoredChapter.id ? restoredChapter : chapter)),
+        }));
+        setChapterDraft({
+          title: restoredChapter.title,
+          summary: restoredChapter.summary || "",
+          markdown_content: restoredChapter.markdown_content || "",
+          editor_json: restoredChapter.editor_json || "",
+        });
+      }
+      await loadRevisionTimeline(currentChapter.id, currentBook?.id || "");
+      const restoredRevisionId = result.restored_revision?.id || revision.id;
+      setSelectedRevisionId(restoredRevisionId);
+      setSelectedAutosaveId("");
+      if (restoredRevisionId) {
+        setRevisionEventsByRevisionId((previous) => {
+          const next = { ...previous };
+          delete next[restoredRevisionId];
+          return next;
+        });
+      }
+      if (linkedOpenComments.length > 0) {
+        setReviewFilter("linked");
+        setSelectedRevisionId(revision.id);
+        setSaveState(`Revision wiederhergestellt · ${linkedOpenComments.length} Review-Hinweise`);
+      } else {
+        setSaveState("Revision wiederhergestellt");
+      }
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setRevisionActionId("");
+    }
+  }
+
+  async function createMilestoneForRevision(revision, milestoneType = selectedMilestoneType) {
+    if (!revision || !currentBook?.id) {
+      return;
+    }
+    if ((milestonesByRevisionId.get(revision.id) || []).length > 0) {
+      return;
+    }
+    try {
+      setMilestoneActionRevisionId(revision.id);
+      const created = await api.post(`/api/books/${currentBook.id}/milestones`, {
+        revision_id: revision.id,
+        title: revision.title || "Milestone",
+        description: revision.change_summary || revision.description || "Gesetzter Bookmark-Stand.",
+        milestone_type: milestoneType,
+        locked: true,
+        created_by: "easy-author-editor",
+      });
+      setMilestones((previous) => [created, ...previous]);
+      setRevisionEventsByRevisionId((previous) => {
+        const next = { ...previous };
+        delete next[revision.id];
+        return next;
+      });
+      setErrorMessage("");
+      if (showRightOverlay && activeRightSection === "revision") {
+        void loadRevisionTimeline(currentChapterId, currentBook.id);
+      }
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setMilestoneActionRevisionId("");
+    }
+  }
+
+  function startMilestoneEdit(item) {
+    if (!item?.id) {
+      return;
+    }
+    setEditingMilestoneId(item.id);
+    setMilestoneDraft({
+      title: item.title || "",
+      description: item.description || "",
+      milestone_type: item.milestone_type || "custom",
+      locked: Boolean(item.locked),
+    });
+  }
+
+  function cancelMilestoneEdit() {
+    setEditingMilestoneId("");
+    setMilestoneDraft({
+      title: "",
+      description: "",
+      milestone_type: "custom",
+      locked: true,
+    });
+  }
+
+  async function saveMilestoneEdit(item) {
+    if (!item?.id) {
+      return;
+    }
+    try {
+      const updated = await api.put(`/api/milestones/${item.id}`, {
+        title: milestoneDraft.title,
+        description: milestoneDraft.description,
+        milestone_type: milestoneDraft.milestone_type,
+        locked: milestoneDraft.locked,
+        created_by: "easy-author-editor",
+      });
+      setMilestones((previous) => previous.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setRevisionEventsByRevisionId((previous) => {
+        const next = { ...previous };
+        delete next[item.revision_id];
+        return next;
+      });
+      setErrorMessage("");
+      cancelMilestoneEdit();
+      if (showRightOverlay && activeRightSection === "revision" && currentChapterId && currentBook?.id) {
+        void loadRevisionTimeline(currentChapterId, currentBook.id);
+      }
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function deleteMilestone(item) {
+    if (!item?.id) {
+      return;
+    }
+    const confirmed = window.confirm(`Bookmark „${item.title || "Milestone"}“ wirklich loeschen?`);
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await api.delete(`/api/milestones/${item.id}`);
+      setMilestones((previous) => previous.filter((entry) => entry.id !== item.id));
+      setRevisionEventsByRevisionId((previous) => {
+        const next = { ...previous };
+        delete next[item.revision_id];
+        return next;
+      });
+      setErrorMessage("");
+      if (editingMilestoneId === item.id) {
+        cancelMilestoneEdit();
+      }
+      if (showRightOverlay && activeRightSection === "revision" && currentChapterId && currentBook?.id) {
+        void loadRevisionTimeline(currentChapterId, currentBook.id);
+      }
+    } catch (error) {
       setErrorMessage(error.message);
     }
   }
@@ -1642,6 +2710,7 @@ function App() {
     }
     setReviewCommentDraft({
       ...emptyReviewCommentDraft(),
+      revision_id: selectedRevisionId || "",
       comment_type: defaultType,
       author: "Review",
       selected_text: payload.selected_text,
@@ -1689,7 +2758,13 @@ function App() {
     try {
       const created = await api.post(`/api/chapters/${selectedChapterId}/comments`, reviewCommentDraft);
       setReviewComments((previous) => [created, ...previous]);
-      editorRef.current?.applyReviewCommentMark?.(created);
+      editorRef.current?.applyReviewCommentMark?.({
+        ...created,
+        comment_phase: reviewCommentPhaseKey(created, revisionById),
+      });
+      if (created.revision_id) {
+        setReviewFilter("linked");
+      }
       setActiveReviewCommentId(created.id);
       setReviewBubblePosition(
         selectionContext
@@ -1714,6 +2789,7 @@ function App() {
     }
     try {
       const updated = await api.put(`/api/comments/${commentId}`, {
+        revision_id: nextFields.revision_id ?? comment.revision_id,
         comment_type: nextFields.comment_type ?? comment.comment_type,
         author: nextFields.author ?? comment.author,
         body: nextFields.body ?? comment.body,
@@ -1754,6 +2830,27 @@ function App() {
     clearSelectionPopup();
     setActiveReviewCommentId(commentId);
     setReviewBubblePosition(coords);
+  }
+
+  function defaultReviewBubbleCoords() {
+    if (typeof window === "undefined") {
+      return { x: 320, y: 144 };
+    }
+    return {
+      x: Math.max(300, window.innerWidth - 280),
+      y: Math.min(Math.max(136, window.innerHeight * 0.18), Math.max(136, window.innerHeight - 420)),
+    };
+  }
+
+  function openReviewCommentFromSidebar(comment) {
+    if (!comment?.id) {
+      return;
+    }
+    if (comment.revision_id) {
+      setSelectedRevisionId(comment.revision_id);
+      setSelectedAutosaveId("");
+    }
+    activateReviewComment(comment.id, defaultReviewBubbleCoords());
   }
 
   async function applyReviewSuggestion(comment, replacementText = comment?.suggested_text || "") {
@@ -2190,11 +3287,49 @@ function App() {
     showClipboardPalette ||
     Boolean(activeReviewCommentId);
   const isWidgetFocusActive = showFocusScrim || showEditorHelp;
-  const showTopRail = !isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings || showFloatingStatus);
+  const showTopRail = !isEditorFullscreen && !isWriteMode && (showEditorHeader || showEditorHelp || showEditorSettings || showFloatingStatus);
   const leftSectionClass = (section) =>
     `widget-panel-section ${activeLeftSection === section ? "is-active-widget is-selected" : "is-inactive-widget"}`;
   const rightSectionClass = (section) =>
     `widget-panel-section ${activeRightSection === section ? "is-active-widget is-selected" : "is-inactive-widget"}`;
+  const currentChapterPosition = currentChapter?.position || 0;
+  const currentChapterLabel = chapterDraft.title || currentChapter?.title || "Unbenanntes Kapitel";
+  const leftRailItems = [
+    { key: "project", label: "Projekt", icon: "⌂" },
+    { key: "book", label: "Buch", icon: "📘" },
+    { key: "chapter", label: "Kapitel", icon: "☰" },
+    { key: "workflow", label: "Workflow", icon: "◎" },
+    { key: "knowledge", label: "Wissen", icon: "✦" },
+  ];
+  const rightRailItems = [
+    { key: "context", label: "Wiki-Links", icon: "🔗" },
+    { key: "anchor", label: "Anker", icon: "⚓" },
+    { key: "clipboard", label: "Clipboard", icon: "📋" },
+    { key: "revision", label: "Revisionen", icon: "⟲" },
+  ];
+
+  useEffect(() => {
+    if (editorMode !== "markdown") {
+      return undefined;
+    }
+    const syncMarkdownTextareaHeight = () => {
+      const textarea = markdownTextareaRef.current;
+      if (!textarea) {
+        return;
+      }
+      const viewportOffset = isEditorFullscreen ? 120 : isWriteMode ? 180 : 300;
+      const minHeight = Math.max(window.innerHeight - viewportOffset, 420);
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.max(textarea.scrollHeight, minHeight)}px`;
+    };
+
+    const frame = requestAnimationFrame(syncMarkdownTextareaHeight);
+    window.addEventListener("resize", syncMarkdownTextareaHeight);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", syncMarkdownTextareaHeight);
+    };
+  }, [editorMode, chapterDraft.markdown_content, isEditorFullscreen, isWriteMode]);
 
   return (
     <div
@@ -2203,36 +3338,54 @@ function App() {
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
       {showFocusScrim ? <div className="focus-scrim" aria-hidden="true" onClick={closeTransientPanels} /> : null}
 
-      {!isEditorFullscreen ? (
+      {!isEditorFullscreen && !isWriteMode ? (
         <div className="floating-rail floating-rail--left" aria-label="Navigation">
-          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "project" ? "active" : ""}`} aria-label="Projekt" onClick={() => toggleLeftOverlay("project")}>⌂</button>
-          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "book" ? "active" : ""}`} aria-label="Buch" onClick={() => toggleLeftOverlay("book")}>📘</button>
-          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "chapter" ? "active" : ""}`} aria-label="Kapitel" onClick={() => toggleLeftOverlay("chapter")}>☰</button>
-          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "workflow" ? "active" : ""}`} aria-label="Workflow" onClick={() => toggleLeftOverlay("workflow")}>◎</button>
-          <button type="button" className={`icon-button ${showLeftOverlay && activeLeftSection === "knowledge" ? "active" : ""}`} aria-label="Wissen" onClick={() => toggleLeftOverlay("knowledge")}>✦</button>
+          {leftRailItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`icon-button rail-button hover-tooltip-button ${showLeftOverlay && activeLeftSection === item.key ? "active" : ""} ${item.key === "revision" ? "rail-button--revision" : ""}`}
+              aria-label={item.label}
+              title={item.label}
+              data-tooltip={item.label}
+              onClick={() => toggleLeftOverlay(item.key)}
+            >
+              <span className="rail-button__icon" aria-hidden="true">{item.icon}</span>
+            </button>
+          ))}
         </div>
       ) : null}
 
-      {!isEditorFullscreen ? (
+      {!isEditorFullscreen && !isWriteMode ? (
         <div className={`floating-rail floating-rail--top ${showTopRail ? "is-revealed" : "is-dormant"}`} aria-label="Editor-Steuerung">
           <span className={`floating-status-pill ${showFloatingStatus ? "is-visible" : "is-idle"}`} title={saveState}>
             {saveState}
           </span>
-          <button className="icon-button top-icon top-icon--save" type="button" aria-label="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>💾</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" onClick={() => switchEditorMode("rich")}>✍</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" onClick={() => switchEditorMode("markdown")}>#</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility ${showWritingTools ? "active" : ""}`} aria-label={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} onClick={() => setShowWritingTools((previous) => !previous)}>✚</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility ${showEditorHelp ? "active" : ""}`} aria-label={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} onClick={() => setShowEditorHelp((previous) => !previous)}>?</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility ${showEditorSettings ? "active" : ""}`} aria-label={showEditorSettings ? "⚙ Einstellungen ausblenden" : "⚙ Einstellungen"} onClick={() => setShowEditorSettings((previous) => !previous)}>⚙</button>
-          <button type="button" className={`icon-button top-icon top-icon--focus ${isEditorFullscreen ? "active" : ""}`} aria-label={isEditorFullscreen ? "Vollbild aus" : "Vollbild"} aria-pressed={isEditorFullscreen} onClick={() => setIsEditorFullscreen((previous) => !previous)}>⛶</button>
+          <button className="icon-button top-icon top-icon--save hover-tooltip-button" type="button" aria-label="Kapitel speichern" title="Kapitel speichern" data-tooltip="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>💾</button>
+          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" title="Richtext-Modus" data-tooltip="Richtext-Modus" onClick={() => switchEditorMode("rich")}>✍</button>
+          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" title="Markdown-Modus" data-tooltip="Markdown-Modus" onClick={() => switchEditorMode("markdown")}>#</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showWritingTools ? "active" : ""}`} aria-label={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} title={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} data-tooltip={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} onClick={() => setShowWritingTools((previous) => !previous)}>✚</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorHelp ? "active" : ""}`} aria-label={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} title={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} data-tooltip={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} onClick={() => setShowEditorHelp((previous) => !previous)}>?</button>
+          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorSettings ? "active" : ""}`} aria-label={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} title={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} data-tooltip={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} onClick={() => setShowEditorSettings((previous) => !previous)}>⚙</button>
+          <button type="button" className={`icon-button top-icon top-icon--focus hover-tooltip-button ${isEditorFullscreen ? "active" : ""}`} aria-label={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} title={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} data-tooltip={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} aria-pressed={isEditorFullscreen} onClick={() => setIsEditorFullscreen((previous) => !previous)}>⛶</button>
         </div>
       ) : null}
 
-      {!isEditorFullscreen ? (
+      {!isEditorFullscreen && !isWriteMode ? (
         <div className="floating-rail floating-rail--right" aria-label="Kontext">
-          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "context" ? "active" : ""}`} aria-label="Wiki-Links" onClick={() => toggleRightOverlay("context")}>🔗</button>
-          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "anchor" ? "active" : ""}`} aria-label="Anker" onClick={() => toggleRightOverlay("anchor")}>⚓</button>
-          <button type="button" className={`icon-button ${showRightOverlay && activeRightSection === "clipboard" ? "active" : ""}`} aria-label="Clipboard" onClick={() => toggleRightOverlay("clipboard")}>📋</button>
+          {rightRailItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`icon-button rail-button hover-tooltip-button ${showRightOverlay && activeRightSection === item.key ? "active" : ""} ${item.key === "revision" ? "rail-button--revision" : ""}`}
+              aria-label={item.label}
+              title={item.label}
+              data-tooltip={item.label}
+              onClick={() => toggleRightOverlay(item.key)}
+            >
+              <span className="rail-button__icon" aria-hidden="true">{item.icon}</span>
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -2807,8 +3960,8 @@ function App() {
           </SidebarSection>
         </aside>
 
-        <section className="editor-panel">
-          {!isEditorFullscreen ? (
+        <section className={`editor-panel work-mode-panel work-mode-panel--${workMode}`}>
+          {!isEditorFullscreen && !isWriteMode ? (
             <div
               className="editor-top-hover-zone"
               aria-hidden="true"
@@ -2816,66 +3969,113 @@ function App() {
               onMouseLeave={hideEditorHeaderSoon}
             />
           ) : null}
-          <div
-            className={`editor-header-shell ${!isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings) ? "is-visible" : ""}`}
-            onMouseEnter={revealEditorHeader}
-            onMouseLeave={hideEditorHeaderSoon}
-            onFocusCapture={revealEditorHeader}
-            onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                hideEditorHeaderSoon();
-              }
-            }}
-          >
-            <div className="editor-header">
-              <div className="chapter-header-stack">
-                <input
-                  className="chapter-title-input"
-                  value={chapterDraft.title}
-                  onChange={(event) => setChapterDraft((previous) => ({ ...previous, title: event.target.value }))}
-                  placeholder="Kapitelueberschrift"
-                  disabled={!currentChapter}
-                />
-                <input
-                  className="chapter-summary-input"
-                  value={chapterDraft.summary}
-                  onChange={(event) => setChapterDraft((previous) => ({ ...previous, summary: event.target.value }))}
-                  placeholder="Kapitel-Merker oder Kurzbeschreibung fuer deinen Schreibfluss"
-                  disabled={!currentChapter}
-                />
-              </div>
-              <div className="editor-actions">
-                <div className={`editor-action-group editor-action-group--context ${hasSelection ? "is-awake" : "is-muted"}`}>
-                  <button type="button" className="secondary-button icon-button" aria-label="Anker setzen" onClick={() => createAnchor()} disabled={!hasSelection}>
-                    ⚓
-                  </button>
-                  <button type="button" className="secondary-button icon-button" aria-label="In Clipboard uebernehmen" onClick={createClipboardItem} disabled={!hasSelection}>
-                    📋
-                  </button>
+          {isWriteMode ? (
+            <div className="writing-mode-toolbar">
+              <div className="writing-mode-toolbar__group writing-mode-toolbar__group--chapter">
+                <button
+                  type="button"
+                  className={`ghost-button writing-mode-toolbar__toggle ${showChapterOutline ? "is-active" : ""}`}
+                  onClick={() => setShowChapterOutline((previous) => !previous)}
+                  aria-pressed={showChapterOutline}
+                >
+                  Kapitel
+                </button>
+                <div className="writing-mode-toolbar__chapter-meta">
+                  <strong>{currentChapterPosition ? `Kapitel ${String(currentChapterPosition).padStart(2, "0")}` : "Kein Kapitel"}</strong>
+                  <input
+                    className="writing-mode-toolbar__chapter-input"
+                    value={currentChapterLabel}
+                    readOnly
+                    aria-label="Aktuelles Kapitel"
+                  />
                 </div>
-                {showWritingTools ? (
-                  <div className="editor-action-group editor-action-group--tools is-awake">
-                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Tabelle" onClick={insertTable} disabled={!currentChapter}>
-                      ▦
-                    </button>
-                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Zitat" onClick={toggleQuote} disabled={!currentChapter}>
-                      ❝
-                    </button>
-                    <button type="button" className="secondary-button subtle-button icon-button" aria-label="Fussnote" onClick={insertFootnote} disabled={!currentChapter}>
-                      †
-                    </button>
-                  </div>
+              </div>
+              <div className="writing-mode-toolbar__group">
+                <span className="writing-mode-toolbar__status" aria-live="polite">
+                  {saveState}
+                </span>
+                {editorMode === "markdown" ? (
+                  <span className="writing-mode-toolbar__hint">Neue `#` trennt beim Speichern ein Folgekapitel ab</span>
                 ) : null}
+                <button type="button" className="ghost-button icon-button hover-tooltip-button" aria-label="Kapitel speichern" title="Kapitel speichern" data-tooltip="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>
+                  💾
+                </button>
+                <button type="button" className={`ghost-button icon-button hover-tooltip-button ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" title="Richtext-Modus" data-tooltip="Richtext-Modus" onClick={() => switchEditorMode("rich")}>
+                  ✍
+                </button>
+                <button type="button" className={`ghost-button icon-button hover-tooltip-button ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" title="Markdown-Modus" data-tooltip="Markdown-Modus" onClick={() => switchEditorMode("markdown")}>
+                  #
+                </button>
+                <button type="button" className="ghost-button icon-button hover-tooltip-button" aria-label="Tabelle einfügen" title="Tabelle einfügen" data-tooltip="Tabelle einfügen" onClick={insertTable} disabled={!currentChapter}>
+                  ▦
+                </button>
+                <button type="button" className="ghost-button icon-button hover-tooltip-button" aria-label={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} title={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} data-tooltip={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} onClick={() => setIsEditorFullscreen((previous) => !previous)}>
+                  ⛶
+                </button>
               </div>
             </div>
-            {editorMetaItems.length > 0 ? (
-              <div className="editor-meta">
-                {editorMetaItems.map((item) => (
-                  <span key={item} className="editor-meta-chip is-subtle">{item}</span>
-                ))}
+          ) : (
+            <div
+              className={`editor-header-shell ${!isEditorFullscreen && (showEditorHeader || showEditorHelp || showEditorSettings) ? "is-visible" : ""}`}
+              onMouseEnter={revealEditorHeader}
+              onMouseLeave={hideEditorHeaderSoon}
+              onFocusCapture={revealEditorHeader}
+              onBlurCapture={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  hideEditorHeaderSoon();
+                }
+              }}
+            >
+              <div className="editor-header">
+                <div className="chapter-header-stack">
+                  <input
+                    className="chapter-title-input"
+                    value={chapterDraft.title}
+                    onChange={(event) => setChapterDraft((previous) => ({ ...previous, title: event.target.value }))}
+                    placeholder="Kapitelueberschrift"
+                    disabled={!currentChapter}
+                  />
+                  <input
+                    className="chapter-summary-input"
+                    value={chapterDraft.summary}
+                    onChange={(event) => setChapterDraft((previous) => ({ ...previous, summary: event.target.value }))}
+                    placeholder="Kapitel-Merker oder Kurzbeschreibung fuer deinen Schreibfluss"
+                    disabled={!currentChapter}
+                  />
+                </div>
+                <div className="editor-actions">
+                  <div className={`editor-action-group editor-action-group--context ${hasSelection ? "is-awake" : "is-muted"}`}>
+                    <button type="button" className="secondary-button icon-button" aria-label="Anker setzen" onClick={() => createAnchor()} disabled={!hasSelection}>
+                      ⚓
+                    </button>
+                    <button type="button" className="secondary-button icon-button" aria-label="In Clipboard uebernehmen" onClick={createClipboardItem} disabled={!hasSelection}>
+                      📋
+                    </button>
+                  </div>
+                  {showWritingTools ? (
+                    <div className="editor-action-group editor-action-group--tools is-awake">
+                      <button type="button" className="secondary-button subtle-button icon-button" aria-label="Tabelle" onClick={insertTable} disabled={!currentChapter}>
+                        ▦
+                      </button>
+                      <button type="button" className="secondary-button subtle-button icon-button" aria-label="Zitat" onClick={toggleQuote} disabled={!currentChapter}>
+                        ❝
+                      </button>
+                      <button type="button" className="secondary-button subtle-button icon-button" aria-label="Fussnote" onClick={insertFootnote} disabled={!currentChapter}>
+                        †
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            ) : null}
-          </div>
+              {editorMetaItems.length > 0 ? (
+                <div className="editor-meta">
+                  {editorMetaItems.map((item) => (
+                    <span key={item} className="editor-meta-chip is-subtle">{item}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {selectionContext ? (
             <div
@@ -2909,23 +4109,27 @@ function App() {
               <div className="selection-context-actions">
                 {selectionContext.payload?.selected_text ? (
                   <>
-                    <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
-                      {hasTemporaryAutoTarget && activeWorkflowBox ? `Anker · ${activeWorkflowBox.title}` : "Anker"}
-                    </button>
-                    {editorMode === "rich" ? (
-                      <button type="button" className="secondary-button" onClick={() => openReviewComposerFromSelection("comment")}>
-                        Kommentar
-                      </button>
-                    ) : null}
                     <button type="button" className="secondary-button" onClick={createClipboardItem}>
                       Clipboard
                     </button>
                     <button type="button" className="ghost-button" onClick={insertWikiLinkFromSelection}>
                       Wiki-Link
                     </button>
+                    {!isWriteMode ? (
+                      <>
+                        <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
+                          {hasTemporaryAutoTarget && activeWorkflowBox ? `Anker · ${activeWorkflowBox.title}` : "Anker"}
+                        </button>
+                        {editorMode === "rich" ? (
+                          <button type="button" className="secondary-button" onClick={() => openReviewComposerFromSelection("comment")}>
+                            Kommentar
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
                   </>
                 ) : null}
-                {workflowSuggestions.slice(0, 2).map(({ box, reasons }, index) => (
+                {!isWriteMode ? workflowSuggestions.slice(0, 2).map(({ box, reasons }, index) => (
                   <button
                     key={box.id}
                     type="button"
@@ -2939,15 +4143,17 @@ function App() {
                   >
                     Zu {box.title}
                   </button>
-                ))}
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => void attachSelectionToNewWorkflowBox()}
-                  disabled={!selectionContext.payload?.selected_text}
-                >
-                  Neue Box
-                </button>
+                )) : null}
+                {!isWriteMode ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => void attachSelectionToNewWorkflowBox()}
+                    disabled={!selectionContext.payload?.selected_text}
+                  >
+                    Neue Box
+                  </button>
+                ) : null}
                 {selectionContext.tableActive ? (
                   <>
                     <button type="button" className="ghost-button" onClick={() => editorRef.current?.addColumnAfter()}>
@@ -2962,67 +4168,150 @@ function App() {
             </div>
           ) : null}
 
-          <div
-            className={`editor-frame surface-${editorAppearance.surfacePreset}`}
-            style={editorSurfaceStyle}
-            data-surface={editorAppearance.surfacePreset}
-            data-fullscreen-backdrop={editorAppearance.fullscreenBackdrop}
-          >
-            <div className="editor-frame-inner">
-              {editorMode === "markdown" ? (
-                <textarea
-                  ref={markdownTextareaRef}
-                  className="markdown-textarea"
-                  value={chapterDraft.markdown_content}
-                  placeholder="Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten."
-                  onFocus={() => {
-                    setHasSelection(false);
-                    clearSelectionPopup();
-                  }}
-                  onSelect={(event) => {
-                    updateMarkdownSelectionState(event.target);
-                  }}
-                  onKeyUp={(event) => {
-                    updateMarkdownSelectionState(event.target);
-                  }}
-                  onClick={(event) => {
-                    updateMarkdownSelectionState(event.target);
-                  }}
-                  onCopy={() => handleEditorCopy(getMarkdownSelectionPayload())}
-                  onCut={() => handleEditorCopy(getMarkdownSelectionPayload())}
-                  onChange={(event) =>
-                    setChapterDraft((previous) => ({
-                      ...previous,
-                      markdown_content: event.target.value,
-                      editor_json: "",
-                    }))
-                  }
-                />
-              ) : (
-                <EditorPane
-                  ref={editorRef}
-                  chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
-                  pinnedSlots={pinnedSlots}
-                  activeReviewCommentId={activeReviewCommentId}
-                  onSelectionChange={setHasSelection}
-                  onSelectionContextChange={applyEditorSelectionContext}
-                  onReviewCommentActivate={activateReviewComment}
-                  onClipboardCapture={handleEditorCopy}
-                  onDocumentChange={(nextDocument) =>
-                    setChapterDraft((previous) => ({
-                      ...previous,
-                      ...nextDocument,
-                    }))
-                  }
-                />
-              )}
+          <div className={`editor-stage ${isWriteMode ? "editor-stage--write" : ""} ${showChapterOutline && isWriteMode ? "has-chapter-outline" : ""}`}>
+            {isWriteMode && showChapterOutline ? (
+              <aside className="chapter-outline">
+                <div className="chapter-outline__header">
+                  <strong>Kapitel</strong>
+                  <button type="button" className="ghost-button" onClick={createChapter}>
+                    + Kapitel
+                  </button>
+                </div>
+                <ol className="chapter-outline__list">
+                  {(bookBundle?.chapters || []).map((chapter) => (
+                    <li
+                      key={chapter.id}
+                      className={`chapter-outline__item ${chapter.id === selectedChapterId ? "is-active" : ""} ${chapter.id === draggedChapterId ? "is-dragging" : ""} ${chapter.id === chapterDropTargetId ? "is-drop-target" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        draggable
+                        className="chapter-outline__button"
+                        onClick={() => setSelectedChapterId(chapter.id)}
+                        onDragStart={() => {
+                          setDraggedChapterId(chapter.id);
+                          setChapterDropTargetId(chapter.id);
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          if (chapterDropTargetId !== chapter.id) {
+                            setChapterDropTargetId(chapter.id);
+                          }
+                        }}
+                        onDrop={async (event) => {
+                          event.preventDefault();
+                          const sourceChapterId = draggedChapterId;
+                          setDraggedChapterId("");
+                          setChapterDropTargetId("");
+                          await reorderChapters(sourceChapterId, chapter.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedChapterId("");
+                          setChapterDropTargetId("");
+                        }}
+                      >
+                        <span className="chapter-outline__index">{String(chapter.position).padStart(2, "0")}</span>
+                        <span className="chapter-outline__title">{chapter.title}</span>
+                      </button>
+                      {chapter.id === selectedChapterId ? (
+                        <div className="chapter-outline__detail">
+                          <textarea
+                            rows="3"
+                            value={chapterDraft.summary}
+                            placeholder="Kurzbeschreibung oder Merker für dieses Kapitel"
+                            onChange={(event) => setChapterDraft((previous) => ({ ...previous, summary: event.target.value }))}
+                            onBlur={(event) => updateChapterMeta(chapter.id, { summary: event.target.value })}
+                          />
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </aside>
+            ) : null}
+
+            <div className="editor-stage__main">
+              <div
+                className={`editor-frame surface-${editorAppearance.surfacePreset}`}
+                style={editorSurfaceStyle}
+                data-surface={editorAppearance.surfacePreset}
+                data-fullscreen-backdrop={editorAppearance.fullscreenBackdrop}
+              >
+                <div className={`editor-frame-inner ${editorMode === "markdown" ? "is-markdown-mode" : ""}`}>
+                  {editorMode === "markdown" ? (
+                    <textarea
+                      ref={markdownTextareaRef}
+                      className="markdown-textarea"
+                      value={chapterDraft.markdown_content}
+                      placeholder="Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten."
+                      onFocus={() => {
+                        setHasSelection(false);
+                        clearSelectionPopup();
+                      }}
+                      onSelect={(event) => {
+                        updateMarkdownSelectionState(event.target);
+                      }}
+                      onKeyUp={(event) => {
+                        updateMarkdownSelectionState(event.target);
+                      }}
+                      onClick={(event) => {
+                        updateMarkdownSelectionState(event.target);
+                      }}
+                      onCopy={() => handleEditorCopy(getMarkdownSelectionPayload())}
+                      onCut={() => handleEditorCopy(getMarkdownSelectionPayload())}
+                      onChange={(event) =>
+                        setChapterDraft((previous) => ({
+                          ...previous,
+                          markdown_content: event.target.value,
+                          editor_json: "",
+                        }))
+                      }
+                    />
+                  ) : (
+                    <EditorPane
+                      ref={editorRef}
+                      chapter={currentChapter ? { ...currentChapter, ...chapterDraft } : null}
+                      pinnedSlots={pinnedSlots}
+                      activeReviewCommentId={activeReviewCommentId}
+                      reviewComments={reviewCommentsForEditor}
+                      onSelectionChange={setHasSelection}
+                      onSelectionContextChange={applyEditorSelectionContext}
+                      onReviewCommentActivate={activateReviewComment}
+                      onClipboardCapture={handleEditorCopy}
+                      onDocumentChange={(nextDocument) =>
+                        setChapterDraft((previous) => ({
+                          ...previous,
+                          ...nextDocument,
+                        }))
+                      }
+                    />
+                  )}
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div className={`work-mode-tabs ${isWriteMode ? "work-mode-tabs--minimal" : ""}`} role="tablist" aria-label="Arbeitsmodi">
+            {WORK_MODES.map((mode) => (
+              <button
+                key={mode.key}
+                type="button"
+                role="tab"
+                aria-selected={workMode === mode.key}
+                className={`work-mode-tab ${workMode === mode.key ? "is-active" : ""}`}
+                onClick={() => setWorkMode(mode.key)}
+                title={mode.hint}
+              >
+                <strong>{mode.label}</strong>
+                <span>{mode.hint}</span>
+              </button>
+            ))}
           </div>
         </section>
 
         <aside className={`workspace-panel right-panel ${showRightOverlay ? "is-open" : ""}`}>
           <div className="overlay-panel-header">
-            <strong>{activeRightSection === "context" ? "Wiki-Links" : activeRightSection === "anchor" ? "Anker" : "Clipboard"}</strong>
+            <strong>{activeRightSection === "context" ? "Wiki-Links" : activeRightSection === "anchor" ? "Anker" : activeRightSection === "clipboard" ? "Clipboard" : "Revisionen"}</strong>
             <button type="button" className="icon-button" aria-label="Kontext schließen" onClick={() => setShowRightOverlay(false)}>×</button>
           </div>
           <SidebarSection sectionRef={contextSectionRef} className={rightSectionClass("context")} eyebrow="Kontext" title="Wiki-Links im Kapitel">
@@ -3184,6 +4473,455 @@ function App() {
                   </div>
                 </article>
               ))}
+            </div>
+          </SidebarSection>
+
+          <SidebarSection sectionRef={revisionSectionRef} className={rightSectionClass("revision")} eyebrow="Versionierung" title="Revisionen, Bookmarks & Proofing">
+            <div className="revision-summary">
+              <span>{revisions.length} Revisionen · {autosaveDrafts.length} Drafts · {milestones.length} Bookmarks · {reviewSummary.open} offen</span>
+              {revisionSurfaceLoading ? <small>laedt …</small> : null}
+            </div>
+            <article className="context-card proofing-overview-card">
+              <div className="context-card-header">
+                <div>
+                  <strong>Proofing-Uebersicht</strong>
+                  <small>Ruhiger Blick auf offene Hinweise und Korrekturen</small>
+                </div>
+                <span className="knowledge-chip">{reviewSummary.total} Eintraege</span>
+              </div>
+              <div className="proofing-summary-grid">
+                <article className="proofing-summary-card">
+                  <strong>{reviewSummary.open}</strong>
+                  <span>offen</span>
+                </article>
+                <article className="proofing-summary-card">
+                  <strong>{reviewSummary.suggestion}</strong>
+                  <span>Vorschlaege</span>
+                </article>
+                <article className="proofing-summary-card">
+                  <strong>{reviewSummary.todo}</strong>
+                  <span>To-dos</span>
+                </article>
+                <article className="proofing-summary-card">
+                  <strong>{reviewSummary.applied + reviewSummary.resolved}</strong>
+                  <span>erledigt</span>
+                </article>
+              </div>
+              <div className="review-filter-row" aria-label="Proofing-Filter">
+                {reviewFilterOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className={`quiet-filter-chip ${reviewFilter === option.key ? "active" : ""}`}
+                    onClick={() => setReviewFilter(option.key)}
+                  >
+                    <span>{option.label}</span>
+                    <small>{option.count}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="review-phase-row" aria-label="Revisionsphasen">
+                {reviewPhaseGroups.map((group) => (
+                  <button
+                    key={group.key}
+                    type="button"
+                    className={`quiet-filter-chip quiet-filter-chip--${group.tone || "sand"} ${reviewPhaseFilter === group.key ? "active" : ""}`}
+                    onClick={() => setReviewPhaseFilter(group.key)}
+                  >
+                    <span>{group.label}</span>
+                    <small>{group.count}</small>
+                  </button>
+                ))}
+              </div>
+              {filteredReviewComments.length > 0 ? (
+                <div className="review-comment-list">
+                  {filteredReviewSections.map((section) => (
+                    <section key={section.key} className="review-phase-section">
+                      <div className="review-phase-section-header">
+                        <span className={`phase-chip phase-chip--${section.tone}`}>{section.label}</span>
+                        <small>{section.comments.length} Hinweis{section.comments.length === 1 ? "" : "e"}</small>
+                      </div>
+                      {section.comments.slice(0, 4).map((comment) => (
+                        <article key={comment.id} className="review-comment-list-item">
+                          <button type="button" className="review-comment-list-main" onClick={() => openReviewCommentFromSidebar(comment)}>
+                            <div className="review-comment-list-header">
+                              <span className={`review-comment-type-pill review-comment-type-pill--${comment.comment_type || "comment"}`}>
+                                {reviewCommentTypeMeta(comment.comment_type).label}
+                              </span>
+                              <span className={`review-status-pill review-status-pill--${comment.status || "open"}`}>
+                                {reviewCommentStatusLabel(comment.status)}
+                              </span>
+                            </div>
+                            <strong>{comment.author || "Review"}</strong>
+                            <p>{reviewCommentPreview(comment)}</p>
+                            <small>
+                              {comment.revision_id && revisionById.get(comment.revision_id)
+                                ? `${revisionById.get(comment.revision_id).title || "Revision"} · `
+                                : ""}
+                              {formatReviewTimestamp(comment.created_at)}
+                            </small>
+                          </button>
+                        </article>
+                      ))}
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-note review-empty-note">Keine Eintraege fuer den aktiven Proofing-Filter.</p>
+              )}
+            </article>
+            <div className="revision-filter-row" aria-label="Timeline-Filter">
+              {timelineFilterOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`quiet-filter-chip ${timelineFilter === option.key ? "active" : ""}`}
+                  onClick={() => setTimelineFilter(option.key)}
+                >
+                  <span>{option.label}</span>
+                  <small>{option.count}</small>
+                </button>
+              ))}
+            </div>
+            {milestones.length > 0 ? (
+              <div className="revision-bookmark-strip">
+                {milestones.slice(0, 6).map((item) => {
+                  const milestoneMeta = milestoneTypeMeta(item.milestone_type);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`cloud-chip timeline-milestone-chip timeline-milestone-chip--${milestoneMeta.tone} ${selectedRevisionId === item.revision_id ? "active" : ""}`}
+                      onClick={() => {
+                        setSelectedRevisionId(item.revision_id);
+                        setSelectedAutosaveId("");
+                      }}
+                    >
+                      <span>{item.title}</span>
+                      <small>{milestoneMeta.label}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {visibleTimelineItems.length === 0 ? (
+              <p className="empty-note">Keine Timeline-Eintraege fuer den aktuellen Filter.</p>
+            ) : null}
+            {selectedTimelineItem ? (
+              <article className={`context-card revision-detail-card ${selectedTimelineItem.kind === "autosave" ? "is-draft" : "is-revision"}`}>
+                <div className="context-card-header">
+                  <div>
+                    <strong>{selectedTimelineItem.kind === "revision" ? selectedTimelineItem.payload.title || "Revision" : "Draft-Recovery"}</strong>
+                    <small>{formatTimelineTimestamp(selectedTimelineItem.payload.created_at)}</small>
+                  </div>
+                  <span className="knowledge-chip">{selectedTimelineItem.kind === "revision" ? selectedTimelineItem.payload.revision_type || "manual" : autosaveReasonLabel(selectedTimelineItem.payload.reason)}</span>
+                </div>
+                <p>
+                  {selectedTimelineItem.kind === "revision"
+                    ? selectedTimelineItem.payload.change_summary || selectedTimelineItem.payload.description || "Gesicherter Kapitelstand."
+                    : previewText(selectedTimelineItem.payload.markdown_content || "", 180)}
+                </p>
+                <div className="revision-meta-row">
+                  {selectedTimelineItem.kind === "revision" ? (
+                    <>
+                      <span className="knowledge-chip">{selectedTimelineItem.payload.word_count || 0} Woerter</span>
+                      {selectedTimelineItem.payload.created_by ? <span className="knowledge-chip">{selectedTimelineItem.payload.created_by}</span> : null}
+                      {selectedRevisionMilestones.length > 0
+                        ? selectedRevisionMilestones.slice(0, 2).map((item) => {
+                            const milestoneMeta = milestoneTypeMeta(item.milestone_type);
+                            return (
+                              <span key={item.id} className={`phase-chip phase-chip--${milestoneMeta.tone}`}>
+                                {milestoneMeta.label}
+                              </span>
+                            );
+                          })
+                        : null}
+                      {selectedRevisionComments.length > 0 ? <span className="knowledge-chip">{selectedRevisionComments.length} Review-Kommentare</span> : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="knowledge-chip">{selectedTimelineItem.payload.word_count || 0} Woerter</span>
+                      {selectedTimelineItem.payload.session_id ? <span className="knowledge-chip">Session {selectedTimelineItem.payload.session_id.slice(-6)}</span> : null}
+                    </>
+                  )}
+                </div>
+                <div className="revision-action-row">
+                  {selectedTimelineItem.kind === "autosave" ? (
+                    <button type="button" className="secondary-button" onClick={() => recoverAutosaveDraft(selectedTimelineItem.payload)}>
+                      Als Entwurf laden
+                    </button>
+                  ) : (
+                    <>
+                      <div className="milestone-type-row" aria-label="Milestone-Typen">
+                        {MILESTONE_TYPE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`quiet-filter-chip ${selectedMilestoneType === option.value ? "active" : ""}`}
+                            onClick={() => setSelectedMilestoneType(option.value)}
+                          >
+                            <span>{option.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => restoreRevision(selectedTimelineItem.payload)}
+                        disabled={revisionActionId === selectedTimelineItem.payload.id}
+                      >
+                        {revisionActionId === selectedTimelineItem.payload.id ? "Stelle wieder her ..." : "Wiederherstellen"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => createMilestoneForRevision(selectedTimelineItem.payload, selectedMilestoneType)}
+                        disabled={milestoneActionRevisionId === selectedTimelineItem.payload.id || selectedRevisionMilestones.length > 0}
+                      >
+                        {selectedRevisionMilestones.length > 0
+                          ? "Als Bookmark gesichert"
+                          : milestoneActionRevisionId === selectedTimelineItem.payload.id
+                            ? "Setze Bookmark ..."
+                            : "Bookmark setzen"}
+                      </button>
+                    </>
+                  )}
+                </div>
+                {selectedTimelineItem.kind === "revision" && selectedRevisionMilestones.length > 0 ? (
+                  <div className="revision-bookmark-list">
+                    {selectedRevisionMilestones.map((item) => {
+                      const milestoneMeta = milestoneTypeMeta(item.milestone_type);
+                      return (
+                        <article key={item.id} className={`revision-milestone-card revision-milestone-card--${milestoneMeta.tone}`}>
+                          <div className="context-card-header">
+                            <strong>{item.title}</strong>
+                            <span className={`phase-chip phase-chip--${milestoneMeta.tone}`}>{milestoneMeta.label}</span>
+                          </div>
+                          {editingMilestoneId === item.id ? (
+                            <div className="milestone-edit-grid">
+                              <label className="editor-setting">
+                                <span>Titel</span>
+                                <input
+                                  value={milestoneDraft.title}
+                                  onChange={(event) => setMilestoneDraft((previous) => ({ ...previous, title: event.target.value }))}
+                                />
+                              </label>
+                              <label className="editor-setting milestone-edit-span">
+                                <span>Beschreibung</span>
+                                <textarea
+                                  rows="3"
+                                  value={milestoneDraft.description}
+                                  onChange={(event) =>
+                                    setMilestoneDraft((previous) => ({ ...previous, description: event.target.value }))
+                                  }
+                                />
+                              </label>
+                              <label className="editor-setting">
+                                <span>Typ</span>
+                                <select
+                                  value={milestoneDraft.milestone_type}
+                                  onChange={(event) =>
+                                    setMilestoneDraft((previous) => ({ ...previous, milestone_type: event.target.value }))
+                                  }
+                                >
+                                  {MILESTONE_TYPE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="checkbox-row milestone-edit-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={milestoneDraft.locked}
+                                  onChange={(event) =>
+                                    setMilestoneDraft((previous) => ({ ...previous, locked: event.target.checked }))
+                                  }
+                                />
+                                gesperrt
+                              </label>
+                              <div className="milestone-edit-actions">
+                                <button type="button" className="secondary-button" onClick={() => saveMilestoneEdit(item)}>
+                                  Speichern
+                                </button>
+                                <button type="button" className="ghost-button" onClick={cancelMilestoneEdit}>
+                                  Abbrechen
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p>{item.description || "Gesetzter Bookmark-Stand."}</p>
+                              <small>{formatTimelineTimestamp(item.created_at)}</small>
+                              <div className="revision-inline-actions">
+                                <button type="button" className="ghost-button" onClick={() => startMilestoneEdit(item)}>
+                                  Bearbeiten
+                                </button>
+                                <button type="button" className="ghost-button" onClick={() => deleteMilestone(item)}>
+                                  Loeschen
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {selectedTimelineItem.kind === "revision" ? (
+                  <div className="revision-events">
+                    <div className="context-card-header">
+                      <strong>Proofing zur Revision</strong>
+                      <div className="revision-summary">
+                        <span className={`phase-chip phase-chip--${selectedRevisionPhaseTone}`}>{selectedRevisionPhaseTitle}</span>
+                        {selectedRevisionOpenComments.length > 0 ? <small>{selectedRevisionOpenComments.length} offen</small> : null}
+                      </div>
+                    </div>
+                    {selectedRevisionComments.length === 0 ? (
+                      <p className="empty-note">Noch keine direkt verknuepften Review-Kommentare zu dieser Revision.</p>
+                    ) : (
+                      <div className="review-comment-list">
+                        {selectedRevisionCommentSections.map((section) => (
+                          <section key={section.key} className="review-phase-section">
+                            <div className="review-phase-section-header">
+                              <span className={`phase-chip phase-chip--${section.tone}`}>{section.label}</span>
+                              <small>{section.comments.length} Hinweis{section.comments.length === 1 ? "" : "e"}</small>
+                            </div>
+                            {section.comments.slice(0, 4).map((comment) => (
+                              <article key={comment.id} className={`review-comment-list-item review-comment-list-item--${section.tone}`}>
+                                <button type="button" className="review-comment-list-main" onClick={() => openReviewCommentFromSidebar(comment)}>
+                                  <div className="review-comment-list-header">
+                                    <span className={`review-comment-type-pill review-comment-type-pill--${comment.comment_type || "comment"}`}>
+                                      {reviewCommentTypeMeta(comment.comment_type).label}
+                                    </span>
+                                    <span className={`review-status-pill review-status-pill--${comment.status || "open"}`}>
+                                      {reviewCommentStatusLabel(comment.status)}
+                                    </span>
+                                  </div>
+                                  <strong>{comment.author || "Review"}</strong>
+                                  <p>{reviewCommentPreview(comment)}</p>
+                                  <small>{formatReviewTimestamp(comment.created_at)}</small>
+                                </button>
+                              </article>
+                            ))}
+                          </section>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+                {selectedTimelineItem.kind === "revision" ? (
+                  <div className="revision-events">
+                    <div className="context-card-header">
+                      <strong>Ereignisse</strong>
+                      {revisionEventsLoading ? <small>laedt …</small> : null}
+                    </div>
+                    {selectedRevisionEvents.length === 0 && !revisionEventsLoading ? (
+                      <p className="empty-note">Noch keine Events zu dieser Revision.</p>
+                    ) : (
+                      <div className="revision-event-list">
+                        {selectedRevisionEvents.map((event) => (
+                          <article key={event.id} className={`revision-event-card revision-event-card--${revisionEventTone(event)}`}>
+                            <div className="context-card-header">
+                              <strong>{event.title}</strong>
+                              <span className={`phase-chip phase-chip--${revisionEventTone(event)}`}>{revisionEventLabel(event)}</span>
+                            </div>
+                            <p>{event.description || event.event_type}</p>
+                            <small>{formatTimelineTimestamp(event.created_at)}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            ) : null}
+            <div className="revision-timeline">
+              {visibleTimelineItems.map((item) => {
+                const isActive =
+                  (item.kind === "revision" && selectedRevisionId === item.id) ||
+                  (item.kind === "autosave" && selectedAutosaveId === item.id);
+                return (
+                  <article
+                    key={`${item.kind}-${item.id}`}
+                    className={`context-card revision-card ${isActive ? "active" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectTimelineEntry(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        selectTimelineEntry(item);
+                      }
+                    }}
+                  >
+                    <div className="context-card-header">
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{formatTimelineTimestamp(item.created_at)}</small>
+                      </div>
+                      <span className="knowledge-chip">{item.kind === "revision" ? item.payload.revision_type || "manual" : "draft"}</span>
+                    </div>
+                    <p>{item.description || previewText(item.payload.markdown_content || "", 120)}</p>
+                    <div className="revision-meta-row">
+                      <span className="knowledge-chip">{item.payload.word_count || 0} Woerter</span>
+                      {item.kind === "revision" && item.payload.added_words ? <span className="knowledge-chip">+{item.payload.added_words}</span> : null}
+                      {item.kind === "revision" && item.payload.removed_words ? <span className="knowledge-chip">-{item.payload.removed_words}</span> : null}
+                      {item.kind === "revision" && latestMilestoneByRevisionId.get(item.id) ? (
+                        <span
+                          className={`phase-chip phase-chip--${milestoneTypeMeta(latestMilestoneByRevisionId.get(item.id).milestone_type).tone}`}
+                        >
+                          {milestoneTypeMeta(latestMilestoneByRevisionId.get(item.id).milestone_type).shortLabel}
+                        </span>
+                      ) : null}
+                      {item.kind === "revision" && (reviewCommentsByRevisionId.get(item.id) || []).length > 0 ? (
+                        <span className="knowledge-chip">{(reviewCommentsByRevisionId.get(item.id) || []).length} Review</span>
+                      ) : null}
+                    </div>
+                    <div className="revision-inline-actions">
+                      {item.kind === "autosave" ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            recoverAutosaveDraft(item.payload);
+                          }}
+                        >
+                          Als Entwurf laden
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void restoreRevision(item.payload);
+                            }}
+                            disabled={revisionActionId === item.payload.id}
+                          >
+                            Wiederherstellen
+                          </button>
+                          {!latestMilestoneByRevisionId.get(item.id) ? (
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void createMilestoneForRevision(item.payload);
+                              }}
+                              disabled={milestoneActionRevisionId === item.payload.id}
+                            >
+                              {milestoneActionRevisionId === item.payload.id ? "Setze Bookmark ..." : "Bookmark"}
+                            </button>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </SidebarSection>
         </aside>
@@ -3433,6 +5171,22 @@ function App() {
               <span>Markierte Passage</span>
               <textarea rows="3" value={reviewCommentDraft.selected_text} readOnly />
             </label>
+            {reviewCommentDraft.revision_id && revisionById.get(reviewCommentDraft.revision_id) ? (
+              <div className="review-comment-composer-span">
+                <div
+                  className={`linked-revision-chip linked-revision-chip--${revisionPhaseMeta(
+                    revisionById.get(reviewCommentDraft.revision_id).revision_type || "manual",
+                  ).tone}`}
+                >
+                  <strong>Verknuepft mit</strong>
+                  <span>{revisionById.get(reviewCommentDraft.revision_id).title || "Revision"}</span>
+                  <span className={`phase-chip phase-chip--${revisionPhaseMeta(revisionById.get(reviewCommentDraft.revision_id).revision_type || "manual").tone}`}>
+                    {revisionPhaseLabel(revisionById.get(reviewCommentDraft.revision_id).revision_type || "manual")}
+                  </span>
+                  <small>{formatTimelineTimestamp(revisionById.get(reviewCommentDraft.revision_id).created_at)}</small>
+                </div>
+              </div>
+            ) : null}
             <label className="editor-setting review-comment-composer-span">
               <span>{reviewCommentTypeMeta(reviewCommentDraft.comment_type).label}</span>
               <textarea
@@ -3477,7 +5231,7 @@ function App() {
 
       {activeReviewComment && reviewBubblePosition ? (
         <section
-          className={`review-comment-bubble review-comment-bubble--${activeReviewComment.comment_type || "comment"}`}
+          className={`review-comment-bubble review-comment-bubble--${activeReviewComment.comment_type || "comment"} review-comment-bubble--phase-${reviewCommentPhaseTone(activeReviewComment, revisionById)}`}
           role="dialog"
           aria-label="Kommentar"
           style={{
@@ -3487,8 +5241,13 @@ function App() {
         >
           <div className="review-comment-bubble-header">
             <div>
-              <div className={`panel-eyebrow review-comment-type-pill review-comment-type-pill--${activeReviewComment.comment_type || "comment"}`}>
-                {reviewCommentTypeMeta(activeReviewComment.comment_type).label}
+              <div className="review-comment-bubble-chip-row">
+                <div className={`panel-eyebrow review-comment-type-pill review-comment-type-pill--${activeReviewComment.comment_type || "comment"}`}>
+                  {reviewCommentTypeMeta(activeReviewComment.comment_type).label}
+                </div>
+                <span className={`phase-chip phase-chip--${reviewCommentPhaseTone(activeReviewComment, revisionById)}`}>
+                  {reviewCommentPhaseLabel(activeReviewComment, revisionById)}
+                </span>
               </div>
               <strong>{activeReviewComment.author || "Review"}</strong>
             </div>
@@ -3498,7 +5257,10 @@ function App() {
           </div>
           <small className="review-comment-bubble-meta">
             {formatReviewTimestamp(activeReviewComment.created_at)}
-            {activeReviewComment.status !== "open" ? ` · ${activeReviewComment.status}` : ""}
+            {activeReviewComment.status !== "open" ? ` · ${reviewCommentStatusLabel(activeReviewComment.status)}` : ""}
+            {activeReviewComment.revision_id && revisionById.get(activeReviewComment.revision_id)
+              ? ` · ${revisionById.get(activeReviewComment.revision_id).title || "Revision"}`
+              : ""}
           </small>
           <div className="review-comment-quote">{activeReviewComment.selected_text}</div>
           {activeReviewComment.body ? <p>{activeReviewComment.body}</p> : null}

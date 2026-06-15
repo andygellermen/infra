@@ -33,6 +33,15 @@ apps/easy-author/
 
 ## Lokales Setup
 
+### Schnellstart
+
+```bash
+cd apps/easy-author
+./dev.sh
+```
+
+Das Script startet zuerst das Go-Backend, wartet auf den Healthcheck und startet danach automatisch das Frontend.
+
 ### Backend
 
 ```bash
@@ -76,6 +85,13 @@ npm run dev
 npm run test:markdown
 npm run test:editor
 npm test
+```
+
+Wenn du nicht beide Prozesse getrennt starten willst, nutze stattdessen einfach:
+
+```bash
+cd apps/easy-author
+./dev.sh
 ```
 
 Frontend-URL: `http://127.0.0.1:5173`

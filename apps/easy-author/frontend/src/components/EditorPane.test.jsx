@@ -148,6 +148,29 @@ describe("EditorPane synchronization", () => {
     expect(setContent).toHaveBeenLastCalledWith(updatedDoc);
   });
 
+  it("prefers markdown content when stored editor_json drifts semantically", () => {
+    const markdown = "# Kapitel 1\n\nIch verschiebe das auf **niemals**.";
+    const staleEditorDoc = markdownToDoc("# Kapitel 1\n\nIch verschiebe das auf \\*\\*niemals\\*\\*.");
+    const expectedDoc = markdownToDoc(markdown);
+
+    render(
+      <EditorPane
+        chapter={{
+          id: "chapter-1",
+          title: "Kapitel 1",
+          markdown_content: markdown,
+          editor_json: JSON.stringify(staleEditorDoc),
+        }}
+        pinnedSlots={[]}
+        onDocumentChange={() => {}}
+        onSelectionChange={() => {}}
+      />,
+    );
+
+    expect(setContent).toHaveBeenCalledTimes(1);
+    expect(setContent).toHaveBeenLastCalledWith(expectedDoc);
+  });
+
   it("forwards native copy events from the rich editor selection", () => {
     currentSelectionEmpty = false;
     currentTextBetween = vi

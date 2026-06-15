@@ -88,6 +88,12 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		"markdown_content": "# Zweites Kapitel\n\nNoch ein Test.",
 		"editor_json":      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Noch ein Test."}]}]}`,
 	})["id"].(string)
+	revisionID := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/revisions", map[string]any{
+		"revision_type": "manual",
+		"title":         "Bewusster Speicherpunkt",
+		"description":   "Testbasis fuer Review-Verknuepfung",
+		"created_by":    "Test",
+	})["id"].(string)
 
 	reordered := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/chapters/reorder", map[string]any{
 		"chapter_ids": []string{chapterTwoID, chapterID},
@@ -117,6 +123,7 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	anchorID := anchor["id"].(string)
 
 	reviewComment := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/comments", map[string]any{
+		"revision_id":    revisionID,
 		"comment_type":   "suggestion",
 		"author":         "Lektorat",
 		"body":           "Satzbau wie folgt aendern.",
@@ -127,6 +134,9 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 		"status":         "open",
 	})
 	reviewCommentID := reviewComment["id"].(string)
+	if reviewComment["revision_id"].(string) != revisionID {
+		t.Fatalf("expected linked revision_id, got %#v", reviewComment["revision_id"])
+	}
 
 	updatedReviewComment := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/comments/"+reviewCommentID, map[string]any{
 		"comment_type":   "suggestion",
@@ -176,6 +186,10 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	comments := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/comments", nil)
 	if len(comments["comments"].([]any)) != 1 {
 		t.Fatalf("expected one review comment, got %#v", comments["comments"])
+	}
+	commentEvents := requestJSON(t, app.Handler(), http.MethodGet, "/api/revisions/"+revisionID+"/events", nil)["events"].([]any)
+	if len(commentEvents) == 0 {
+		t.Fatalf("expected review-linked revision events")
 	}
 
 	knowledgeItems := requestJSON(t, app.Handler(), http.MethodGet, "/api/projects/"+projectID+"/knowledge-items", nil)

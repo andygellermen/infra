@@ -22,27 +22,37 @@ type Store struct {
 }
 
 type CreateProjectInput struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	Status       string `json:"status"`
+	LastOpenedAt string `json:"last_opened_at"`
 }
 
 type UpdateProjectInput struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	Status       string `json:"status"`
+	LastOpenedAt string `json:"last_opened_at"`
 }
 
 type CreateBookInput struct {
-	Title      string `json:"title"`
-	Subtitle   string `json:"subtitle"`
-	Author     string `json:"author"`
-	Visibility string `json:"visibility"`
+	Title        string `json:"title"`
+	Subtitle     string `json:"subtitle"`
+	Author       string `json:"author"`
+	Visibility   string `json:"visibility"`
+	WorkType     string `json:"work_type"`
+	ThemeID      string `json:"theme_id"`
+	CoverAssetID string `json:"cover_asset_id"`
 }
 
 type UpdateBookInput struct {
-	Title      string `json:"title"`
-	Subtitle   string `json:"subtitle"`
-	Author     string `json:"author"`
-	Visibility string `json:"visibility"`
+	Title        string `json:"title"`
+	Subtitle     string `json:"subtitle"`
+	Author       string `json:"author"`
+	Visibility   string `json:"visibility"`
+	WorkType     string `json:"work_type"`
+	ThemeID      string `json:"theme_id"`
+	CoverAssetID string `json:"cover_asset_id"`
 }
 
 type CreateChapterInput struct {
@@ -50,13 +60,92 @@ type CreateChapterInput struct {
 	Summary         string `json:"summary"`
 	MarkdownContent string `json:"markdown_content"`
 	EditorJSON      string `json:"editor_json"`
+	SectionType     string `json:"section_type"`
+	Status          string `json:"status"`
 }
 
 type UpdateChapterInput struct {
+	Title               string `json:"title"`
+	Summary             string `json:"summary"`
+	MarkdownContent     string `json:"markdown_content"`
+	EditorJSON          string `json:"editor_json"`
+	SectionType         string `json:"section_type"`
+	Status              string `json:"status"`
+	SaveMode            string `json:"save_mode"`
+	AutosaveReason      string `json:"autosave_reason"`
+	SessionID           string `json:"session_id"`
+	CreateRevision      bool   `json:"create_revision"`
+	RevisionType        string `json:"revision_type"`
+	RevisionTitle       string `json:"revision_title"`
+	RevisionDescription string `json:"revision_description"`
+	CreatedBy           string `json:"created_by"`
+}
+
+type UpdateChapterOptionsInput struct {
+	SectionType        string `json:"section_type"`
+	Status             string `json:"status"`
+	IsIncludedInExport bool   `json:"is_included_in_export"`
+	IsVisibleInTOC     bool   `json:"is_visible_in_toc"`
+	IsSampleContent    bool   `json:"is_sample_content"`
+}
+
+type CreateReusableBookPageInput struct {
 	Title           string `json:"title"`
-	Summary         string `json:"summary"`
-	MarkdownContent string `json:"markdown_content"`
-	EditorJSON      string `json:"editor_json"`
+	PageType        string `json:"page_type"`
+	ContentMarkdown string `json:"content_markdown"`
+	ContentJSON     string `json:"content_json"`
+	IsGlobal        bool   `json:"is_global"`
+}
+
+type UpdateReusableBookPageInput struct {
+	Title           string `json:"title"`
+	PageType        string `json:"page_type"`
+	ContentMarkdown string `json:"content_markdown"`
+	ContentJSON     string `json:"content_json"`
+	IsGlobal        bool   `json:"is_global"`
+}
+
+type CreateThemeInput struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Target       string `json:"target"`
+	SettingsJSON string `json:"settings_json"`
+}
+
+type UpdateThemeInput struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Target       string `json:"target"`
+	SettingsJSON string `json:"settings_json"`
+}
+
+type CreateRevisionInput struct {
+	RevisionType string `json:"revision_type"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	SessionID    string `json:"session_id"`
+	CreatedBy    string `json:"created_by"`
+}
+
+type RestoreRevisionInput struct {
+	CreatedBy string `json:"created_by"`
+}
+
+type CreateMilestoneInput struct {
+	RevisionID    string `json:"revision_id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	MilestoneType string `json:"milestone_type"`
+	Locked        bool   `json:"locked"`
+	CreatedBy     string `json:"created_by"`
+}
+
+type UpdateMilestoneInput struct {
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	MilestoneType string `json:"milestone_type"`
+	Locked        bool   `json:"locked"`
+	CreatedBy     string `json:"created_by"`
 }
 
 type ReorderChaptersInput struct {
@@ -105,6 +194,7 @@ type UpdateClipboardItemInput struct {
 }
 
 type CreateReviewCommentInput struct {
+	RevisionID    string `json:"revision_id"`
 	CommentType   string `json:"comment_type"`
 	Author        string `json:"author"`
 	Body          string `json:"body"`
@@ -119,6 +209,7 @@ type CreateReviewCommentInput struct {
 }
 
 type UpdateReviewCommentInput struct {
+	RevisionID    string `json:"revision_id"`
 	CommentType   string `json:"comment_type"`
 	Author        string `json:"author"`
 	Body          string `json:"body"`
@@ -153,6 +244,8 @@ func (s *Store) Init(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			title TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'active',
+			last_opened_at TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		);`,
@@ -163,6 +256,9 @@ func (s *Store) Init(ctx context.Context) error {
 			subtitle TEXT NOT NULL DEFAULT '',
 			author TEXT NOT NULL DEFAULT '',
 			visibility TEXT NOT NULL DEFAULT 'private',
+			work_type TEXT NOT NULL DEFAULT 'book',
+			theme_id TEXT NOT NULL DEFAULT '',
+			cover_asset_id TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -175,6 +271,11 @@ func (s *Store) Init(ctx context.Context) error {
 			position INTEGER NOT NULL,
 			markdown_content TEXT NOT NULL DEFAULT '',
 			editor_json TEXT NOT NULL DEFAULT '',
+			section_type TEXT NOT NULL DEFAULT 'body',
+			status TEXT NOT NULL DEFAULT 'draft',
+			is_included_in_export INTEGER NOT NULL DEFAULT 1,
+			is_visible_in_toc INTEGER NOT NULL DEFAULT 1,
+			is_sample_content INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
@@ -212,6 +313,7 @@ func (s *Store) Init(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS review_comments (
 			id TEXT PRIMARY KEY,
 			chapter_id TEXT NOT NULL,
+			revision_id TEXT NOT NULL DEFAULT '',
 			comment_type TEXT NOT NULL DEFAULT 'comment',
 			author TEXT NOT NULL DEFAULT '',
 			body TEXT NOT NULL DEFAULT '',
@@ -225,7 +327,8 @@ func (s *Store) Init(ctx context.Context) error {
 			is_todo_done INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
-			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+			FOREIGN KEY(revision_id) REFERENCES revisions(id) ON DELETE SET DEFAULT
 		);`,
 		`CREATE TABLE IF NOT EXISTS clipboard_items (
 			id TEXT PRIMARY KEY,
@@ -252,7 +355,30 @@ func (s *Store) Init(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS reusable_book_pages (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL DEFAULT '',
+			title TEXT NOT NULL,
+			page_type TEXT NOT NULL DEFAULT 'custom',
+			content_markdown TEXT NOT NULL DEFAULT '',
+			content_json TEXT NOT NULL DEFAULT '',
+			is_global INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS reusable_book_pages_project_updated_idx ON reusable_book_pages(project_id, updated_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS themes (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			target TEXT NOT NULL DEFAULT 'general',
+			settings_json TEXT NOT NULL DEFAULT '{}',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS themes_target_updated_idx ON themes(target, updated_at DESC);`,
 	}
+	statements = append(statements, versioningSchemaStatements()...)
 
 	for _, statement := range statements {
 		if _, err := s.db.ExecContext(ctx, statement); err != nil {
@@ -262,8 +388,44 @@ func (s *Store) Init(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `ALTER TABLE workflow_boxes ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
 		return fmt.Errorf("migrate workflow tags: %w", err)
 	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate project status: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE projects ADD COLUMN last_opened_at TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate project last_opened_at: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE books ADD COLUMN work_type TEXT NOT NULL DEFAULT 'book'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate book work_type: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE books ADD COLUMN theme_id TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate book theme_id: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE books ADD COLUMN cover_asset_id TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate book cover_asset_id: %w", err)
+	}
 	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN summary TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
 		return fmt.Errorf("migrate chapter summary: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN section_type TEXT NOT NULL DEFAULT 'body'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter section_type: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter status: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN is_included_in_export INTEGER NOT NULL DEFAULT 1`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter is_included_in_export: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN is_visible_in_toc INTEGER NOT NULL DEFAULT 1`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter is_visible_in_toc: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE chapters ADD COLUMN is_sample_content INTEGER NOT NULL DEFAULT 0`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate chapter is_sample_content: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE review_comments ADD COLUMN revision_id TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return fmt.Errorf("migrate review comment revision_id: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS review_comments_chapter_revision_created_idx ON review_comments(chapter_id, revision_id, created_at DESC)`); err != nil {
+		return fmt.Errorf("migrate review comment revision index: %w", err)
 	}
 
 	return s.ensureDemoContent(ctx)
@@ -340,7 +502,7 @@ Sie blieb noch einen Moment am Tor stehen und notierte sich im Kopf, was spaeter
 }
 
 func (s *Store) ListProjects(ctx context.Context) ([]model.Project, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, title, description, created_at, updated_at FROM projects ORDER BY updated_at DESC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, title, description, status, last_opened_at, created_at, updated_at FROM projects ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
@@ -349,7 +511,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]model.Project, error) {
 	var projects []model.Project
 	for rows.Next() {
 		var item model.Project
-		if err := rows.Scan(&item.ID, &item.Title, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Description, &item.Status, &item.LastOpenedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan project: %w", err)
 		}
 		projects = append(projects, item)
@@ -364,14 +526,16 @@ func (s *Store) CreateProject(ctx context.Context, input CreateProjectInput) (mo
 	}
 	now := nowUTC()
 	item := model.Project{
-		ID:          newID(),
-		Title:       title,
-		Description: strings.TrimSpace(input.Description),
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           newID(),
+		Title:        title,
+		Description:  strings.TrimSpace(input.Description),
+		Status:       normalizeProjectStatus(input.Status),
+		LastOpenedAt: strings.TrimSpace(input.LastOpenedAt),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO projects (id, title, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-		item.ID, item.Title, item.Description, item.CreatedAt, item.UpdatedAt,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO projects (id, title, description, status, last_opened_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.Title, item.Description, item.Status, item.LastOpenedAt, item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.Project{}, fmt.Errorf("create project: %w", err)
@@ -390,12 +554,18 @@ func (s *Store) UpdateProject(ctx context.Context, id string, input UpdateProjec
 	}
 	project.Title = title
 	project.Description = strings.TrimSpace(input.Description)
+	project.Status = normalizeProjectStatus(fallback(strings.TrimSpace(input.Status), project.Status))
+	if strings.TrimSpace(input.LastOpenedAt) != "" {
+		project.LastOpenedAt = strings.TrimSpace(input.LastOpenedAt)
+	}
 	project.UpdatedAt = nowUTC()
 	_, err = s.db.ExecContext(
 		ctx,
-		`UPDATE projects SET title = ?, description = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE projects SET title = ?, description = ?, status = ?, last_opened_at = ?, updated_at = ? WHERE id = ?`,
 		project.Title,
 		project.Description,
+		project.Status,
+		project.LastOpenedAt,
 		project.UpdatedAt,
 		project.ID,
 	)
@@ -407,8 +577,8 @@ func (s *Store) UpdateProject(ctx context.Context, id string, input UpdateProjec
 
 func (s *Store) GetProject(ctx context.Context, id string) (model.Project, []model.Book, error) {
 	var item model.Project
-	err := s.db.QueryRowContext(ctx, `SELECT id, title, description, created_at, updated_at FROM projects WHERE id = ?`, id).
-		Scan(&item.ID, &item.Title, &item.Description, &item.CreatedAt, &item.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, `SELECT id, title, description, status, last_opened_at, created_at, updated_at FROM projects WHERE id = ?`, id).
+		Scan(&item.ID, &item.Title, &item.Description, &item.Status, &item.LastOpenedAt, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Project{}, nil, ErrNotFound
@@ -416,7 +586,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (model.Project, []mod
 		return model.Project{}, nil, fmt.Errorf("get project: %w", err)
 	}
 
-	rows, err := s.db.QueryContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, created_at, updated_at FROM books WHERE project_id = ? ORDER BY updated_at DESC`, id)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, work_type, theme_id, cover_asset_id, created_at, updated_at FROM books WHERE project_id = ? ORDER BY updated_at DESC`, id)
 	if err != nil {
 		return model.Project{}, nil, fmt.Errorf("list books: %w", err)
 	}
@@ -425,7 +595,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (model.Project, []mod
 	var books []model.Book
 	for rows.Next() {
 		var book model.Book
-		if err := rows.Scan(&book.ID, &book.ProjectID, &book.Title, &book.Subtitle, &book.Author, &book.Visibility, &book.CreatedAt, &book.UpdatedAt); err != nil {
+		if err := rows.Scan(&book.ID, &book.ProjectID, &book.Title, &book.Subtitle, &book.Author, &book.Visibility, &book.WorkType, &book.ThemeID, &book.CoverAssetID, &book.CreatedAt, &book.UpdatedAt); err != nil {
 			return model.Project{}, nil, fmt.Errorf("scan book: %w", err)
 		}
 		books = append(books, book)
@@ -440,17 +610,20 @@ func (s *Store) CreateBook(ctx context.Context, projectID string, input CreateBo
 	visibility := normalizeVisibility(input.Visibility)
 	now := nowUTC()
 	item := model.Book{
-		ID:         newID(),
-		ProjectID:  projectID,
-		Title:      fallback(strings.TrimSpace(input.Title), "Neues Buch"),
-		Subtitle:   strings.TrimSpace(input.Subtitle),
-		Author:     strings.TrimSpace(input.Author),
-		Visibility: visibility,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:           newID(),
+		ProjectID:    projectID,
+		Title:        fallback(strings.TrimSpace(input.Title), "Neues Buch"),
+		Subtitle:     strings.TrimSpace(input.Subtitle),
+		Author:       strings.TrimSpace(input.Author),
+		Visibility:   visibility,
+		WorkType:     normalizeWorkType(input.WorkType),
+		ThemeID:      strings.TrimSpace(input.ThemeID),
+		CoverAssetID: strings.TrimSpace(input.CoverAssetID),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO books (id, project_id, title, subtitle, author, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.ProjectID, item.Title, item.Subtitle, item.Author, item.Visibility, item.CreatedAt, item.UpdatedAt,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO books (id, project_id, title, subtitle, author, visibility, work_type, theme_id, cover_asset_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.ProjectID, item.Title, item.Subtitle, item.Author, item.Visibility, item.WorkType, item.ThemeID, item.CoverAssetID, item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.Book{}, fmt.Errorf("create book: %w", err)
@@ -463,8 +636,8 @@ func (s *Store) CreateBook(ctx context.Context, projectID string, input CreateBo
 
 func (s *Store) GetBook(ctx context.Context, bookID string) (model.BookBundle, error) {
 	var book model.Book
-	err := s.db.QueryRowContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, created_at, updated_at FROM books WHERE id = ?`, bookID).
-		Scan(&book.ID, &book.ProjectID, &book.Title, &book.Subtitle, &book.Author, &book.Visibility, &book.CreatedAt, &book.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, work_type, theme_id, cover_asset_id, created_at, updated_at FROM books WHERE id = ?`, bookID).
+		Scan(&book.ID, &book.ProjectID, &book.Title, &book.Subtitle, &book.Author, &book.Visibility, &book.WorkType, &book.ThemeID, &book.CoverAssetID, &book.CreatedAt, &book.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.BookBundle{}, ErrNotFound
@@ -484,19 +657,29 @@ func (s *Store) GetBook(ctx context.Context, bookID string) (model.BookBundle, e
 	if err != nil {
 		return model.BookBundle{}, err
 	}
+	reusablePages, err := s.ListReusableBookPages(ctx, bookID)
+	if err != nil {
+		return model.BookBundle{}, err
+	}
+	themes, err := s.ListThemes(ctx)
+	if err != nil {
+		return model.BookBundle{}, err
+	}
 
 	return model.BookBundle{
 		Book:          book,
 		Chapters:      chapters,
 		WorkflowBoxes: boxes,
 		Clipboard:     clipboard,
+		ReusablePages: reusablePages,
+		Themes:        themes,
 	}, nil
 }
 
 func (s *Store) UpdateBook(ctx context.Context, id string, input UpdateBookInput) (model.Book, error) {
 	var item model.Book
-	err := s.db.QueryRowContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, created_at, updated_at FROM books WHERE id = ?`, id).
-		Scan(&item.ID, &item.ProjectID, &item.Title, &item.Subtitle, &item.Author, &item.Visibility, &item.CreatedAt, &item.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, `SELECT id, project_id, title, subtitle, author, visibility, work_type, theme_id, cover_asset_id, created_at, updated_at FROM books WHERE id = ?`, id).
+		Scan(&item.ID, &item.ProjectID, &item.Title, &item.Subtitle, &item.Author, &item.Visibility, &item.WorkType, &item.ThemeID, &item.CoverAssetID, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Book{}, ErrNotFound
@@ -508,10 +691,13 @@ func (s *Store) UpdateBook(ctx context.Context, id string, input UpdateBookInput
 	item.Subtitle = strings.TrimSpace(input.Subtitle)
 	item.Author = strings.TrimSpace(input.Author)
 	item.Visibility = normalizeVisibility(input.Visibility)
+	item.WorkType = normalizeWorkType(fallback(strings.TrimSpace(input.WorkType), item.WorkType))
+	item.ThemeID = strings.TrimSpace(input.ThemeID)
+	item.CoverAssetID = strings.TrimSpace(input.CoverAssetID)
 	item.UpdatedAt = nowUTC()
 
-	_, err = s.db.ExecContext(ctx, `UPDATE books SET title = ?, subtitle = ?, author = ?, visibility = ?, updated_at = ? WHERE id = ?`,
-		item.Title, item.Subtitle, item.Author, item.Visibility, item.UpdatedAt, item.ID,
+	_, err = s.db.ExecContext(ctx, `UPDATE books SET title = ?, subtitle = ?, author = ?, visibility = ?, work_type = ?, theme_id = ?, cover_asset_id = ?, updated_at = ? WHERE id = ?`,
+		item.Title, item.Subtitle, item.Author, item.Visibility, item.WorkType, item.ThemeID, item.CoverAssetID, item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return model.Book{}, fmt.Errorf("update book: %w", err)
@@ -523,7 +709,7 @@ func (s *Store) UpdateBook(ctx context.Context, id string, input UpdateBookInput
 }
 
 func (s *Store) ListChapters(ctx context.Context, bookID string) ([]model.Chapter, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE book_id = ? ORDER BY position ASC`, bookID)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, section_type, status, is_included_in_export, is_visible_in_toc, is_sample_content, created_at, updated_at FROM chapters WHERE book_id = ? ORDER BY position ASC`, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("list chapters: %w", err)
 	}
@@ -532,9 +718,13 @@ func (s *Store) ListChapters(ctx context.Context, bookID string) ([]model.Chapte
 	var chapters []model.Chapter
 	for rows.Next() {
 		var item model.Chapter
-		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		var includedExport, visibleTOC, sampleContent int
+		if err := rows.Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.SectionType, &item.Status, &includedExport, &visibleTOC, &sampleContent, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan chapter: %w", err)
 		}
+		item.IsIncludedInExport = includedExport == 1
+		item.IsVisibleInTOC = visibleTOC == 1
+		item.IsSampleContent = sampleContent == 1
 		chapters = append(chapters, item)
 	}
 	return chapters, rows.Err()
@@ -547,18 +737,23 @@ func (s *Store) CreateChapter(ctx context.Context, bookID string, input CreateCh
 	}
 	now := nowUTC()
 	item := model.Chapter{
-		ID:              newID(),
-		BookID:          bookID,
-		Title:           fallback(strings.TrimSpace(input.Title), fmt.Sprintf("Kapitel %d", nextPosition)),
-		Summary:         strings.TrimSpace(input.Summary),
-		Position:        nextPosition,
-		MarkdownContent: strings.TrimSpace(input.MarkdownContent),
-		EditorJSON:      strings.TrimSpace(input.EditorJSON),
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 newID(),
+		BookID:             bookID,
+		Title:              fallback(strings.TrimSpace(input.Title), fmt.Sprintf("Kapitel %d", nextPosition)),
+		Summary:            strings.TrimSpace(input.Summary),
+		Position:           nextPosition,
+		MarkdownContent:    strings.TrimSpace(input.MarkdownContent),
+		EditorJSON:         strings.TrimSpace(input.EditorJSON),
+		SectionType:        normalizeSectionType(input.SectionType),
+		Status:             normalizeChapterStatus(input.Status),
+		IsIncludedInExport: true,
+		IsVisibleInTOC:     true,
+		IsSampleContent:    false,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO chapters (id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.BookID, item.Title, item.Summary, item.Position, item.MarkdownContent, item.EditorJSON, item.CreatedAt, item.UpdatedAt,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO chapters (id, book_id, title, summary, position, markdown_content, editor_json, section_type, status, is_included_in_export, is_visible_in_toc, is_sample_content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.BookID, item.Title, item.Summary, item.Position, item.MarkdownContent, item.EditorJSON, item.SectionType, item.Status, boolToInt(item.IsIncludedInExport), boolToInt(item.IsVisibleInTOC), boolToInt(item.IsSampleContent), item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.Chapter{}, fmt.Errorf("create chapter: %w", err)
@@ -571,14 +766,18 @@ func (s *Store) CreateChapter(ctx context.Context, bookID string, input CreateCh
 
 func (s *Store) GetChapter(ctx context.Context, id string) (model.Chapter, error) {
 	var item model.Chapter
-	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, created_at, updated_at FROM chapters WHERE id = ?`, id).
-		Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.CreatedAt, &item.UpdatedAt)
+	var includedExport, visibleTOC, sampleContent int
+	err := s.db.QueryRowContext(ctx, `SELECT id, book_id, title, summary, position, markdown_content, editor_json, section_type, status, is_included_in_export, is_visible_in_toc, is_sample_content, created_at, updated_at FROM chapters WHERE id = ?`, id).
+		Scan(&item.ID, &item.BookID, &item.Title, &item.Summary, &item.Position, &item.MarkdownContent, &item.EditorJSON, &item.SectionType, &item.Status, &includedExport, &visibleTOC, &sampleContent, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Chapter{}, ErrNotFound
 		}
 		return model.Chapter{}, fmt.Errorf("get chapter: %w", err)
 	}
+	item.IsIncludedInExport = includedExport == 1
+	item.IsVisibleInTOC = visibleTOC == 1
+	item.IsSampleContent = sampleContent == 1
 	return item, nil
 }
 
@@ -591,13 +790,56 @@ func (s *Store) UpdateChapter(ctx context.Context, id string, input UpdateChapte
 	item.Summary = strings.TrimSpace(input.Summary)
 	item.MarkdownContent = strings.TrimSpace(input.MarkdownContent)
 	item.EditorJSON = strings.TrimSpace(input.EditorJSON)
+	if strings.TrimSpace(input.SectionType) != "" {
+		item.SectionType = normalizeSectionType(input.SectionType)
+	}
+	if strings.TrimSpace(input.Status) != "" {
+		item.Status = normalizeChapterStatus(input.Status)
+	}
 	item.UpdatedAt = nowUTC()
-	_, err = s.db.ExecContext(ctx, `UPDATE chapters SET title = ?, summary = ?, markdown_content = ?, editor_json = ?, updated_at = ? WHERE id = ?`,
-		item.Title, item.Summary, item.MarkdownContent, item.EditorJSON, item.UpdatedAt, item.ID,
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Chapter{}, fmt.Errorf("begin update chapter tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `UPDATE chapters SET title = ?, summary = ?, markdown_content = ?, editor_json = ?, section_type = ?, status = ?, updated_at = ? WHERE id = ?`,
+		item.Title, item.Summary, item.MarkdownContent, item.EditorJSON, item.SectionType, item.Status, item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return model.Chapter{}, fmt.Errorf("update chapter: %w", err)
 	}
+
+	saveMode := normalizeSaveMode(input.SaveMode)
+	if shouldPersistAutosaveDraft(saveMode, input) {
+		if _, err := s.createAutosaveDraftRecord(ctx, tx, item, createAutosaveDraftRecordInput{
+			Reason:    defaultAutosaveReason(saveMode, input.AutosaveReason),
+			SessionID: strings.TrimSpace(input.SessionID),
+		}); err != nil {
+			return model.Chapter{}, err
+		}
+	}
+
+	if shouldCreateRevisionForSave(saveMode, input) {
+		revisionType := revisionTypeForSave(saveMode, input.RevisionType)
+		if _, err := s.createRevisionRecord(ctx, tx, item, createRevisionRecordInput{
+			RevisionType: revisionType,
+			Title:        strings.TrimSpace(input.RevisionTitle),
+			Description:  strings.TrimSpace(input.RevisionDescription),
+			SessionID:    strings.TrimSpace(input.SessionID),
+			CreatedBy:    strings.TrimSpace(input.CreatedBy),
+			EventType:    eventTypeForRevisionType(revisionType),
+			EventTitle:   revisionEventTitleForSave(saveMode, item.Title, input.RevisionTitle),
+		}); err != nil {
+			return model.Chapter{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return model.Chapter{}, fmt.Errorf("commit update chapter tx: %w", err)
+	}
+
 	if err := s.syncChapterSnapshot(ctx, item); err != nil {
 		return model.Chapter{}, err
 	}
@@ -816,7 +1058,7 @@ func (s *Store) DeleteAnchor(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListReviewComments(ctx context.Context, chapterID string) ([]model.ReviewComment, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE chapter_id = ? ORDER BY created_at DESC`, chapterID)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, chapter_id, revision_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE chapter_id = ? ORDER BY created_at DESC`, chapterID)
 	if err != nil {
 		return nil, fmt.Errorf("list review comments: %w", err)
 	}
@@ -829,6 +1071,7 @@ func (s *Store) ListReviewComments(ctx context.Context, chapterID string) ([]mod
 		if err := rows.Scan(
 			&item.ID,
 			&item.ChapterID,
+			&item.RevisionID,
 			&item.CommentType,
 			&item.Author,
 			&item.Body,
@@ -853,9 +1096,14 @@ func (s *Store) ListReviewComments(ctx context.Context, chapterID string) ([]mod
 
 func (s *Store) CreateReviewComment(ctx context.Context, chapterID string, input CreateReviewCommentInput) (model.ReviewComment, error) {
 	now := nowUTC()
+	revisionID, err := s.normalizeReviewCommentRevisionID(ctx, chapterID, input.RevisionID)
+	if err != nil {
+		return model.ReviewComment{}, err
+	}
 	item := model.ReviewComment{
 		ID:            newID(),
 		ChapterID:     chapterID,
+		RevisionID:    revisionID,
 		CommentType:   normalizeReviewCommentType(input.CommentType),
 		Author:        fallback(strings.TrimSpace(input.Author), "Review"),
 		Body:          strings.TrimSpace(input.Body),
@@ -873,11 +1121,27 @@ func (s *Store) CreateReviewComment(ctx context.Context, chapterID string, input
 	if item.Body == "" && item.SuggestedText == "" {
 		return model.ReviewComment{}, fmt.Errorf("body or suggested_text must not be empty")
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO review_comments (id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.ChapterID, item.CommentType, item.Author, item.Body, item.SuggestedText, item.SelectedText, item.StartOffset, item.EndOffset, item.ContextBefore, item.ContextAfter, item.Status, boolToInt(item.IsTodoDone), item.CreatedAt, item.UpdatedAt,
+	_, err = s.db.ExecContext(ctx, `INSERT INTO review_comments (id, chapter_id, revision_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.ChapterID, item.RevisionID, item.CommentType, item.Author, item.Body, item.SuggestedText, item.SelectedText, item.StartOffset, item.EndOffset, item.ContextBefore, item.ContextAfter, item.Status, boolToInt(item.IsTodoDone), item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
 		return model.ReviewComment{}, fmt.Errorf("create review comment: %w", err)
+	}
+	if item.RevisionID != "" {
+		if _, err := s.createRevisionEventRecord(ctx, s.db, item.RevisionID, item.ChapterID, createRevisionEventInput{
+			EventType:   "review_started",
+			EntityType:  "review_comment",
+			EntityID:    item.ID,
+			Title:       reviewEventTitleForCommentType(item.CommentType),
+			Description: reviewEventDescription(item),
+			CreatedBy:   item.Author,
+			Metadata: map[string]any{
+				"comment_type": item.CommentType,
+				"status":       item.Status,
+			},
+		}); err != nil {
+			return model.ReviewComment{}, err
+		}
 	}
 	return item, nil
 }
@@ -885,10 +1149,11 @@ func (s *Store) CreateReviewComment(ctx context.Context, chapterID string, input
 func (s *Store) UpdateReviewComment(ctx context.Context, id string, input UpdateReviewCommentInput) (model.ReviewComment, error) {
 	var item model.ReviewComment
 	var todoDone int
-	err := s.db.QueryRowContext(ctx, `SELECT id, chapter_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE id = ?`, id).
+	err := s.db.QueryRowContext(ctx, `SELECT id, chapter_id, revision_id, comment_type, author, body, suggested_text, selected_text, start_offset, end_offset, context_before, context_after, status, is_todo_done, created_at, updated_at FROM review_comments WHERE id = ?`, id).
 		Scan(
 			&item.ID,
 			&item.ChapterID,
+			&item.RevisionID,
 			&item.CommentType,
 			&item.Author,
 			&item.Body,
@@ -911,8 +1176,18 @@ func (s *Store) UpdateReviewComment(ctx context.Context, id string, input Update
 	}
 
 	item.IsTodoDone = todoDone == 1
+	previousStatus := item.Status
 	item.CommentType = normalizeReviewCommentType(input.CommentType)
 	item.Author = fallback(strings.TrimSpace(input.Author), item.Author)
+	if strings.TrimSpace(input.RevisionID) != "" || item.RevisionID != "" {
+		nextRevisionID, err := s.normalizeReviewCommentRevisionID(ctx, item.ChapterID, input.RevisionID)
+		if err != nil {
+			return model.ReviewComment{}, err
+		}
+		if nextRevisionID != "" {
+			item.RevisionID = nextRevisionID
+		}
+	}
 	if strings.TrimSpace(input.Body) != "" || strings.TrimSpace(input.SuggestedText) == "" {
 		item.Body = strings.TrimSpace(input.Body)
 	}
@@ -923,11 +1198,27 @@ func (s *Store) UpdateReviewComment(ctx context.Context, id string, input Update
 	item.IsTodoDone = input.IsTodoDone
 	item.UpdatedAt = nowUTC()
 
-	_, err = s.db.ExecContext(ctx, `UPDATE review_comments SET comment_type = ?, author = ?, body = ?, suggested_text = ?, status = ?, is_todo_done = ?, updated_at = ? WHERE id = ?`,
-		item.CommentType, item.Author, item.Body, item.SuggestedText, item.Status, boolToInt(item.IsTodoDone), item.UpdatedAt, item.ID,
+	_, err = s.db.ExecContext(ctx, `UPDATE review_comments SET revision_id = ?, comment_type = ?, author = ?, body = ?, suggested_text = ?, status = ?, is_todo_done = ?, updated_at = ? WHERE id = ?`,
+		item.RevisionID, item.CommentType, item.Author, item.Body, item.SuggestedText, item.Status, boolToInt(item.IsTodoDone), item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return model.ReviewComment{}, fmt.Errorf("update review comment: %w", err)
+	}
+	if item.RevisionID != "" && previousStatus == "open" && item.Status != "open" {
+		if _, err := s.createRevisionEventRecord(ctx, s.db, item.RevisionID, item.ChapterID, createRevisionEventInput{
+			EventType:   "review_completed",
+			EntityType:  "review_comment",
+			EntityID:    item.ID,
+			Title:       "Review abgeschlossen",
+			Description: reviewEventDescription(item),
+			CreatedBy:   item.Author,
+			Metadata: map[string]any{
+				"comment_type": item.CommentType,
+				"status":       item.Status,
+			},
+		}); err != nil {
+			return model.ReviewComment{}, err
+		}
 	}
 	return item, nil
 }
@@ -1172,6 +1463,9 @@ func (s *Store) lookupBookProjectID(ctx context.Context, bookID string) (string,
 	var projectID string
 	err := s.db.QueryRowContext(ctx, `SELECT books.project_id FROM books WHERE books.id = ?`, bookID).Scan(&projectID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
 		return "", fmt.Errorf("lookup chapter project: %w", err)
 	}
 	return projectID, nil
@@ -1202,6 +1496,15 @@ func fallback(value, defaultValue string) string {
 	return value
 }
 
+func normalizeProjectStatus(value string) string {
+	switch strings.TrimSpace(value) {
+	case "paused", "archived":
+		return strings.TrimSpace(value)
+	default:
+		return "active"
+	}
+}
+
 func normalizeVisibility(value string) string {
 	switch strings.TrimSpace(value) {
 	case "shared", "registered":
@@ -1210,6 +1513,51 @@ func normalizeVisibility(value string) string {
 		return "public"
 	default:
 		return "private"
+	}
+}
+
+func normalizeWorkType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "series", "freebie", "course", "article-series", "ghost-series":
+		return strings.TrimSpace(value)
+	default:
+		return "book"
+	}
+}
+
+func normalizeSectionType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "front_matter", "back_matter", "fragment":
+		return strings.TrimSpace(value)
+	default:
+		return "body"
+	}
+}
+
+func normalizeChapterStatus(value string) string {
+	switch strings.TrimSpace(value) {
+	case "idea", "revision", "review", "final", "archived":
+		return strings.TrimSpace(value)
+	default:
+		return "draft"
+	}
+}
+
+func normalizeReusablePageType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "author_bio", "copyright", "imprint", "dedication", "review_request", "newsletter", "also_by", "donation_note", "publisher_contact":
+		return strings.TrimSpace(value)
+	default:
+		return "custom"
+	}
+}
+
+func normalizeThemeTarget(value string) string {
+	switch strings.TrimSpace(value) {
+	case "pdf", "epub", "docx", "web":
+		return strings.TrimSpace(value)
+	default:
+		return "general"
 	}
 }
 
@@ -1240,6 +1588,24 @@ func normalizeReviewCommentType(value string) string {
 	}
 }
 
+func (s *Store) normalizeReviewCommentRevisionID(ctx context.Context, chapterID, revisionID string) (string, error) {
+	revisionID = strings.TrimSpace(revisionID)
+	if revisionID == "" {
+		return "", nil
+	}
+	revision, err := s.GetRevision(ctx, revisionID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return "", fmt.Errorf("revision_id is invalid")
+		}
+		return "", err
+	}
+	if revision.ChapterID != chapterID {
+		return "", fmt.Errorf("revision_id does not belong to chapter")
+	}
+	return revisionID, nil
+}
+
 func normalizeReviewCommentStatus(value string) string {
 	switch strings.TrimSpace(value) {
 	case "open", "resolved", "applied", "rejected":
@@ -1247,6 +1613,31 @@ func normalizeReviewCommentStatus(value string) string {
 	default:
 		return "open"
 	}
+}
+
+func reviewEventTitleForCommentType(value string) string {
+	switch normalizeReviewCommentType(value) {
+	case "suggestion":
+		return "Korrekturvorschlag erstellt"
+	case "todo":
+		return "Review-To-do erstellt"
+	case "delete_request":
+		return "Loeschbitte erstellt"
+	case "warning":
+		return "Review-Hinweis erstellt"
+	default:
+		return "Kommentar erstellt"
+	}
+}
+
+func reviewEventDescription(comment model.ReviewComment) string {
+	if strings.TrimSpace(comment.Body) != "" {
+		return strings.TrimSpace(comment.Body)
+	}
+	if strings.TrimSpace(comment.SuggestedText) != "" {
+		return strings.TrimSpace(comment.SuggestedText)
+	}
+	return strings.TrimSpace(comment.SelectedText)
 }
 
 func normalizeSlot(value int) int {

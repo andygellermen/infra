@@ -27,6 +27,12 @@ const ReviewComment = Mark.create({
         renderHTML: (attributes) =>
           attributes.commentState ? { "data-review-comment-state": attributes.commentState } : {},
       },
+      commentPhase: {
+        default: "unlinked",
+        parseHTML: (element) => element.getAttribute("data-review-comment-phase") || "unlinked",
+        renderHTML: (attributes) =>
+          attributes.commentPhase ? { "data-review-comment-phase": attributes.commentPhase } : {},
+      },
     };
   },
 

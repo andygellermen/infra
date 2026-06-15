@@ -58,14 +58,23 @@ function resolveChapterContent(chapter) {
   if (!chapter) {
     return markdownToDoc("");
   }
+  const markdownContent = String(chapter.markdown_content || "");
   if (chapter.editor_json) {
     try {
-      return JSON.parse(chapter.editor_json);
+      const parsed = JSON.parse(chapter.editor_json);
+      if (markdownContent.trim()) {
+        const serialized = docToMarkdown(parsed).replace(/\r\n/g, "\n").trim();
+        const normalizedMarkdown = markdownContent.replace(/\r\n/g, "\n").trim();
+        if (serialized !== normalizedMarkdown) {
+          return markdownToDoc(markdownContent);
+        }
+      }
+      return parsed;
     } catch {
-      return markdownToDoc(chapter.markdown_content || "");
+      return markdownToDoc(markdownContent);
     }
   }
-  return markdownToDoc(chapter.markdown_content || "");
+  return markdownToDoc(markdownContent);
 }
 
 function serializeDocument(document) {
@@ -77,6 +86,7 @@ const EditorPane = forwardRef(function EditorPane(
     chapter,
     pinnedSlots,
     activeReviewCommentId,
+    reviewComments,
     onDocumentChange,
     onSelectionChange,
     onClipboardCapture,
@@ -242,12 +252,17 @@ const EditorPane = forwardRef(function EditorPane(
     if (!editor?.view?.dom?.querySelectorAll) {
       return;
     }
+    const commentsById = new Map((reviewComments || []).map((comment) => [comment.id, comment]));
     const nodes = editor.view.dom.querySelectorAll("[data-review-comment-id]");
     nodes.forEach((node) => {
-      const isActive = node.getAttribute("data-review-comment-id") === activeReviewCommentId;
+      const commentId = node.getAttribute("data-review-comment-id");
+      const isActive = commentId === activeReviewCommentId;
+      const comment = commentsById.get(commentId || "");
+      const phase = comment?.comment_phase || "unlinked";
       node.classList.toggle("is-active-review-comment", isActive);
+      node.setAttribute("data-review-comment-phase", phase);
     });
-  }, [activeReviewCommentId, editor, chapter?.id, chapter?.editor_json]);
+  }, [activeReviewCommentId, editor, chapter?.id, chapter?.editor_json, reviewComments]);
 
   useEffect(() => {
     if (!editor?.view?.dom?.addEventListener) {
@@ -329,12 +344,13 @@ const EditorPane = forwardRef(function EditorPane(
         transaction = transaction.addMark(
           from,
           to,
-          markType.create({
-            commentId: comment.id,
-            commentType: comment.comment_type || "comment",
-            commentState: comment.status || "open",
-          }),
-        );
+              markType.create({
+                commentId: comment.id,
+                commentType: comment.comment_type || "comment",
+                commentState: comment.status || "open",
+                commentPhase: comment.comment_phase || "unlinked",
+              }),
+            );
         editor.view.dispatch(transaction);
       },
       removeReviewCommentMark(commentId) {
@@ -355,7 +371,7 @@ const EditorPane = forwardRef(function EditorPane(
         });
         editor.view.dispatch(transaction);
       },
-      replaceReviewCommentText({ commentId, text, keepMark = false, commentType = "comment", commentState = "open" }) {
+      replaceReviewCommentText({ commentId, text, keepMark = false, commentType = "comment", commentState = "open", commentPhase = "unlinked" }) {
         if (!editor || !commentId) {
           return;
         }
@@ -376,6 +392,7 @@ const EditorPane = forwardRef(function EditorPane(
                 commentId,
                 commentType,
                 commentState,
+                commentPhase,
               }),
             );
           }
