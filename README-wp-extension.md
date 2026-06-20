@@ -16,6 +16,7 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-delete.sh`: Entfernt WordPress-Instanz (Container/DB/User/Volume + Hostvars).
 - `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
+- `scripts/wp-rollout-hardening.sh`: Normalisiert bestehende WordPress-Hostvars, ergänzt fehlende Security-Defaults und kann alle WP-Instanzen gesammelt redeployen.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
 - `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions-, Domain- und `wp-config.php`-Guard.
 - `scripts/wp-upgrade.sh`: Setzt `wp_version` in Hostvars und führt Redeploy aus.
@@ -315,6 +316,13 @@ wp_php_memory_limit: "256M"
 wp_php_max_execution_time: "300"
 wp_php_max_input_time: "300"
 ```
+
+## Patch-Hinweis v1.7.9
+In `v1.7.9` wird die WordPress-Dateibearbeitung im Admin standardmäßig deaktiviert:
+
+- die Rolle setzt `DISALLOW_FILE_EDIT` standardmäßig auf `true`
+- damit fällt ein häufiger Persistenz- und Nachladepfad über den eingebauten Theme-/Plugin-Editor weg
+- falls eine Instanz das ausnahmsweise braucht, kann `wp_disable_file_edit: false` in den Hostvars gesetzt werden
 
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`

@@ -13,6 +13,11 @@ Wichtig:
 - E-Mail-Alerts aus Wazuh selbst werden **am Wazuh-Manager** konfiguriert, nicht auf dem Agenten
 - die direkte Sofort-Eskalation im Stack übernimmt hier zunächst **CrowdSec per SMTP-Mail**
 
+Ergänzende Dokumente:
+
+- `README-wp-security-rollout.md` für die flächige Härtung aller WordPress-Instanzen
+- `wordpress-incident-readme.md` für die konkrete Incident-Dokumentation von `heimannkunst.de`
+
 
 ## Neue Playbooks
 

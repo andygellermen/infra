@@ -332,6 +332,7 @@
       WORDPRESS_TABLE_PREFIX: "{{ wp_table_prefix | default('wp_') }}"
       WORDPRESS_CONFIG_EXTRA: |
         define('FORCE_SSL_ADMIN', true);
+        define('DISALLOW_FILE_EDIT', {{ 'true' if (wp_disable_file_edit | default(true, true)) else 'false' }});
         if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
           $_SERVER['HTTPS'] = 'on';
         }
