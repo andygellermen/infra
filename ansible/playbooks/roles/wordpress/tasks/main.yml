@@ -225,7 +225,7 @@
     wp_labels_alias_redirect: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+/?(.*)$',
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ domain ~ '/$1',
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',

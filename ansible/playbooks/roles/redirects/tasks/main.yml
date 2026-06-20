@@ -58,7 +58,7 @@
     redirect_entry_labels: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.regex'): '^https?://[^/]+/?(.*)$',
           ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.replacement'): target_scheme ~ '://' ~ item.target ~ '/$1',
           ('traefik.http.middlewares.' ~ router_name ~ '-url.redirectregex.permanent'): permanent_flag,
           ('traefik.http.middlewares.' ~ router_name ~ '-path.redirectregex.regex'): '^/(.*)$',

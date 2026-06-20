@@ -213,7 +213,7 @@
     eep_alias_labels: >-
       {{
         {
-          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+          ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+/?(.*)$',
           ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
           ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
           ('traefik.http.middlewares.' ~ eep_router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',

@@ -233,7 +233,7 @@
         | combine(({ ('traefik.http.routers.' ~ router_name ~ '.middlewares'): middleware_default }) if (middleware_default | length > 0) else {})
         | combine(
             {
-              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+(?:/(.*))?$',
+              ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.regex'): '^https?://[^/]+/?(.*)$',
               ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.replacement'): 'https://' ~ item.domain ~ '/$1',
               ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-url.redirectregex.permanent'): 'true',
               ('traefik.http.middlewares.' ~ router_name ~ '-alias-redirect-path.redirectregex.regex'): '^/(.*)$',
