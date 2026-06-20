@@ -203,7 +203,6 @@
       {{
         {
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-xmlrpc-guard.ipallowlist.sourcerange'): (wp_xmlrpc_guard_cidrs | join(',')),
-          ('traefik.http.middlewares.' ~ wp_router_name ~ '-xmlrpc-guard.ipallowlist.rejectstatuscode'): '403',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.entrypoints'): 'websecure',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.rule'): wp_host_rule_all ~ ' && Path(`/xmlrpc.php`)',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.priority'): '400',
