@@ -46,6 +46,9 @@
   ansible.builtin.set_fact:
     wp_host_rule_primary: "Host(`{{ domain }}`)"
     wp_host_rule_aliases: "{{ wp_aliases | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+
+- name: Build combined Traefik host rule
+  ansible.builtin.set_fact:
     wp_host_rule_all: >-
       {{
         '(' ~ wp_host_rule_primary ~
