@@ -242,6 +242,8 @@ Aktuell angebunden sind:
 - `scripts/infra-backup.sh`
 - `scripts/redeploy-all-web.sh`
 - `scripts/ghost-backup-all.sh`
+- `scripts/wp-backup-all.sh`
+- `scripts/monthly-site-backup.sh`
 - `scripts/ghost-upgrade-all.sh`
 - `scripts/wildcard-distribute.sh`
 
@@ -641,6 +643,75 @@ Erstellt in einem Lauf Backups für alle Ghost-Instanzen. Die Domains werden aut
 ./scripts/ghost-backup-all.sh --output-dir /tmp/ghost-bulk-backups
 ./scripts/ghost-backup-all.sh --dry-run
 ./scripts/ghost-backup-all.sh --continue-on-error
+```
+
+### wp-backup-all.sh
+
+Erstellt in einem Lauf Backups für alle WordPress-Instanzen. Die Domains werden automatisch über `ansible/hostvars/*.yml` erkannt (Marker: `wp_domain_db`).
+
+```bash
+./scripts/wp-backup-all.sh [--output-dir <dir>] [--dry-run] [--continue-on-error]
+```
+
+Optionen:
+
+- `--output-dir <dir>` – Zielbasisverzeichnis für alle erzeugten Backups (Default: `./backups/wordpress`)
+- `--dry-run` – zeigt nur den geplanten Backup-Lauf inkl. Zielpfaden, ohne Backups zu erstellen
+- `--continue-on-error` – fährt bei Fehlern einzelner Instanzen mit den übrigen Domains fort
+
+Beispiele:
+
+```bash
+./scripts/wp-backup-all.sh
+./scripts/wp-backup-all.sh --output-dir /tmp/wp-bulk-backups
+./scripts/wp-backup-all.sh --dry-run
+./scripts/wp-backup-all.sh --continue-on-error
+```
+
+### monthly-site-backup.sh
+
+Erstellt monatliche Sammel-Backups für alle Ghost- und WordPress-Instanzen und behält pro Domain standardmäßig nur die **3 neuesten** Archive.
+
+```bash
+./scripts/monthly-site-backup.sh [--check-only] [--keep 3]
+```
+
+Verhalten:
+
+- Ghost-Backups landen unter `./backups/monthly/ghost/<domain>/`
+- WordPress-Backups landen unter `./backups/monthly/wordpress/<domain>/`
+- ältere Archive pro Domain werden automatisch gelöscht, sobald mehr als `--keep` Backups vorhanden sind
+- manuelle/ad-hoc Backups unter `./backups/ghost` und `./backups/wordpress` bleiben unberührt
+
+Beispiele:
+
+```bash
+./scripts/monthly-site-backup.sh --check-only
+./scripts/monthly-site-backup.sh --keep 3
+```
+
+### Systemd-Timer für Monatsbackups
+
+Für den produktiven Host liegen passende Units bereit:
+
+- `ansible/backups/systemd/monthly-site-backup.service`
+- `ansible/backups/systemd/monthly-site-backup.timer`
+
+Aktivierung auf dem Host:
+
+```bash
+sudo cp ./ansible/backups/systemd/monthly-site-backup.service /etc/systemd/system/
+sudo cp ./ansible/backups/systemd/monthly-site-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now monthly-site-backup.timer
+sudo systemctl list-timers | grep monthly-site-backup
+```
+
+Manueller Testlauf:
+
+```bash
+sudo systemctl start monthly-site-backup.service
+journalctl -u monthly-site-backup.service -n 200 --no-pager
 ```
 
 ### ghost-smoke-check.sh

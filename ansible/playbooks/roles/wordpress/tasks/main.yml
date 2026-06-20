@@ -312,6 +312,45 @@
         | combine(wp_labels_alias_redirect)
       }}
 
+- name: Build WordPress salt environment
+  ansible.builtin.set_fact:
+    wp_env_salts: >-
+      {{
+        {
+          'WORDPRESS_AUTH_KEY': wp_auth_key,
+          'WORDPRESS_SECURE_AUTH_KEY': wp_secure_auth_key,
+          'WORDPRESS_LOGGED_IN_KEY': wp_logged_in_key,
+          'WORDPRESS_NONCE_KEY': wp_nonce_key,
+          'WORDPRESS_AUTH_SALT': wp_auth_salt,
+          'WORDPRESS_SECURE_AUTH_SALT': wp_secure_auth_salt,
+          'WORDPRESS_LOGGED_IN_SALT': wp_logged_in_salt,
+          'WORDPRESS_NONCE_SALT': wp_nonce_salt
+        }
+        if (
+          (wp_auth_key | default('', true) | length > 0)
+          and (wp_secure_auth_key | default('', true) | length > 0)
+          and (wp_logged_in_key | default('', true) | length > 0)
+          and (wp_nonce_key | default('', true) | length > 0)
+          and (wp_auth_salt | default('', true) | length > 0)
+          and (wp_secure_auth_salt | default('', true) | length > 0)
+          and (wp_logged_in_salt | default('', true) | length > 0)
+          and (wp_nonce_salt | default('', true) | length > 0)
+        )
+        else {}
+      }}
+    wp_env: >-
+      {{
+        {
+          'WORDPRESS_DB_HOST': 'infra-mysql',
+          'WORDPRESS_DB_USER': wp_domain_usr,
+          'WORDPRESS_DB_PASSWORD': wp_domain_pwd,
+          'WORDPRESS_DB_NAME': wp_domain_db,
+          'WORDPRESS_TABLE_PREFIX': (wp_table_prefix | default('wp_')),
+          'WORDPRESS_CONFIG_EXTRA': "define('FORCE_SSL_ADMIN', true);\ndefine('DISALLOW_FILE_EDIT', " ~ ('true' if (wp_disable_file_edit | default(true, true)) else 'false') ~ ");\nif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\n  $_SERVER['HTTPS'] = 'on';\n}\n"
+        }
+        | combine(wp_env_salts)
+      }}
+
 - name: Deploy WordPress container
   community.docker.docker_container:
     name: "wp-{{ domain | replace('.', '-') }}"
@@ -324,16 +363,5 @@
     volumes:
       - "wp_{{ domain | replace('.', '_') }}_html:/var/www/html"
       - "{{ wp_php_config_dir }}/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro"
-    env:
-      WORDPRESS_DB_HOST: "infra-mysql"
-      WORDPRESS_DB_USER: "{{ wp_domain_usr }}"
-      WORDPRESS_DB_PASSWORD: "{{ wp_domain_pwd }}"
-      WORDPRESS_DB_NAME: "{{ wp_domain_db }}"
-      WORDPRESS_TABLE_PREFIX: "{{ wp_table_prefix | default('wp_') }}"
-      WORDPRESS_CONFIG_EXTRA: |
-        define('FORCE_SSL_ADMIN', true);
-        define('DISALLOW_FILE_EDIT', {{ 'true' if (wp_disable_file_edit | default(true, true)) else 'false' }});
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-          $_SERVER['HTTPS'] = 'on';
-        }
+    env: "{{ wp_env }}"
     labels: "{{ wp_labels }}"

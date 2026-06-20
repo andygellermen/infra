@@ -13,12 +13,14 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 ## Neue Skripte
 - `scripts/wp-add.sh`: Legt Hostvars an, prüft DNS-A-Records und deployt WordPress via Ansible.
 - `scripts/wp-backup.sh`: Erstellt WordPress-Backup (DB-Dump + Volume + Hostvars + `wp_version` im Manifest).
+- `scripts/wp-backup-all.sh`: Erstellt WordPress-Backups für alle per `wp_domain_db` erkannten Hostvars.
 - `scripts/wp-delete.sh`: Entfernt WordPress-Instanz (Container/DB/User/Volume + Hostvars).
 - `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
 - `scripts/wp-rollout-hardening.sh`: Normalisiert bestehende WordPress-Hostvars, ergänzt fehlende Security-Defaults und kann alle WP-Instanzen gesammelt redeployen.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
 - `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions-, Domain- und `wp-config.php`-Guard.
+- `scripts/wp-salt-rotate.sh`: Ergänzt fehlende WordPress-Salts oder rotiert sie gezielt pro Instanz/über alle Instanzen.
 - `scripts/wp-upgrade.sh`: Setzt `wp_version` in Hostvars und führt Redeploy aus.
 
 ## Backup-Format für WordPress
@@ -323,6 +325,18 @@ In `v1.7.9` wird die WordPress-Dateibearbeitung im Admin standardmäßig deaktiv
 - die Rolle setzt `DISALLOW_FILE_EDIT` standardmäßig auf `true`
 - damit fällt ein häufiger Persistenz- und Nachladepfad über den eingebauten Theme-/Plugin-Editor weg
 - falls eine Instanz das ausnahmsweise braucht, kann `wp_disable_file_edit: false` in den Hostvars gesetzt werden
+
+## Patch-Hinweis v1.8.0
+In `v1.8.0` werden WordPress-Authentifizierungs-Keys und Salts pro Instanz sauber unterstützt:
+
+- `wp-add.sh` schreibt für neue Instanzen direkt individuelle `wp_*_key`- und `wp_*_salt`-Werte in die Hostvars
+- die WordPress-Rolle übergibt diese Werte als `WORDPRESS_*`-Umgebungsvariablen an `wp-config-docker.php`
+- `wp-salt-rotate.sh` ergänzt fehlende Salts nachträglich oder rotiert sie zentral
+
+Wichtig:
+
+- eine Salt-Rotation invalidiert bestehende Logins, Sessions und Nonces
+- das ist sicher und gewollt, sollte aber bewusst geplant werden
 
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
