@@ -297,6 +297,23 @@ In `v1.7.7` wurde der öffentliche HTTPS-Check für WordPress noch browsernäher
 - bleibt nur dieser Curl-Check uneindeutig, während der interne WordPress-Check bereits `200` liefert, erscheint statt einer Warnung nur noch ein Hinweis
 - dadurch klingt ein absichtlich versteckter Login-/Admin-Bereich nicht mehr wie ein möglicher Fehler
 
+## Patch-Hinweis v1.7.8
+In `v1.7.8` erhält jede WordPress-Instanz eine kleine PHP-Konfigurationsdatei für größere Theme-/Plugin-Uploads:
+
+- Standardwerte: `upload_max_filesize=64M`, `post_max_size=64M`, `memory_limit=256M`
+- zusätzlich werden `max_execution_time=300` und `max_input_time=300` gesetzt
+- die Werte lassen sich pro Instanz über Hostvars überschreiben
+
+Optionale Hostvars:
+
+```yaml
+wp_php_upload_max_filesize: "64M"
+wp_php_post_max_size: "64M"
+wp_php_memory_limit: "256M"
+wp_php_max_execution_time: "300"
+wp_php_max_input_time: "300"
+```
+
 ## Versionspflege
 - Aktueller Stand dieser WordPress-Erweiterung: `v1.5.0`
 - Praxisregel: Nach jedem erfolgreichen, produktiv relevanten Patch die Stack-Version bewusst erhöhen, damit Restore-/Betriebszustände leichter identifizierbar bleiben.

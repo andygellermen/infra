@@ -1,0 +1,5 @@
+upload_max_filesize = {{ wp_php_upload_max_filesize | default('64M', true) }}
+post_max_size = {{ wp_php_post_max_size | default('64M', true) }}
+memory_limit = {{ wp_php_memory_limit | default('256M', true) }}
+max_execution_time = {{ wp_php_max_execution_time | default('300', true) }}
+max_input_time = {{ wp_php_max_input_time | default('300', true) }}
