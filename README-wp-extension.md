@@ -303,10 +303,12 @@ In `v1.7.8` erhält jede WordPress-Instanz eine kleine PHP-Konfigurationsdatei f
 - Standardwerte: `upload_max_filesize=64M`, `post_max_size=64M`, `memory_limit=256M`
 - zusätzlich werden `max_execution_time=300` und `max_input_time=300` gesetzt
 - die Werte lassen sich pro Instanz über Hostvars überschreiben
+- die Host-Datei liegt standardmäßig unter `data/wordpress/<domain>/php/uploads.ini` relativ zum Infra-Repo
 
 Optionale Hostvars:
 
 ```yaml
+wp_host_data_root: "/home/andy/infra/data/wordpress"
 wp_php_upload_max_filesize: "64M"
 wp_php_post_max_size: "64M"
 wp_php_memory_limit: "256M"

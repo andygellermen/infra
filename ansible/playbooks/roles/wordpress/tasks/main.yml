@@ -3,20 +3,20 @@
   community.docker.docker_volume:
     name: "wp_{{ domain | replace('.', '_') }}_html"
 
+- name: Build WordPress host paths
+  ansible.builtin.set_fact:
+    wp_php_config_dir: "{{ (wp_host_data_root | default(playbook_dir ~ '/../../data/wordpress', true)) ~ '/' ~ domain ~ '/php' }}"
+
 - name: Ensure WordPress PHP config directory exists
   ansible.builtin.file:
-    path: "/srv/wordpress/{{ domain }}/php"
+    path: "{{ wp_php_config_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: "0755"
 
 - name: Deploy WordPress PHP upload limits
   ansible.builtin.template:
     src: php-upload-limits.ini.j2
-    dest: "/srv/wordpress/{{ domain }}/php/uploads.ini"
-    owner: root
-    group: root
+    dest: "{{ wp_php_config_dir }}/uploads.ini"
     mode: "0644"
 
 - name: Ensure traefik docker network exists
@@ -323,7 +323,7 @@
       - name: traefik
     volumes:
       - "wp_{{ domain | replace('.', '_') }}_html:/var/www/html"
-      - "/srv/wordpress/{{ domain }}/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro"
+      - "{{ wp_php_config_dir }}/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro"
     env:
       WORDPRESS_DB_HOST: "infra-mysql"
       WORDPRESS_DB_USER: "{{ wp_domain_usr }}"
