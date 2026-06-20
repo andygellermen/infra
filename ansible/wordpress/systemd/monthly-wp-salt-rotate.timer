@@ -1,0 +1,11 @@
+[Unit]
+Description=Run monthly WordPress salt rotation
+
+[Timer]
+OnCalendar=*-*-02 03:30:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=monthly-wp-salt-rotate.service
+
+[Install]
+WantedBy=timers.target

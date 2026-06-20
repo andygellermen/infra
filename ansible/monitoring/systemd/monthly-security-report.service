@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly security early-warning digest
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+ExecStartPre=/usr/bin/mkdir -p /home/andy/infra/logs/reports
+ExecStart=/usr/bin/env bash ./scripts/monthly-security-report.sh

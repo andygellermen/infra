@@ -1,0 +1,9 @@
+[Unit]
+Description=Monthly WordPress salt rotation
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+ExecStart=/usr/bin/env bash ./scripts/wp-salt-rotate.sh --rotate-existing --redeploy

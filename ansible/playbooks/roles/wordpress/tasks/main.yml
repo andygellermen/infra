@@ -119,6 +119,9 @@
 - name: Resolve active middleware settings
   ansible.builtin.set_fact:
     wp_crowdsec_available: "{{ wp_crowdsec_bouncer.exists | default(false) and (wp_crowdsec_bouncer.container.State.Running | default(false)) }}"
+
+- name: Resolve effective middleware chains
+  ansible.builtin.set_fact:
     wp_middleware_default: >-
       {{
         wp_requested_middleware_default

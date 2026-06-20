@@ -11,7 +11,7 @@ format: |
 log_path: "{{ crowdsec_notification_file_path }}"
 rotate:
   enabled: true
-  max_size: 20
-  max_files: 10
-  max_age: 14
+  max_size: {{ crowdsec_notification_file_rotate_max_size }}
+  max_files: {{ crowdsec_notification_file_rotate_max_files }}
+  max_age: {{ crowdsec_notification_file_rotate_max_age }}
   compress: true

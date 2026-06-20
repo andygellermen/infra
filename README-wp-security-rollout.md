@@ -4,6 +4,11 @@
 
 Diese Datei bündelt die WordPress-spezifischen Sicherheitsmechanismen im Stack und beschreibt, wie die Härtung auf alle bestehenden WordPress-Instanzen ausgerollt wird.
 
+Ergänzend:
+
+- `README-wp-mfa-plan.md` für die zentrale MFA-Strategie
+- `README-infra-scripts.md` für die Monatsjobs und Timer
+
 
 ## Aktive Schutzmechanismen
 
@@ -98,6 +103,11 @@ Deshalb sind weiterhin wichtig:
 - Rotationsprozesse für Passwörter, Salts und Integrations-Secrets
 - saubere und getestete Backups
 
+Wichtig zur Einordnung:
+
+- `wp-rollout-hardening.sh` verteilt die WordPress-Härtungsdefaults in Hostvars und optional per Redeploy
+- **nicht** enthalten sind darin die Monatsjobs, Report-Timer oder die eigentliche MFA-Einführung
+
 
 ## Rollout auf alle WordPress-Instanzen
 
@@ -160,6 +170,24 @@ sudo systemctl status wazuh-agent --no-pager
 Optionaler Testlauf:
 
 - `README-wazuh-test-runbook.md` Schritt für Schritt abarbeiten
+
+
+## Monatliche Betriebsroutinen
+
+### Bereits vorgesehen
+
+- Monatsbackups für alle Ghost- und WordPress-Instanzen
+- WordPress-Update-Report per E-Mail
+- Security-Frühwarn-Digest per E-Mail
+- optionale zentrale Salt-Rotation
+
+### Wichtiger Hinweis zu Salt-Rotation
+
+Eine Rotation der WordPress-Salts ist technisch zentral automatisierbar, hat aber einen klaren Seiteneffekt:
+
+- alle bestehenden WordPress-Logins/Sessions werden ungültig
+
+Das ist als Sicherheitsmaßnahme in Ordnung, sollte aber bewusst terminiert werden.
 
 
 ## Was häufig noch übersehen wird

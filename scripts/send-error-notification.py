@@ -24,8 +24,9 @@ def main() -> int:
     parser.add_argument("--mail-from", required=True)
     parser.add_argument("--mail-to", required=True)
     parser.add_argument("--subject", required=True)
-    parser.add_argument("--summary", required=True)
-    parser.add_argument("--log-file", required=True)
+    parser.add_argument("--summary")
+    parser.add_argument("--log-file")
+    parser.add_argument("--body-file")
     args = parser.parse_args()
 
     secure = parse_bool(args.smtp_secure, False)
@@ -39,15 +40,18 @@ def main() -> int:
     if not from_email:
         raise SystemExit("invalid sender address")
 
-    log_excerpt = Path(args.log_file).read_text(encoding="utf-8", errors="replace")
-
     msg = EmailMessage()
     msg["Subject"] = args.subject
     msg["From"] = args.mail_from
     msg["To"] = ", ".join(recipients)
-    msg.set_content(
-        f"{args.summary}\n\nLetzte Logzeilen:\n{'=' * 72}\n{log_excerpt}"
-    )
+    if args.body_file:
+        body = Path(args.body_file).read_text(encoding="utf-8", errors="replace")
+    else:
+        if not args.summary or not args.log_file:
+            raise SystemExit("either --body-file or both --summary and --log-file are required")
+        log_excerpt = Path(args.log_file).read_text(encoding="utf-8", errors="replace")
+        body = f"{args.summary}\n\nLetzte Logzeilen:\n{'=' * 72}\n{log_excerpt}"
+    msg.set_content(body)
 
     if secure:
         with smtplib.SMTP_SSL(args.smtp_host, args.smtp_port, context=ssl.create_default_context(), timeout=30) as smtp:

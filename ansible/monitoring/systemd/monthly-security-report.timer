@@ -1,0 +1,11 @@
+[Unit]
+Description=Run monthly security early-warning digest
+
+[Timer]
+OnCalendar=*-*-01 06:00:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=monthly-security-report.service
+
+[Install]
+WantedBy=timers.target

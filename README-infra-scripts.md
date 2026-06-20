@@ -244,6 +244,8 @@ Aktuell angebunden sind:
 - `scripts/ghost-backup-all.sh`
 - `scripts/wp-backup-all.sh`
 - `scripts/monthly-site-backup.sh`
+- `scripts/wp-update-report.sh`
+- `scripts/monthly-security-report.sh`
 - `scripts/ghost-upgrade-all.sh`
 - `scripts/wildcard-distribute.sh`
 
@@ -712,6 +714,122 @@ Manueller Testlauf:
 ```bash
 sudo systemctl start monthly-site-backup.service
 journalctl -u monthly-site-backup.service -n 200 --no-pager
+```
+
+### wp-update-report.sh
+
+Erstellt einen kompakten WordPress-Monatsreport für verfügbare Core-, Plugin- und Theme-Updates über alle WordPress-Instanzen.
+
+```bash
+./scripts/wp-update-report.sh [--check-only] [--domain <domain>] [--wp-cli-image wordpress:cli]
+```
+
+Verhalten:
+
+- erkennt WordPress-Instanzen automatisch über `ansible/hostvars/*.yml`
+- nutzt ein WP-CLI-Docker-Image gegen das jeweilige WordPress-Volume und die produktive Datenbank
+- fasst nur tatsächlich verfügbare Updates zusammen
+- versendet optional eine E-Mail, wenn `wp_update_report_to` oder `infra_error_notify_to` gesetzt ist
+
+Beispiele:
+
+```bash
+./scripts/wp-update-report.sh --check-only
+./scripts/wp-update-report.sh --domain heimannkunst.de --check-only
+```
+
+### Systemd-Timer für den WordPress-Update-Report
+
+- `ansible/monitoring/systemd/wp-update-report.service`
+- `ansible/monitoring/systemd/wp-update-report.timer`
+
+Aktivierung:
+
+```bash
+sudo cp ./ansible/monitoring/systemd/wp-update-report.service /etc/systemd/system/
+sudo cp ./ansible/monitoring/systemd/wp-update-report.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wp-update-report.timer
+sudo systemctl list-timers | grep wp-update-report
+```
+
+Manueller Testlauf:
+
+```bash
+sudo systemctl start wp-update-report.service
+journalctl -u wp-update-report.service -n 200 --no-pager
+```
+
+### monthly-security-report.sh
+
+Erstellt einen monatlichen Frühwarn-Digest aus CrowdSec-Entscheidungen und dem Status der zentralen Sicherheitskomponenten.
+
+```bash
+./scripts/monthly-security-report.sh [--check-only] [--days 32]
+```
+
+Verhalten:
+
+- wertet `data/crowdsec/data/notifications/crowdsec_alerts.ndjson*` aus
+- berücksichtigt auch komprimierte rotierte CrowdSec-Dateien
+- fasst Top-Szenarien, auffällige Quellwerte und Komponentenstatus zusammen
+- versendet optional eine E-Mail, wenn `security_digest_report_to` oder `infra_error_notify_to` gesetzt ist
+
+Beispiele:
+
+```bash
+./scripts/monthly-security-report.sh --check-only
+./scripts/monthly-security-report.sh --days 14 --check-only
+```
+
+### Systemd-Timer für den Security-Digest
+
+- `ansible/monitoring/systemd/monthly-security-report.service`
+- `ansible/monitoring/systemd/monthly-security-report.timer`
+
+Aktivierung:
+
+```bash
+sudo cp ./ansible/monitoring/systemd/monthly-security-report.service /etc/systemd/system/
+sudo cp ./ansible/monitoring/systemd/monthly-security-report.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now monthly-security-report.timer
+sudo systemctl list-timers | grep monthly-security-report
+```
+
+Manueller Testlauf:
+
+```bash
+sudo systemctl start monthly-security-report.service
+journalctl -u monthly-security-report.service -n 200 --no-pager
+```
+
+### Systemd-Timer für WordPress-Salt-Rotation
+
+Passende Units:
+
+- `ansible/wordpress/systemd/monthly-wp-salt-rotate.service`
+- `ansible/wordpress/systemd/monthly-wp-salt-rotate.timer`
+
+Hinweis:
+
+- diese Rotation invalidiert alle bestehenden WordPress-Sessions
+
+Aktivierung:
+
+```bash
+sudo cp ./ansible/wordpress/systemd/monthly-wp-salt-rotate.service /etc/systemd/system/
+sudo cp ./ansible/wordpress/systemd/monthly-wp-salt-rotate.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now monthly-wp-salt-rotate.timer
+sudo systemctl list-timers | grep monthly-wp-salt-rotate
+```
+
+Manueller Testlauf:
+
+```bash
+sudo systemctl start monthly-wp-salt-rotate.service
+journalctl -u monthly-wp-salt-rotate.service -n 200 --no-pager
 ```
 
 ### ghost-smoke-check.sh

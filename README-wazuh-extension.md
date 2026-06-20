@@ -16,6 +16,7 @@ Wichtig:
 Ergänzende Dokumente:
 
 - `README-wp-security-rollout.md` für die flächige Härtung aller WordPress-Instanzen
+- `README-wp-mfa-plan.md` für die zentrale MFA-Strategie vor WordPress-Admin-Routen
 - `wordpress-incident-readme.md` für die konkrete Incident-Dokumentation von `heimannkunst.de`
 
 
@@ -201,6 +202,13 @@ crowdsec_notification_email_to:
 ```
 
 Wenn `crowdsec_notification_email_to` nicht gesetzt ist, faellt die Rolle auf `infra_error_notify_to` zurueck.
+
+Fuer monatliche Sammelreports koennen zusaetzlich gesetzt werden:
+
+```yaml
+wp_update_report_to: "ops@example.org"
+security_digest_report_to: "security@example.org"
+```
 
 
 ## Was der Wazuh-Agent ueberwacht

@@ -17,11 +17,17 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-delete.sh`: Entfernt WordPress-Instanz (Container/DB/User/Volume + Hostvars).
 - `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
+- `scripts/wp-update-report.sh`: Erzeugt einen WordPress-Update-Report für Core, Plugins und Themes und versendet ihn optional per E-Mail.
+- `scripts/monthly-security-report.sh`: Erstellt einen monatlichen Frühwarn-Digest aus CrowdSec-Signalen und Komponentenstatus.
 - `scripts/wp-rollout-hardening.sh`: Normalisiert bestehende WordPress-Hostvars, ergänzt fehlende Security-Defaults und kann alle WP-Instanzen gesammelt redeployen.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
 - `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions-, Domain- und `wp-config.php`-Guard.
 - `scripts/wp-salt-rotate.sh`: Ergänzt fehlende WordPress-Salts oder rotiert sie gezielt pro Instanz/über alle Instanzen.
 - `scripts/wp-upgrade.sh`: Setzt `wp_version` in Hostvars und führt Redeploy aus.
+
+Ergänzende Betriebsdokumente:
+- `README-wp-security-rollout.md`
+- `README-wp-mfa-plan.md`
 
 ## Backup-Format für WordPress
 Erwartetes Backup-Format (neu):

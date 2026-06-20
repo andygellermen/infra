@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly WordPress update report
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+Environment=WP_CLI_IMAGE=wordpress:cli
+ExecStartPre=/usr/bin/mkdir -p /home/andy/infra/logs/reports
+ExecStart=/usr/bin/env bash ./scripts/wp-update-report.sh

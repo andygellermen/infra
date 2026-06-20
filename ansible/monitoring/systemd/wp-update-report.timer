@@ -1,0 +1,11 @@
+[Unit]
+Description=Run monthly WordPress update report
+
+[Timer]
+OnCalendar=*-*-01 05:00:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=wp-update-report.service
+
+[Install]
+WantedBy=timers.target
