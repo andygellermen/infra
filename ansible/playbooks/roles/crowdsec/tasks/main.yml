@@ -48,10 +48,7 @@
       {{
         crowdsec_notification_sender_email
         | default(
-            (
-              crowdsec_notification_sender_raw
-              | regex_replace('^.*<([^>]+)>.*$', '\\1')
-            )
+            (crowdsec_notification_sender_raw.split('<', 1)[1].split('>', 1)[0] | trim)
             if ('<' in crowdsec_notification_sender_raw and '>' in crowdsec_notification_sender_raw)
             else crowdsec_notification_sender_raw,
             true
@@ -61,10 +58,7 @@
       {{
         crowdsec_notification_sender_name
         | default(
-            (
-              crowdsec_notification_sender_raw
-              | regex_replace('^\\s*([^<]+?)\\s*<[^>]+>\\s*$', '\\1')
-            )
+            (crowdsec_notification_sender_raw.split('<', 1)[0] | trim)
             if ('<' in crowdsec_notification_sender_raw and '>' in crowdsec_notification_sender_raw)
             else 'CrowdSec',
             true
