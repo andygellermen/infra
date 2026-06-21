@@ -16,16 +16,16 @@ format: |
   {{end -}}
   </body></html>
 {% endraw %}
-smtp_host: "{{ crowdsec_notification_smtp_host }}"
-smtp_username: "{{ crowdsec_notification_smtp_username }}"
-smtp_password: "{{ crowdsec_notification_smtp_password }}"
+smtp_host: {{ crowdsec_notification_smtp_host | to_json }}
+smtp_username: {{ crowdsec_notification_smtp_username | to_json }}
+smtp_password: {{ crowdsec_notification_smtp_password | to_json }}
 smtp_port: {{ crowdsec_notification_smtp_port }}
-auth_type: "{{ crowdsec_notification_email_auth_type }}"
-sender_name: "{{ crowdsec_notification_sender_name }}"
-sender_email: "{{ crowdsec_notification_sender_email }}"
-email_subject: "{{ crowdsec_notification_email_subject }}"
+auth_type: {{ crowdsec_notification_email_auth_type | to_json }}
+sender_name: {{ crowdsec_notification_sender_name | to_json }}
+sender_email: {{ crowdsec_notification_sender_email | to_json }}
+email_subject: {{ crowdsec_notification_email_subject | to_json }}
 receiver_emails:
 {% for item in crowdsec_notification_email_recipients %}
-  - "{{ item }}"
+  - {{ item | to_json }}
 {% endfor %}
-encryption_type: "{{ crowdsec_notification_email_encryption_type }}"
+encryption_type: {{ crowdsec_notification_email_encryption_type | to_json }}
