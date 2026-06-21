@@ -14,11 +14,12 @@ Damit kombinieren wir Isolation (pro Site) mit zentraler Härtung/Wartbarkeit (g
 - `scripts/wp-add.sh`: Legt Hostvars an, prüft DNS-A-Records und deployt WordPress via Ansible.
 - `scripts/wp-backup.sh`: Erstellt WordPress-Backup (DB-Dump + Volume + Hostvars + `wp_version` im Manifest).
 - `scripts/wp-backup-all.sh`: Erstellt WordPress-Backups für alle per `wp_domain_db` erkannten Hostvars.
+- `scripts/wp-backup-scheduled.sh`: Führt zusätzliche tägliche oder wöchentliche WordPress-Backups anhand der Hostvars aus.
 - `scripts/wp-delete.sh`: Entfernt WordPress-Instanz (Container/DB/User/Volume + Hostvars).
 - `scripts/wp-fix-perms.sh`: Korrigiert Dateirechte im bestehenden WP-Volume ohne vollständigen Restore (nützlich bei `.htaccess`-Forbidden).
 - `scripts/wp-migrate-crowdsec.sh`: Ergänzt fehlende `wp_traefik_middleware_*` Defaults in Hostvars.
 - `scripts/wp-update-report.sh`: Erzeugt einen WordPress-Update-Report für Core, Plugins und Themes und versendet ihn optional per E-Mail.
-- `scripts/monthly-security-report.sh`: Erstellt einen monatlichen Frühwarn-Digest aus CrowdSec-Signalen und Komponentenstatus.
+- `scripts/monthly-security-report.sh`: Erstellt einen täglichen Frühwarn-Digest aus CrowdSec-Signalen und Komponentenstatus.
 - `scripts/wp-rollout-hardening.sh`: Normalisiert bestehende WordPress-Hostvars, ergänzt fehlende Security-Defaults und kann alle WP-Instanzen gesammelt redeployen.
 - `scripts/wp-redeploy.sh`: Validiert Hostvars + DNS und startet gezielten Redeploy.
 - `scripts/wp-restore.sh`: Stellt DB und `/var/www/html` aus Backup wieder her, inkl. Versions-, Domain- und `wp-config.php`-Guard.
@@ -36,6 +37,24 @@ Erwartetes Backup-Format (neu):
 - `manifest` und/oder `hostvars` sind **optional** (z. B. unter `_infra/`), damit auch Legacy-WordPress-Backups ohne Infra-Metadaten nutzbar bleiben.
 
 > Empfehlung: Der Document-Root **muss vollständig** enthalten sein, damit Plugins/Themes/Uploads konsistent restauriert werden können.
+
+## Backup-Cadence pro WordPress-Instanz
+
+Standardmäßig nehmen WordPress-Instanzen am globalen Monatsbackup teil. Für redaktionell aktivere Seiten kann in den Hostvars eine zusätzliche Cadence gesetzt werden:
+
+```yaml
+wp_backup_schedule: "weekly"   # monthly | weekly | daily | off
+wp_backup_keep: 8
+wp_backup_weekday: "sunday"
+```
+
+Empfehlung:
+
+- `monthly`: statische oder selten geänderte Sites
+- `weekly`: gelegentlich gepflegte Redaktionsseiten
+- `daily`: aktive Seiten, Shops oder Kampagnenphasen
+
+Damit bleibt der Speicherverbrauch klein, ohne aktive Instanzen zu unterversorgen.
 
 ## Restore bei Domain-Migration (neu)
 `wp-restore.sh` prüft die Domain-Konsistenz über:

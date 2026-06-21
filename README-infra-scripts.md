@@ -727,15 +727,81 @@ ansible-playbook -i ./ansible/inventory/hosts.ini ./ansible/playbooks/deploy-mon
 Standardmäßig aktiviert das Playbook:
 
 - `monthly-site-backup.timer`
+- `wp-scheduled-backup.timer`
 - `wp-update-report.timer`
 - `monthly-security-report.timer`
 
 Die WordPress-Salt-Rotation bleibt bewusst **optional** und ist standardmäßig **nicht** aktiv.
 
+Hinweis:
+
+- `monthly-security-report.timer` läuft täglich um `06:00` Uhr mit `RandomizedDelaySec=20m`
+
 Optional in `ansible/secrets/secrets.yml` oder `ansible/secrets/secrets.yaml`:
 
 ```yaml
+monitoring_jobs_enable_wp_scheduled_backups: true
 monitoring_jobs_enable_wp_salt_rotation: true
+```
+
+### wp-backup-scheduled.sh
+
+Führt zusätzliche WordPress-Backups für ausdrücklich höher priorisierte Instanzen aus. Der globale Monatsbackup-Standard bleibt dabei unverändert bestehen.
+
+```bash
+./scripts/wp-backup-scheduled.sh [--check-only] [--domain <domain>]
+```
+
+Hostvars-Steuerung pro WordPress-Instanz:
+
+```yaml
+wp_backup_schedule: "weekly"   # monthly | weekly | daily | off
+wp_backup_keep: 8
+wp_backup_weekday: "sunday"    # nur bei weekly relevant
+```
+
+Verhalten:
+
+- ohne `wp_backup_schedule` bleibt die Instanz beim monatlichen Standard-Backup
+- `weekly` erzeugt ein zusätzliches Wochenbackup
+- `daily` erzeugt ein zusätzliches Tagesbackup
+- `off`/`disabled`/`manual` deaktiviert die Zusatzsicherung bewusst
+- zusätzliche Backups landen unter `./backups/scheduled/wordpress/<domain>/`
+- alte Zusatzbackups werden pro Domain anhand von `wp_backup_keep` automatisch bereinigt
+
+Empfohlene Profile:
+
+- statische/brochureartige Site: kein Eintrag oder `monthly`
+- redaktionell leicht aktiv: `weekly` + `wp_backup_keep: 8`
+- redaktionell aktiv / Shop / Kampagne: `daily` + `wp_backup_keep: 14`
+
+Beispiele:
+
+```bash
+./scripts/wp-backup-scheduled.sh --check-only
+./scripts/wp-backup-scheduled.sh --domain heimannkunst.de --check-only
+```
+
+### Systemd-Timer für zusätzliche WordPress-Backups
+
+- `ansible/wordpress/systemd/wp-scheduled-backup.service`
+- `ansible/wordpress/systemd/wp-scheduled-backup.timer`
+
+Aktivierung:
+
+```bash
+sudo cp ./ansible/wordpress/systemd/wp-scheduled-backup.service /etc/systemd/system/
+sudo cp ./ansible/wordpress/systemd/wp-scheduled-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wp-scheduled-backup.timer
+sudo systemctl list-timers | grep wp-scheduled-backup
+```
+
+Manueller Testlauf:
+
+```bash
+sudo systemctl start wp-scheduled-backup.service
+journalctl -u wp-scheduled-backup.service -n 200 --no-pager
 ```
 
 ### wp-update-report.sh
@@ -784,10 +850,10 @@ journalctl -u wp-update-report.service -n 200 --no-pager
 
 ### monthly-security-report.sh
 
-Erstellt einen monatlichen Frühwarn-Digest aus CrowdSec-Entscheidungen und dem Status der zentralen Sicherheitskomponenten.
+Erstellt einen täglichen Frühwarn-Digest aus CrowdSec-Entscheidungen und dem Status der zentralen Sicherheitskomponenten.
 
 ```bash
-./scripts/monthly-security-report.sh [--check-only] [--days 32]
+./scripts/monthly-security-report.sh [--check-only] [--days 1]
 ```
 
 Verhalten:
@@ -801,10 +867,10 @@ Beispiele:
 
 ```bash
 ./scripts/monthly-security-report.sh --check-only
-./scripts/monthly-security-report.sh --days 14 --check-only
+./scripts/monthly-security-report.sh --days 7 --check-only
 ```
 
-### Systemd-Timer für den Security-Digest
+### Systemd-Timer für den täglichen Security-Digest
 
 - `ansible/monitoring/systemd/monthly-security-report.service`
 - `ansible/monitoring/systemd/monthly-security-report.timer`

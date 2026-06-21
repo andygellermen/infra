@@ -1,0 +1,10 @@
+[Unit]
+Description=Scheduled WordPress backups for weekly/daily sites
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+ExecStartPre=/usr/bin/mkdir -p /home/andy/infra/backups/scheduled/wordpress
+ExecStart=/usr/bin/env bash ./scripts/wp-backup-scheduled.sh

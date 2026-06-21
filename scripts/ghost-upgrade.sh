@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HOSTVARS_DIR="./ansible/hostvars"
-INVENTORY="./ansible/inventory"
-PLAYBOOK="./ansible/playbooks/deploy-ghost.yml"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOSTVARS_DIR="$ROOT_DIR/ansible/hostvars"
+INVENTORY="$ROOT_DIR/ansible/inventory"
+PLAYBOOK="$ROOT_DIR/ansible/playbooks/deploy-ghost.yml"
+
+source "$ROOT_DIR/scripts/lib/ghost-image-tag.sh"
 
 usage() {
   cat <<USAGE
@@ -28,6 +31,10 @@ info() {
 
 success() {
   echo "✅ $*"
+}
+
+warn() {
+  echo "⚠️  $*"
 }
 
 if [[ $# -lt 2 ]]; then
@@ -111,6 +118,11 @@ if [[ -n "$current_major" ]] && [[ -n "$target_major" ]]; then
   fi
 fi
 
+info "Pruefe Verfuegbarkeit von ghost:${target_version}"
+validate_ghost_image_tag_or_die "$target_version" "Zielversion"
+
+backup_file=""
+
 if [[ "$version_unchanged" != "true" ]]; then
   backup_file="${hostvars_file}.bak.$(date +%Y%m%d%H%M%S)"
   cp "$hostvars_file" "$backup_file"
@@ -135,6 +147,13 @@ if [[ "$dry_run" == "true" ]]; then
 fi
 
 info "Starte Deployment"
-ansible-playbook -i "$INVENTORY" -e "target_domain=${domain}" "$PLAYBOOK"
-
-success "Upgrade-Deployment für ${domain} abgeschlossen 🎉"
+if ansible-playbook -i "$INVENTORY" -e "target_domain=${domain}" "$PLAYBOOK"; then
+  success "Upgrade-Deployment für ${domain} abgeschlossen 🎉"
+else
+  deploy_rc=$?
+  if [[ "$version_unchanged" != "true" ]] && [[ -n "$backup_file" ]] && [[ -f "$backup_file" ]]; then
+    cp "$backup_file" "$hostvars_file"
+    warn "Deployment fehlgeschlagen. Hostvars wurden aus ${backup_file} wiederhergestellt."
+  fi
+  exit "$deploy_rc"
+fi

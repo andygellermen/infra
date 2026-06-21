@@ -20,10 +20,10 @@ from report_utils import load_mail_settings, send_report_mail
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Erstellt einen monatlichen Security-Digest aus CrowdSec-Alerts und Komponentenstatus."
+        description="Erstellt einen Security-Digest aus CrowdSec-Alerts und Komponentenstatus."
     )
     parser.add_argument("--check-only", action="store_true", help="Report nur lokal erzeugen, ohne E-Mail-Versand.")
-    parser.add_argument("--days", type=int, default=32, help="Rückblick in Tagen für den Digest.")
+    parser.add_argument("--days", type=int, default=1, help="Rückblick in Tagen für den Digest.")
     parser.add_argument(
         "--report-dir",
         default=str(ROOT_DIR / "logs" / "reports"),

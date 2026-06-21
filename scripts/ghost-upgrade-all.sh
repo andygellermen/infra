@@ -6,6 +6,7 @@ HOSTVARS_DIR="$ROOT_DIR/ansible/hostvars"
 GHOST_UPGRADE_SCRIPT="$ROOT_DIR/scripts/ghost-upgrade.sh"
 
 source "$ROOT_DIR/scripts/lib/error-notify.sh"
+source "$ROOT_DIR/scripts/lib/ghost-image-tag.sh"
 setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 
 usage() {
@@ -60,7 +61,10 @@ fi
 
 cd "$ROOT_DIR"
 
-mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+HOSTVAR_FILES=()
+while IFS= read -r hostvar_file; do
+  HOSTVAR_FILES+=("$hostvar_file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
 
 ghost_domains=()
@@ -77,6 +81,10 @@ info "Zielversion: $TARGET_VERSION"
 [[ "$FORCE_MAJOR_JUMP" -eq 1 ]] && info "Option aktiv: --force-major-jump"
 [[ "$DRY_RUN" -eq 1 ]] && info "Option aktiv: --dry-run"
 [[ "$CONTINUE_ON_ERROR" -eq 1 ]] && info "Option aktiv: --continue-on-error"
+
+info "Pruefe Verfuegbarkeit von ghost:${TARGET_VERSION}"
+validate_ghost_image_tag_or_die "$TARGET_VERSION" "Zielversion"
+export INFRA_GHOST_TAG_PREVALIDATED="$TARGET_VERSION"
 
 failed=()
 succeeded=0

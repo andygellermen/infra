@@ -2,6 +2,7 @@
 - name: Resolve monitoring job settings
   ansible.builtin.set_fact:
     monitoring_jobs_enable_backups: "{{ monitoring_jobs_enable_backups | default(true, true) | bool }}"
+    monitoring_jobs_enable_wp_scheduled_backups: "{{ monitoring_jobs_enable_wp_scheduled_backups | default(true, true) | bool }}"
     monitoring_jobs_enable_wp_update_report: "{{ monitoring_jobs_enable_wp_update_report | default(true, true) | bool }}"
     monitoring_jobs_enable_security_digest: "{{ monitoring_jobs_enable_security_digest | default(true, true) | bool }}"
     monitoring_jobs_enable_wp_salt_rotation: "{{ monitoring_jobs_enable_wp_salt_rotation | default(false, true) | bool }}"
@@ -51,6 +52,17 @@
       - name: wp-update-report.timer
         src: "{{ playbook_dir }}/../monitoring/systemd/wp-update-report.timer"
   when: monitoring_jobs_enable_wp_update_report
+
+- name: Add scheduled WordPress backup timer units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + wp_scheduled_backup_units }}"
+  vars:
+    wp_scheduled_backup_units:
+      - name: wp-scheduled-backup.service
+        src: "{{ playbook_dir }}/../wordpress/systemd/wp-scheduled-backup.service"
+      - name: wp-scheduled-backup.timer
+        src: "{{ playbook_dir }}/../wordpress/systemd/wp-scheduled-backup.timer"
+  when: monitoring_jobs_enable_wp_scheduled_backups
 
 - name: Add security digest timer units
   ansible.builtin.set_fact:

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run scheduled WordPress backups for weekly/daily sites
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=wp-scheduled-backup.service
+
+[Install]
+WantedBy=timers.target

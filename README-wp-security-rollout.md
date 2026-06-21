@@ -178,7 +178,7 @@ Optionaler Testlauf:
 
 - Monatsbackups für alle Ghost- und WordPress-Instanzen
 - WordPress-Update-Report per E-Mail
-- Security-Frühwarn-Digest per E-Mail
+- täglicher Security-Frühwarn-Digest per E-Mail
 - optionale zentrale Salt-Rotation
 
 Zentrale Aktivierung:
