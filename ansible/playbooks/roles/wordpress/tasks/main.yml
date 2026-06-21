@@ -341,6 +341,9 @@
         )
         else {}
       }}
+
+- name: Build WordPress container environment
+  ansible.builtin.set_fact:
     wp_env: >-
       {{
         {
