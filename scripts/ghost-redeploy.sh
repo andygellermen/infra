@@ -167,15 +167,22 @@ if [[ ${#ALIASES[@]} -eq 0 ]]; then
   info "Keine Aliase in hostvars gefunden."
 else
   info "Prüfe ${#ALIASES[@]} Alias-Domain(s)"
-  declare -A seen=()
+  seen_aliases=()
   for alias in "${ALIASES[@]}"; do
+    duplicate_alias=0
     alias="$(normalize_domain "$alias")"
     [[ -n "$alias" ]] || continue
-    if [[ -n "${seen[$alias]:-}" ]]; then
+    for seen_alias in "${seen_aliases[@]}"; do
+      if [[ "$seen_alias" == "$alias" ]]; then
+        duplicate_alias=1
+        break
+      fi
+    done
+    if [[ "$duplicate_alias" -eq 1 ]]; then
       info "Alias doppelt, übersprungen: $alias"
       continue
     fi
-    seen[$alias]=1
+    seen_aliases+=("$alias")
     verify_a_record_matches_host "$alias" "$HOST_IP"
   done
 fi

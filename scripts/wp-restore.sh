@@ -439,13 +439,19 @@ select_sql_file() {
   local sql_files=()
 
   # Zielbild: SQL direkt im Document-Root
-  mapfile -t sql_files < <(find "$docroot" -maxdepth 1 -type f -name '*.sql' | sort)
+  while IFS= read -r sql_file; do
+    sql_files+=("$sql_file")
+  done < <(find "$docroot" -maxdepth 1 -type f -name '*.sql' | sort)
   if [[ ${#sql_files[@]} -eq 0 ]]; then
     # Fallbacks für ältere Backups
-    mapfile -t sql_files < <(find "$docroot" -type f -name '*.sql' | sort)
+    while IFS= read -r sql_file; do
+      sql_files+=("$sql_file")
+    done < <(find "$docroot" -type f -name '*.sql' | sort)
   fi
   if [[ ${#sql_files[@]} -eq 0 ]]; then
-    mapfile -t sql_files < <(find "$backup_root" -type f -name '*.sql' | sort)
+    while IFS= read -r sql_file; do
+      sql_files+=("$sql_file")
+    done < <(find "$backup_root" -type f -name '*.sql' | sort)
   fi
 
   [[ ${#sql_files[@]} -gt 0 ]] || die "Kein SQL-File im Backup gefunden."

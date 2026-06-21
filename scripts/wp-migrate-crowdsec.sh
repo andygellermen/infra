@@ -14,7 +14,10 @@ defaults=(
   'wp_traefik_middleware_api: "crowdsec-api@docker"'
 )
 
-mapfile -t files < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+files=()
+while IFS= read -r file; do
+  files+=("$file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 for f in "${files[@]}"; do
   grep -q '^wp_domain_db:' "$f" || continue
   domain="$(basename "$f" .yml)"

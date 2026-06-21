@@ -45,7 +45,10 @@ done
 [[ -d "$HOSTVARS_DIR" ]] || die "Hostvars-Verzeichnis fehlt: $HOSTVARS_DIR"
 [[ -x "$REDEPLOY_SCRIPT" ]] || die "Redeploy-Skript fehlt/ist nicht ausführbar: $REDEPLOY_SCRIPT"
 
-mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '*.example.yml' | sort)
+HOSTVAR_FILES=()
+while IFS= read -r hostvar_file; do
+  HOSTVAR_FILES+=("$hostvar_file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '*.example.yml' | sort)
 if [[ ${#HOSTVAR_FILES[@]} -eq 0 ]]; then
   if [[ "$CHECK_ONLY" -eq 1 ]]; then
     info "Keine Hostvars-Dateien gefunden in $HOSTVARS_DIR (check-only ohne Änderungen abgeschlossen)."

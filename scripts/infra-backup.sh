@@ -77,7 +77,10 @@ for path in ansible/hostvars ansible/secrets data/traefik data/crowdsec; do
 done
 
 info "Ermittle relevante Docker-Volumes"
-mapfile -t all_volumes < <(docker volume ls --format '{{.Name}}')
+all_volumes=()
+while IFS= read -r volume_name; do
+  all_volumes+=("$volume_name")
+done < <(docker volume ls --format '{{.Name}}')
 volumes_to_backup=()
 for v in "${all_volumes[@]}"; do
   case "$v" in

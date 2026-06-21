@@ -66,7 +66,10 @@ done
 
 cd "$ROOT_DIR"
 
-mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+HOSTVAR_FILES=()
+while IFS= read -r hostvar_file; do
+  HOSTVAR_FILES+=("$hostvar_file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
 
 ghost_domains=()

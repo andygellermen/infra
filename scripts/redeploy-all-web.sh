@@ -56,7 +56,10 @@ done
 [[ -x "$STATICEDITOR_REDEPLOY" ]] || die "Script nicht ausführbar: $STATICEDITOR_REDEPLOY"
 [[ -x "$EEP_REDEPLOY" ]] || die "Script nicht ausführbar: $EEP_REDEPLOY"
 
-mapfile -t HOSTVAR_FILES < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+HOSTVAR_FILES=()
+while IFS= read -r hostvar_file; do
+  HOSTVAR_FILES+=("$hostvar_file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 [[ ${#HOSTVAR_FILES[@]} -gt 0 ]] || die "Keine Hostvars-Dateien in $HOSTVARS_DIR gefunden."
 
 ghost_domains=()
@@ -92,17 +95,37 @@ run_redeploy() {
 }
 
 failed=()
-declare -A pid_to_entry=()
 pids=()
+pid_entries=()
+
+lowercase_word() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+take_pid_entry() {
+  local pid="$1"
+  local item
+  local remaining=()
+
+  PID_ENTRY=""
+  for item in "${pid_entries[@]}"; do
+    if [[ "$item" == "${pid}|"* ]]; then
+      PID_ENTRY="${item#*|}"
+      continue
+    fi
+    remaining+=("$item")
+  done
+  pid_entries=("${remaining[@]}")
+}
 
 wait_for_pid() {
   local pid="$1" rc entry
-  entry="${pid_to_entry[$pid]}"
+  take_pid_entry "$pid"
+  entry="$PID_ENTRY"
   set +e
   wait "$pid"
   rc=$?
   set -e
-  unset 'pid_to_entry[$pid]'
 
   if [[ "$rc" -ne 0 ]]; then
     failed+=("$entry")
@@ -113,9 +136,12 @@ wait_for_pid() {
 
 run_parallel_batch() {
   local kind="$1" script="$2"
+  local kind_key
   shift 2
   local domains=("$@")
   local abort=0
+
+  kind_key="$(lowercase_word "$kind")"
 
   for d in "${domains[@]}"; do
     [[ "$abort" -eq 1 ]] && break
@@ -124,7 +150,7 @@ run_parallel_batch() {
     ) &
     pid=$!
     pids+=("$pid")
-    pid_to_entry["$pid"]="${kind,,}:$d"
+    pid_entries+=("${pid}|${kind_key}:$d")
 
     while [[ "${#pids[@]}" -ge "$PARALLEL" ]]; do
       sleep 0.2

@@ -58,7 +58,10 @@ prune_backup_tree() {
   [[ -d "$root" ]] || return 0
 
   while IFS= read -r domain_dir; do
-    mapfile -t files < <(find "$domain_dir" -maxdepth 1 -type f -name "$pattern" | sort -r)
+    files=()
+    while IFS= read -r backup_file; do
+      files+=("$backup_file")
+    done < <(find "$domain_dir" -maxdepth 1 -type f -name "$pattern" | sort -r)
     (( ${#files[@]} > KEEP_COUNT )) || continue
     for file in "${files[@]:KEEP_COUNT}"; do
       if [[ "$CHECK_ONLY" -eq 1 ]]; then

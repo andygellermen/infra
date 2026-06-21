@@ -60,7 +60,10 @@ fi
 
 [[ -d "$HOSTVARS_DIR" ]] || die "Hostvars-Verzeichnis fehlt: $HOSTVARS_DIR"
 
-mapfile -t files < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+files=()
+while IFS= read -r file; do
+  files+=("$file")
+done < <(find "$HOSTVARS_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 (( ${#files[@]} > 0 )) || die "Keine Hostvars-Dateien gefunden"
 
 processed=0

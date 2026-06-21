@@ -70,7 +70,10 @@ PY
 HOST_IP="$(curl -fsSL https://api.ipify.org || true)"
 [[ -n "$HOST_IP" ]] || die "Öffentliche Host-IP konnte nicht ermittelt werden"
 
-mapfile -t REDIRECT_LINES < <(python3 - "$REDIRECT_JSON" <<'PY'
+REDIRECT_LINES=()
+while IFS= read -r redirect_line; do
+  REDIRECT_LINES+=("$redirect_line")
+done < <(python3 - "$REDIRECT_JSON" <<'PY'
 import json
 import sys
 
