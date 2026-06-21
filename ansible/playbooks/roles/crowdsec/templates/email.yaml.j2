@@ -5,6 +5,7 @@ timeout: 20s
 group_wait: {{ crowdsec_notification_email_group_wait }}
 group_threshold: {{ crowdsec_notification_email_group_threshold }}
 format: |
+{% raw %}
   <html><body>
   {{range . -}}
     {{$alert := . -}}
@@ -14,16 +15,17 @@ format: |
     {{end -}}
   {{end -}}
   </body></html>
-smtp_host: {{ crowdsec_notification_smtp_host }}
-smtp_username: {{ crowdsec_notification_smtp_username }}
-smtp_password: {{ crowdsec_notification_smtp_password }}
+{% endraw %}
+smtp_host: "{{ crowdsec_notification_smtp_host }}"
+smtp_username: "{{ crowdsec_notification_smtp_username }}"
+smtp_password: "{{ crowdsec_notification_smtp_password }}"
 smtp_port: {{ crowdsec_notification_smtp_port }}
-auth_type: {{ crowdsec_notification_email_auth_type }}
+auth_type: "{{ crowdsec_notification_email_auth_type }}"
 sender_name: "{{ crowdsec_notification_sender_name }}"
-sender_email: {{ crowdsec_notification_sender_email }}
+sender_email: "{{ crowdsec_notification_sender_email }}"
 email_subject: "{{ crowdsec_notification_email_subject }}"
 receiver_emails:
 {% for item in crowdsec_notification_email_recipients %}
-  - {{ item }}
+  - "{{ item }}"
 {% endfor %}
 encryption_type: "{{ crowdsec_notification_email_encryption_type }}"
