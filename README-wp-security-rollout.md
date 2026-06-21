@@ -181,6 +181,12 @@ Optionaler Testlauf:
 - Security-Frühwarn-Digest per E-Mail
 - optionale zentrale Salt-Rotation
 
+Zentrale Aktivierung:
+
+```bash
+ansible-playbook -i ./ansible/inventory/hosts.ini ./ansible/playbooks/deploy-monitoring-jobs.yml
+```
+
 ### Wichtiger Hinweis zu Salt-Rotation
 
 Eine Rotation der WordPress-Salts ist technisch zentral automatisierbar, hat aber einen klaren Seiteneffekt:

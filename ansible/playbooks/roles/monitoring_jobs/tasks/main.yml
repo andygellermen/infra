@@ -1,0 +1,115 @@
+---
+- name: Resolve monitoring job settings
+  ansible.builtin.set_fact:
+    monitoring_jobs_enable_backups: "{{ monitoring_jobs_enable_backups | default(true, true) | bool }}"
+    monitoring_jobs_enable_wp_update_report: "{{ monitoring_jobs_enable_wp_update_report | default(true, true) | bool }}"
+    monitoring_jobs_enable_security_digest: "{{ monitoring_jobs_enable_security_digest | default(true, true) | bool }}"
+    monitoring_jobs_enable_wp_salt_rotation: "{{ monitoring_jobs_enable_wp_salt_rotation | default(false, true) | bool }}"
+
+- name: Warn when WordPress update report has no configured recipient
+  ansible.builtin.debug:
+    msg: >-
+      WordPress-Update-Report wird installiert, aber es ist weder `wp_update_report_to`
+      noch `infra_error_notify_to` gesetzt. Der Timer läuft, versendet aber keine E-Mail.
+  when:
+    - monitoring_jobs_enable_wp_update_report
+    - (wp_update_report_to | default('', true) | length) == 0
+    - (infra_error_notify_to | default('', true) | length) == 0
+
+- name: Warn when security digest has no configured recipient
+  ansible.builtin.debug:
+    msg: >-
+      Security-Digest wird installiert, aber es ist weder `security_digest_report_to`
+      noch `infra_error_notify_to` gesetzt. Der Timer läuft, versendet aber keine E-Mail.
+  when:
+    - monitoring_jobs_enable_security_digest
+    - (security_digest_report_to | default('', true) | length) == 0
+    - (infra_error_notify_to | default('', true) | length) == 0
+
+- name: Initialize monitoring job unit list
+  ansible.builtin.set_fact:
+    monitoring_job_units: []
+
+- name: Add monthly backup timer units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + backup_units }}"
+  vars:
+    backup_units:
+      - name: monthly-site-backup.service
+        src: "{{ playbook_dir }}/../backups/systemd/monthly-site-backup.service"
+      - name: monthly-site-backup.timer
+        src: "{{ playbook_dir }}/../backups/systemd/monthly-site-backup.timer"
+  when: monitoring_jobs_enable_backups
+
+- name: Add WordPress update report timer units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + wp_update_units }}"
+  vars:
+    wp_update_units:
+      - name: wp-update-report.service
+        src: "{{ playbook_dir }}/../monitoring/systemd/wp-update-report.service"
+      - name: wp-update-report.timer
+        src: "{{ playbook_dir }}/../monitoring/systemd/wp-update-report.timer"
+  when: monitoring_jobs_enable_wp_update_report
+
+- name: Add security digest timer units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + security_digest_units }}"
+  vars:
+    security_digest_units:
+      - name: monthly-security-report.service
+        src: "{{ playbook_dir }}/../monitoring/systemd/monthly-security-report.service"
+      - name: monthly-security-report.timer
+        src: "{{ playbook_dir }}/../monitoring/systemd/monthly-security-report.timer"
+  when: monitoring_jobs_enable_security_digest
+
+- name: Add optional WordPress salt rotation timer units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + wp_salt_units }}"
+  vars:
+    wp_salt_units:
+      - name: monthly-wp-salt-rotate.service
+        src: "{{ playbook_dir }}/../wordpress/systemd/monthly-wp-salt-rotate.service"
+      - name: monthly-wp-salt-rotate.timer
+        src: "{{ playbook_dir }}/../wordpress/systemd/monthly-wp-salt-rotate.timer"
+  when: monitoring_jobs_enable_wp_salt_rotation
+
+- name: Assert that at least one monitoring job is enabled
+  ansible.builtin.assert:
+    that:
+      - monitoring_job_units | length > 0
+    fail_msg: "Kein Monitoring-/Backup-Job ist aktiviert."
+
+- name: Install monitoring job unit files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ monitoring_job_units }}"
+  register: monitoring_job_unit_copy
+
+- name: Enable and start monitoring timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    daemon_reload: true
+    enabled: true
+    state: started
+  loop: >-
+    {{
+      monitoring_job_units
+      | map(attribute='name')
+      | select('match', '.*\\.timer$')
+      | list
+    }}
+
+- name: Report enabled monitoring timers
+  ansible.builtin.debug:
+    msg: >-
+      Aktivierte Timer: {{
+        monitoring_job_units
+        | map(attribute='name')
+        | select('match', '.*\\.timer$')
+        | join(', ')
+      }}

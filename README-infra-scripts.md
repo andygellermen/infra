@@ -716,6 +716,28 @@ sudo systemctl start monthly-site-backup.service
 journalctl -u monthly-site-backup.service -n 200 --no-pager
 ```
 
+### Zentrale Aktivierung aller Monatsjobs per Ansible
+
+Statt die Unit-Dateien einzeln zu kopieren, kannst du jetzt die Monatsjobs zentral per Playbook aktivieren:
+
+```bash
+ansible-playbook -i ./ansible/inventory/hosts.ini ./ansible/playbooks/deploy-monitoring-jobs.yml
+```
+
+Standardmäßig aktiviert das Playbook:
+
+- `monthly-site-backup.timer`
+- `wp-update-report.timer`
+- `monthly-security-report.timer`
+
+Die WordPress-Salt-Rotation bleibt bewusst **optional** und ist standardmäßig **nicht** aktiv.
+
+Optional in `ansible/secrets/secrets.yml` oder `ansible/secrets/secrets.yaml`:
+
+```yaml
+monitoring_jobs_enable_wp_salt_rotation: true
+```
+
 ### wp-update-report.sh
 
 Erstellt einen kompakten WordPress-Monatsreport für verfügbare Core-, Plugin- und Theme-Updates über alle WordPress-Instanzen.
