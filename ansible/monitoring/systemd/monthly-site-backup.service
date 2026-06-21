@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly backups for all Ghost and WordPress sites
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+ExecStartPre=/usr/bin/mkdir -p /home/andy/infra/backups/monthly/ghost /home/andy/infra/backups/monthly/wordpress
+ExecStart=/usr/bin/env bash ./scripts/monthly-site-backup.sh --keep 3

@@ -696,14 +696,14 @@ Beispiele:
 
 Für den produktiven Host liegen passende Units bereit:
 
-- `ansible/backups/systemd/monthly-site-backup.service`
-- `ansible/backups/systemd/monthly-site-backup.timer`
+- `ansible/monitoring/systemd/monthly-site-backup.service`
+- `ansible/monitoring/systemd/monthly-site-backup.timer`
 
 Aktivierung auf dem Host:
 
 ```bash
-sudo cp ./ansible/backups/systemd/monthly-site-backup.service /etc/systemd/system/
-sudo cp ./ansible/backups/systemd/monthly-site-backup.timer /etc/systemd/system/
+sudo cp ./ansible/monitoring/systemd/monthly-site-backup.service /etc/systemd/system/
+sudo cp ./ansible/monitoring/systemd/monthly-site-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now monthly-site-backup.timer
 sudo systemctl list-timers | grep monthly-site-backup

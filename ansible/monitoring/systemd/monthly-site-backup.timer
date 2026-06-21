@@ -1,0 +1,11 @@
+[Unit]
+Description=Run monthly Ghost and WordPress backups
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+RandomizedDelaySec=30m
+Unit=monthly-site-backup.service
+
+[Install]
+WantedBy=timers.target

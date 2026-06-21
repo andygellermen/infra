@@ -37,9 +37,9 @@
   vars:
     backup_units:
       - name: monthly-site-backup.service
-        src: "{{ playbook_dir }}/../backups/systemd/monthly-site-backup.service"
+        src: "{{ playbook_dir }}/../monitoring/systemd/monthly-site-backup.service"
       - name: monthly-site-backup.timer
-        src: "{{ playbook_dir }}/../backups/systemd/monthly-site-backup.timer"
+        src: "{{ playbook_dir }}/../monitoring/systemd/monthly-site-backup.timer"
   when: monitoring_jobs_enable_backups
 
 - name: Add WordPress update report timer units
