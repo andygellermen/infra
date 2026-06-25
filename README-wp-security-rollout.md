@@ -26,6 +26,7 @@ Ergänzend:
 - erstellt Decisions gegen auffällige Quell-IP-Adressen
 - versendet Alert-Mails per SMTP/SES
 - schreibt JSON-Alerts für Wazuh nach `data/crowdsec/data/notifications/crowdsec_alerts.ndjson`
+- triggert optional einen angereicherten Sofort-Report mit Severity, Traefik-Logkorrelation und Handlungsempfehlung
 
 ### Wazuh
 
@@ -179,6 +180,7 @@ Optionaler Testlauf:
 - Monatsbackups für alle Ghost- und WordPress-Instanzen
 - WordPress-Update-Report per E-Mail
 - täglicher Security-Frühwarn-Digest per E-Mail
+- sofortiger CrowdSec-Incident-Report bei neuen Decisions
 - optionale zentrale Salt-Rotation
 
 Zentrale Aktivierung:

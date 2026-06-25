@@ -2,7 +2,7 @@
 
 ### ghost-add.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Datenbankeintrag, Zertifikatseinrichtung über Traefik sowie der passenden `hostvars` Datei.
 
 **Syntax:**
@@ -24,7 +24,7 @@ Dieses Skript erstellt eine neue Ghost-Instanz inklusive Docker-Container, Daten
 
 ### ghost-upgrade.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_version` in den Hostvars angepasst und anschließend das Deployment neu ausgeführt wird. Ist die Zielversion bereits gesetzt, wird trotzdem ein Redeploy ausgelöst, damit z. B. `latest`-Instanzen aktualisiert werden können.
 
 **Syntax:**
@@ -47,7 +47,7 @@ Hebt eine bestehende Ghost-Instanz auf eine neue Version an, indem `ghost_versio
 
 ### ghost-upgrade-all.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Führt ein Bulk-Upgrade für alle Ghost-Domains aus, die in `ansible/hostvars/*.yml` per `ghost_domain_db` erkannt werden. Intern wird pro Domain `ghost-upgrade.sh` aufgerufen.
 
 **Syntax:**
@@ -71,7 +71,7 @@ Führt ein Bulk-Upgrade für alle Ghost-Domains aus, die in `ansible/hostvars/*.
 
 ### ghost-delete.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Dieses Skript entfernt eine bestehende Ghost-Instanz inklusive Datenbank und Hostvars. Optional mit Backup & vollständigem Löschen.
 
 **Syntax:**
@@ -91,7 +91,7 @@ Dieses Skript entfernt eine bestehende Ghost-Instanz inklusive Datenbank und Hos
 
 ### delete-domain.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Zentraler Löschbefehl für Domains. Erkennt Ghost-, WordPress-, Static- und Redirect-Konfigurationen, entfernt die jeweilige Domain und bereinigt anschließend verwaiste ACME-Zertifikatseinträge aus Traefiks `acme.json`.
 
 **Syntax:**
@@ -109,7 +109,7 @@ Zentraler Löschbefehl für Domains. Erkennt Ghost-, WordPress-, Static- und Red
 
 ### wildcard-export.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Exportiert ein vorhandenes Wildcard-Zertifikat für eine Apex-Domain aus Traefiks `acme.json`.
 
 **Syntax:**
@@ -119,7 +119,7 @@ Exportiert ein vorhandenes Wildcard-Zertifikat für eine Apex-Domain aus Traefik
 
 ### wildcard-housekeeping.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Prüft, ob für eine Apex-Domain bereits ein echtes Wildcard-Zertifikat in Traefiks `acme.json` vorliegt, und bereinigt anschließend nur die davon vollständig abgedeckten Einzelzertifikate. Optional kann Traefik danach direkt neu gestartet werden.
 
 **Syntax:**
@@ -129,7 +129,7 @@ Prüft, ob für eine Apex-Domain bereits ein echtes Wildcard-Zertifikat in Traef
 
 ### wildcard-distribute.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Verteilt ein exportiertes Wildcard-Zertifikat an definierte Zielserver, z. B. für Staging-Systeme. Die zentrale Mapping-Datei kann exakte Zielpfade, einen separaten SSH-Key und optionale Post-Deploy-Kommandos pro Server enthalten.
 
 **Syntax:**
@@ -161,7 +161,7 @@ wildcard_exports:
 
 ### wildcard-distribute-on-change.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Prüft die konfigurierten Wildcard-Exporte gegen einen Fingerprint-State und löst die Verteilung nur dann aus, wenn sich das eigentliche Zertifikat seit dem letzten erfolgreichen Lauf geändert hat. Gedacht als Trigger hinter `systemd.path` oder als sparsamer Fallback-Cron.
 
 **Syntax:**
@@ -183,7 +183,7 @@ Hinweis:
 
 ### create-hostvars.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Erstellt eine passende `hostvars` Datei für eine neue Ghost-Domain automatisch.
 
 **Syntax:**
@@ -246,6 +246,7 @@ Aktuell angebunden sind:
 - `scripts/monthly-site-backup.sh`
 - `scripts/wp-update-report.sh`
 - `scripts/monthly-security-report.sh`
+- `scripts/crowdsec-event-report.sh`
 - `scripts/ghost-upgrade-all.sh`
 - `scripts/wildcard-distribute.sh`
 
@@ -403,7 +404,7 @@ Die Node.js-Version wird automatisch durch das gewählte offizielle Ghost-Docker
 
 ### infra-setup.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Initialisiert den kompletten Infra-Stack auf einem frischen Host und installiert fehlende Basis-Tools automatisch (Docker, Ansible, MySQL-Client, dnsutils, jq, Python 3, community.docker Collection).
 
 **Syntax:**
@@ -427,7 +428,7 @@ sudo ./scripts/infra-setup.sh
 
 ### infra-backup.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relevante Konfigurationen + optional MySQL all-databases Dump).
 
 **Syntax:**
@@ -442,7 +443,7 @@ Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relev
 
 ### infra-restore.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Import). Kann vorab optional `infra-setup.sh` starten.
 
 **Syntax:**
@@ -456,7 +457,7 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 
 ### infra-update-all.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Aktualisiert die zentralen Infrastruktur-Bausteine per Ansible (`infra-mysql`, `infra-traefik`, CrowdSec, Wazuh-Agent und `infra-portainer`).
 
 **Syntax:**
@@ -471,7 +472,7 @@ Aktualisiert die zentralen Infrastruktur-Bausteine per Ansible (`infra-mysql`, `
 
 ### ghost-migrate-crowdsec.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Middleware-Defaults in `ansible/hostvars/*.yml` und führt anschließend je Domain einen `ghost-redeploy.sh` aus.
 
 **Syntax:**
@@ -492,7 +493,7 @@ Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende CrowdSec-Mid
 
 ### ghost-migrate-tinybird.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Migrationsskript für bestehende Ghost-Instanzen. Ergänzt fehlende Legacy-/Custom-Tinybird-Defaults in `ansible/hostvars/*.yml`, generiert pro Domain ein eigenes `tinybird_token` und führt optional je Domain `ghost-redeploy.sh` aus.
 
 **Syntax:**
@@ -550,7 +551,7 @@ Hinweis:
 
 ### ghost-native-analytics-sync.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Kopiert die offiziellen Tinybird-Projektdateien aus einem laufenden Ghost-Container in ein lokales Arbeitsverzeichnis. Das ist der vorbereitende Operator-Schritt fuer Ghost Native Analytics auf dem bestehenden Ansible-/Traefik-Stack.
 
 **Syntax:**
@@ -598,7 +599,7 @@ ghost_traefik_middleware_native_analytics: crowdsec-api@docker
 
 ### ghost-backup.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, Content-Volume, Hostvars und optional CrowdSec-Dateien.
 
 **Syntax:**
@@ -626,7 +627,7 @@ Selektives All-in-One Backup/Restore für eine einzelne Ghost-Instanz inkl. DB, 
 
 ### ghost-backup-all.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Erstellt in einem Lauf Backups für alle Ghost-Instanzen. Die Domains werden automatisch über `ansible/hostvars/*.yml` erkannt (Marker: `ghost_domain_db`).
 
 **Syntax:**
@@ -899,6 +900,39 @@ Passende Units:
 - `ansible/wordpress/systemd/monthly-wp-salt-rotate.service`
 - `ansible/wordpress/systemd/monthly-wp-salt-rotate.timer`
 
+### crowdsec-event-report.sh
+
+**Beschreibung:**
+Erstellt sofort nach neuen CrowdSec-Decisions einen angereicherten Incident-Report. Der Report korreliert die neuen Events mit Traefik-Logs, bewertet die Lage per Severity (`LOW` bis `CRITICAL`) und formuliert direkte Handlungsempfehlungen.
+
+**Syntax:**
+```bash
+./scripts/crowdsec-event-report.sh [--check-only]
+```
+
+**Features:**
+- liest neue Events aus `data/crowdsec/data/notifications/crowdsec_alerts.ndjson*`
+- korreliert Quell-IP, Pfade, Statuscodes, Router und User-Agents aus `infra-traefik`
+- erkennt grob, ob nur Block-Responses (`401/403/404`) sichtbar sind oder erfolgreiche Antworten (`2xx/3xx`)
+- versendet den Report per SES/SMTP an `crowdsec_event_report_to` oder fallback `infra_error_notify_to`
+- dedupliziert bereits bearbeitete Events ueber `data/crowdsec/state/event-report-state.json`
+
+**Systemd-Trigger:**
+- `ansible/monitoring/systemd/crowdsec-event-report.service`
+- `ansible/monitoring/systemd/crowdsec-event-report.path`
+
+**Aktivierung:**
+```bash
+ansible-playbook -i ./ansible/inventory/hosts.ini ./ansible/playbooks/deploy-monitoring-jobs.yml
+```
+
+**Manueller Test:**
+```bash
+./scripts/crowdsec-event-report.sh --check-only
+sudo systemctl start crowdsec-event-report.service
+journalctl -u crowdsec-event-report.service -n 100 --no-pager
+```
+
 Hinweis:
 
 - diese Rotation invalidiert alle bestehenden WordPress-Sessions
@@ -922,7 +956,7 @@ journalctl -u monthly-wp-salt-rotate.service -n 200 --no-pager
 
 ### ghost-smoke-check.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Schneller Smoke-Check für eine Ghost-Domain nach Redeploy/Restore. Prüft Frontend-, Admin- und API-Erreichbarkeit über HTTPS, um Routing-/Middleware-Regressions schnell zu erkennen.
 
 **Syntax:**
@@ -937,7 +971,7 @@ Schneller Smoke-Check für eine Ghost-Domain nach Redeploy/Restore. Prüft Front
 
 ### ghost-redeploy.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Hilfsskript für bestehende Ghost-Instanzen nach Änderungen in `ansible/hostvars/<domain>.yml` (z. B. neue Alias-Domain). Vor dem Redeploy werden Integrität und DNS-Matching geprüft.
 
 **Syntax:**
@@ -1003,7 +1037,7 @@ Optional koennen die Zusatztexte spaeter pro Domain direkt in `ansible/hostvars/
 
 ### eep-add.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-Pruefung, Token-Pepper, Traefik-Aliases und optionalem Wildcard-TLS-Setup.
 
 **Syntax:**
@@ -1019,7 +1053,7 @@ Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-P
 
 ### eep-redeploy.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine einzelne Domain oder alle `eep_enabled`-Instanzen.
 
 **Syntax:**
@@ -1039,7 +1073,7 @@ Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine 
 
 ### redeploy-all-web.sh
 
-**Beschreibung:**  
+**Beschreibung:**
 Massen-Redeploy für alle Web-Container auf Basis vorhandener Hostvars (`ghost_domain_db` / `wp_domain_db` / `eep_enabled` etc.).
 
 **Syntax:**

@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch CrowdSec alert file for immediate enriched incident reports
+
+[Path]
+PathChanged=/home/andy/infra/data/crowdsec/data/notifications/crowdsec_alerts.ndjson
+TriggerLimitIntervalSec=30s
+TriggerLimitBurst=50
+Unit=crowdsec-event-report.service
+
+[Install]
+WantedBy=multi-user.target

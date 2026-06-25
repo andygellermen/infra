@@ -5,6 +5,7 @@
     monitoring_jobs_enable_wp_scheduled_backups: "{{ monitoring_jobs_enable_wp_scheduled_backups | default(true, true) | bool }}"
     monitoring_jobs_enable_wp_update_report: "{{ monitoring_jobs_enable_wp_update_report | default(true, true) | bool }}"
     monitoring_jobs_enable_security_digest: "{{ monitoring_jobs_enable_security_digest | default(true, true) | bool }}"
+    monitoring_jobs_enable_crowdsec_event_reports: "{{ monitoring_jobs_enable_crowdsec_event_reports | default(true, true) | bool }}"
     monitoring_jobs_enable_wp_salt_rotation: "{{ monitoring_jobs_enable_wp_salt_rotation | default(false, true) | bool }}"
 
 - name: Warn when WordPress update report has no configured recipient
@@ -25,6 +26,16 @@
   when:
     - monitoring_jobs_enable_security_digest
     - (security_digest_report_to | default('', true) | length) == 0
+    - (infra_error_notify_to | default('', true) | length) == 0
+
+- name: Warn when CrowdSec event reports have no configured recipient
+  ansible.builtin.debug:
+    msg: >-
+      CrowdSec-Sofortreports werden installiert, aber es ist weder `crowdsec_event_report_to`
+      noch `infra_error_notify_to` gesetzt. Der Trigger laeuft, versendet aber keine E-Mail.
+  when:
+    - monitoring_jobs_enable_crowdsec_event_reports
+    - (crowdsec_event_report_to | default('', true) | length) == 0
     - (infra_error_notify_to | default('', true) | length) == 0
 
 - name: Initialize monitoring job unit list
@@ -75,6 +86,17 @@
         src: "{{ playbook_dir }}/../monitoring/systemd/monthly-security-report.timer"
   when: monitoring_jobs_enable_security_digest
 
+- name: Add CrowdSec event report units
+  ansible.builtin.set_fact:
+    monitoring_job_units: "{{ monitoring_job_units + crowdsec_event_units }}"
+  vars:
+    crowdsec_event_units:
+      - name: crowdsec-event-report.service
+        src: "{{ playbook_dir }}/../monitoring/systemd/crowdsec-event-report.service"
+      - name: crowdsec-event-report.path
+        src: "{{ playbook_dir }}/../monitoring/systemd/crowdsec-event-report.path"
+  when: monitoring_jobs_enable_crowdsec_event_reports
+
 - name: Add optional WordPress salt rotation timer units
   ansible.builtin.set_fact:
     monitoring_job_units: "{{ monitoring_job_units + wp_salt_units }}"
@@ -102,7 +124,7 @@
   loop: "{{ monitoring_job_units }}"
   register: monitoring_job_unit_copy
 
-- name: Enable and start monitoring timers
+- name: Enable and start monitoring triggers
   ansible.builtin.systemd:
     name: "{{ item }}"
     daemon_reload: true
@@ -112,16 +134,16 @@
     {{
       monitoring_job_units
       | map(attribute='name')
-      | select('match', '.*\\.timer$')
+      | select('match', '.*\\.(timer|path)$')
       | list
     }}
 
-- name: Report enabled monitoring timers
+- name: Report enabled monitoring triggers
   ansible.builtin.debug:
     msg: >-
-      Aktivierte Timer: {{
+      Aktivierte Trigger: {{
         monitoring_job_units
         | map(attribute='name')
-        | select('match', '.*\\.timer$')
+        | select('match', '.*\\.(timer|path)$')
         | join(', ')
       }}

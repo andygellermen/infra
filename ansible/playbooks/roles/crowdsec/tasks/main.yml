@@ -25,7 +25,18 @@
     crowdsec_notification_email_group_threshold: "{{ crowdsec_notification_email_group_threshold | default(5, true) }}"
     crowdsec_notification_file_path: "/var/lib/crowdsec/data/notifications/crowdsec_alerts.ndjson"
     crowdsec_notification_file_host_path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications/crowdsec_alerts.ndjson"
-    crowdsec_notification_file_enabled_resolved: "{{ crowdsec_notification_file_enabled | default(wazuh_enabled | default(false), true) }}"
+    crowdsec_notification_file_enabled_resolved: >-
+      {{
+        crowdsec_notification_file_enabled
+        | default(
+            (
+              (wazuh_enabled | default(false, true) | bool)
+              or (monitoring_jobs_enable_security_digest | default(true, true) | bool)
+              or (monitoring_jobs_enable_crowdsec_event_reports | default(true, true) | bool)
+            ),
+            true
+          )
+      }}
     crowdsec_notification_file_rotate_max_size: "{{ crowdsec_notification_file_rotate_max_size | default(20, true) }}"
     crowdsec_notification_file_rotate_max_files: "{{ crowdsec_notification_file_rotate_max_files | default(20, true) }}"
     crowdsec_notification_file_rotate_max_age: "{{ crowdsec_notification_file_rotate_max_age | default(90, true) }}"
