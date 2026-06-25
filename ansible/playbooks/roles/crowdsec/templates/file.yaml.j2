@@ -2,12 +2,14 @@ type: file
 name: file_default
 log_level: info
 format: |
+{% raw %}
   {{range . -}}
     {{$alert := . -}}
     {{range .Decisions -}}
       { "crowdsec": { "program": "crowdsec", "machine_id": "{{$alert.MachineID}}", "stop_at": "{{$alert.StopAt}}", "scenario": "{{.Scenario}}", "value": "{{.Value}}", "type": "{{.Type}}", "duration": "{{.Duration}}" } }
     {{end -}}
   {{ end -}}
+{% endraw %}
 log_path: "{{ crowdsec_notification_file_path }}"
 rotate:
   enabled: true

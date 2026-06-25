@@ -134,7 +134,7 @@
     {{
       monitoring_job_units
       | map(attribute='name')
-      | select('match', '.*\\.(timer|path)$')
+      | select('match', '.*\.(timer|path)$')
       | list
     }}
 
@@ -144,6 +144,6 @@
       Aktivierte Trigger: {{
         monitoring_job_units
         | map(attribute='name')
-        | select('match', '.*\\.(timer|path)$')
+        | select('match', '.*\.(timer|path)$')
         | join(', ')
       }}

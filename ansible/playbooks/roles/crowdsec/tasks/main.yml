@@ -12,6 +12,12 @@
     - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data"
     - "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications"
 
+- name: Ensure CrowdSec notification directory is writable for file plugin
+  ansible.builtin.file:
+    path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/data/notifications"
+    state: directory
+    mode: "0777"
+
 - name: Resolve CrowdSec notification settings
   ansible.builtin.set_fact:
     crowdsec_notification_sender_raw: "{{ crowdsec_notification_sender | default(infra_error_notify_from | default(ses_from | default('', true), true), true) }}"
@@ -122,7 +128,7 @@
   ansible.builtin.file:
     path: "{{ crowdsec_notification_file_host_path }}"
     state: touch
-    mode: "0644"
+    mode: "0666"
   when: crowdsec_notification_file_enabled_resolved | bool
 
 - name: Remove CrowdSec email notification config when disabled
