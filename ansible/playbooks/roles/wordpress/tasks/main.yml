@@ -223,14 +223,14 @@
         {
           ('traefik.http.middlewares.' ~ wp_router_name ~ '-xmlrpc-guard.ipallowlist.sourcerange'): (wp_xmlrpc_guard_cidrs | join(',')),
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.entrypoints'): 'websecure',
-          ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.rule'): wp_host_rule_all ~ ' && Path(`/xmlrpc.php`)',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.rule'): wp_host_rule_all ~ ' && (Path(`/xmlrpc.php`) || Path(`/blog/xmlrpc.php`))',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.priority'): '400',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.tls'): 'true',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.tls.certresolver'): wp_tls_certresolver,
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.middlewares'): wp_router_middlewares_xmlrpc_websecure,
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc.service'): wp_service_name,
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.entrypoints'): 'web',
-          ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.rule'): wp_host_rule_all ~ ' && Path(`/xmlrpc.php`)',
+          ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.rule'): wp_host_rule_all ~ ' && (Path(`/xmlrpc.php`) || Path(`/blog/xmlrpc.php`))',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.priority'): '400',
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.middlewares'): wp_router_middlewares_xmlrpc_web,
           ('traefik.http.routers.' ~ wp_router_name ~ '-xmlrpc-web.service'): 'noop@internal'

@@ -14,7 +14,7 @@ Ergänzend:
 
 ### Traefik
 
-- blockiert `xmlrpc.php` vor WordPress
+- blockiert `xmlrpc.php` und `blog/xmlrpc.php` vor WordPress
 - erzwingt HTTPS
 - verarbeitet Primärdomain und Aliase konsistent
 - kann pro Bereich zusätzlichen Basic-Auth-Schutz vor WordPress schalten
@@ -48,7 +48,7 @@ Ergänzend:
 
 ### 1. XML-RPC-Probing oder Brute Force
 
-- Schutz: Traefik blockiert `xmlrpc.php`
+- Schutz: Traefik blockiert `xmlrpc.php` und `blog/xmlrpc.php`
 - Sichtbarkeit: Traefik/CrowdSec sehen die Requests
 - Erwartetes Signal: `403` für den Request, CrowdSec-Entscheidung bei entsprechendem Muster, Mail + Wazuh-CrowdSec-Event
 
