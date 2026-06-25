@@ -7,11 +7,17 @@ group_threshold: {{ crowdsec_notification_email_group_threshold }}
 format: |
 {% raw %}
   <html><body>
+  <h3>CrowdSec Security Alert</h3>
   {{range . -}}
     {{$alert := . -}}
-    {{range .Decisions -}}
-      <p><a href="https://www.whois.com/whois/{{.Value}}">{{.Value}}</a> wird <b>{{.Type}}</b> fuer <b>{{.Duration}}</b> aufgrund von <b>{{.Scenario}}</b> auf Host <b>{{$alert.MachineID}}</b>.</p>
-      <p><a href="https://app.crowdsec.net/cti/{{.Value}}">CrowdSec CTI</a></p>
+    <p><b>Host:</b> {{$alert.MachineID}}</p>
+    {{if .Decisions -}}
+      {{range .Decisions -}}
+        <p><a href="https://www.whois.com/whois/{{.Value}}">{{.Value}}</a> wird <b>{{.Type}}</b> fuer <b>{{.Duration}}</b> aufgrund von <b>{{.Scenario}}</b> auf Host <b>{{$alert.MachineID}}</b>.</p>
+        <p><a href="https://app.crowdsec.net/cti/{{.Value}}">CrowdSec CTI</a></p>
+      {{end -}}
+    {{else -}}
+      <p>Warnung: Alert fuer <b>{{$alert.MachineID}}</b> ohne Decision-Details empfangen. Bitte lokal <code>docker exec crowdsec cscli alerts list</code> pruefen.</p>
     {{end -}}
   {{end -}}
   </body></html>
