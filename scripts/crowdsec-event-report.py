@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -16,7 +17,12 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "scripts" / "lib"))
 
-from report_utils import load_mail_settings, send_report_mail
+from report_utils import (
+    load_mail_settings,
+    read_top_level_scalar,
+    resolve_secrets_file,
+    send_report_mail,
+)
 
 
 TRAEFIK_ACCESSLOG_RE = re.compile(
@@ -58,6 +64,13 @@ class TraefikHit:
     router: str
     backend: str
     raw: str
+
+
+@dataclass
+class ScriptState:
+    processed_ids: dict[str, str]
+    pending_events: list[CrowdSecEvent]
+    last_mail_sent_at: datetime | None
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,6 +115,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=180,
         help="Rueckblickfenster fuer Traefik-Logs.",
+    )
+    parser.add_argument(
+        "--mail-cooldown-minutes",
+        type=int,
+        default=-1,
+        help="Minimales Intervall zwischen zwei E-Mails; -1 = aus Secrets laden, 0 = keine Drosselung.",
     )
     return parser.parse_args()
 
@@ -151,24 +170,64 @@ def build_event_id(crowdsec: dict) -> str:
     )
 
 
-def load_state(state_file: Path) -> dict[str, str]:
+def serialize_event(event: CrowdSecEvent) -> dict[str, str]:
+    payload = asdict(event)
+    payload["stop_at"] = event.stop_at.isoformat()
+    return payload
+
+
+def deserialize_event(payload: dict) -> CrowdSecEvent | None:
+    stop_at = parse_iso_timestamp(str(payload.get("stop_at", "")))
+    if stop_at is None:
+        return None
+    return CrowdSecEvent(
+        event_id=str(payload.get("event_id", "")),
+        machine_id=str(payload.get("machine_id", "unknown")),
+        stop_at=stop_at,
+        scenario=str(payload.get("scenario", "unknown")),
+        value=str(payload.get("value", "unknown")),
+        event_type=str(payload.get("event_type", "unknown")),
+        duration=str(payload.get("duration", "")),
+    )
+
+
+def load_state(state_file: Path) -> ScriptState:
     if not state_file.is_file():
-        return {}
+        return ScriptState(processed_ids={}, pending_events=[], last_mail_sent_at=None)
     try:
         payload = json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {}
+        return ScriptState(processed_ids={}, pending_events=[], last_mail_sent_at=None)
+
     processed = payload.get("processed_ids")
     if not isinstance(processed, dict):
-        return {}
-    return {str(key): str(value) for key, value in processed.items()}
+        processed = {}
+
+    pending_payloads = payload.get("pending_events")
+    pending_events: list[CrowdSecEvent] = []
+    if isinstance(pending_payloads, list):
+        for item in pending_payloads:
+            if not isinstance(item, dict):
+                continue
+            event = deserialize_event(item)
+            if event is not None:
+                pending_events.append(event)
+
+    last_mail_sent_at = parse_iso_timestamp(str(payload.get("last_mail_sent_at", "")))
+    return ScriptState(
+        processed_ids={str(key): str(value) for key, value in processed.items()},
+        pending_events=pending_events,
+        last_mail_sent_at=last_mail_sent_at,
+    )
 
 
-def save_state(state_file: Path, processed_ids: dict[str, str]) -> None:
+def save_state(state_file: Path, state: ScriptState) -> None:
     state_file.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "processed_ids": processed_ids,
+        "processed_ids": state.processed_ids,
+        "pending_events": [serialize_event(event) for event in state.pending_events],
+        "last_mail_sent_at": state.last_mail_sent_at.isoformat() if state.last_mail_sent_at else "",
     }
     state_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -181,6 +240,33 @@ def prune_state(processed_ids: dict[str, str], retention_days: int) -> dict[str,
         if parsed is None or parsed >= cutoff:
             pruned[event_id] = raw_timestamp
     return pruned
+
+
+def prune_pending_events(pending_events: list[CrowdSecEvent], retention_days: int) -> list[CrowdSecEvent]:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    return [event for event in pending_events if event.stop_at >= cutoff]
+
+
+def merge_pending_events(existing: list[CrowdSecEvent], new_events: list[CrowdSecEvent]) -> list[CrowdSecEvent]:
+    merged: dict[str, CrowdSecEvent] = {event.event_id: event for event in existing}
+    for event in new_events:
+        merged[event.event_id] = event
+    return sorted(merged.values(), key=lambda item: item.stop_at)
+
+
+def load_mail_cooldown_minutes(root_dir: Path, cli_value: int) -> int:
+    if cli_value >= 0:
+        return cli_value
+    secrets_file = resolve_secrets_file(root_dir)
+    if secrets_file is None:
+        return 180
+    raw = read_top_level_scalar(secrets_file, "crowdsec_event_report_cooldown_minutes")
+    if not raw:
+        return 180
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return 180
 
 
 def collect_new_events(alerts_dir: Path, processed_ids: dict[str, str], lookback_minutes: int) -> list[CrowdSecEvent]:
@@ -502,19 +588,41 @@ def main() -> int:
     report_dir.mkdir(parents=True, exist_ok=True)
 
     state_file = Path(args.state_file)
-    processed_ids = prune_state(load_state(state_file), args.state_retention_days)
-    events = collect_new_events(Path(args.alerts_dir), processed_ids, args.event_lookback_minutes)
+    state = load_state(state_file)
+    state.processed_ids = prune_state(state.processed_ids, args.state_retention_days)
+    state.pending_events = prune_pending_events(state.pending_events, args.state_retention_days)
 
-    if not events:
-        save_state(state_file, processed_ids)
+    events = collect_new_events(Path(args.alerts_dir), state.processed_ids, args.event_lookback_minutes)
+    for event in events:
+        state.processed_ids[event.event_id] = event.stop_at.isoformat()
+    state.pending_events = merge_pending_events(state.pending_events, events)
+
+    if not state.pending_events:
+        save_state(state_file, state)
         print("Keine neuen CrowdSec-Events im betrachteten Zeitfenster.")
         return 0
 
-    hits = correlate_traefik_hits(events, args.traefik_container, args.traefik_log_lookback_minutes)
+    cooldown_minutes = load_mail_cooldown_minutes(ROOT_DIR, args.mail_cooldown_minutes)
+    if (
+        not args.check_only
+        and cooldown_minutes > 0
+        and state.last_mail_sent_at is not None
+        and (datetime.now(timezone.utc) - state.last_mail_sent_at) < timedelta(minutes=cooldown_minutes)
+    ):
+        remaining = timedelta(minutes=cooldown_minutes) - (datetime.now(timezone.utc) - state.last_mail_sent_at)
+        save_state(state_file, state)
+        print(
+            "⏳ CrowdSec-Sofortreport wegen Cooldown uebersprungen; "
+            f"{len(state.pending_events)} Event(s) gepuffert, naechste Mail fruehestens in {remaining}."
+        )
+        return 0
+
+    report_events = state.pending_events if not args.check_only else (events or state.pending_events)
+    hits = correlate_traefik_hits(report_events, args.traefik_container, args.traefik_log_lookback_minutes)
     statuses = gather_component_status()
-    score = severity_score(events, hits)
+    score = severity_score(report_events, hits)
     severity = severity_label(score)
-    report_body = build_report(events, hits, statuses, severity, score)
+    report_body = build_report(report_events, hits, statuses, severity, score)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     report_file = report_dir / f"crowdsec-event-report-{timestamp}.txt"
@@ -522,11 +630,8 @@ def main() -> int:
     print(report_body, end="")
     print(f"Report gespeichert unter: {report_file}")
 
-    for event in events:
-        processed_ids[event.event_id] = event.stop_at.isoformat()
-    save_state(state_file, processed_ids)
-
     if args.check_only:
+        save_state(state_file, state)
         return 0
 
     mail_settings = load_mail_settings(
@@ -537,11 +642,15 @@ def main() -> int:
         default_subject_prefix="[crowdsec-auto]",
     )
     if mail_settings is None:
+        save_state(state_file, state)
         print("⚠️  Keine Empfaenger fuer CrowdSec-Sofortreports konfiguriert; E-Mail wird uebersprungen.")
         return 0
 
-    subject = build_subject(severity, events, hits, mail_settings.subject_prefix)
+    subject = build_subject(severity, report_events, hits, mail_settings.subject_prefix)
     send_report_mail(ROOT_DIR, mail_settings, subject=subject, body_file=report_file)
+    state.pending_events = []
+    state.last_mail_sent_at = datetime.now(timezone.utc)
+    save_state(state_file, state)
     print("✅ CrowdSec-Sofortreport per E-Mail versendet.")
     return 0
 

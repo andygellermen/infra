@@ -94,20 +94,24 @@
 
 - name: Resolve CrowdSec notification plugin list
   ansible.builtin.set_fact:
-    crowdsec_notification_email_enabled: >-
+    crowdsec_notification_email_enabled_resolved: >-
       {{
-        (crowdsec_notification_email_recipients | length > 0)
-        and (crowdsec_notification_smtp_host | length > 0)
-        and (crowdsec_notification_smtp_username | length > 0)
-        and (crowdsec_notification_smtp_password | length > 0)
-        and (crowdsec_notification_sender_email | length > 0)
+        (crowdsec_notification_email_enabled | bool)
+        if (crowdsec_notification_email_enabled is defined)
+        else (
+          (crowdsec_notification_email_recipients | length > 0)
+          and (crowdsec_notification_smtp_host | length > 0)
+          and (crowdsec_notification_smtp_username | length > 0)
+          and (crowdsec_notification_smtp_password | length > 0)
+          and (crowdsec_notification_sender_email | length > 0)
+        )
       }}
 
 - name: Build CrowdSec notification plugin list
   ansible.builtin.set_fact:
     crowdsec_notification_plugins: >-
       {{
-        ([] + (['email_default'] if crowdsec_notification_email_enabled else []) + (['file_default'] if (crowdsec_notification_file_enabled_resolved | bool) else []))
+        ([] + (['email_default'] if (crowdsec_notification_email_enabled_resolved | bool) else []) + (['file_default'] if (crowdsec_notification_file_enabled_resolved | bool) else []))
       }}
 
 - name: Ensure traefik network exists
@@ -135,7 +139,7 @@
   ansible.builtin.file:
     path: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/email.yaml"
     state: absent
-  when: not crowdsec_notification_email_enabled
+  when: not (crowdsec_notification_email_enabled_resolved | bool)
   register: crowdsec_email_notification_removed
 
 - name: Render CrowdSec email notification config
@@ -143,7 +147,7 @@
     src: email.yaml.j2
     dest: "{{ crowdsec_base_dir | default('/home/andy/infra/data/crowdsec') }}/config/notifications/email.yaml"
     mode: "0644"
-  when: crowdsec_notification_email_enabled
+  when: crowdsec_notification_email_enabled_resolved | bool
   register: crowdsec_email_notification_config
 
 - name: Remove CrowdSec file notification config when disabled
@@ -263,7 +267,7 @@
       - email_default
   register: crowdsec_email_notification_inspect
   changed_when: false
-  when: crowdsec_notification_email_enabled
+  when: crowdsec_notification_email_enabled_resolved | bool
 
 - name: Inspect CrowdSec file notification plugin
   ansible.builtin.command:

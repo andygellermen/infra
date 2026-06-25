@@ -915,7 +915,12 @@ Erstellt sofort nach neuen CrowdSec-Decisions einen angereicherten Incident-Repo
 - korreliert Quell-IP, Pfade, Statuscodes, Router und User-Agents aus `infra-traefik`
 - erkennt grob, ob nur Block-Responses (`401/403/404`) sichtbar sind oder erfolgreiche Antworten (`2xx/3xx`)
 - versendet den Report per SES/SMTP an `crowdsec_event_report_to` oder fallback `infra_error_notify_to`
+- drosselt E-Mails standardmaessig auf ein Versandintervall von `180` Minuten; neue Events werden bis zur naechsten Mail gepuffert
 - dedupliziert bereits bearbeitete Events ueber `data/crowdsec/state/event-report-state.json`
+
+**Empfohlene Kombination:**
+- `crowdsec_notification_email_enabled: false` in `ansible/secrets/secrets.yml`
+- `crowdsec_event_report_cooldown_minutes: 180` fuer den gepufferten Sammelreport
 
 **Systemd-Trigger:**
 - `ansible/monitoring/systemd/crowdsec-event-report.service`
