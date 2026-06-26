@@ -23,6 +23,16 @@ restore_volume() {
     sh -c "find /target -mindepth 1 -delete; tar xzf /backup/$(basename "$archive") -C /target"
 }
 
+restore_eep_site() {
+  local archive="$1"
+  local domain="$2"
+
+  docker run --rm \
+    -v /srv/easy-event-planner:/srv/easy-event-planner \
+    -v "$(dirname "$archive"):/backup:ro" \
+    alpine sh -c "set -eu; mkdir -p '/srv/easy-event-planner/${domain}'; find '/srv/easy-event-planner/${domain}' -mindepth 1 -delete; tar xzf '/backup/$(basename "$archive")' -C '/srv/easy-event-planner/${domain}'"
+}
+
 ASSUME_YES=0
 RUN_SETUP=0
 BACKUP_FILE=""
@@ -69,6 +79,14 @@ if [[ -d "$WORKDIR/files" ]]; then
   cp -a "$WORKDIR/files/." "$ROOT_DIR/"
 fi
 
+if [[ -d "$WORKDIR/eep" ]]; then
+  while IFS= read -r eep_archive; do
+    eep_domain="$(basename "$eep_archive" .tar.gz)"
+    info "Restore EEP-Site: $eep_domain"
+    restore_eep_site "$eep_archive" "$eep_domain"
+  done < <(find "$WORKDIR/eep" -type f -name '*.tar.gz' | sort)
+fi
+
 if [[ -d "$WORKDIR/volumes" ]]; then
   while IFS= read -r vol_archive; do
     vol_name="$(basename "$vol_archive" .tar.gz)"
@@ -83,4 +101,4 @@ if [[ -f "$WORKDIR/mysql/all-databases.sql" ]] && docker ps --format '{{.Names}}
 fi
 
 ok "Infra-Restore abgeschlossen"
-echo "🔁 Empfehlung: Deploy-Reihenfolge anstoßen: deploy-mysql -> deploy-traefik -> deploy-crowdsec -> Ghost/Portainer"
+echo "🔁 Empfehlung: Deploy-Reihenfolge anstoßen: deploy-mysql -> deploy-traefik -> deploy-crowdsec -> deploy-easy-event-planner -> Ghost/Portainer"

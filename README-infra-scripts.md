@@ -438,6 +438,7 @@ Erstellt ein Gesamt-Backup des Infra-Stacks als `tar.gz` (Docker-Volumes + relev
 
 **Enthaltene Bestandteile (wenn vorhanden):**
 - Docker Volumes: `mysql_data`, `portainer_data`, `ghost_*_content`, sowie Volumes mit Präfix `traefik*`/`crowdsec*`
+- Easy-Event-Planner-Hostdaten: `/srv/easy-event-planner/<domain>/` für alle `eep_enabled`-Hostvars
 - Dateibasierte Konfigurationen: `ansible/hostvars`, `ansible/secrets`, `data/traefik`, `data/crowdsec`
 - Optional: `infra-mysql` Full-Dump via `mysqldump --all-databases`
 
@@ -453,6 +454,7 @@ Stellt ein Gesamt-Backup wieder her (Dateien + Volumes + optional MySQL-Dump-Imp
 
 **Hinweis:**
 - Restore überschreibt Konfigurationen und Volume-Inhalte.
+- Restore spielt zusätzlich Easy-Event-Planner-Daten unter `/srv/easy-event-planner/<domain>/` zurück.
 - Für produktive Systeme zuerst mit frischem Infra-Backup absichern.
 
 ### infra-update-all.sh
@@ -1059,7 +1061,7 @@ Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-P
 ### eep-redeploy.sh
 
 **Beschreibung:**
-Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine einzelne Domain oder alle `eep_enabled`-Instanzen.
+Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine einzelne Domain oder alle `eep_enabled`-Instanzen. Nach dem Deploy läuft automatisch ein HTTP-Smoke gegen `/healthz`, `/readyz` und `/version`.
 
 **Syntax:**
 ```bash
@@ -1075,6 +1077,31 @@ Baut das lokale Easy-Event-Planner-Image und deployed per Ansible entweder eine 
 # Check-Mode
 ./scripts/eep-redeploy.sh --all --check-only
 ```
+
+### eep-backup.sh
+
+**Beschreibung:**
+Erstellt ein app-spezifisches Backup für eine Easy-Event-Planner-Instanz. Enthalten sind das komplette Host-Verzeichnis unter `/srv/easy-event-planner/<domain>/` sowie die zugehörigen Hostvars.
+
+**Syntax:**
+```bash
+./scripts/eep-backup.sh --create <domain> [--output /pfad/eep-backup.tar.gz]
+```
+
+### eep-restore.sh
+
+**Beschreibung:**
+Stellt eine Easy-Event-Planner-Instanz aus einem app-spezifischen Backup wieder her, optional inklusive Hostvars, Redeploy und abschließendem Smoke-Test.
+
+**Syntax:**
+```bash
+./scripts/eep-restore.sh <domain> <backup.tar.gz|backup.tgz|backup.zip> [--restore-hostvars] [--yes] [--redeploy] [--skip-smoke] [--wildcard-domain=<apex-domain>] [--dns-account=<key>]
+```
+
+**Hinweise:**
+- Vor dem Restore wird, falls möglich, automatisch ein Safety-Backup der Zielinstanz erzeugt.
+- Mit `--restore-hostvars` werden die im Backup enthaltenen Hostvars zurückgespielt.
+- Mit `--redeploy` oder implizit nach Hostvars-/TLS-Änderungen wird `./scripts/eep-redeploy.sh <domain>` ausgeführt.
 
 ### redeploy-all-web.sh
 

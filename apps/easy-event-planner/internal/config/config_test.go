@@ -181,7 +181,7 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_TOKEN_PEPPER", "pepper-123")
 	t.Setenv("EEP_SESSION_COOKIE_NAME", "eep_auth")
 	t.Setenv("EEP_SECURE_COOKIES", "true")
-	t.Setenv("EEP_MAIL_PROVIDER", "log")
+	t.Setenv("EEP_MAIL_PROVIDER", "ses")
 	t.Setenv("EEP_MAIL_FROM", "events@example.com")
 	t.Setenv("EEP_MAIL_FROM_NAME", "Events Team")
 	t.Setenv("EEP_PAYPAL_USE_REAL_API", "true")

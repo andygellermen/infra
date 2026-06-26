@@ -281,3 +281,20 @@
     state: started
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0
+
+- name: Run easy-event-planner post-deploy smoke check
+  ansible.builtin.command:
+    argv:
+      - "{{ playbook_dir }}/../../scripts/eep-smoke-check.sh"
+      - "{{ item.domain }}"
+      - "--base-url={{ item.eep_smoke_base_url | default(item.eep_base_url | default('https://' ~ item.domain, true), true) }}"
+      - "--retries={{ item.eep_smoke_retries | default(15, true) }}"
+      - "--delay={{ item.eep_smoke_delay_seconds | default(2, true) }}"
+      - "--timeout={{ item.eep_smoke_timeout_seconds | default(10, true) }}"
+      - "--insecure={{ (item.eep_smoke_insecure | default(false, true) | bool) | ternary('true', 'false') }}"
+  changed_when: false
+  loop: "{{ eep_sites_effective }}"
+  when:
+    - eep_sites_effective | length > 0
+    - not ansible_check_mode
+    - item.eep_smoke_enabled | default(true) | bool

@@ -32,6 +32,34 @@ backup_volume() {
     sh -c "tar czf /backup/${volume}.tar.gz -C /src ."
 }
 
+list_eep_domains() {
+  local hostvars_dir="$ROOT_DIR/ansible/hostvars"
+  local file domain
+
+  [[ -d "$hostvars_dir" ]] || return 0
+
+  while IFS= read -r file; do
+    if grep -Eq '^eep_enabled:[[:space:]]*true([[:space:]]|$)' "$file"; then
+      domain="$(basename "$file" .yml)"
+      printf '%s\n' "$domain"
+    fi
+  done < <(find "$hostvars_dir" -maxdepth 1 -type f -name '*.yml' | sort)
+}
+
+backup_eep_site() {
+  local domain="$1"
+  local out="$2"
+  local site_dir="/srv/easy-event-planner/${domain}"
+
+  if [[ ! -d "$site_dir" ]]; then
+    info "⚠️ EEP-Site-Verzeichnis fehlt, überspringe: $site_dir"
+    return 0
+  fi
+
+  docker run --rm -v "${site_dir}:/src:ro" -v "${out}:/backup" alpine \
+    sh -c "tar czf /backup/${domain}.tar.gz -C /src ."
+}
+
 if [[ ${1:-} == "--help" || ${1:-} == "-h" ]]; then
   usage
   exit 0
@@ -60,7 +88,7 @@ mkdir -p "$BACKUP_DIR"
 
 WORKDIR="$(mktemp -d /tmp/infra-backup.XXXXXX)"
 trap 'rm -rf "$WORKDIR"' EXIT
-mkdir -p "$WORKDIR"/{volumes,files,mysql,meta}
+mkdir -p "$WORKDIR"/{volumes,files,mysql,meta,eep}
 
 info "Sammle Metadaten"
 docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}' > "$WORKDIR/meta/containers.txt" || true
@@ -92,6 +120,20 @@ for v in "${volumes_to_backup[@]}"; do
   info "Backup Volume: $v"
   backup_volume "$v" "$WORKDIR/volumes"
 done
+
+info "Sichere Easy-Event-Planner-Hostdaten"
+eep_sites_found=0
+while IFS= read -r eep_domain; do
+  [[ -n "$eep_domain" ]] || continue
+  eep_sites_found=1
+  printf '%s\n' "$eep_domain" >> "$WORKDIR/meta/eep-sites.txt"
+  info "Backup EEP-Site: $eep_domain"
+  backup_eep_site "$eep_domain" "$WORKDIR/eep"
+done < <(list_eep_domains)
+
+if [[ "$eep_sites_found" -eq 0 ]]; then
+  info "Keine eep_enabled-Hostvars für Backup gefunden"
+fi
 
 if [[ "$INCLUDE_MYSQL_DUMP" -eq 1 ]] && docker ps --format '{{.Names}}' | grep -qx 'infra-mysql'; then
   info "Exportiere MySQL Dump (all databases)"

@@ -32,7 +32,7 @@ Diese Liste sammelt die sicherheits- und betriebskritischen Aufgaben vor dem pro
 
 ## Konkrete Infra-Umsetzungspunkte
 
-- [ ] `scripts/infra-backup.sh` um Easy-Event-Planner-Datenpfade/Volumes erweitern.
-- [ ] `scripts/infra-restore.sh` um Easy-Event-Planner-Restore-Schritte erweitern.
-- [ ] App-spezifische Skripte `eep-backup.sh` und `eep-restore.sh` einfuehren (inkl. Safety-Backup vor Restore).
-- [ ] Post-Restore-Smoke-Flow standardisieren (`/healthz`, `/readyz`, Kern-Endpunkte).
+- [x] `scripts/infra-backup.sh` um Easy-Event-Planner-Datenpfade/Volumes erweitern.
+- [x] `scripts/infra-restore.sh` um Easy-Event-Planner-Restore-Schritte erweitern.
+- [x] App-spezifische Skripte `eep-backup.sh` und `eep-restore.sh` einfuehren (inkl. Safety-Backup vor Restore).
+- [x] Post-Restore-Smoke-Flow standardisieren (`/healthz`, `/readyz`, Kern-Endpunkte).
