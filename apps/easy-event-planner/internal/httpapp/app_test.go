@@ -47,6 +47,7 @@ func TestSystemRoutes(t *testing.T) {
 		wantContains string
 		wantType     string
 	}{
+		{name: "root", method: http.MethodGet, path: "/", wantStatus: http.StatusOK, wantContains: "Easy Event Planner", wantType: "text/html"},
 		{name: "healthz", method: http.MethodGet, path: "/healthz", wantStatus: http.StatusOK, wantContains: "ok", wantType: "text/plain"},
 		{name: "readyz", method: http.MethodGet, path: "/readyz", wantStatus: http.StatusOK, wantContains: "ready", wantType: "text/plain"},
 		{name: "version", method: http.MethodGet, path: "/version", wantStatus: http.StatusOK, wantContains: "test-version", wantType: "application/json"},

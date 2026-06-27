@@ -397,6 +397,10 @@ func repoNow(repo *event.Repository) time.Time {
 }
 
 func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		a.handleRoot(w, r)
+		return
+	}
 	tenantSlug, assetType, ok := parseTenantAssetPath(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
