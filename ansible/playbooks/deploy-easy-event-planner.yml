@@ -4,6 +4,8 @@
   connection: local
   become: true
   gather_facts: false
+  vars_files:
+    - "{{ lookup('ansible.builtin.first_found', {'files': ['secrets.yml', 'secrets.yaml'], 'paths': [playbook_dir ~ '/../secrets']}) }}"
 
   roles:
     - easy-event-planner

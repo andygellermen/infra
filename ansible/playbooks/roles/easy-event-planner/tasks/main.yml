@@ -33,6 +33,24 @@
         else (eep_sites | selectattr('domain', 'equalto', target_domain) | list)
       }}
 
+- name: Build shared SES defaults for easy-event-planner
+  ansible.builtin.set_fact:
+    eep_shared_ses_enabled: >-
+      {{
+        (ses_smtp_host is defined and (ses_smtp_host | string | trim | length) > 0)
+        and (ses_smtp_user is defined and (ses_smtp_user | string | trim | length) > 0)
+        and (ses_smtp_password is defined and (ses_smtp_password | string | trim | length) > 0)
+      }}
+    eep_shared_ses_from_email: >-
+      {{
+        ((ses_from | regex_replace('^.*<([^>]+)>.*$', '\\1')) if (ses_from is defined and '<' in ses_from and '>' in ses_from) else (ses_from | default('', true)))
+      }}
+    eep_shared_ses_from_name: >-
+      {{
+        (((ses_from | regex_replace('\\s*<[^>]+>\\s*$', '')) | trim) if (ses_from is defined and '<' in ses_from and '>' in ses_from) else '')
+      }}
+  when: eep_sites_effective | length > 0
+
 - name: Ensure traefik docker network exists for easy-event-planner
   community.docker.docker_network:
     name: traefik
@@ -80,14 +98,14 @@
       EEP_TOKEN_PEPPER={{ item.eep_token_pepper | default('change-me', true) }}
       EEP_SESSION_COOKIE_NAME={{ item.eep_session_cookie_name | default('eep_session', true) }}
       EEP_SECURE_COOKIES={{ (item.eep_secure_cookies | default(true, true) | bool) | ternary('true', 'false') }}
-      EEP_MAIL_PROVIDER={{ item.eep_mail_provider | default('log', true) }}
-      EEP_MAIL_FROM={{ item.eep_mail_from | default('noreply@' ~ item.domain, true) }}
-      EEP_MAIL_FROM_NAME={{ item.eep_mail_from_name | default('', true) }}
+      EEP_MAIL_PROVIDER={{ item.eep_mail_provider | default(('ses' if (eep_shared_ses_enabled | default(false) | bool) else 'log'), true) }}
+      EEP_MAIL_FROM={{ item.eep_mail_from | default(eep_shared_ses_from_email | default('noreply@' ~ item.domain, true), true) }}
+      EEP_MAIL_FROM_NAME={{ item.eep_mail_from_name | default(eep_shared_ses_from_name | default('', true), true) }}
       EEP_SES_REGION={{ item.eep_ses_region | default('eu-north-1', true) }}
-      EEP_SES_SMTP_HOST={{ item.eep_ses_smtp_host | default('', true) }}
-      EEP_SES_SMTP_PORT={{ item.eep_ses_smtp_port | default(587, true) }}
-      EEP_SES_SMTP_USER={{ item.eep_ses_smtp_user | default('', true) }}
-      EEP_SES_SMTP_PASS={{ item.eep_ses_smtp_pass | default('', true) }}
+      EEP_SES_SMTP_HOST={{ item.eep_ses_smtp_host | default(ses_smtp_host | default('', true), true) }}
+      EEP_SES_SMTP_PORT={{ item.eep_ses_smtp_port | default(ses_smtp_port | default(587, true), true) }}
+      EEP_SES_SMTP_USER={{ item.eep_ses_smtp_user | default(ses_smtp_user | default('', true), true) }}
+      EEP_SES_SMTP_PASS={{ item.eep_ses_smtp_pass | default(ses_smtp_password | default('', true), true) }}
       EEP_PAYPAL_USE_REAL_API={{ (item.eep_paypal_use_real_api | default(false, true) | bool) | ternary('true', 'false') }}
       EEP_PAYPAL_CLIENT_ID={{ item.eep_paypal_client_id | default('', true) }}
       EEP_PAYPAL_CLIENT_SECRET={{ item.eep_paypal_client_secret | default('', true) }}
@@ -103,8 +121,8 @@
       EEP_SEED_TENANT_TIMEZONE={{ item.eep_seed_tenant_timezone | default('Europe/Berlin', true) }}
       EEP_SEED_TENANT_LOCALE={{ item.eep_seed_tenant_locale | default('de-DE', true) }}
       EEP_SEED_RETENTION_DAYS={{ item.eep_seed_retention_days | default(30, true) }}
-      EEP_SEED_SENDER_EMAIL={{ item.eep_seed_sender_email | default(item.eep_mail_from | default('noreply@' ~ item.domain, true), true) }}
-      EEP_SEED_SENDER_NAME={{ item.eep_seed_sender_name | default(item.eep_mail_from_name | default('', true), true) }}
+      EEP_SEED_SENDER_EMAIL={{ item.eep_seed_sender_email | default(item.eep_mail_from | default(eep_shared_ses_from_email | default('noreply@' ~ item.domain, true), true), true) }}
+      EEP_SEED_SENDER_NAME={{ item.eep_seed_sender_name | default(item.eep_mail_from_name | default(eep_shared_ses_from_name | default('', true), true), true) }}
       EEP_SEED_PAYPAL_MODE={{ item.eep_seed_paypal_mode | default('disabled', true) }}
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0

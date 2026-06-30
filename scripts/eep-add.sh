@@ -47,7 +47,7 @@ verify_domain_points_here() {
 TENANT_SLUG="demo"
 TENANT_NAME="Demo Tenant"
 BASE_URL=""
-MAIL_PROVIDER="log"
+MAIL_PROVIDER="ses"
 MAIL_FROM=""
 MAIL_FROM_NAME="Easy Event Planner"
 SEED_ENABLED="true"
@@ -109,10 +109,6 @@ if [[ -z "$BASE_URL" ]]; then
   BASE_URL="https://${DOMAIN}"
 fi
 BASE_URL="${BASE_URL%/}"
-
-if [[ -z "$MAIL_FROM" ]]; then
-  MAIL_FROM="noreply@${DOMAIN}"
-fi
 
 SEED_TENANT_PUBLIC_BASE_URL="${BASE_URL}/${TENANT_SLUG}"
 
