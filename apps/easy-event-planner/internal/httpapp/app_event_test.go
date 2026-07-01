@@ -348,6 +348,102 @@ func TestAdminEventMaintenanceActions(t *testing.T) {
 	}
 }
 
+func TestAdminEventSupportsSeriesDetailsAndClearingOptionalFields(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	seriesPayload := map[string]any{
+		"slug":                  "retreat-reihe",
+		"title":                 "Retreat Reihe",
+		"description":           "Mehrtaegige Workshop-Reihe.",
+		"default_location_name": "Seminarhaus",
+		"default_address":       "Hauptstrasse 1",
+		"default_online_url":    "https://meet.example.com/retreat",
+		"is_public":             true,
+	}
+	seriesBody, _ := json.Marshal(seriesPayload)
+	seriesReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/event-series", bytes.NewReader(seriesBody))
+	seriesReq.Header.Set("Content-Type", "application/json")
+	seriesReq.AddCookie(sessionCookie)
+	seriesRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(seriesRec, seriesReq)
+	if seriesRec.Code != http.StatusCreated {
+		t.Fatalf("expected series create status 201, got %d", seriesRec.Code)
+	}
+	seriesID := decodeBody[map[string]any](t, seriesRec)["item"].(map[string]any)["id"].(string)
+
+	createPayload := map[string]any{
+		"series_id":            seriesID,
+		"slug":                 "retreat-juli",
+		"title":                "Retreat Juli",
+		"subtitle":             "Block A",
+		"description":          "Mit Uebernachtung und Tagesprogramm.",
+		"starts_at":            "2026-07-20T08:00:00Z",
+		"ends_at":              "2026-07-24T16:00:00Z",
+		"timezone":             "Europe/Berlin",
+		"location_name":        "Seminarhaus",
+		"address":              "Hauptstrasse 1",
+		"online_url":           "https://meet.example.com/retreat-juli",
+		"participation_mode":   "hybrid",
+		"max_participants":     24,
+		"is_public":            true,
+		"registration_enabled": true,
+		"waitlist_enabled":     true,
+	}
+	createBody, _ := json.Marshal(createPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	created := decodeBody[map[string]any](t, createRec)["item"].(map[string]any)
+	eventID := created["id"].(string)
+	if created["series_id"] != seriesID {
+		t.Fatalf("expected series assignment %q, got %v", seriesID, created["series_id"])
+	}
+	if created["description"] != "Mit Uebernachtung und Tagesprogramm." {
+		t.Fatalf("expected description in create response, got %v", created["description"])
+	}
+
+	patchPayload := map[string]any{
+		"series_id":              "",
+		"subtitle":               "Block A – aktualisiert",
+		"description":            "Aktualisierte Beschreibung",
+		"ends_at":                "",
+		"max_participants":       nil,
+		"clear_max_participants": true,
+		"change_note":            "Termin wurde inhaltlich aktualisiert.",
+	}
+	patchBody, _ := json.Marshal(patchPayload)
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/events/"+eventID, bytes.NewReader(patchBody))
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchReq.AddCookie(sessionCookie)
+	patchRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(patchRec, patchReq)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("expected patch status 200, got %d", patchRec.Code)
+	}
+	updated := decodeBody[map[string]any](t, patchRec)["item"].(map[string]any)
+	if updated["series_id"] != nil {
+		t.Fatalf("expected cleared series_id, got %v", updated["series_id"])
+	}
+	if updated["subtitle"] != "Block A – aktualisiert" {
+		t.Fatalf("expected updated subtitle, got %v", updated["subtitle"])
+	}
+	if updated["description"] != "Aktualisierte Beschreibung" {
+		t.Fatalf("expected updated description, got %v", updated["description"])
+	}
+	if updated["ends_at"] != nil {
+		t.Fatalf("expected cleared ends_at, got %v", updated["ends_at"])
+	}
+	if updated["max_participants"] != nil {
+		t.Fatalf("expected cleared max_participants, got %v", updated["max_participants"])
+	}
+}
+
 func TestAdminEventCancelEndpoint(t *testing.T) {
 	app, sender, tenantSlug := setupAuthApp(t)
 	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")

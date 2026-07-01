@@ -44,6 +44,7 @@
         <nav class="tabs" aria-label="Admin Bereiche">
           <button class="tab is-active" data-tab="dashboard" type="button">Dashboard</button>
           <button class="tab" data-tab="events" type="button">Events</button>
+          <button class="tab" data-tab="series" type="button">Serien</button>
           <button class="tab" data-tab="registrations" type="button">Teilnehmer</button>
           <button class="tab" data-tab="snippets" type="button">Snippets</button>
           <button class="tab" data-tab="roadmap" type="button">Erweiterungen</button>
@@ -77,10 +78,22 @@
         </section>
 
         <section id="tab-events" class="tabpane">
-          <div class="split">
+          <div class="split split-wide">
             <div class="card">
-              <h2>Event anlegen</h2>
+              <div class="card-head">
+                <div>
+                  <h2 id="eventFormHeading">Event anlegen</h2>
+                  <p id="eventFormHint" class="muted compact">Neue Einzeltermine oder Termine aus einer Serie anlegen.</p>
+                </div>
+                <button id="eventCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
+              </div>
               <form id="eventForm" class="form-grid">
+                <label>
+                  Event-Serie (optional)
+                  <select id="eventSeriesSelect" name="series_id">
+                    <option value="">Keine Serie</option>
+                  </select>
+                </label>
                 <label>
                   Titel
                   <input name="title" type="text" placeholder="Smoke Event" required>
@@ -88,6 +101,14 @@
                 <label>
                   Slug (optional)
                   <input name="slug" type="text" placeholder="smoke-event">
+                </label>
+                <label>
+                  Untertitel (optional)
+                  <input name="subtitle" type="text" placeholder="Intensivwoche, Block A, Abendtermin ...">
+                </label>
+                <label class="span-2">
+                  Beschreibung (optional)
+                  <textarea name="description" rows="5" placeholder="Kurzbeschreibung, Ablauf, Hinweise, Paketinhalte ..."></textarea>
                 </label>
                 <label>
                   Start (lokal)
@@ -114,12 +135,20 @@
                   <input name="location_name" type="text" placeholder="Haus am See">
                 </label>
                 <label>
+                  Adresse (optional)
+                  <input name="address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
+                </label>
+                <label>
                   Online URL
                   <input name="online_url" type="url" placeholder="https://meet.example.com/room">
                 </label>
                 <label>
                   Max. Teilnehmer (optional)
                   <input name="max_participants" type="number" min="1" step="1" placeholder="80">
+                </label>
+                <label class="span-2">
+                  Aenderungshinweis (optional)
+                  <input name="change_note" type="text" placeholder="Wird z. B. in Kalendern und Updates sichtbar">
                 </label>
 
                 <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
@@ -141,12 +170,76 @@
                     <tr>
                       <th>Start</th>
                       <th>Titel</th>
+                      <th>Reihe</th>
                       <th>Status</th>
                       <th>Sichtbar</th>
                       <th>Aktionen</th>
                     </tr>
                   </thead>
                   <tbody id="eventsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-series" class="tabpane">
+          <div class="split split-wide">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2 id="seriesFormHeading">Event-Serie anlegen</h2>
+                  <p id="seriesFormHint" class="muted compact">Vorlagen fuer mehrtaegige oder wiederkehrende Formate pflegen.</p>
+                </div>
+                <button id="seriesCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
+              </div>
+              <form id="seriesForm" class="form-grid">
+                <label>
+                  Titel
+                  <input name="title" type="text" placeholder="Workshop-Reihe Sommer" required>
+                </label>
+                <label>
+                  Slug (optional)
+                  <input name="slug" type="text" placeholder="workshop-reihe-sommer">
+                </label>
+                <label class="span-2">
+                  Beschreibung (optional)
+                  <textarea name="description" rows="5" placeholder="Grundidee, Zielgruppe, Pakete, Uebernachtung, Hinweise ..."></textarea>
+                </label>
+                <label>
+                  Standard-Ort
+                  <input name="default_location_name" type="text" placeholder="Seminarhaus am See">
+                </label>
+                <label>
+                  Standard-Adresse
+                  <input name="default_address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
+                </label>
+                <label class="span-2">
+                  Standard-Online-URL
+                  <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
+                </label>
+                <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
+
+                <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="table-toolbar">
+                <h2>Event-Serien</h2>
+                <button id="refreshSeriesBtn" class="btn light" type="button">Aktualisieren</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Titel</th>
+                      <th>Standards</th>
+                      <th>Sichtbar</th>
+                      <th>Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody id="seriesTableBody"></tbody>
                 </table>
               </div>
             </div>
@@ -272,7 +365,7 @@
             <p class="muted">Waehle in der Liste „Embed“, um den Script-Code zu laden.</p>
             <label>
               Snippet Script
-              <textarea id="snippetEmbedOutput" rows="4" readonly placeholder="<script src=\"...\" defer></script>"></textarea>
+              <textarea id="snippetEmbedOutput" class="code-output" rows="4" readonly placeholder="<script src=\"...\" defer></script>"></textarea>
             </label>
           </div>
         </section>
@@ -280,8 +373,8 @@
         <section id="tab-roadmap" class="tabpane">
           <div class="card placeholder">
             <h2>Naechste UI-Erweiterungen</h2>
-            <p>Als naechstes bauen wir Datenschutz-Lauf, Kalender-Feed und Einladungen in diese UI ein.</p>
-            <p class="muted">Der API-Unterbau ist bereits vorhanden, wir erweitern jetzt schrittweise die Oberflaeche.</p>
+            <p>Als naechstes bauen wir Datenschutz-Lauf, Kalender-Feed, Einladungen und kostenpflichtige Reservierungen in diese UI ein.</p>
+            <p class="muted">Mit Serien, Serienvorlagen und Event-Bearbeitung ist jetzt die Basis fuer mehrtaegige Formate und Terminfolgen gelegt.</p>
           </div>
         </section>
       </section>

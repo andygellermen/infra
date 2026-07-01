@@ -80,24 +80,25 @@ type CreateEventParams struct {
 }
 
 type UpdateEventParams struct {
-	SeriesID            *string
-	Slug                *string
-	Title               *string
-	Subtitle            *string
-	Description         *string
-	StartsAt            *string
-	EndsAt              *string
-	Timezone            *string
-	LocationName        *string
-	Address             *string
-	OnlineURL           *string
-	ParticipationMode   *string
-	IsPublic            *bool
-	RegistrationEnabled *bool
-	WaitlistEnabled     *bool
-	MaxParticipants     *int
-	ChangeNote          *string
-	CancelledReason     *string
+	SeriesID             *string
+	Slug                 *string
+	Title                *string
+	Subtitle             *string
+	Description          *string
+	StartsAt             *string
+	EndsAt               *string
+	Timezone             *string
+	LocationName         *string
+	Address              *string
+	OnlineURL            *string
+	ParticipationMode    *string
+	IsPublic             *bool
+	RegistrationEnabled  *bool
+	WaitlistEnabled      *bool
+	MaxParticipants      *int
+	ClearMaxParticipants bool
+	ChangeNote           *string
+	CancelledReason      *string
 }
 
 func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, error) {
@@ -673,6 +674,11 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 	if params.WaitlistEnabled != nil {
 		updated.WaitlistEnabled = *params.WaitlistEnabled
 		hasChange = true
+	}
+	if params.ClearMaxParticipants {
+		updated.MaxParticipants = nil
+		hasChange = true
+		contentChanged = true
 	}
 	if params.MaxParticipants != nil {
 		value := *params.MaxParticipants

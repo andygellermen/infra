@@ -216,8 +216,7 @@ textarea {
   color: var(--ink);
   padding: 10px;
   resize: vertical;
-  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
-  font-size: 0.84rem;
+  min-height: 96px;
 }
 
 input:focus,
@@ -295,10 +294,30 @@ textarea:focus {
   font-size: 0.78rem;
 }
 
+.card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.compact {
+  margin: 0;
+}
+
 .split {
   display: grid;
   grid-template-columns: minmax(260px, 360px) minmax(360px, 1fr);
   gap: 12px;
+}
+
+.split-wide {
+  grid-template-columns: minmax(320px, 460px) minmax(420px, 1fr);
+}
+
+.span-2 {
+  grid-column: 1 / -1;
 }
 
 .table-toolbar {
@@ -397,10 +416,33 @@ tr {
   color: var(--danger);
 }
 
+.series-chip {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.76rem;
+  background: #eef6f5;
+  border: 1px solid #cce2df;
+  color: var(--brand-strong);
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.meta-stack {
+  margin-bottom: 4px;
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+}
+
+.table-subline {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .stats-grid {
@@ -450,6 +492,11 @@ tr {
   min-height: 1.4em;
 }
 
+.code-output {
+  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
+  font-size: 0.84rem;
+}
+
 .placeholder p {
   margin: 6px 0;
 }
@@ -475,8 +522,17 @@ tr {
     justify-content: space-between;
   }
 
+  .card-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .controls-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .span-2 {
+    grid-column: auto;
   }
 }

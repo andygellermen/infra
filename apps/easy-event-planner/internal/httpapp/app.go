@@ -766,24 +766,25 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 	}
 
 	var request struct {
-		SeriesID            *string `json:"series_id"`
-		Slug                *string `json:"slug"`
-		Title               *string `json:"title"`
-		Subtitle            *string `json:"subtitle"`
-		Description         *string `json:"description"`
-		StartsAt            *string `json:"starts_at"`
-		EndsAt              *string `json:"ends_at"`
-		Timezone            *string `json:"timezone"`
-		LocationName        *string `json:"location_name"`
-		Address             *string `json:"address"`
-		OnlineURL           *string `json:"online_url"`
-		ParticipationMode   *string `json:"participation_mode"`
-		IsPublic            *bool   `json:"is_public"`
-		RegistrationEnabled *bool   `json:"registration_enabled"`
-		WaitlistEnabled     *bool   `json:"waitlist_enabled"`
-		MaxParticipants     *int    `json:"max_participants"`
-		ChangeNote          *string `json:"change_note"`
-		CancelledReason     *string `json:"cancelled_reason"`
+		SeriesID             *string `json:"series_id"`
+		Slug                 *string `json:"slug"`
+		Title                *string `json:"title"`
+		Subtitle             *string `json:"subtitle"`
+		Description          *string `json:"description"`
+		StartsAt             *string `json:"starts_at"`
+		EndsAt               *string `json:"ends_at"`
+		Timezone             *string `json:"timezone"`
+		LocationName         *string `json:"location_name"`
+		Address              *string `json:"address"`
+		OnlineURL            *string `json:"online_url"`
+		ParticipationMode    *string `json:"participation_mode"`
+		IsPublic             *bool   `json:"is_public"`
+		RegistrationEnabled  *bool   `json:"registration_enabled"`
+		WaitlistEnabled      *bool   `json:"waitlist_enabled"`
+		MaxParticipants      *int    `json:"max_participants"`
+		ClearMaxParticipants bool    `json:"clear_max_participants"`
+		ChangeNote           *string `json:"change_note"`
+		CancelledReason      *string `json:"cancelled_reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -791,24 +792,25 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 	}
 
 	updated, err := a.eventRepo.UpdateEvent(r.Context(), principal.TenantID, eventID, event.UpdateEventParams{
-		SeriesID:            request.SeriesID,
-		Slug:                request.Slug,
-		Title:               request.Title,
-		Subtitle:            request.Subtitle,
-		Description:         request.Description,
-		StartsAt:            request.StartsAt,
-		EndsAt:              request.EndsAt,
-		Timezone:            request.Timezone,
-		LocationName:        request.LocationName,
-		Address:             request.Address,
-		OnlineURL:           request.OnlineURL,
-		ParticipationMode:   request.ParticipationMode,
-		IsPublic:            request.IsPublic,
-		RegistrationEnabled: request.RegistrationEnabled,
-		WaitlistEnabled:     request.WaitlistEnabled,
-		MaxParticipants:     request.MaxParticipants,
-		ChangeNote:          request.ChangeNote,
-		CancelledReason:     request.CancelledReason,
+		SeriesID:             request.SeriesID,
+		Slug:                 request.Slug,
+		Title:                request.Title,
+		Subtitle:             request.Subtitle,
+		Description:          request.Description,
+		StartsAt:             request.StartsAt,
+		EndsAt:               request.EndsAt,
+		Timezone:             request.Timezone,
+		LocationName:         request.LocationName,
+		Address:              request.Address,
+		OnlineURL:            request.OnlineURL,
+		ParticipationMode:    request.ParticipationMode,
+		IsPublic:             request.IsPublic,
+		RegistrationEnabled:  request.RegistrationEnabled,
+		WaitlistEnabled:      request.WaitlistEnabled,
+		MaxParticipants:      request.MaxParticipants,
+		ClearMaxParticipants: request.ClearMaxParticipants,
+		ChangeNote:           request.ChangeNote,
+		CancelledReason:      request.CancelledReason,
 	})
 	if err != nil {
 		a.writeEventError(w, err)
