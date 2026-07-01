@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -176,6 +177,12 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 	tenantRecord, err := s.tenants.LookupBySlug(ctx, tenantSlug)
 	if err != nil {
 		if errors.Is(err, tenant.ErrTenantNotFound) {
+			log.Printf(
+				"magic-link request accepted without send tenant=%s email=%s purpose=%s reason=tenant_not_found",
+				tenantSlug,
+				email,
+				purpose,
+			)
 			return RequestMagicLinkResult{Accepted: true, Sent: false}, nil
 		}
 		return RequestMagicLinkResult{}, err
@@ -207,6 +214,12 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 	})
 
 	if userID == "" && participantID == "" {
+		log.Printf(
+			"magic-link request accepted without send tenant=%s email=%s purpose=%s reason=no_matching_recipient",
+			tenantRecord.Slug,
+			email,
+			purpose,
+		)
 		return RequestMagicLinkResult{Accepted: true, Sent: false}, nil
 	}
 
@@ -261,8 +274,21 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 		VerifyURL:  verifyURL,
 		ExpiresAt:  expiresAt,
 	}); err != nil {
+		log.Printf(
+			"magic-link send failed tenant=%s email=%s purpose=%s error=%v",
+			tenantRecord.Slug,
+			email,
+			purpose,
+			err,
+		)
 		return RequestMagicLinkResult{}, fmt.Errorf("send magic link: %w", err)
 	}
+	log.Printf(
+		"magic-link sent tenant=%s email=%s purpose=%s",
+		tenantRecord.Slug,
+		email,
+		purpose,
+	)
 
 	_ = s.writeAudit(ctx, auditEvent{
 		TenantID:      tenantRecord.ID,

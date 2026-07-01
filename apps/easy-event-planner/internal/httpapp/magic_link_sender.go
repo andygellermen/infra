@@ -35,6 +35,13 @@ func buildMagicLinkSender(cfg config.Config) auth.Sender {
 		log.Printf("magic-link sender fallback to log sender: %v", err)
 		return &auth.LogSender{}
 	}
+	log.Printf(
+		"magic-link sender configured provider=%s from=%s smtp_host=%s smtp_port=%d",
+		strings.ToLower(strings.TrimSpace(cfg.MailProvider)),
+		strings.TrimSpace(cfg.MailFromEmail),
+		strings.TrimSpace(cfg.SESHost),
+		cfg.SESPort,
+	)
 
 	return &mailerMagicLinkSender{
 		mailer:    mailer,
