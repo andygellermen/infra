@@ -162,6 +162,8 @@ Wichtige Mail/Worker-Variablen:
 - `EEP_EMAIL_WORKER_POLL_INTERVAL` (Default `3s`)
 - `EEP_EMAIL_WORKER_BATCH_SIZE` (Default `10`)
 
+Im Infra-Stack werden diese `EEP_*`-Variablen fuer produktive Deployments normalerweise nicht direkt in `ansible/secrets/secrets.yml` gepflegt. Stattdessen nutzt die EEP-Role die gemeinsamen Secrets `ses_smtp_user`, `ses_smtp_password`, `ses_smtp_host`, `ses_smtp_port` und `ses_from` und mappt sie beim Rendern der Env-Datei auf die benoetigten `EEP_*`-Werte.
+
 Wichtige PayPal-Haertung-Variablen:
 
 - `EEP_PAYPAL_USE_REAL_API` (`true` aktiviert echte PayPal-API-Aufrufe)

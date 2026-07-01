@@ -1057,6 +1057,7 @@ Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-P
 - Fuegt standardmaessig `www.<domain>` als Alias hinzu.
 - Das eigentliche Deployment startet anschliessend mit `./scripts/eep-redeploy.sh`.
 - Fuer den Admin-Login sollte mindestens `--admin-email` gesetzt werden; daraus wird beim Seed ein aktiver `tenant_user` fuer Magic-Links angelegt.
+- Gemeinsame SES-Secrets kommen weiterhin aus `ansible/secrets/secrets.yml` ueber die Keys `ses_smtp_*` und `ses_from`; die EEP-Role rendert daraus zur Laufzeit die benoetigten `EEP_*`-Variablen in `/srv/easy-event-planner/<domain>/easy-event-planner.env`.
 - `--skip-dns-check` ist hilfreich, wenn du die Hostvars lokal vorbereitest, aber DNS noch nicht final auf den Zielhost zeigt.
 
 ### eep-redeploy.sh
@@ -1103,6 +1104,28 @@ Stellt eine Easy-Event-Planner-Instanz aus einem app-spezifischen Backup wieder 
 - Vor dem Restore wird, falls möglich, automatisch ein Safety-Backup der Zielinstanz erzeugt.
 - Mit `--restore-hostvars` werden die im Backup enthaltenen Hostvars zurückgespielt.
 - Mit `--redeploy` oder implizit nach Hostvars-/TLS-Änderungen wird `./scripts/eep-redeploy.sh <domain>` ausgeführt.
+
+### check-shared-ses.sh
+
+**Beschreibung:**
+Prueft die gemeinsamen SES-Secrets aus `ansible/secrets/secrets.yml`, maskiert sensible Werte und kann optional den SMTP-Login sowie die gerenderte EEP-Runtime-Env validieren.
+
+**Syntax:**
+```bash
+./scripts/check-shared-ses.sh [--domain=<domain>] [--check-login]
+```
+
+**Beispiele:**
+```bash
+# Shared-SES-Werte nur anzeigen
+./scripts/check-shared-ses.sh
+
+# Shared-SES mit gerenderter EEP-Env vergleichen
+./scripts/check-shared-ses.sh --domain=events.geller.men
+
+# Shared-SES inkl. echtem SMTP-Login pruefen
+./scripts/check-shared-ses.sh --domain=events.geller.men --check-login
+```
 
 ### redeploy-all-web.sh
 
