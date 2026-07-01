@@ -61,6 +61,13 @@ type UpsertTenantSettingsParams struct {
 	Settings TenantSettingsInput
 }
 
+type SeedAdminUserInput struct {
+	Email  string
+	Name   string
+	Role   string
+	Status string
+}
+
 type SeedInput struct {
 	Slug            string
 	Name            string
@@ -69,6 +76,7 @@ type SeedInput struct {
 	DefaultLocale   string
 	Status          string
 	Settings        TenantSettingsInput
+	AdminUser       SeedAdminUserInput
 }
 
 type SeedResult struct {

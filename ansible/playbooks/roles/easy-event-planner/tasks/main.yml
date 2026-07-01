@@ -123,6 +123,9 @@
       EEP_SEED_RETENTION_DAYS={{ item.eep_seed_retention_days | default(30, true) }}
       EEP_SEED_SENDER_EMAIL={{ item.eep_seed_sender_email | default(item.eep_mail_from | default(eep_shared_ses_from_email | default('noreply@' ~ item.domain, true), true), true) }}
       EEP_SEED_SENDER_NAME={{ item.eep_seed_sender_name | default(item.eep_mail_from_name | default(eep_shared_ses_from_name | default('', true), true), true) }}
+      EEP_SEED_ADMIN_EMAIL={{ item.eep_seed_admin_email | default('', true) }}
+      EEP_SEED_ADMIN_NAME={{ item.eep_seed_admin_name | default('Owner', true) }}
+      EEP_SEED_ADMIN_ROLE={{ item.eep_seed_admin_role | default('owner', true) }}
       EEP_SEED_PAYPAL_MODE={{ item.eep_seed_paypal_mode | default('disabled', true) }}
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0

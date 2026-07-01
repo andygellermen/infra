@@ -16,6 +16,9 @@ func clearSeedEnv(t *testing.T) {
 		"EEP_SEED_TENANT_STATUS",
 		"EEP_SEED_SENDER_EMAIL",
 		"EEP_SEED_SENDER_NAME",
+		"EEP_SEED_ADMIN_EMAIL",
+		"EEP_SEED_ADMIN_NAME",
+		"EEP_SEED_ADMIN_ROLE",
 		"EEP_SEED_PAYPAL_MODE",
 		"EEP_SEED_PAYPAL_CLIENT_ID",
 		"EEP_SEED_PAYPAL_MERCHANT_ID",
@@ -59,6 +62,9 @@ func TestLoadSeedInputOverrides(t *testing.T) {
 	t.Setenv("EEP_SEED_RETENTION_DAYS", "45")
 	t.Setenv("EEP_SEED_PAYPAL_MODE", "sandbox")
 	t.Setenv("EEP_SEED_SENDER_EMAIL", "noreply@example.com")
+	t.Setenv("EEP_SEED_ADMIN_EMAIL", "owner@example.com")
+	t.Setenv("EEP_SEED_ADMIN_NAME", "Owner Example")
+	t.Setenv("EEP_SEED_ADMIN_ROLE", "admin")
 	t.Setenv("EEP_SEED_SETTINGS_JSON", `{"brand":"oak"}`)
 
 	input, err := loadSeedInput("https://events.example.com")
@@ -80,6 +86,15 @@ func TestLoadSeedInputOverrides(t *testing.T) {
 	}
 	if input.Settings.SenderEmail != "noreply@example.com" {
 		t.Fatalf("expected sender email override, got %q", input.Settings.SenderEmail)
+	}
+	if input.AdminUser.Email != "owner@example.com" {
+		t.Fatalf("expected admin email override, got %q", input.AdminUser.Email)
+	}
+	if input.AdminUser.Name != "Owner Example" {
+		t.Fatalf("expected admin name override, got %q", input.AdminUser.Name)
+	}
+	if input.AdminUser.Role != "admin" {
+		t.Fatalf("expected admin role override, got %q", input.AdminUser.Role)
 	}
 	if !strings.Contains(input.Settings.SettingsJSON, "brand") {
 		t.Fatalf("expected settings json override, got %q", input.Settings.SettingsJSON)

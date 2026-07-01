@@ -7,7 +7,7 @@ source "./scripts/lib/dns-check.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/eep-add.sh <domain> [alias1 alias2 ...] [--tenant-slug=<slug>] [--tenant-name=<name>] [--base-url=<url>] [--mail-provider=<log|smtp|ses>] [--mail-from=<email>] [--mail-from-name=<name>] [--seed-enabled=<true|false>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--skip-dns-check]
+Usage: ./scripts/eep-add.sh <domain> [alias1 alias2 ...] [--tenant-slug=<slug>] [--tenant-name=<name>] [--base-url=<url>] [--mail-provider=<log|smtp|ses>] [--mail-from=<email>] [--mail-from-name=<name>] [--admin-email=<email>] [--admin-name=<name>] [--admin-role=<owner|admin|event_manager|readonly>] [--seed-enabled=<true|false>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--skip-dns-check]
 USAGE
 }
 
@@ -50,6 +50,9 @@ BASE_URL=""
 MAIL_PROVIDER="ses"
 MAIL_FROM=""
 MAIL_FROM_NAME="Easy Event Planner"
+SEED_ADMIN_EMAIL=""
+SEED_ADMIN_NAME="Owner"
+SEED_ADMIN_ROLE="owner"
 SEED_ENABLED="true"
 SEED_TENANT_TIMEZONE="Europe/Berlin"
 SEED_TENANT_LOCALE="de-DE"
@@ -68,6 +71,9 @@ for arg in "$@"; do
     --mail-provider=*) MAIL_PROVIDER="${arg#*=}" ;;
     --mail-from=*) MAIL_FROM="${arg#*=}" ;;
     --mail-from-name=*) MAIL_FROM_NAME="${arg#*=}" ;;
+    --admin-email=*) SEED_ADMIN_EMAIL="${arg#*=}" ;;
+    --admin-name=*) SEED_ADMIN_NAME="${arg#*=}" ;;
+    --admin-role=*) SEED_ADMIN_ROLE="${arg#*=}" ;;
     --seed-enabled=*) SEED_ENABLED="$(normalize_bool "${arg#*=}")" ;;
     --wildcard-domain=*) WILDCARD_DOMAIN="${arg#*=}" ;;
     --dns-account=*) DNS_ACCOUNT="${arg#*=}" ;;
@@ -185,6 +191,9 @@ TOKEN_PEPPER="$(openssl rand -hex 32)"
   echo "eep_seed_retention_days: ${SEED_RETENTION_DAYS}"
   echo "eep_seed_sender_email: \"${MAIL_FROM}\""
   echo "eep_seed_sender_name: \"${MAIL_FROM_NAME}\""
+  echo "eep_seed_admin_email: \"${SEED_ADMIN_EMAIL}\""
+  echo "eep_seed_admin_name: \"${SEED_ADMIN_NAME}\""
+  echo "eep_seed_admin_role: \"${SEED_ADMIN_ROLE}\""
   echo "eep_seed_paypal_mode: \"${SEED_PAYPAL_MODE}\""
   echo
   echo "eep_traefik_middleware_default: \"\""

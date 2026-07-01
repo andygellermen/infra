@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/mail"
 	"net/url"
 	"regexp"
 	"strings"
@@ -273,7 +274,61 @@ func (r *Repository) SeedTenant(ctx context.Context, input SeedInput) (SeedResul
 	}
 	result.Settings = settings
 
+	if err := r.upsertSeedAdminUser(ctx, result.Tenant.ID, input.AdminUser); err != nil {
+		return SeedResult{}, err
+	}
+
 	return result, nil
+}
+
+func (r *Repository) upsertSeedAdminUser(ctx context.Context, tenantID string, input SeedAdminUserInput) error {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	if email == "" {
+		return nil
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return fmt.Errorf("parse seed admin email: %w", err)
+	}
+
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		name = "Owner"
+	}
+
+	role := strings.ToLower(strings.TrimSpace(input.Role))
+	if role == "" {
+		role = "owner"
+	}
+
+	status := strings.ToLower(strings.TrimSpace(input.Status))
+	if status == "" {
+		status = "active"
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	if _, err := r.db.ExecContext(
+		ctx,
+		`INSERT INTO tenant_users (
+      id, tenant_id, email, name, role, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(tenant_id, email) DO UPDATE SET
+      name = excluded.name,
+      role = excluded.role,
+      status = excluded.status,
+      updated_at = excluded.updated_at`,
+		r.idFn("usr"),
+		strings.TrimSpace(tenantID),
+		email,
+		name,
+		role,
+		status,
+		now,
+		now,
+	); err != nil {
+		return fmt.Errorf("upsert seed admin user: %w", err)
+	}
+
+	return nil
 }
 
 type rowScanner interface {

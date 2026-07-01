@@ -91,6 +91,12 @@ func loadSeedInput(baseURL string) (tenant.SeedInput, error) {
 			DefaultRetentionDays: retentionDays,
 			SettingsJSON:         strings.TrimSpace(getenv("EEP_SEED_SETTINGS_JSON", "")),
 		},
+		AdminUser: tenant.SeedAdminUserInput{
+			Email:  strings.TrimSpace(getenv("EEP_SEED_ADMIN_EMAIL", "")),
+			Name:   strings.TrimSpace(getenv("EEP_SEED_ADMIN_NAME", "Owner")),
+			Role:   strings.TrimSpace(getenv("EEP_SEED_ADMIN_ROLE", "owner")),
+			Status: "active",
+		},
 	}, nil
 }
 

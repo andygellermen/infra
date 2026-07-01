@@ -1049,13 +1049,14 @@ Erzeugt eine neue Hostvars-Datei fuer eine Easy-Event-Planner-Domain inkl. DNS-P
 
 **Syntax:**
 ```bash
-./scripts/eep-add.sh <domain> [alias1 alias2 ...] [--tenant-slug=<slug>] [--tenant-name=<name>] [--base-url=<url>] [--mail-provider=<log|smtp|ses>] [--mail-from=<email>] [--mail-from-name=<name>] [--seed-enabled=<true|false>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--skip-dns-check]
+./scripts/eep-add.sh <domain> [alias1 alias2 ...] [--tenant-slug=<slug>] [--tenant-name=<name>] [--base-url=<url>] [--mail-provider=<log|smtp|ses>] [--mail-from=<email>] [--mail-from-name=<name>] [--admin-email=<email>] [--admin-name=<name>] [--admin-role=<owner|admin|event_manager|readonly>] [--seed-enabled=<true|false>] [--wildcard-domain=<apex-domain>] [--dns-account=<key>] [--skip-dns-check]
 ```
 
 **Hinweise:**
 - Schreibt nach `ansible/hostvars/<domain>.yml`.
 - Fuegt standardmaessig `www.<domain>` als Alias hinzu.
 - Das eigentliche Deployment startet anschliessend mit `./scripts/eep-redeploy.sh`.
+- Fuer den Admin-Login sollte mindestens `--admin-email` gesetzt werden; daraus wird beim Seed ein aktiver `tenant_user` fuer Magic-Links angelegt.
 - `--skip-dns-check` ist hilfreich, wenn du die Hostvars lokal vorbereitest, aber DNS noch nicht final auf den Zielhost zeigt.
 
 ### eep-redeploy.sh

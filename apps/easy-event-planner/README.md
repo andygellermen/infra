@@ -111,6 +111,9 @@ Wichtige Seed-Variablen:
 - `EEP_SEED_RETENTION_DAYS` (Default: `30`)
 - `EEP_SEED_SENDER_EMAIL`
 - `EEP_SEED_SENDER_NAME`
+- `EEP_SEED_ADMIN_EMAIL` (legt einen aktiven Organizer-User fuer den Admin-Login an)
+- `EEP_SEED_ADMIN_NAME` (Default: `Owner`)
+- `EEP_SEED_ADMIN_ROLE` (Default: `owner`)
 - `EEP_SEED_PAYPAL_MODE` (`disabled`, `sandbox`, `live`)
 - `EEP_SEED_SETTINGS_JSON`
 

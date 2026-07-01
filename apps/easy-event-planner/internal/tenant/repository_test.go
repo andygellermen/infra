@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/db"
@@ -148,6 +149,111 @@ func TestSeedTenantIsIdempotent(t *testing.T) {
 	}
 	if second.Settings.DefaultRetentionDays != 60 {
 		t.Fatalf("expected updated retention days, got %d", second.Settings.DefaultRetentionDays)
+	}
+}
+
+func TestSeedTenantCreatesOrUpdatesAdminUser(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	first, err := repo.SeedTenant(context.Background(), SeedInput{
+		Slug:          "community",
+		Name:          "Community Tenant",
+		PublicBaseURL: "https://events.example.com/community",
+		AdminUser: SeedAdminUserInput{
+			Email: "Admin@Example.com",
+			Name:  "First Admin",
+			Role:  "owner",
+		},
+	})
+	if err != nil {
+		t.Fatalf("first SeedTenant returned error: %v", err)
+	}
+
+	var (
+		email  string
+		name   string
+		role   string
+		status string
+	)
+	if err := repo.db.QueryRowContext(
+		context.Background(),
+		`SELECT email, name, role, status
+     FROM tenant_users
+     WHERE tenant_id = ?`,
+		first.Tenant.ID,
+	).Scan(&email, &name, &role, &status); err != nil {
+		t.Fatalf("query seeded admin user: %v", err)
+	}
+
+	if email != "admin@example.com" {
+		t.Fatalf("expected normalized admin email, got %q", email)
+	}
+	if name != "First Admin" {
+		t.Fatalf("expected admin name First Admin, got %q", name)
+	}
+	if role != "owner" {
+		t.Fatalf("expected admin role owner, got %q", role)
+	}
+	if status != "active" {
+		t.Fatalf("expected admin status active, got %q", status)
+	}
+
+	second, err := repo.SeedTenant(context.Background(), SeedInput{
+		Slug:          "community",
+		Name:          "Community Tenant",
+		PublicBaseURL: "https://events.example.com/community",
+		AdminUser: SeedAdminUserInput{
+			Email: "admin@example.com",
+			Name:  "Updated Admin",
+			Role:  "event_manager",
+		},
+	})
+	if err != nil {
+		t.Fatalf("second SeedTenant returned error: %v", err)
+	}
+
+	var count int
+	if err := repo.db.QueryRowContext(
+		context.Background(),
+		`SELECT COUNT(*) FROM tenant_users WHERE tenant_id = ? AND lower(email) = ?`,
+		second.Tenant.ID,
+		"admin@example.com",
+	).Scan(&count); err != nil {
+		t.Fatalf("count seeded admin users: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly one admin user, got %d", count)
+	}
+
+	if err := repo.db.QueryRowContext(
+		context.Background(),
+		`SELECT name, role FROM tenant_users WHERE tenant_id = ? AND lower(email) = ?`,
+		second.Tenant.ID,
+		"admin@example.com",
+	).Scan(&name, &role); err != nil {
+		t.Fatalf("query updated seeded admin user: %v", err)
+	}
+	if name != "Updated Admin" {
+		t.Fatalf("expected updated admin name, got %q", name)
+	}
+	if role != "event_manager" {
+		t.Fatalf("expected updated admin role event_manager, got %q", role)
+	}
+}
+
+func TestSeedTenantRejectsInvalidAdminEmail(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	_, err := repo.SeedTenant(context.Background(), SeedInput{
+		Slug:          "community",
+		Name:          "Community Tenant",
+		PublicBaseURL: "https://events.example.com/community",
+		AdminUser: SeedAdminUserInput{
+			Email: "not-an-email",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "parse seed admin email") {
+		t.Fatalf("expected invalid admin email error, got %v", err)
 	}
 }
 
