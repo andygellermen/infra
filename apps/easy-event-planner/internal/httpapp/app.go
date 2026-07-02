@@ -652,6 +652,8 @@ func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
 		a.handleAdminEventPublish(w, r, eventID)
 	case "unpublish":
 		a.handleAdminEventUnpublish(w, r, eventID)
+	case "archive":
+		a.handleAdminEventArchive(w, r, eventID)
 	case "cancel":
 		a.handleAdminEventCancel(w, r, eventID)
 	case "postpone":
@@ -874,6 +876,23 @@ func (a *App) handleAdminEventUnpublish(w http.ResponseWriter, r *http.Request, 
 	})
 }
 
+func (a *App) handleAdminEventArchive(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+
+	item, err := a.eventRepo.ArchiveEvent(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"item": eventPayload(item),
+	})
+}
+
 func (a *App) handleAdminEventCancel(w http.ResponseWriter, r *http.Request, eventID string) {
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
@@ -1024,29 +1043,31 @@ func eventPayload(item event.Event) map[string]any {
 	}
 
 	return map[string]any{
-		"id":                   item.ID,
-		"tenant_id":            item.TenantID,
-		"series_id":            seriesID,
-		"slug":                 item.Slug,
-		"title":                item.Title,
-		"subtitle":             item.Subtitle,
-		"description":          item.Description,
-		"starts_at":            item.StartsAt.UTC().Format(time.RFC3339),
-		"ends_at":              endsAt,
-		"timezone":             item.Timezone,
-		"location_name":        item.LocationName,
-		"address":              item.Address,
-		"online_url":           item.OnlineURL,
-		"participation_mode":   item.ParticipationMode,
-		"status":               item.Status,
-		"is_public":            item.IsPublic,
-		"registration_enabled": item.RegistrationEnabled,
-		"waitlist_enabled":     item.WaitlistEnabled,
-		"max_participants":     maxParticipants,
-		"change_note":          item.ChangeNote,
-		"cancelled_reason":     item.CancelledReason,
-		"created_at":           item.CreatedAt.UTC().Format(time.RFC3339),
-		"updated_at":           item.UpdatedAt.UTC().Format(time.RFC3339),
+		"id":                     item.ID,
+		"tenant_id":              item.TenantID,
+		"series_id":              seriesID,
+		"slug":                   item.Slug,
+		"title":                  item.Title,
+		"subtitle":               item.Subtitle,
+		"description":            item.Description,
+		"starts_at":              item.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":                endsAt,
+		"timezone":               item.Timezone,
+		"location_name":          item.LocationName,
+		"address":                item.Address,
+		"online_url":             item.OnlineURL,
+		"participation_mode":     item.ParticipationMode,
+		"status":                 item.Status,
+		"is_public":              item.IsPublic,
+		"registration_enabled":   item.RegistrationEnabled,
+		"waitlist_enabled":       item.WaitlistEnabled,
+		"max_participants":       maxParticipants,
+		"confirmed_participants": item.ConfirmedParticipants,
+		"waitlist_entries":       item.WaitlistEntries,
+		"change_note":            item.ChangeNote,
+		"cancelled_reason":       item.CancelledReason,
+		"created_at":             item.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":             item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

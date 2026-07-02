@@ -30,9 +30,11 @@
     eventFormHint: document.querySelector("#eventFormHint"),
     eventCancelEditBtn: document.querySelector("#eventCancelEditBtn"),
     eventSeriesSelect: document.querySelector("#eventSeriesSelect"),
+    eventRecurrenceMode: document.querySelector("#eventRecurrenceMode"),
+    eventRecurrenceEndMode: document.querySelector("#eventRecurrenceEndMode"),
     eventSubmitBtn: document.querySelector("#eventSubmitBtn"),
     refreshEventsBtn: document.querySelector("#refreshEventsBtn"),
-    eventsTableBody: document.querySelector("#eventsTableBody"),
+    eventsList: document.querySelector("#eventsList"),
     seriesForm: document.querySelector("#seriesForm"),
     seriesFormHeading: document.querySelector("#seriesFormHeading"),
     seriesFormHint: document.querySelector("#seriesFormHint"),
@@ -41,6 +43,9 @@
     refreshSeriesBtn: document.querySelector("#refreshSeriesBtn"),
     seriesTableBody: document.querySelector("#seriesTableBody"),
     registrationEventSelect: document.querySelector("#registrationEventSelect"),
+    registrationsEventList: document.querySelector("#registrationsEventList"),
+    registrationEventTitle: document.querySelector("#registrationEventTitle"),
+    registrationEventHint: document.querySelector("#registrationEventHint"),
     refreshRegistrationsBtn: document.querySelector("#refreshRegistrationsBtn"),
     manualRegistrationForm: document.querySelector("#manualRegistrationForm"),
     manualRegistrationSubmitBtn: document.querySelector("#manualRegistrationSubmitBtn"),
@@ -75,6 +80,12 @@
     }
     if (ui.eventForm) {
       ui.eventForm.addEventListener("submit", onEventSubmit);
+    }
+    if (ui.eventRecurrenceMode) {
+      ui.eventRecurrenceMode.addEventListener("change", syncRecurrenceFields);
+    }
+    if (ui.eventRecurrenceEndMode) {
+      ui.eventRecurrenceEndMode.addEventListener("change", syncRecurrenceFields);
     }
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.addEventListener("click", () => {
@@ -433,9 +444,10 @@
       const items = Array.isArray(payload && payload.items) ? payload.items.slice() : [];
       items.sort((a, b) => String(a.starts_at || "").localeCompare(String(b.starts_at || "")));
       state.events = items;
+      maybeResetEventEditorAfterReload(items);
       renderEvents(items);
       fillRegistrationEventSelect(items);
-      maybeResetEventEditorAfterReload(items);
+      syncRegistrationSelectionSummary();
       if (notify) {
         setFlash("Events aktualisiert.");
       }
@@ -446,48 +458,91 @@
 
   function renderEvents(items) {
     if (!items.length) {
-      ui.eventsTableBody.innerHTML = rowMessage("Noch keine Events vorhanden.", 6);
+      if (ui.eventsList) {
+        ui.eventsList.innerHTML = emptyStackMessage("Noch keine Events vorhanden.");
+      }
+      if (ui.registrationsEventList) {
+        ui.registrationsEventList.innerHTML = emptyStackMessage("Noch keine Events vorhanden.");
+      }
       return;
     }
 
-    ui.eventsTableBody.innerHTML = items
-      .map((item) => {
-        const publishBtn = item.status === "draft"
-          ? `<button class="btn tiny ok" type="button" data-event-action="publish" data-event-id="${escapeAttr(item.id)}">Publish</button>`
-          : "";
-        const unpublishBtn = item.status === "scheduled" || item.status === "postponed"
-          ? `<button class="btn tiny warn" type="button" data-event-action="unpublish" data-event-id="${escapeAttr(item.id)}">Unpublish</button>`
-          : "";
-        const seriesLabel = renderSeriesBadge(item.series_id);
-        const subtitle = item.subtitle ? `<div class="table-subline">${escapeHTML(item.subtitle)}</div>` : "";
+    if (ui.eventsList) {
+      ui.eventsList.innerHTML = items.map((item) => renderEventCard(item, "events")).join("");
+      bindEventCardInteractions(ui.eventsList, "events");
+    }
+    if (ui.registrationsEventList) {
+      ui.registrationsEventList.innerHTML = items.map((item) => renderEventCard(item, "registrations")).join("");
+      bindEventCardInteractions(ui.registrationsEventList, "registrations");
+    }
+  }
 
-        return `
-          <tr>
-            <td>${escapeHTML(formatDateTime(item.starts_at))}</td>
-            <td>
-              <strong>${escapeHTML(item.title || "-")}</strong><br>
-              <span class="muted">${escapeHTML(item.slug || "")}</span>
-              ${subtitle}
-            </td>
-            <td>${seriesLabel}</td>
-            <td>${statusPill(item.status)}</td>
-            <td>${item.is_public ? "Ja" : "Nein"}</td>
-            <td>
-              <div class="row-actions">
-                <button class="btn tiny light" type="button" data-event-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>
-                ${publishBtn}
-                ${unpublishBtn}
-                <button class="btn tiny light" type="button" data-event-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
-                <button class="btn tiny warn" type="button" data-event-action="delete" data-event-id="${escapeAttr(item.id)}">Loeschen</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
+  function renderEventCard(item, context) {
+    const isRegistrationContext = context === "registrations";
+    const isActive = isRegistrationContext
+      ? state.selectedEventId === item.id
+      : state.editingEventId === item.id;
+    const subtitle = item.subtitle ? `<div class="event-card-subline">${escapeHTML(item.subtitle)}</div>` : "";
+    const counts = `${Number(item.confirmed_participants || 0)} Teilnehmer · ${Number(item.waitlist_entries || 0)} Warteliste`;
+    const canToggleVisibility = canToggleVisibility(item);
+    const visibilityLabel = item.is_public ? "Aktiv" : "Inaktiv";
+    const visibilityClass = item.is_public ? "ok" : "light";
+    const visibilityAction = item.is_public ? "unpublish" : "publish";
+    const seriesTitle = resolveSeriesTitle(item.series_id);
 
-    ui.eventsTableBody.querySelectorAll("button[data-event-action]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
+    return `
+      <article class="event-card${isActive ? " is-active" : ""}" data-event-card="${escapeAttr(item.id)}" data-event-context="${escapeAttr(context)}">
+        <div class="event-card-meta-row">
+          <span class="event-card-date">${escapeHTML(formatDateTime(item.starts_at))}</span>
+          <button class="btn tiny ${visibilityClass}" type="button" data-event-action="${escapeAttr(visibilityAction)}" data-event-id="${escapeAttr(item.id)}"${canToggleVisibility ? "" : " disabled"}>${escapeHTML(visibilityLabel)}</button>
+        </div>
+        <div class="event-card-title">${escapeHTML(item.title || "-")}</div>
+        ${subtitle}
+        <div class="event-card-badges">
+          ${statusPill(item.status)}
+          ${seriesTitle ? `<span class="series-chip">${escapeHTML(seriesTitle)}</span>` : ""}
+        </div>
+        <div class="event-card-foot">
+          <span class="muted">${escapeHTML(counts)}</span>
+          <span class="muted">${escapeHTML(item.slug || "")}</span>
+        </div>
+        <div class="event-card-actions">
+          ${isRegistrationContext
+            ? `<button class="btn tiny light" type="button" data-event-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
+               <button class="btn tiny light" type="button" data-event-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>`
+            : `<button class="btn tiny light" type="button" data-event-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>
+               <button class="btn tiny light" type="button" data-event-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
+               <button class="btn tiny warn" type="button" data-event-action="archive" data-event-id="${escapeAttr(item.id)}">Archivieren</button>`}
+        </div>
+      </article>
+    `;
+  }
+
+  function bindEventCardInteractions(container, context) {
+    container.querySelectorAll("[data-event-card]").forEach((card) => {
+      card.addEventListener("click", async (ev) => {
+        if (ev.target.closest("button")) {
+          return;
+        }
+        const eventID = String(card.dataset.eventCard || "");
+        if (!eventID) {
+          return;
+        }
+        if (context === "registrations") {
+          await focusRegistrationsForEvent(eventID);
+          return;
+        }
+        const item = findEventByID(eventID);
+        if (item) {
+          populateEventFormForEdit(item);
+          renderEvents(state.events);
+        }
+      });
+    });
+
+    container.querySelectorAll("button[data-event-action]").forEach((btn) => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
         const action = String(btn.dataset.eventAction || "");
         const id = String(btn.dataset.eventId || "");
         if (!action || !id) {
@@ -502,37 +557,35 @@
           }
           populateEventFormForEdit(item);
           activateTab("events");
+          renderEvents(state.events);
           return;
         }
 
         if (action === "focus-registrations") {
-          activateTab("registrations");
-          state.selectedEventId = id;
-          ui.registrationEventSelect.value = id;
-          await loadRegistrations(id, false);
+          await focusRegistrationsForEvent(id);
           return;
         }
 
-        if (action === "delete") {
+        if (action === "archive") {
           const item = findEventByID(id);
           const label = item ? item.title : "dieses Event";
-          const confirmed = window.confirm(`Soll ${label} wirklich geloescht werden?`);
+          const confirmed = window.confirm(`Soll ${label} archiviert werden?`);
           if (!confirmed) {
             return;
           }
 
           setButtonBusy(btn, true, "...");
           try {
-            await apiRequest(`/api/v1/admin/events/${encodeURIComponent(id)}`, {
-              method: "DELETE",
+            await apiRequest(`/api/v1/admin/events/${encodeURIComponent(id)}/archive`, {
+              method: "POST",
             });
             if (state.editingEventId === id) {
               resetEventForm();
             }
             await Promise.all([loadEvents(false), loadDashboard(false)]);
-            setFlash("Event wurde geloescht.");
+            setFlash("Event wurde archiviert.");
           } catch (err) {
-            setFlash(`Event konnte nicht geloescht werden: ${errorMessage(err)}`, "error");
+            setFlash(`Event konnte nicht archiviert werden: ${errorMessage(err)}`, "error");
           } finally {
             setButtonBusy(btn, false);
           }
@@ -545,7 +598,10 @@
             method: "POST",
           });
           await Promise.all([loadEvents(false), loadDashboard(false)]);
-          setFlash(`Event-Aktion '${action}' wurde ausgefuehrt.`);
+          {
+            const currentItem = findEventByID(id);
+            setFlash(`Sichtbarkeit fuer '${currentItem ? currentItem.title : "Event"}' wurde aktualisiert.`);
+          }
         } catch (err) {
           setFlash(`Event-Aktion fehlgeschlagen: ${errorMessage(err)}`, "error");
         } finally {
@@ -555,6 +611,21 @@
     });
   }
 
+  async function focusRegistrationsForEvent(eventID) {
+    activateTab("registrations");
+    state.selectedEventId = eventID;
+    if (ui.registrationEventSelect) {
+      ui.registrationEventSelect.value = eventID;
+    }
+    renderEvents(state.events);
+    syncRegistrationSelectionSummary();
+    await loadRegistrations(eventID, false);
+  }
+
+  function canToggleVisibility(item) {
+    return ["cancelled", "completed", "archived"].indexOf(String(item.status || "").trim()) === -1;
+  }
+
   async function onEventSubmit(event) {
     event.preventDefault();
     clearFlash();
@@ -562,8 +633,10 @@
     const current = currentEditingEvent();
     const isEdit = !!state.editingEventId;
     let body;
+    let recurrencePlan;
     try {
       body = buildEventRequestBody(isEdit, current);
+      recurrencePlan = buildRecurrencePlan(isEdit, body);
     } catch (err) {
       setFlash(errorMessage(err), "error");
       return;
@@ -577,13 +650,26 @@
 
     setButtonBusy(ui.eventSubmitBtn, true, "Speichere...");
     try {
-      await apiRequest(targetPath, {
-        method,
-        body: JSON.stringify(body),
-      });
+      if (isEdit) {
+        await apiRequest(targetPath, {
+          method,
+          body: JSON.stringify(body),
+        });
+      } else {
+        for (const eventBody of recurrencePlan) {
+          await apiRequest("/api/v1/admin/events", {
+            method: "POST",
+            body: JSON.stringify(eventBody),
+          });
+        }
+      }
       resetEventForm();
       await Promise.all([loadEvents(false), loadDashboard(false)]);
-      setFlash(successMessage);
+      if (isEdit) {
+        setFlash(successMessage);
+      } else {
+        setFlash(recurrencePlan.length > 1 ? `${recurrencePlan.length} Events wurden angelegt.` : successMessage);
+      }
       activateTab("events");
     } catch (err) {
       setFlash(`Event konnte nicht gespeichert werden: ${errorMessage(err)}`, "error");
@@ -654,6 +740,77 @@
     return body;
   }
 
+  function buildRecurrencePlan(isEdit, baseBody) {
+    if (isEdit) {
+      return [baseBody];
+    }
+
+    const formData = new FormData(ui.eventForm);
+    const mode = String(formData.get("recurrence_mode") || "none").trim();
+    if (mode === "none") {
+      return [baseBody];
+    }
+
+    const startsAtLocal = String(formData.get("starts_at") || "").trim();
+    const endsAtLocal = String(formData.get("ends_at") || "").trim();
+    const interval = Number(String(formData.get("recurrence_interval") || "1").trim() || "1");
+    if (!Number.isInteger(interval) || interval <= 0) {
+      throw new Error("Wiederholungsintervall muss eine ganze Zahl > 0 sein.");
+    }
+
+    const endMode = String(formData.get("recurrence_end_mode") || "count").trim();
+    const untilRaw = String(formData.get("recurrence_until") || "").trim();
+    const countRaw = String(formData.get("recurrence_count") || "").trim();
+    const durationMs = calculateDurationMs(startsAtLocal, endsAtLocal);
+    const localStarts = [startsAtLocal];
+    const maxOccurrences = 120;
+
+    if (endMode === "until") {
+      if (!untilRaw) {
+        throw new Error("Bitte ein Enddatum fuer die Wiederholung auswaehlen.");
+      }
+      const untilDate = new Date(`${untilRaw}T23:59:59`);
+      if (Number.isNaN(untilDate.getTime())) {
+        throw new Error("Das Wiederholungs-Enddatum ist ungueltig.");
+      }
+      let iteration = 1;
+      while (localStarts.length < maxOccurrences) {
+        const nextStart = addRecurringLocalDate(startsAtLocal, mode, interval, iteration);
+        const nextDate = new Date(nextStart);
+        if (nextDate.getTime() > untilDate.getTime()) {
+          break;
+        }
+        localStarts.push(nextStart);
+        iteration += 1;
+      }
+      if (localStarts.length === 1) {
+        throw new Error("Die Wiederholung erzeugt mit diesem Enddatum keine zusaetzlichen Termine.");
+      }
+    } else {
+      const count = Number(countRaw || "0");
+      if (!Number.isInteger(count) || count < 2) {
+        throw new Error("Bitte fuer Wiederholungen mindestens 2 Termine angeben.");
+      }
+      if (count > maxOccurrences) {
+        throw new Error(`Bitte hoechstens ${maxOccurrences} Termine pro Wiederholungsserie anlegen.`);
+      }
+      for (let iteration = 1; iteration < count; iteration += 1) {
+        localStarts.push(addRecurringLocalDate(startsAtLocal, mode, interval, iteration));
+      }
+    }
+
+    return localStarts.map((startLocal, index) => {
+      const nextBody = Object.assign({}, baseBody);
+      nextBody.starts_at = toISO(startLocal);
+      nextBody.ends_at = durationMs === null ? "" : new Date(new Date(startLocal).getTime() + durationMs).toISOString();
+      nextBody.slug = buildRecurringSlug(baseBody.slug, startLocal, index);
+      if (index > 0 && !nextBody.change_note) {
+        nextBody.change_note = "Automatisch ueber Wiederholungsmodus angelegt.";
+      }
+      return nextBody;
+    });
+  }
+
   function resetEventForm(options) {
     const config = options || {};
     const prefill = config.prefill || null;
@@ -664,6 +821,7 @@
     }
     fillEventSeriesSelect(String(config.seriesID || "").trim());
     setEventFormDefaults();
+    syncRecurrenceFields();
 
     if (prefill) {
       setFieldValue(ui.eventForm, "title", prefill.title || "");
@@ -691,6 +849,7 @@
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.hidden = true;
     }
+    syncRecurrenceFields();
   }
 
   function populateEventFormForEdit(item) {
@@ -717,6 +876,11 @@
     setCheckboxValue(ui.eventForm, "is_public", item.is_public === true);
     setCheckboxValue(ui.eventForm, "registration_enabled", item.registration_enabled !== false);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", item.waitlist_enabled !== false);
+    setFieldValue(ui.eventForm, "recurrence_mode", "none");
+    setFieldValue(ui.eventForm, "recurrence_interval", "1");
+    setFieldValue(ui.eventForm, "recurrence_end_mode", "count");
+    setFieldValue(ui.eventForm, "recurrence_count", "4");
+    setFieldValue(ui.eventForm, "recurrence_until", "");
 
     if (ui.eventFormHeading) {
       ui.eventFormHeading.textContent = "Event bearbeiten";
@@ -734,6 +898,7 @@
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.hidden = false;
     }
+    syncRecurrenceFields();
   }
 
   function startEventCreationFromSeries(seriesID) {
@@ -768,10 +933,102 @@
   function setEventFormDefaults() {
     setFieldValue(ui.eventForm, "timezone", "Europe/Berlin");
     setFieldValue(ui.eventForm, "participation_mode", "onsite");
+    setFieldValue(ui.eventForm, "recurrence_mode", "none");
+    setFieldValue(ui.eventForm, "recurrence_interval", "1");
+    setFieldValue(ui.eventForm, "recurrence_end_mode", "count");
+    setFieldValue(ui.eventForm, "recurrence_count", "4");
+    setFieldValue(ui.eventForm, "recurrence_until", "");
     setCheckboxValue(ui.eventForm, "is_public", true);
     setCheckboxValue(ui.eventForm, "registration_enabled", true);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", true);
     setFieldValue(ui.eventForm, "change_note", "");
+  }
+
+  function syncRecurrenceFields() {
+    const recurrenceMode = String(ui.eventRecurrenceMode ? ui.eventRecurrenceMode.value : "none").trim();
+    const endMode = String(ui.eventRecurrenceEndMode ? ui.eventRecurrenceEndMode.value : "count").trim();
+    const isEdit = !!state.editingEventId;
+    const recurrenceEnabled = !isEdit && recurrenceMode !== "none";
+
+    setFieldDisabled(ui.eventForm, "recurrence_interval", !recurrenceEnabled);
+    setFieldDisabled(ui.eventForm, "recurrence_end_mode", !recurrenceEnabled);
+    setFieldDisabled(ui.eventForm, "recurrence_count", !recurrenceEnabled || endMode !== "count");
+    setFieldDisabled(ui.eventForm, "recurrence_until", !recurrenceEnabled || endMode !== "until");
+
+    if (isEdit && ui.eventFormHint) {
+      const prefix = ui.eventFormHint.textContent || "";
+      if (!prefix.includes("Wiederholungsmodus")) {
+        ui.eventFormHint.textContent = `${prefix} Wiederholungsmodus wird nur fuer neu angelegte Termine verwendet.`;
+      }
+    }
+  }
+
+  function calculateDurationMs(startsAtLocal, endsAtLocal) {
+    if (!endsAtLocal) {
+      return null;
+    }
+    const startsAt = new Date(startsAtLocal);
+    const endsAt = new Date(endsAtLocal);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      throw new Error("Start- oder Endzeit ist ungueltig.");
+    }
+    if (endsAt.getTime() < startsAt.getTime()) {
+      throw new Error("Endzeit muss nach der Startzeit liegen.");
+    }
+    return endsAt.getTime() - startsAt.getTime();
+  }
+
+  function addRecurringLocalDate(localDateTimeValue, mode, interval, iteration) {
+    const nextDate = new Date(localDateTimeValue);
+    if (Number.isNaN(nextDate.getTime())) {
+      throw new Error("Die Wiederholungsbasis ist ungueltig.");
+    }
+    if (mode === "weekly") {
+      nextDate.setDate(nextDate.getDate() + (7 * interval * iteration));
+    } else if (mode === "monthly") {
+      nextDate.setMonth(nextDate.getMonth() + (interval * iteration));
+    } else {
+      throw new Error("Unbekannter Wiederholungsmodus.");
+    }
+    return toLocalDateTimeInputValue(nextDate);
+  }
+
+  function buildRecurringSlug(baseSlug, localStartValue, index) {
+    if (index === 0) {
+      return baseSlug;
+    }
+    return `${baseSlug}-${formatSlugDate(localStartValue)}`;
+  }
+
+  function formatSlugDate(localDateTimeValue) {
+    const date = new Date(localDateTimeValue);
+    if (Number.isNaN(date.getTime())) {
+      return `serie-${Date.now()}`;
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function syncRegistrationSelectionSummary() {
+    const item = findEventByID(state.selectedEventId);
+    if (!item) {
+      if (ui.registrationEventTitle) {
+        ui.registrationEventTitle.textContent = "Teilnehmer";
+      }
+      if (ui.registrationEventHint) {
+        ui.registrationEventHint.textContent = "Bitte links ein Event auswaehlen.";
+      }
+      return;
+    }
+
+    if (ui.registrationEventTitle) {
+      ui.registrationEventTitle.textContent = item.title || "Teilnehmer";
+    }
+    if (ui.registrationEventHint) {
+      ui.registrationEventHint.textContent = `${formatDateTime(item.starts_at)} · ${Number(item.confirmed_participants || 0)} bestaetigt · ${Number(item.waitlist_entries || 0)} Warteliste`;
+    }
   }
 
   function currentEventSeriesSelection() {
@@ -927,6 +1184,7 @@
       ui.registrationEventSelect.innerHTML = "<option value=''>Keine Events verfuegbar</option>";
       state.selectedEventId = "";
       ui.registrationsTableBody.innerHTML = rowMessage("Bitte zuerst ein Event anlegen.", 6);
+      syncRegistrationSelectionSummary();
       return;
     }
 
@@ -939,6 +1197,7 @@
     ui.registrationEventSelect.value = state.selectedEventId;
 
     if (state.selectedEventId) {
+      syncRegistrationSelectionSummary();
       loadRegistrations(state.selectedEventId, false);
     }
   }
@@ -946,13 +1205,17 @@
   async function loadRegistrations(eventID, notify) {
     if (!eventID) {
       ui.registrationsTableBody.innerHTML = rowMessage("Kein Event ausgewaehlt.", 6);
+      syncRegistrationSelectionSummary();
       return;
     }
 
     try {
+      state.selectedEventId = eventID;
+      syncRegistrationSelectionSummary();
       const payload = await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/registrations`);
       const items = Array.isArray(payload && payload.items) ? payload.items : [];
       renderRegistrations(items);
+      renderEvents(state.events);
       if (notify) {
         setFlash("Teilnehmerliste aktualisiert.");
       }
@@ -1001,6 +1264,7 @@
 
       await Promise.all([
         loadRegistrations(eventID, false),
+        loadEvents(false),
         loadDashboard(false),
       ]);
       const item = payload && payload.item ? payload.item : null;
@@ -1062,6 +1326,7 @@
           });
           await Promise.all([
             loadRegistrations(state.selectedEventId, false),
+            loadEvents(false),
             loadDashboard(false),
           ]);
           setFlash(`Teilnehmer-Aktion '${action}' erfolgreich.`);
@@ -1215,6 +1480,10 @@
     return `<tr><td colspan="${columnCount}">${escapeHTML(message)}</td></tr>`;
   }
 
+  function emptyStackMessage(message) {
+    return `<div class="empty-stack">${escapeHTML(message)}</div>`;
+  }
+
   function setFlash(message, type) {
     const flashType = type || "info";
     if (!ui.flash) {
@@ -1359,6 +1628,13 @@
     const field = form ? form.querySelector(`[name='${fieldName}']`) : null;
     if (field) {
       field.checked = !!checked;
+    }
+  }
+
+  function setFieldDisabled(form, fieldName, disabled) {
+    const field = form ? form.querySelector(`[name='${fieldName}']`) : null;
+    if (field) {
+      field.disabled = !!disabled;
     }
   }
 

@@ -80,10 +80,21 @@
         <section id="tab-events" class="tabpane">
           <div class="split split-wide">
             <div class="card">
+              <div class="table-toolbar">
+                <div>
+                  <h2>Alle Events</h2>
+                  <p class="muted compact">Links bleibt immer die Event-Liste, rechts bearbeitest du das gewaehlte Event.</p>
+                </div>
+                <button id="refreshEventsBtn" class="btn light" type="button">Aktualisieren</button>
+              </div>
+              <div id="eventsList" class="stack-list" aria-live="polite"></div>
+            </div>
+
+            <div class="card">
               <div class="card-head">
                 <div>
                   <h2 id="eventFormHeading">Event anlegen</h2>
-                  <p id="eventFormHint" class="muted compact">Neue Einzeltermine oder Termine aus einer Serie anlegen.</p>
+                  <p id="eventFormHint" class="muted compact">Neue Einzeltermine, Serien-Termine oder wiederkehrende Termine anlegen.</p>
                 </div>
                 <button id="eventCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
               </div>
@@ -105,6 +116,33 @@
                 <label>
                   Untertitel (optional)
                   <input name="subtitle" type="text" placeholder="Intensivwoche, Block A, Abendtermin ...">
+                </label>
+                <label>
+                  Wiederholung
+                  <select id="eventRecurrenceMode" name="recurrence_mode">
+                    <option value="none">Keine Wiederholung</option>
+                    <option value="weekly">Woechentlich</option>
+                    <option value="monthly">Monatlich</option>
+                  </select>
+                </label>
+                <label>
+                  Intervall
+                  <input name="recurrence_interval" type="number" min="1" step="1" value="1">
+                </label>
+                <label>
+                  Wiederholung endet
+                  <select id="eventRecurrenceEndMode" name="recurrence_end_mode">
+                    <option value="count">Nach Anzahl Terminen</option>
+                    <option value="until">Bis Datum</option>
+                  </select>
+                </label>
+                <label>
+                  Anzahl Termine
+                  <input name="recurrence_count" type="number" min="2" step="1" value="4">
+                </label>
+                <label>
+                  Wiederholen bis
+                  <input name="recurrence_until" type="date">
                 </label>
                 <label class="span-2">
                   Beschreibung (optional)
@@ -157,28 +195,6 @@
 
                 <button id="eventSubmitBtn" class="btn primary" type="submit">Event speichern</button>
               </form>
-            </div>
-
-            <div class="card">
-              <div class="table-toolbar">
-                <h2>Events</h2>
-                <button id="refreshEventsBtn" class="btn light" type="button">Aktualisieren</button>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Start</th>
-                      <th>Titel</th>
-                      <th>Reihe</th>
-                      <th>Status</th>
-                      <th>Sichtbar</th>
-                      <th>Aktionen</th>
-                    </tr>
-                  </thead>
-                  <tbody id="eventsTableBody"></tbody>
-                </table>
-              </div>
             </div>
           </div>
         </section>
@@ -247,56 +263,71 @@
         </section>
 
         <section id="tab-registrations" class="tabpane">
-          <div class="card">
-            <div class="controls-row">
-              <label class="wide">
-                Event
-                <select id="registrationEventSelect"></select>
-              </label>
-              <button id="refreshRegistrationsBtn" class="btn light" type="button">Aktualisieren</button>
+          <div class="split split-wide">
+            <div class="card">
+              <div class="table-toolbar">
+                <div>
+                  <h2>Events</h2>
+                  <p class="muted compact">Waehle links ein Event und bleibe fuer den schnellen Teilnehmerwechsel im gleichen Kontext.</p>
+                </div>
+                <button id="refreshRegistrationsBtn" class="btn light" type="button">Aktualisieren</button>
+              </div>
+              <div id="registrationsEventList" class="stack-list" aria-live="polite"></div>
+              <select id="registrationEventSelect" hidden></select>
             </div>
 
-            <form id="manualRegistrationForm" class="form-grid">
-              <h2>Teilnehmer manuell hinzufuegen</h2>
-              <label>
-                Name
-                <input id="manualRegistrationName" name="name" type="text" placeholder="Max Mustermann" required>
-              </label>
-              <label>
-                E-Mail
-                <input id="manualRegistrationEmail" name="email" type="email" placeholder="max@example.com" required>
-              </label>
-              <label>
-                Telefon (optional)
-                <input id="manualRegistrationPhone" name="phone" type="text" placeholder="+49...">
-              </label>
-              <label>
-                Teilnahmeart
-                <select id="manualRegistrationType" name="participation_type">
-                  <option value="onsite">Onsite</option>
-                  <option value="online">Online</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </label>
-              <button id="manualRegistrationSubmitBtn" class="btn primary" type="submit">Teilnehmer hinzufuegen</button>
-            </form>
-          </div>
+            <div class="stack-panel">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2 id="registrationEventTitle">Teilnehmer</h2>
+                    <p id="registrationEventHint" class="muted compact">Bitte links ein Event auswaehlen.</p>
+                  </div>
+                </div>
 
-          <div class="card">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>E-Mail</th>
-                    <th>Status</th>
-                    <th>Typ</th>
-                    <th>Zahlung</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody id="registrationsTableBody"></tbody>
-              </table>
+                <form id="manualRegistrationForm" class="form-grid">
+                  <h2>Teilnehmer manuell hinzufuegen</h2>
+                  <label>
+                    Name
+                    <input id="manualRegistrationName" name="name" type="text" placeholder="Max Mustermann" required>
+                  </label>
+                  <label>
+                    E-Mail
+                    <input id="manualRegistrationEmail" name="email" type="email" placeholder="max@example.com" required>
+                  </label>
+                  <label>
+                    Telefon (optional)
+                    <input id="manualRegistrationPhone" name="phone" type="text" placeholder="+49...">
+                  </label>
+                  <label>
+                    Teilnahmeart
+                    <select id="manualRegistrationType" name="participation_type">
+                      <option value="onsite">Onsite</option>
+                      <option value="online">Online</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </label>
+                  <button id="manualRegistrationSubmitBtn" class="btn primary" type="submit">Teilnehmer hinzufuegen</button>
+                </form>
+              </div>
+
+              <div class="card">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>E-Mail</th>
+                        <th>Status</th>
+                        <th>Typ</th>
+                        <th>Zahlung</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody id="registrationsTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </section>

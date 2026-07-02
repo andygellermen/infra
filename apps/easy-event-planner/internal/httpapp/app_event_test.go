@@ -136,6 +136,99 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	}
 }
 
+func TestAdminEventListCountsAndArchiveFlow(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	createPayload := map[string]any{
+		"slug":               "wochenend-workshop",
+		"title":              "Wochenend Workshop",
+		"starts_at":          "2026-08-14T16:00:00Z",
+		"ends_at":            "2026-08-16T14:00:00Z",
+		"timezone":           "Europe/Berlin",
+		"participation_mode": "onsite",
+		"location_name":      "Seminarhaus",
+	}
+	createBody, _ := json.Marshal(createPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	eventID := decodeBody[map[string]any](t, createRec)["item"].(map[string]any)["id"].(string)
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/publish", nil)
+	publishReq.AddCookie(sessionCookie)
+	publishRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("expected publish status 200, got %d", publishRec.Code)
+	}
+
+	registrationPayload := map[string]any{
+		"name":               "Max Mustermann",
+		"email":              "max@example.com",
+		"participation_type": "onsite",
+	}
+	registrationBody, _ := json.Marshal(registrationPayload)
+	registrationReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/registrations/manual", bytes.NewReader(registrationBody))
+	registrationReq.Header.Set("Content-Type", "application/json")
+	registrationReq.AddCookie(sessionCookie)
+	registrationRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(registrationRec, registrationReq)
+	if registrationRec.Code != http.StatusCreated {
+		t.Fatalf("expected manual registration status 201, got %d", registrationRec.Code)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/events", nil)
+	listReq.AddCookie(sessionCookie)
+	listRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d", listRec.Code)
+	}
+	items := decodeBody[map[string]any](t, listRec)["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected exactly one event in list, got %d", len(items))
+	}
+	listed := items[0].(map[string]any)
+	if listed["confirmed_participants"] != float64(1) {
+		t.Fatalf("expected confirmed_participants=1, got %v", listed["confirmed_participants"])
+	}
+	if listed["waitlist_entries"] != float64(0) {
+		t.Fatalf("expected waitlist_entries=0, got %v", listed["waitlist_entries"])
+	}
+
+	archiveReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/archive", nil)
+	archiveReq.AddCookie(sessionCookie)
+	archiveRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(archiveRec, archiveReq)
+	if archiveRec.Code != http.StatusOK {
+		t.Fatalf("expected archive status 200, got %d", archiveRec.Code)
+	}
+	archived := decodeBody[map[string]any](t, archiveRec)["item"].(map[string]any)
+	if archived["status"] != "archived" {
+		t.Fatalf("expected archived status, got %v", archived["status"])
+	}
+	if archived["is_public"] != false {
+		t.Fatalf("expected archived event to be hidden, got %v", archived["is_public"])
+	}
+	if archived["registration_enabled"] != false {
+		t.Fatalf("expected archived event registration disabled, got %v", archived["registration_enabled"])
+	}
+
+	rePublishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/publish", nil)
+	rePublishReq.AddCookie(sessionCookie)
+	rePublishRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rePublishRec, rePublishReq)
+	if rePublishRec.Code != http.StatusConflict {
+		t.Fatalf("expected publish-after-archive status 409, got %d", rePublishRec.Code)
+	}
+}
+
 func TestAdminEventRequiresAuth(t *testing.T) {
 	app, _, _ := setupAuthApp(t)
 

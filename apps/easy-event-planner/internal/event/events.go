@@ -35,29 +35,31 @@ var (
 var eventSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Event struct {
-	ID                  string
-	TenantID            string
-	SeriesID            string
-	Slug                string
-	Title               string
-	Subtitle            string
-	Description         string
-	StartsAt            time.Time
-	EndsAt              *time.Time
-	Timezone            string
-	LocationName        string
-	Address             string
-	OnlineURL           string
-	ParticipationMode   string
-	Status              string
-	IsPublic            bool
-	RegistrationEnabled bool
-	WaitlistEnabled     bool
-	MaxParticipants     *int
-	ChangeNote          string
-	CancelledReason     string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                    string
+	TenantID              string
+	SeriesID              string
+	Slug                  string
+	Title                 string
+	Subtitle              string
+	Description           string
+	StartsAt              time.Time
+	EndsAt                *time.Time
+	Timezone              string
+	LocationName          string
+	Address               string
+	OnlineURL             string
+	ParticipationMode     string
+	Status                string
+	IsPublic              bool
+	RegistrationEnabled   bool
+	WaitlistEnabled       bool
+	MaxParticipants       *int
+	ConfirmedParticipants int
+	WaitlistEntries       int
+	ChangeNote            string
+	CancelledReason       string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type CreateEventParams struct {
@@ -116,6 +118,16 @@ func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, 
 		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
             starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
             participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            (SELECT COUNT(*)
+             FROM registrations r
+             WHERE r.tenant_id = events.tenant_id
+               AND r.event_id = events.id
+               AND r.status = 'confirmed') AS confirmed_count,
+            (SELECT COUNT(*)
+             FROM waitlist_entries w
+             WHERE w.tenant_id = events.tenant_id
+               AND w.event_id = events.id
+               AND w.status IN ('waiting', 'offered')) AS waitlist_count,
             COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
      FROM events
      WHERE tenant_id = ?
@@ -223,6 +235,16 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID, eventID string)
 		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
             starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
             participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            (SELECT COUNT(*)
+             FROM registrations r
+             WHERE r.tenant_id = events.tenant_id
+               AND r.event_id = events.id
+               AND r.status = 'confirmed') AS confirmed_count,
+            (SELECT COUNT(*)
+             FROM waitlist_entries w
+             WHERE w.tenant_id = events.tenant_id
+               AND w.event_id = events.id
+               AND w.status IN ('waiting', 'offered')) AS waitlist_count,
             COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
      FROM events
      WHERE tenant_id = ? AND id = ?
@@ -483,6 +505,39 @@ func (r *Repository) MarkEventCompleted(ctx context.Context, tenantID, eventID s
 	return r.GetEventByID(ctx, tenantID, eventID)
 }
 
+func (r *Repository) ArchiveEvent(ctx context.Context, tenantID, eventID string) (Event, error) {
+	current, err := r.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+	if !canArchive(current.Status) {
+		return Event{}, ErrInvalidStatusTransition
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE events
+     SET status = ?, is_public = 0, registration_enabled = 0, waitlist_enabled = 0, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		EventStatusArchived,
+		now,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(eventID),
+	)
+	if err != nil {
+		return Event{}, fmt.Errorf("archive event: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("archive event rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return Event{}, ErrEventNotFound
+	}
+	return r.GetEventByID(ctx, tenantID, eventID)
+}
+
 func (r *Repository) transitionPublishState(ctx context.Context, tenantID, eventID string, published bool) (Event, error) {
 	current, err := r.GetEventByID(ctx, tenantID, eventID)
 	if err != nil {
@@ -558,6 +613,10 @@ func canMarkCompleted(status string) bool {
 	default:
 		return false
 	}
+}
+
+func canArchive(status string) bool {
+	return strings.ToLower(strings.TrimSpace(status)) != EventStatusArchived
 }
 
 func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, current Event, params UpdateEventParams) (Event, bool, error) {
@@ -939,6 +998,8 @@ func scanEvent(row rowScanner) (Event, error) {
 		&registrationEnabled,
 		&waitlistEnabled,
 		&maxParticipantsRaw,
+		&item.ConfirmedParticipants,
+		&item.WaitlistEntries,
 		&item.ChangeNote,
 		&item.CancelledReason,
 		&createdAtRaw,
