@@ -484,7 +484,7 @@
       : state.editingEventId === item.id;
     const subtitle = item.subtitle ? `<div class="event-card-subline">${escapeHTML(item.subtitle)}</div>` : "";
     const counts = `${Number(item.confirmed_participants || 0)} Teilnehmer · ${Number(item.waitlist_entries || 0)} Warteliste`;
-    const canToggleVisibility = canToggleVisibility(item);
+    const visibilityToggleAllowed = canToggleVisibility(item);
     const visibilityLabel = item.is_public ? "Aktiv" : "Inaktiv";
     const visibilityClass = item.is_public ? "ok" : "light";
     const visibilityAction = item.is_public ? "unpublish" : "publish";
@@ -494,7 +494,7 @@
       <article class="event-card${isActive ? " is-active" : ""}" data-event-card="${escapeAttr(item.id)}" data-event-context="${escapeAttr(context)}">
         <div class="event-card-meta-row">
           <span class="event-card-date">${escapeHTML(formatDateTime(item.starts_at))}</span>
-          <button class="btn tiny ${visibilityClass}" type="button" data-event-action="${escapeAttr(visibilityAction)}" data-event-id="${escapeAttr(item.id)}"${canToggleVisibility ? "" : " disabled"}>${escapeHTML(visibilityLabel)}</button>
+          <button class="btn tiny ${visibilityClass}" type="button" data-event-action="${escapeAttr(visibilityAction)}" data-event-id="${escapeAttr(item.id)}"${visibilityToggleAllowed ? "" : " disabled"}>${escapeHTML(visibilityLabel)}</button>
         </div>
         <div class="event-card-title">${escapeHTML(item.title || "-")}</div>
         ${subtitle}
