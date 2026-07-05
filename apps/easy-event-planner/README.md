@@ -76,7 +76,7 @@ Die erste Admin-Oberflaeche ist unter `/admin` verfuegbar:
 open http://localhost:8080/admin
 ```
 
-Enthalten sind aktuell: Login (Magic Link), Dashboard, Event-Anlage/-Bearbeitung mit linker Event-Navigation, Sichtbarkeits-Toggle, Archivieren statt Schnell-Loeschen, Wiederholungsmodus fuer neue Termine, Event-Serienverwaltung mit Terminvorlagen, Teilnehmerlisten mit schnellem Event-Wechsel und der Snippet-Builder.
+Enthalten sind aktuell: Login (Magic Link), Dashboard, Event-Anlage/-Bearbeitung mit linker Event-Navigation, Sichtbarkeits-Toggle, Archivieren statt Schnell-Loeschen, Wiederholungsmodus fuer neue Termine, Event-Serienverwaltung im Listen-/Detail-Layout mit Terminschnellwahl, Teilnehmerlisten mit Event-Wechsel plus Teilnehmer-Historie und der Snippet-Builder.
 
 Hinweis: Fuer den Login muss ein aktiver Organizer-User in `tenant_users` vorhanden sein.
 
@@ -131,7 +131,7 @@ cd apps/easy-event-planner
 ./smoke/functional-smoke.sh
 ```
 
-Hinweis: Standard-Port ist `18081`, optional ueberschreibbar mit `EEP_SMOKE_PORT`.
+Hinweis: Standard-Port ist `18081`, optional ueberschreibbar mit `EEP_SMOKE_PORT`. Der Functional Smoke deckt jetzt auch den Snippet-Flow (`/api/v1/admin/snippets`, `/{tenantSlug}/include.js`, `/api/v1/public/{tenantSlug}/snippet/events`) mit ab.
 
 ## Docker
 

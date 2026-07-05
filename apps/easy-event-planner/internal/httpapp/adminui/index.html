@@ -150,11 +150,11 @@
                 </label>
                 <label>
                   Start (lokal)
-                  <input name="starts_at" type="datetime-local" required>
+                  <input name="starts_at" type="datetime-local" step="900" required>
                 </label>
                 <label>
                   Ende (optional)
-                  <input name="ends_at" type="datetime-local">
+                  <input name="ends_at" type="datetime-local" step="900">
                 </label>
                 <label>
                   Zeitzone
@@ -202,62 +202,63 @@
         <section id="tab-series" class="tabpane">
           <div class="split split-wide">
             <div class="card">
-              <div class="card-head">
+              <div class="table-toolbar">
                 <div>
-                  <h2 id="seriesFormHeading">Event-Serie anlegen</h2>
-                  <p id="seriesFormHint" class="muted compact">Vorlagen fuer mehrtaegige oder wiederkehrende Formate pflegen.</p>
+                  <h2>Event-Serien</h2>
+                  <p class="muted compact">Waehle links eine Serie und springe von dort direkt in die zugehoerigen Termine.</p>
                 </div>
-                <button id="seriesCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
+                <div class="toolbar-actions">
+                  <button id="newSeriesBtn" class="btn ghost" type="button">Neue Serie</button>
+                  <button id="refreshSeriesBtn" class="btn light" type="button">Aktualisieren</button>
+                </div>
               </div>
-              <form id="seriesForm" class="form-grid">
-                <label>
-                  Titel
-                  <input name="title" type="text" placeholder="Workshop-Reihe Sommer" required>
-                </label>
-                <label>
-                  Slug (optional)
-                  <input name="slug" type="text" placeholder="workshop-reihe-sommer">
-                </label>
-                <label class="span-2">
-                  Beschreibung (optional)
-                  <textarea name="description" rows="5" placeholder="Grundidee, Zielgruppe, Pakete, Uebernachtung, Hinweise ..."></textarea>
-                </label>
-                <label>
-                  Standard-Ort
-                  <input name="default_location_name" type="text" placeholder="Seminarhaus am See">
-                </label>
-                <label>
-                  Standard-Adresse
-                  <input name="default_address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
-                </label>
-                <label class="span-2">
-                  Standard-Online-URL
-                  <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
-                </label>
-                <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
-
-                <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
-              </form>
+              <div id="seriesList" class="stack-list" aria-live="polite"></div>
             </div>
 
-            <div class="card">
-              <div class="table-toolbar">
-                <h2>Event-Serien</h2>
-                <button id="refreshSeriesBtn" class="btn light" type="button">Aktualisieren</button>
+            <div class="stack-panel">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2 id="seriesFormHeading">Event-Serie anlegen</h2>
+                    <p id="seriesFormHint" class="muted compact">Vorlagen fuer mehrtaegige oder wiederkehrende Formate pflegen.</p>
+                  </div>
+                  <div class="toolbar-actions">
+                    <button id="seriesCreateEventBtn" class="btn light" type="button">Termin anlegen</button>
+                    <button id="seriesCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
+                  </div>
+                </div>
+                <div id="seriesEventTabs" class="inline-tabs" aria-live="polite"></div>
+                <form id="seriesForm" class="form-grid">
+                  <label>
+                    Titel
+                    <input name="title" type="text" placeholder="Workshop-Reihe Sommer" required>
+                  </label>
+                  <label>
+                    Slug (optional)
+                    <input name="slug" type="text" placeholder="workshop-reihe-sommer">
+                  </label>
+                  <label class="span-2">
+                    Beschreibung (optional)
+                    <textarea name="description" rows="5" placeholder="Grundidee, Zielgruppe, Pakete, Uebernachtung, Hinweise ..."></textarea>
+                  </label>
+                  <label>
+                    Standard-Ort
+                    <input name="default_location_name" type="text" placeholder="Seminarhaus am See">
+                  </label>
+                  <label>
+                    Standard-Adresse
+                    <input name="default_address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
+                  </label>
+                  <label class="span-2">
+                    Standard-Online-URL
+                    <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
+                  </label>
+                  <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
+
+                  <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
+                </form>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Titel</th>
-                      <th>Standards</th>
-                      <th>Sichtbar</th>
-                      <th>Aktionen</th>
-                    </tr>
-                  </thead>
-                  <tbody id="seriesTableBody"></tbody>
-                </table>
-              </div>
+
             </div>
           </div>
         </section>
@@ -327,6 +328,16 @@
                     <tbody id="registrationsTableBody"></tbody>
                   </table>
                 </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2 id="participantBookingsTitle">Teilnehmer-Historie</h2>
+                    <p id="participantBookingsHint" class="muted compact">Waehle oben einen Teilnehmer aus, um weitere gebuchte Events zu sehen.</p>
+                  </div>
+                </div>
+                <div id="participantBookingsSummary" class="stack-list" aria-live="polite"></div>
               </div>
             </div>
           </div>

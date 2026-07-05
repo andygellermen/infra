@@ -3,7 +3,10 @@
     auth: null,
     events: [],
     series: [],
+    registrationsByEvent: {},
     selectedEventId: "",
+    selectedParticipantEmail: "",
+    selectedParticipantName: "",
     snippets: [],
     editingEventId: "",
     editingSeriesId: "",
@@ -39,9 +42,12 @@
     seriesFormHeading: document.querySelector("#seriesFormHeading"),
     seriesFormHint: document.querySelector("#seriesFormHint"),
     seriesCancelEditBtn: document.querySelector("#seriesCancelEditBtn"),
+    newSeriesBtn: document.querySelector("#newSeriesBtn"),
+    seriesCreateEventBtn: document.querySelector("#seriesCreateEventBtn"),
     seriesSubmitBtn: document.querySelector("#seriesSubmitBtn"),
     refreshSeriesBtn: document.querySelector("#refreshSeriesBtn"),
-    seriesTableBody: document.querySelector("#seriesTableBody"),
+    seriesList: document.querySelector("#seriesList"),
+    seriesEventTabs: document.querySelector("#seriesEventTabs"),
     registrationEventSelect: document.querySelector("#registrationEventSelect"),
     registrationsEventList: document.querySelector("#registrationsEventList"),
     registrationEventTitle: document.querySelector("#registrationEventTitle"),
@@ -50,6 +56,9 @@
     manualRegistrationForm: document.querySelector("#manualRegistrationForm"),
     manualRegistrationSubmitBtn: document.querySelector("#manualRegistrationSubmitBtn"),
     registrationsTableBody: document.querySelector("#registrationsTableBody"),
+    participantBookingsTitle: document.querySelector("#participantBookingsTitle"),
+    participantBookingsHint: document.querySelector("#participantBookingsHint"),
+    participantBookingsSummary: document.querySelector("#participantBookingsSummary"),
     snippetForm: document.querySelector("#snippetForm"),
     snippetSubmitBtn: document.querySelector("#snippetSubmitBtn"),
     refreshSnippetsBtn: document.querySelector("#refreshSnippetsBtn"),
@@ -58,11 +67,14 @@
   };
 
   const STORAGE_TENANT_KEY = "eep_admin_tenant_slug";
+  const SCHEDULE_MIN_HOUR = 8;
+  const SCHEDULE_MAX_HOUR = 22;
 
   bindUI();
   restoreTenantSlug();
   resetEventForm();
   resetSeriesForm();
+  resetParticipantBookings();
   refreshSession();
 
   function bindUI() {
@@ -80,6 +92,8 @@
     }
     if (ui.eventForm) {
       ui.eventForm.addEventListener("submit", onEventSubmit);
+      bindDateTimeFieldValidation("starts_at", "Startzeit");
+      bindDateTimeFieldValidation("ends_at", "Endzeit", true);
     }
     if (ui.eventRecurrenceMode) {
       ui.eventRecurrenceMode.addEventListener("change", syncRecurrenceFields);
@@ -99,9 +113,26 @@
     if (ui.seriesForm) {
       ui.seriesForm.addEventListener("submit", onSeriesSubmit);
     }
+    if (ui.newSeriesBtn) {
+      ui.newSeriesBtn.addEventListener("click", () => {
+        resetSeriesForm();
+        renderSeries(state.series);
+        setFlash("Neue Serie vorbereitet.");
+      });
+    }
+    if (ui.seriesCreateEventBtn) {
+      ui.seriesCreateEventBtn.addEventListener("click", () => {
+        if (!state.editingSeriesId) {
+          setFlash("Bitte zuerst links eine Serie auswaehlen oder speichern.", "error");
+          return;
+        }
+        startEventCreationFromSeries(state.editingSeriesId);
+      });
+    }
     if (ui.seriesCancelEditBtn) {
       ui.seriesCancelEditBtn.addEventListener("click", () => {
         resetSeriesForm();
+        renderSeries(state.series);
         setFlash("Serien-Bearbeitung abgebrochen.");
       });
     }
@@ -290,9 +321,9 @@
       const items = Array.isArray(payload && payload.items) ? payload.items.slice() : [];
       items.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
       state.series = items;
+      ensureSeriesEditorSelection(items);
       renderSeries(items);
       fillEventSeriesSelect(currentEventSeriesSelection());
-      maybeResetSeriesEditorAfterReload(items);
       maybeResetEventSeriesSelectionAfterReload();
       if (config.rerenderEvents !== false) {
         renderEvents(state.events);
@@ -306,41 +337,43 @@
   }
 
   function renderSeries(items) {
-    if (!items.length) {
-      ui.seriesTableBody.innerHTML = rowMessage("Noch keine Event-Serien vorhanden.", 4);
+    if (!ui.seriesList) {
       return;
     }
 
-    ui.seriesTableBody.innerHTML = items
-      .map((item) => {
-        const defaults = [
-          item.default_location_name ? `Ort: ${item.default_location_name}` : "",
-          item.default_address ? `Adresse: ${item.default_address}` : "",
-          item.default_online_url ? `Online: ${item.default_online_url}` : "",
-        ].filter(Boolean);
+    if (!items.length) {
+      ui.seriesList.innerHTML = emptyStackMessage("Noch keine Event-Serien vorhanden.");
+      renderSeriesEventTabs("");
+      updateSeriesActionButtons();
+      return;
+    }
 
-        return `
-          <tr>
-            <td>
-              <strong>${escapeHTML(item.title || "-")}</strong><br>
-              <span class="muted">${escapeHTML(item.slug || "")}</span>
-              ${item.description ? `<div class="table-subline">${escapeHTML(item.description)}</div>` : ""}
-            </td>
-            <td>${defaults.length ? defaults.map((entry) => `<div class="meta-stack">${escapeHTML(entry)}</div>`).join("") : "<span class='muted'>Keine Standards gesetzt</span>"}</td>
-            <td>${item.is_public ? "Ja" : "Nein"}</td>
-            <td>
-              <div class="row-actions">
-                <button class="btn tiny light" type="button" data-series-action="create-event" data-series-id="${escapeAttr(item.id)}">Termin anlegen</button>
-                <button class="btn tiny light" type="button" data-series-action="edit" data-series-id="${escapeAttr(item.id)}">Bearbeiten</button>
-                <button class="btn tiny warn" type="button" data-series-action="delete" data-series-id="${escapeAttr(item.id)}">Loeschen</button>
-              </div>
-            </td>
-          </tr>
-        `;
+    ui.seriesList.innerHTML = items
+      .map((item) => {
+        return renderSeriesCard(item);
       })
       .join("");
 
-    ui.seriesTableBody.querySelectorAll("button[data-series-action]").forEach((btn) => {
+    renderSeriesEventTabs(state.editingSeriesId);
+    updateSeriesActionButtons();
+
+    ui.seriesList.querySelectorAll("[data-series-card]").forEach((card) => {
+      card.addEventListener("click", (ev) => {
+        if (ev.target.closest("button")) {
+          return;
+        }
+        const seriesID = String(card.dataset.seriesCard || "");
+        const item = findSeriesByID(seriesID);
+        if (!item) {
+          return;
+        }
+        populateSeriesFormForEdit(item);
+        renderSeries(state.series);
+        activateTab("series");
+      });
+    });
+
+    ui.seriesList.querySelectorAll("button[data-series-action]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const action = String(btn.dataset.seriesAction || "");
         const seriesID = String(btn.dataset.seriesId || "");
@@ -355,6 +388,7 @@
             return;
           }
           populateSeriesFormForEdit(item);
+          renderSeries(state.series);
           activateTab("series");
           return;
         }
@@ -388,6 +422,14 @@
             setButtonBusy(btn, false);
           }
         }
+      });
+    });
+
+    ui.seriesList.querySelectorAll("button[data-series-event-id]").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const eventID = String(btn.dataset.seriesEventId || "");
+        openSeriesEvent(eventID);
       });
     });
   }
@@ -446,6 +488,7 @@
       state.events = items;
       maybeResetEventEditorAfterReload(items);
       renderEvents(items);
+      renderSeries(state.series);
       fillRegistrationEventSelect(items);
       syncRegistrationSelectionSummary();
       if (notify) {
@@ -687,12 +730,14 @@
       throw new Error("Titel und Startzeit sind Pflichtfelder.");
     }
 
+    validateScheduleDateTime(startsAtLocal, "Startzeit");
     const startsAt = toISO(startsAtLocal);
     if (!startsAt) {
       throw new Error("Startzeit ist ungueltig.");
     }
 
     const endsAtLocal = String(formData.get("ends_at") || "").trim();
+    validateScheduleDateTime(endsAtLocal, "Endzeit", true);
     const endsAt = endsAtLocal ? toISO(endsAtLocal) : "";
     if (endsAtLocal && !endsAt) {
       throw new Error("Endzeit ist ungueltig.");
@@ -1031,6 +1076,17 @@
     }
   }
 
+  function ensureSeriesEditorSelection(items) {
+    if (!items.length) {
+      resetSeriesForm();
+      return;
+    }
+    const current = state.editingSeriesId
+      ? items.find((item) => item.id === state.editingSeriesId)
+      : null;
+    populateSeriesFormForEdit(current || items[0]);
+  }
+
   function currentEventSeriesSelection() {
     if (state.editingEventId) {
       const current = currentEditingEvent();
@@ -1146,6 +1202,8 @@
     if (ui.seriesCancelEditBtn) {
       ui.seriesCancelEditBtn.hidden = true;
     }
+    renderSeriesEventTabs("");
+    updateSeriesActionButtons();
   }
 
   function populateSeriesFormForEdit(item) {
@@ -1173,6 +1231,8 @@
     if (ui.seriesCancelEditBtn) {
       ui.seriesCancelEditBtn.hidden = false;
     }
+    renderSeriesEventTabs(item.id);
+    updateSeriesActionButtons();
   }
 
   function fillRegistrationEventSelect(items) {
@@ -1206,6 +1266,7 @@
     if (!eventID) {
       ui.registrationsTableBody.innerHTML = rowMessage("Kein Event ausgewaehlt.", 6);
       syncRegistrationSelectionSummary();
+      resetParticipantBookings();
       return;
     }
 
@@ -1214,7 +1275,9 @@
       syncRegistrationSelectionSummary();
       const payload = await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/registrations`);
       const items = Array.isArray(payload && payload.items) ? payload.items : [];
+      state.registrationsByEvent[eventID] = items;
       renderRegistrations(items);
+      refreshParticipantBookingsFromCache();
       renderEvents(state.events);
       if (notify) {
         setFlash("Teilnehmerliste aktualisiert.");
@@ -1280,6 +1343,7 @@
   function renderRegistrations(items) {
     if (!items.length) {
       ui.registrationsTableBody.innerHTML = rowMessage("Keine Teilnehmer fuer dieses Event.", 6);
+      resetParticipantBookings();
       return;
     }
 
@@ -1294,7 +1358,7 @@
           : "";
 
         return `
-          <tr>
+          <tr class="registration-row${isSelectedParticipant(item.participant_email) ? " is-active" : ""}" data-reg-row data-reg-email="${escapeAttr(item.participant_email || "")}" data-reg-name="${escapeAttr(item.participant_name || "")}">
             <td>${escapeHTML(item.participant_name || "-")}</td>
             <td>${escapeHTML(item.participant_email || "-")}</td>
             <td>${statusPill(item.status)}</td>
@@ -1310,6 +1374,23 @@
         `;
       })
       .join("");
+
+    ui.registrationsTableBody.querySelectorAll("tr[data-reg-row]").forEach((row) => {
+      row.addEventListener("click", async (ev) => {
+        if (ev.target.closest("button")) {
+          return;
+        }
+        const email = String(row.dataset.regEmail || "").trim().toLowerCase();
+        const name = String(row.dataset.regName || "").trim();
+        if (!email) {
+          return;
+        }
+        state.selectedParticipantEmail = email;
+        state.selectedParticipantName = name;
+        renderRegistrations(items);
+        await hydrateParticipantBookings(email, name);
+      });
+    });
 
     ui.registrationsTableBody.querySelectorAll("button[data-reg-action]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -1484,6 +1565,217 @@
     return `<div class="empty-stack">${escapeHTML(message)}</div>`;
   }
 
+  function renderSeriesCard(item) {
+    const isActive = state.editingSeriesId === item.id;
+    const defaults = [
+      item.default_location_name ? `Ort: ${item.default_location_name}` : "",
+      item.default_address ? `Adresse: ${item.default_address}` : "",
+      item.default_online_url ? `Online: ${item.default_online_url}` : "",
+    ].filter(Boolean);
+    const seriesEvents = getSeriesEvents(item.id).slice(0, 5);
+    const appointmentButtons = seriesEvents.length
+      ? `
+        <div class="series-appointment-buttons">
+          ${seriesEvents.map((eventItem) => `
+            <button class="btn tiny ghost" type="button" data-series-event-id="${escapeAttr(eventItem.id)}">${escapeHTML(formatShortDateTime(eventItem.starts_at))}</button>
+          `).join("")}
+        </div>
+      `
+      : `<div class="muted compact">Noch keine Termine angelegt.</div>`;
+
+    return `
+      <article class="event-card series-card${isActive ? " is-active" : ""}" data-series-card="${escapeAttr(item.id)}">
+        <div class="event-card-meta-row">
+          <span class="event-card-date">${escapeHTML(item.slug || "")}</span>
+          <span class="series-chip">${item.is_public ? "Sichtbar" : "Intern"}</span>
+        </div>
+        <div class="event-card-title">${escapeHTML(item.title || "-")}</div>
+        ${item.description ? `<div class="event-card-subline">${escapeHTML(item.description)}</div>` : ""}
+        <div class="series-defaults">
+          ${defaults.length ? defaults.map((entry) => `<div class="meta-stack">${escapeHTML(entry)}</div>`).join("") : "<span class='muted'>Keine Standards gesetzt</span>"}
+        </div>
+        <div class="series-appointments">
+          <strong>Naechste Termine</strong>
+          ${appointmentButtons}
+        </div>
+        <div class="event-card-actions">
+          <button class="btn tiny light" type="button" data-series-action="edit" data-series-id="${escapeAttr(item.id)}">Bearbeiten</button>
+          <button class="btn tiny light" type="button" data-series-action="create-event" data-series-id="${escapeAttr(item.id)}">Termin anlegen</button>
+          <button class="btn tiny warn" type="button" data-series-action="delete" data-series-id="${escapeAttr(item.id)}">Loeschen</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function getSeriesEvents(seriesID) {
+    return state.events
+      .filter((item) => String(item.series_id || "").trim() === String(seriesID || "").trim())
+      .slice()
+      .sort((a, b) => String(a.starts_at || "").localeCompare(String(b.starts_at || "")));
+  }
+
+  function renderSeriesEventTabs(seriesID) {
+    if (!ui.seriesEventTabs) {
+      return;
+    }
+    if (!seriesID) {
+      ui.seriesEventTabs.innerHTML = emptyInlineHint("Serie speichern oder links auswaehlen, um zugehoerige Termine hier als Tabs anzuzeigen.");
+      return;
+    }
+    const seriesEvents = getSeriesEvents(seriesID);
+    if (!seriesEvents.length) {
+      ui.seriesEventTabs.innerHTML = emptyInlineHint("Zu dieser Serie gibt es noch keine Termine.");
+      return;
+    }
+    ui.seriesEventTabs.innerHTML = seriesEvents.map((item) => {
+      const activeClass = state.editingEventId === item.id ? " is-active" : "";
+      return `<button class="inline-tab${activeClass}" type="button" data-series-event-id="${escapeAttr(item.id)}">${escapeHTML(formatShortDateTime(item.starts_at))}</button>`;
+    }).join("");
+    ui.seriesEventTabs.querySelectorAll("button[data-series-event-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const eventID = String(btn.dataset.seriesEventId || "");
+        openSeriesEvent(eventID);
+      });
+    });
+  }
+
+  function emptyInlineHint(message) {
+    return `<div class="inline-hint">${escapeHTML(message)}</div>`;
+  }
+
+  function updateSeriesActionButtons() {
+    if (ui.seriesCreateEventBtn) {
+      ui.seriesCreateEventBtn.disabled = !state.editingSeriesId;
+    }
+  }
+
+  function openSeriesEvent(eventID) {
+    const item = findEventByID(eventID);
+    if (!item) {
+      setFlash("Termin konnte nicht geladen werden.", "error");
+      return;
+    }
+    populateEventFormForEdit(item);
+    renderEvents(state.events);
+    renderSeriesEventTabs(String(item.series_id || "").trim());
+    activateTab("events");
+    setFlash(`Termin '${item.title || item.slug || item.id}' zur Bearbeitung geoeffnet.`);
+  }
+
+  async function hydrateParticipantBookings(email, name) {
+    renderParticipantBookingsLoading(name || email);
+    for (const eventItem of state.events) {
+      if (state.registrationsByEvent[eventItem.id]) {
+        continue;
+      }
+      try {
+        const payload = await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventItem.id)}/registrations`);
+        state.registrationsByEvent[eventItem.id] = Array.isArray(payload && payload.items) ? payload.items : [];
+      } catch (err) {
+        state.registrationsByEvent[eventItem.id] = [];
+        setFlash(`Teilnehmer-Historie konnte nicht vollstaendig geladen werden: ${errorMessage(err)}`, "error");
+        break;
+      }
+    }
+    renderParticipantBookings(email, name);
+  }
+
+  function refreshParticipantBookingsFromCache() {
+    if (!state.selectedParticipantEmail) {
+      return;
+    }
+    renderParticipantBookings(state.selectedParticipantEmail, state.selectedParticipantName);
+  }
+
+  function resetParticipantBookings() {
+    state.selectedParticipantEmail = "";
+    state.selectedParticipantName = "";
+    if (ui.participantBookingsTitle) {
+      ui.participantBookingsTitle.textContent = "Teilnehmer-Historie";
+    }
+    if (ui.participantBookingsHint) {
+      ui.participantBookingsHint.textContent = "Waehle oben einen Teilnehmer aus, um weitere gebuchte Events zu sehen.";
+    }
+    if (ui.participantBookingsSummary) {
+      ui.participantBookingsSummary.innerHTML = emptyStackMessage("Noch kein Teilnehmer ausgewaehlt.");
+    }
+  }
+
+  function renderParticipantBookingsLoading(label) {
+    if (ui.participantBookingsTitle) {
+      ui.participantBookingsTitle.textContent = label || "Teilnehmer-Historie";
+    }
+    if (ui.participantBookingsHint) {
+      ui.participantBookingsHint.textContent = "Weitere Buchungen werden geladen ...";
+    }
+    if (ui.participantBookingsSummary) {
+      ui.participantBookingsSummary.innerHTML = emptyStackMessage("Buchungen werden zusammengesucht ...");
+    }
+  }
+
+  function renderParticipantBookings(email, name) {
+    if (!email) {
+      resetParticipantBookings();
+      return;
+    }
+    const bookings = buildParticipantBookings(email);
+    if (ui.participantBookingsTitle) {
+      ui.participantBookingsTitle.textContent = name || email;
+    }
+    if (ui.participantBookingsHint) {
+      ui.participantBookingsHint.textContent = bookings.length
+        ? `${bookings.length} Buchung(en) ueber alle geladenen Events hinweg. Klick auf einen Eintrag springt direkt zum Termin.`
+        : "Keine weiteren Buchungen fuer diesen Teilnehmer gefunden.";
+    }
+    if (!ui.participantBookingsSummary) {
+      return;
+    }
+    if (!bookings.length) {
+      ui.participantBookingsSummary.innerHTML = emptyStackMessage("Keine weiteren Buchungen gefunden.");
+      return;
+    }
+    ui.participantBookingsSummary.innerHTML = bookings.map((entry) => {
+      return `
+        <article class="event-card participant-booking-card" data-booking-event-id="${escapeAttr(entry.event.id)}">
+          <div class="event-card-meta-row">
+            <span class="event-card-date">${escapeHTML(formatDateTime(entry.event.starts_at))}</span>
+            ${statusPill(entry.registration.status)}
+          </div>
+          <div class="event-card-title">${escapeHTML(entry.event.title || entry.event.slug || entry.event.id)}</div>
+          <div class="event-card-foot">
+            <span class="muted">${escapeHTML(entry.registration.participation_type || "-")} · Zahlung ${escapeHTML(entry.registration.payment_status || "-")}</span>
+            <button class="btn tiny light" type="button" data-booking-open-event="${escapeAttr(entry.event.id)}">Zum Event</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+    ui.participantBookingsSummary.querySelectorAll("[data-booking-open-event]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const eventID = String(btn.dataset.bookingOpenEvent || "");
+        await focusRegistrationsForEvent(eventID);
+      });
+    });
+  }
+
+  function buildParticipantBookings(email) {
+    const needle = String(email || "").trim().toLowerCase();
+    if (!needle) {
+      return [];
+    }
+    return state.events
+      .map((eventItem) => {
+        const registrations = state.registrationsByEvent[eventItem.id] || [];
+        const registration = registrations.find((item) => String(item.participant_email || "").trim().toLowerCase() === needle);
+        return registration ? { event: eventItem, registration } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => String(a.event.starts_at || "").localeCompare(String(b.event.starts_at || "")));
+  }
+
+  function isSelectedParticipant(email) {
+    return !!email && String(email).trim().toLowerCase() === state.selectedParticipantEmail;
+  }
+
   function setFlash(message, type) {
     const flashType = type || "info";
     if (!ui.flash) {
@@ -1590,6 +1882,22 @@
     }).format(date);
   }
 
+  function formatShortDateTime(value) {
+    if (!value) {
+      return "-";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+    return new Intl.DateTimeFormat("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  }
+
   function toISO(localDateTimeValue) {
     if (!localDateTimeValue) {
       return "";
@@ -1636,6 +1944,47 @@
     if (field) {
       field.disabled = !!disabled;
     }
+  }
+
+  function bindDateTimeFieldValidation(fieldName, label, allowEmpty) {
+    const field = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}']`) : null;
+    if (!field) {
+      return;
+    }
+    const handler = () => {
+      const message = getScheduleValidationMessage(String(field.value || "").trim(), label, !!allowEmpty);
+      field.setCustomValidity(message);
+    };
+    field.addEventListener("change", handler);
+    field.addEventListener("input", handler);
+    handler();
+  }
+
+  function validateScheduleDateTime(localDateTimeValue, label, allowEmpty) {
+    const message = getScheduleValidationMessage(localDateTimeValue, label, !!allowEmpty);
+    if (message) {
+      throw new Error(message);
+    }
+  }
+
+  function getScheduleValidationMessage(localDateTimeValue, label, allowEmpty) {
+    const value = String(localDateTimeValue || "").trim();
+    if (!value) {
+      return allowEmpty ? "" : `${label} ist erforderlich.`;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return `${label} ist ungueltig.`;
+    }
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    if ([0, 15, 30, 45].indexOf(minutes) === -1) {
+      return `${label} muss auf Viertelstunden liegen (:00, :15, :30, :45).`;
+    }
+    if (hours < SCHEDULE_MIN_HOUR || hours > SCHEDULE_MAX_HOUR || (hours === SCHEDULE_MAX_HOUR && minutes > 0)) {
+      return `${label} muss zwischen 08:00 und 22:00 Uhr liegen.`;
+    }
+    return "";
   }
 
   function isChecked(form, fieldName) {

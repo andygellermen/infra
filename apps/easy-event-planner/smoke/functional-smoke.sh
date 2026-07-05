@@ -201,6 +201,35 @@ PUBLIC_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/events")
 printf "%s\n" "$PUBLIC_EVENTS_RESP"
 printf "%s" "$PUBLIC_EVENTS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert int(data.get("total",0)) >= 1'
 
+SNIPPET_SLUG="smoke-snippet-$(date +%s)"
+
+echo "== functional smoke: create snippet =="
+SNIPPET_CREATE_RESP=$(curl -fsS -X POST "$BASE_URL/api/v1/admin/snippets" \
+  -H "Content-Type: application/json" \
+  -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}" \
+  -d "{\"name\":\"Smoke Snippet\",\"slug\":\"${SNIPPET_SLUG}\",\"view_type\":\"cards\",\"event_filter\":{\"events\":\"upcoming\",\"limit\":3},\"display_options\":{\"theme\":\"light\",\"register\":true},\"is_active\":true}")
+printf "%s\n" "$SNIPPET_CREATE_RESP"
+SNIPPET_ID=$(printf "%s" "$SNIPPET_CREATE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["item"]["id"])')
+[ -n "$SNIPPET_ID" ] || die "snippet id missing"
+
+echo "== functional smoke: fetch snippet embed code =="
+SNIPPET_EMBED_RESP=$(curl -fsS "$BASE_URL/api/v1/admin/snippets/${SNIPPET_ID}/embed-code" \
+  -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}")
+printf "%s\n" "$SNIPPET_EMBED_RESP"
+printf "%s" "$SNIPPET_EMBED_RESP" | TENANT_SLUG_EXPECTED="$TENANT_SLUG" SNIPPET_SLUG_EXPECTED="$SNIPPET_SLUG" \
+  python3 -c 'import json,os,sys; data=json.load(sys.stdin); code=data.get("embed_code",""); expected="/" + os.environ["TENANT_SLUG_EXPECTED"] + "/include.js?config=" + os.environ["SNIPPET_SLUG_EXPECTED"]; assert expected in code'
+
+echo "== functional smoke: snippet include.js =="
+SNIPPET_INCLUDE_RESP=$(curl -fsS "$BASE_URL/${TENANT_SLUG}/include.js?config=${SNIPPET_SLUG}")
+printf "%s\n" "$SNIPPET_INCLUDE_RESP" | sed -n '1,8p'
+printf "%s" "$SNIPPET_INCLUDE_RESP" | TENANT_SLUG_EXPECTED="$TENANT_SLUG" \
+  python3 -c 'import os,sys; body=sys.stdin.read(); assert "/api/v1/public/" in body; assert "/snippet/events" in body; assert os.environ["TENANT_SLUG_EXPECTED"] in body'
+
+echo "== functional smoke: snippet public events =="
+SNIPPET_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/snippet/events?config=${SNIPPET_SLUG}")
+printf "%s\n" "$SNIPPET_EVENTS_RESP"
+printf "%s" "$SNIPPET_EVENTS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert int(data.get("total",0)) >= 1; assert data.get("view") == "cards"'
+
 REG_EMAIL="max+$(date +%s)@example.com"
 
 echo "== functional smoke: start registration =="

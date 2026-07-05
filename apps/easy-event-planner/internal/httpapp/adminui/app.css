@@ -112,6 +112,13 @@ h2 {
   gap: 10px;
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .user-pill {
   border: 1px solid var(--line);
   background: #ffffffb8;
@@ -326,6 +333,39 @@ textarea:focus {
   gap: 10px;
 }
 
+.inline-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.inline-tab {
+  border: 1px solid #cce2df;
+  background: #eef6f5;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inline-tab.is-active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.inline-hint {
+  border: 1px dashed #cfe0e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--ink-soft);
+  background: #f8fcfc;
+  font-size: 0.88rem;
+}
+
 .empty-stack {
   border: 1px dashed #cfe0e1;
   border-radius: 12px;
@@ -408,6 +448,35 @@ textarea:focus {
   pointer-events: auto;
 }
 
+.series-card {
+  cursor: pointer;
+}
+
+.series-defaults {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+}
+
+.series-appointments {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.series-appointments strong {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.series-appointment-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .span-2 {
   grid-column: 1 / -1;
 }
@@ -446,6 +515,23 @@ th {
 
 tr {
   animation: rowIn 260ms ease;
+}
+
+.registration-row {
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.registration-row:hover {
+  background: #f8fcfc;
+}
+
+.registration-row.is-active {
+  background: #eef8f7;
+}
+
+.participant-booking-card {
+  cursor: default;
 }
 
 @keyframes rowIn {
@@ -516,6 +602,10 @@ tr {
   background: #eef6f5;
   border: 1px solid #cce2df;
   color: var(--brand-strong);
+}
+
+.meta-stack {
+  line-height: 1.35;
 }
 
 .row-actions {
