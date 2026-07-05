@@ -1,6 +1,7 @@
 (() => {
   const state = {
     auth: null,
+    dashboard: null,
     events: [],
     series: [],
     registrationsByEvent: {},
@@ -64,13 +65,22 @@
     refreshSnippetsBtn: document.querySelector("#refreshSnippetsBtn"),
     snippetsTableBody: document.querySelector("#snippetsTableBody"),
     snippetEmbedOutput: document.querySelector("#snippetEmbedOutput"),
+    snippetScriptSrcOutput: document.querySelector("#snippetScriptSrcOutput"),
+    snippetDataUrlOutput: document.querySelector("#snippetDataUrlOutput"),
+    snippetCopyEmbedBtn: document.querySelector("#snippetCopyEmbedBtn"),
+    snippetOpenScriptBtn: document.querySelector("#snippetOpenScriptBtn"),
+    snippetOpenDataBtn: document.querySelector("#snippetOpenDataBtn"),
+    snippetPreviewHint: document.querySelector("#snippetPreviewHint"),
+    snippetPreviewFrame: document.querySelector("#snippetPreviewFrame"),
   };
 
   const STORAGE_TENANT_KEY = "eep_admin_tenant_slug";
   const SCHEDULE_MIN_HOUR = 8;
   const SCHEDULE_MAX_HOUR = 22;
+  const DEFAULT_START_TIME = "09:00";
 
   bindUI();
+  fillTimeSelectOptions();
   restoreTenantSlug();
   resetEventForm();
   resetSeriesForm();
@@ -147,6 +157,15 @@
     }
     if (ui.refreshSnippetsBtn) {
       ui.refreshSnippetsBtn.addEventListener("click", () => loadSnippets(true));
+    }
+    if (ui.snippetCopyEmbedBtn) {
+      ui.snippetCopyEmbedBtn.addEventListener("click", onSnippetCopyEmbed);
+    }
+    if (ui.snippetOpenScriptBtn) {
+      ui.snippetOpenScriptBtn.addEventListener("click", () => openSnippetURL(ui.snippetScriptSrcOutput));
+    }
+    if (ui.snippetOpenDataBtn) {
+      ui.snippetOpenDataBtn.addEventListener("click", () => openSnippetURL(ui.snippetDataUrlOutput));
     }
     if (ui.registrationEventSelect) {
       ui.registrationEventSelect.addEventListener("change", (ev) => {
@@ -270,6 +289,7 @@
   }
 
   function renderDashboard(payload) {
+    state.dashboard = payload;
     const stats = payload && payload.stats ? payload.stats : {};
     const cards = [
       { label: "Heute", value: stats.today_events },
@@ -289,7 +309,7 @@
 
     const nextEvents = Array.isArray(payload && payload.next_events) ? payload.next_events : [];
     if (nextEvents.length === 0) {
-      ui.nextEventsTableBody.innerHTML = rowMessage("Noch keine kommenden Events.", 5);
+      ui.nextEventsTableBody.innerHTML = rowMessage("Noch keine kommenden Events.", 6);
       return;
     }
 
@@ -308,10 +328,19 @@
             <td>${statusPill(item.status)}</td>
             <td>${escapeHTML(confirmed)}</td>
             <td>${escapeHTML(waitlist)}</td>
+            <td>
+              <div class="row-actions">
+                <button class="btn tiny light" type="button" data-dashboard-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>
+                <button class="btn tiny ${dashboardVisibilityButtonClass(item.id)}" type="button" data-dashboard-action="toggle-visibility" data-event-id="${escapeAttr(item.id)}"${dashboardVisibilityDisabled(item.id) ? " disabled" : ""}>${escapeHTML(dashboardVisibilityLabel(item.id))}</button>
+                <button class="btn tiny light" type="button" data-dashboard-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
+              </div>
+            </td>
           </tr>
         `;
       })
       .join("");
+
+    bindDashboardEventActions();
   }
 
   async function loadSeries(notify, options) {
@@ -489,6 +518,9 @@
       maybeResetEventEditorAfterReload(items);
       renderEvents(items);
       renderSeries(state.series);
+      if (state.dashboard) {
+        renderDashboard(state.dashboard);
+      }
       fillRegistrationEventSelect(items);
       syncRegistrationSelectionSummary();
       if (notify) {
@@ -724,7 +756,7 @@
   function buildEventRequestBody(isEdit, current) {
     const formData = new FormData(ui.eventForm);
     const title = String(formData.get("title") || "").trim();
-    const startsAtLocal = String(formData.get("starts_at") || "").trim();
+    const startsAtLocal = composeLocalDateTimeValue(formData, "starts_at");
 
     if (!title || !startsAtLocal) {
       throw new Error("Titel und Startzeit sind Pflichtfelder.");
@@ -736,7 +768,7 @@
       throw new Error("Startzeit ist ungueltig.");
     }
 
-    const endsAtLocal = String(formData.get("ends_at") || "").trim();
+    const endsAtLocal = composeLocalDateTimeValue(formData, "ends_at");
     validateScheduleDateTime(endsAtLocal, "Endzeit", true);
     const endsAt = endsAtLocal ? toISO(endsAtLocal) : "";
     if (endsAtLocal && !endsAt) {
@@ -796,8 +828,8 @@
       return [baseBody];
     }
 
-    const startsAtLocal = String(formData.get("starts_at") || "").trim();
-    const endsAtLocal = String(formData.get("ends_at") || "").trim();
+    const startsAtLocal = composeLocalDateTimeValue(formData, "starts_at");
+    const endsAtLocal = composeLocalDateTimeValue(formData, "ends_at");
     const interval = Number(String(formData.get("recurrence_interval") || "1").trim() || "1");
     if (!Number.isInteger(interval) || interval <= 0) {
       throw new Error("Wiederholungsintervall muss eine ganze Zahl > 0 sein.");
@@ -909,8 +941,8 @@
     setFieldValue(ui.eventForm, "slug", item.slug || "");
     setFieldValue(ui.eventForm, "subtitle", item.subtitle || "");
     setFieldValue(ui.eventForm, "description", item.description || "");
-    setFieldValue(ui.eventForm, "starts_at", toLocalDateTimeInputValue(item.starts_at));
-    setFieldValue(ui.eventForm, "ends_at", toLocalDateTimeInputValue(item.ends_at));
+    setDateTimeFieldValue(ui.eventForm, "starts_at", item.starts_at);
+    setDateTimeFieldValue(ui.eventForm, "ends_at", item.ends_at);
     setFieldValue(ui.eventForm, "timezone", item.timezone || "Europe/Berlin");
     setFieldValue(ui.eventForm, "location_name", item.location_name || "");
     setFieldValue(ui.eventForm, "address", item.address || "");
@@ -968,7 +1000,7 @@
       },
     });
     activateTab("events");
-    const startsAtField = ui.eventForm ? ui.eventForm.querySelector("input[name='starts_at']") : null;
+    const startsAtField = ui.eventForm ? ui.eventForm.querySelector("input[name='starts_at_date']") : null;
     if (startsAtField) {
       startsAtField.focus();
     }
@@ -987,6 +1019,8 @@
     setCheckboxValue(ui.eventForm, "registration_enabled", true);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", true);
     setFieldValue(ui.eventForm, "change_note", "");
+    setFieldValue(ui.eventForm, "starts_at_time", DEFAULT_START_TIME);
+    setFieldValue(ui.eventForm, "ends_at_time", "");
   }
 
   function syncRecurrenceFields() {
@@ -1447,11 +1481,13 @@
           <tr>
             <td>${escapeHTML(item.name || "-")}</td>
             <td>${escapeHTML(item.slug || "-")}</td>
-            <td>${escapeHTML(item.view_type || "-")}</td>
+            <td>${escapeHTML(item.view_type || "-")}${renderSnippetMeta(item)}</td>
             <td>${item.is_active ? "Ja" : "Nein"}</td>
             <td>
               <div class="row-actions">
                 <button class="btn tiny light" type="button" data-snippet-action="embed" data-snippet-id="${escapeAttr(item.id)}">Embed</button>
+                <button class="btn tiny light" type="button" data-snippet-action="preview" data-snippet-id="${escapeAttr(item.id)}">Preview</button>
+                <button class="btn tiny ${item.is_active ? "warn" : "ok"}" type="button" data-snippet-action="toggle-active" data-snippet-id="${escapeAttr(item.id)}">${item.is_active ? "Deaktivieren" : "Aktivieren"}</button>
               </div>
             </td>
           </tr>
@@ -1463,16 +1499,22 @@
       btn.addEventListener("click", async () => {
         const action = String(btn.dataset.snippetAction || "");
         const snippetID = String(btn.dataset.snippetId || "");
-        if (action !== "embed" || !snippetID) {
+        if (!action || !snippetID) {
           return;
         }
 
         setButtonBusy(btn, true, "...");
         try {
-          await loadSnippetEmbedCode(snippetID);
-          setFlash("Embed-Code geladen.");
+          if (action === "toggle-active") {
+            await toggleSnippetActive(snippetID);
+            setFlash("Snippet-Status wurde aktualisiert.");
+          } else {
+            const preview = action === "preview";
+            await loadSnippetEmbedCode(snippetID, { preview });
+            setFlash(preview ? "Snippet-Vorschau geladen." : "Embed-Code geladen.");
+          }
         } catch (err) {
-          setFlash(`Embed-Code konnte nicht geladen werden: ${errorMessage(err)}`, "error");
+          setFlash(`Snippet-Aktion fehlgeschlagen: ${errorMessage(err)}`, "error");
         } finally {
           setButtonBusy(btn, false);
         }
@@ -1492,6 +1534,8 @@
     const limitRaw = String(formData.get("limit") || "").trim();
     const includePast = isChecked(ui.snippetForm, "include_past");
     const isActive = isChecked(ui.snippetForm, "is_active");
+    const theme = String(formData.get("theme") || "light").trim() || "light";
+    const registerCTA = isChecked(ui.snippetForm, "register");
 
     if (!name) {
       setFlash("Snippet-Name ist ein Pflichtfeld.", "error");
@@ -1520,7 +1564,10 @@
       slug,
       view_type: viewType,
       event_filter: eventFilter,
-      display_options: {},
+      display_options: {
+        theme,
+        register: registerCTA,
+      },
       is_active: isActive,
     };
 
@@ -1531,6 +1578,8 @@
         body: JSON.stringify(body),
       });
       ui.snippetForm.reset();
+      setFieldValue(ui.snippetForm, "theme", "light");
+      setCheckboxValue(ui.snippetForm, "register", true);
       setCheckboxValue(ui.snippetForm, "is_active", true);
       await loadSnippets(false);
       setFlash("Snippet wurde angelegt.");
@@ -1542,14 +1591,26 @@
     }
   }
 
-  async function loadSnippetEmbedCode(snippetID) {
+  async function loadSnippetEmbedCode(snippetID, options) {
+    const config = options || {};
     const payload = await apiRequest(`/api/v1/admin/snippets/${encodeURIComponent(snippetID)}/embed-code`);
     const embedCode = String(payload && payload.embed_code ? payload.embed_code : "").trim();
+    const scriptSrc = String(payload && payload.script_src ? payload.script_src : "").trim();
+    const item = payload && payload.item ? payload.item : null;
+    const dataURL = scriptSrc ? buildSnippetDataURL(scriptSrc) : "";
     ui.snippetEmbedOutput.value = embedCode;
+    if (ui.snippetScriptSrcOutput) {
+      ui.snippetScriptSrcOutput.value = scriptSrc;
+    }
+    if (ui.snippetDataUrlOutput) {
+      ui.snippetDataUrlOutput.value = dataURL;
+    }
     if (embedCode) {
       ui.snippetEmbedOutput.focus();
       ui.snippetEmbedOutput.select();
     }
+    renderSnippetPreview(item, scriptSrc, !!config.preview);
+    return payload;
   }
 
   function statusPill(value) {
@@ -1868,6 +1929,89 @@
     return "Unbekannter Fehler";
   }
 
+  function bindDashboardEventActions() {
+    if (!ui.nextEventsTableBody) {
+      return;
+    }
+    ui.nextEventsTableBody.querySelectorAll("button[data-dashboard-action]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const action = String(btn.dataset.dashboardAction || "");
+        const eventID = String(btn.dataset.eventId || "");
+        if (!action || !eventID) {
+          return;
+        }
+
+        if (action === "edit") {
+          await openDashboardEventEdit(eventID);
+          return;
+        }
+        if (action === "focus-registrations") {
+          await focusRegistrationsForEvent(eventID);
+          return;
+        }
+        if (action === "toggle-visibility") {
+          const item = findEventByID(eventID);
+          if (!item) {
+            setFlash("Event fuer Sichtbarkeitswechsel nicht gefunden.", "error");
+            return;
+          }
+          const visibilityAction = item.is_public ? "unpublish" : "publish";
+          setButtonBusy(btn, true, "...");
+          try {
+            await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/${encodeURIComponent(visibilityAction)}`, {
+              method: "POST",
+            });
+            await Promise.all([loadEvents(false), loadDashboard(false)]);
+            setFlash(`Sichtbarkeit fuer '${item.title || "Event"}' wurde aktualisiert.`);
+          } catch (err) {
+            setFlash(`Sichtbarkeitswechsel fehlgeschlagen: ${errorMessage(err)}`, "error");
+          } finally {
+            setButtonBusy(btn, false);
+          }
+        }
+      });
+    });
+  }
+
+  async function openDashboardEventEdit(eventID) {
+    let item = findEventByID(eventID);
+    if (!item) {
+      await loadEvents(false);
+      item = findEventByID(eventID);
+    }
+    if (!item) {
+      setFlash("Event konnte nicht fuer die Bearbeitung geladen werden.", "error");
+      return;
+    }
+    populateEventFormForEdit(item);
+    renderEvents(state.events);
+    activateTab("events");
+  }
+
+  function dashboardVisibilityLabel(eventID) {
+    const item = findEventByID(eventID);
+    if (!item) {
+      return "Aktiv/Inaktiv";
+    }
+    return item.is_public ? "Aktiv" : "Inaktiv";
+  }
+
+  function dashboardVisibilityButtonClass(eventID) {
+    const item = findEventByID(eventID);
+    if (!item) {
+      return "light";
+    }
+    return item.is_public ? "ok" : "light";
+  }
+
+  function dashboardVisibilityDisabled(eventID) {
+    const item = findEventByID(eventID);
+    if (!item) {
+      return false;
+    }
+    return !canToggleVisibility(item);
+  }
+
   function formatDateTime(value) {
     if (!value) {
       return "-";
@@ -1925,6 +2069,82 @@
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
+  function splitLocalDateTimeValue(value) {
+    const localValue = toLocalDateTimeInputValue(value);
+    if (!localValue || !localValue.includes("T")) {
+      return { date: "", time: "" };
+    }
+    const parts = localValue.split("T");
+    return {
+      date: parts[0] || "",
+      time: normalizeQuarterHourTime(parts[1] || ""),
+    };
+  }
+
+  function composeLocalDateTimeValue(formData, fieldBaseName) {
+    const date = String(formData.get(`${fieldBaseName}_date`) || "").trim();
+    const time = String(formData.get(`${fieldBaseName}_time`) || "").trim();
+    if (!date) {
+      return "";
+    }
+    if (!time) {
+      return `${date}T`;
+    }
+    return `${date}T${normalizeQuarterHourTime(time)}`;
+  }
+
+  function setDateTimeFieldValue(form, fieldBaseName, value) {
+    const parts = splitLocalDateTimeValue(value);
+    setFieldValue(form, `${fieldBaseName}_date`, parts.date);
+    setFieldValue(form, `${fieldBaseName}_time`, parts.time);
+  }
+
+  function fillTimeSelectOptions() {
+    fillTimeSelect("starts_at_time", DEFAULT_START_TIME);
+    fillTimeSelect("ends_at_time", "", true);
+  }
+
+  function fillTimeSelect(fieldName, selectedValue, allowEmpty) {
+    const field = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}']`) : null;
+    if (!field) {
+      return;
+    }
+    const options = allowEmpty ? ["<option value=''>Keine Endzeit</option>"] : [];
+    for (let hour = SCHEDULE_MIN_HOUR; hour <= SCHEDULE_MAX_HOUR; hour += 1) {
+      for (const minute of [0, 15, 30, 45]) {
+        if (hour === SCHEDULE_MAX_HOUR && minute > 0) {
+          continue;
+        }
+        const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+        options.push(`<option value="${value}">${value} Uhr</option>`);
+      }
+    }
+    field.innerHTML = options.join("");
+    const fallbackValue = allowEmpty ? "" : DEFAULT_START_TIME;
+    field.value = selectedValue === "" ? "" : normalizeQuarterHourTime(selectedValue || field.value || fallbackValue);
+  }
+
+  function normalizeQuarterHourTime(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return DEFAULT_START_TIME;
+    }
+    const match = raw.match(/^(\d{2}):(\d{2})/);
+    if (!match) {
+      return DEFAULT_START_TIME;
+    }
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const roundedMinute = [0, 15, 30, 45].reduce((best, current) => {
+      return Math.abs(current - minute) < Math.abs(best - minute) ? current : best;
+    }, 0);
+    const clampedHour = Math.max(SCHEDULE_MIN_HOUR, Math.min(SCHEDULE_MAX_HOUR, hour));
+    if (clampedHour === SCHEDULE_MAX_HOUR) {
+      return "22:00";
+    }
+    return `${String(clampedHour).padStart(2, "0")}:${String(roundedMinute).padStart(2, "0")}`;
+  }
+
   function setFieldValue(form, fieldName, value) {
     const field = form ? form.querySelector(`[name='${fieldName}']`) : null;
     if (field) {
@@ -1947,16 +2167,21 @@
   }
 
   function bindDateTimeFieldValidation(fieldName, label, allowEmpty) {
-    const field = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}']`) : null;
-    if (!field) {
+    const dateField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_date']`) : null;
+    const timeField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_time']`) : null;
+    if (!dateField || !timeField) {
       return;
     }
     const handler = () => {
-      const message = getScheduleValidationMessage(String(field.value || "").trim(), label, !!allowEmpty);
-      field.setCustomValidity(message);
+      const formData = new FormData(ui.eventForm);
+      const composedValue = composeLocalDateTimeValue(formData, fieldName);
+      const message = getScheduleValidationMessage(composedValue, label, !!allowEmpty);
+      dateField.setCustomValidity(message);
+      timeField.setCustomValidity(message);
     };
-    field.addEventListener("change", handler);
-    field.addEventListener("input", handler);
+    dateField.addEventListener("change", handler);
+    dateField.addEventListener("input", handler);
+    timeField.addEventListener("change", handler);
     handler();
   }
 
@@ -1971,6 +2196,9 @@
     const value = String(localDateTimeValue || "").trim();
     if (!value) {
       return allowEmpty ? "" : `${label} ist erforderlich.`;
+    }
+    if (/T$/.test(value)) {
+      return `${label} muss mit Datum und Uhrzeit ausgewaehlt werden.`;
     }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -1990,6 +2218,115 @@
   function isChecked(form, fieldName) {
     const field = form ? form.querySelector(`[name='${fieldName}']`) : null;
     return !!(field && field.checked);
+  }
+
+  function renderSnippetMeta(item) {
+    const eventFilter = item && item.event_filter ? item.event_filter : {};
+    const displayOptions = item && item.display_options ? item.display_options : {};
+    const chips = [];
+    if (eventFilter.series) {
+      chips.push(`Serie ${eventFilter.series}`);
+    }
+    if (eventFilter.limit) {
+      chips.push(`Limit ${eventFilter.limit}`);
+    }
+    if (displayOptions.theme) {
+      chips.push(`Theme ${displayOptions.theme}`);
+    }
+    if (displayOptions.register) {
+      chips.push("CTA");
+    }
+    if (!chips.length) {
+      return "";
+    }
+    return `<div class="table-subline">${escapeHTML(chips.join(" · "))}</div>`;
+  }
+
+  async function toggleSnippetActive(snippetID) {
+    const item = state.snippets.find((entry) => entry.id === snippetID);
+    if (!item) {
+      throw new Error("Snippet nicht gefunden.");
+    }
+    await apiRequest(`/api/v1/admin/snippets/${encodeURIComponent(snippetID)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: !item.is_active }),
+    });
+    await loadSnippets(false);
+  }
+
+  function buildSnippetDataURL(scriptSrc) {
+    if (!scriptSrc) {
+      return "";
+    }
+    try {
+      const source = new URL(scriptSrc, window.location.origin);
+      const tenantSlug = source.pathname.replace(/\/include\.js$/, "").split("/").filter(Boolean).pop();
+      const config = source.searchParams.get("config");
+      if (!tenantSlug || !config) {
+        return "";
+      }
+      return `${source.origin}/api/v1/public/${encodeURIComponent(tenantSlug)}/snippet/events?config=${encodeURIComponent(config)}`;
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function renderSnippetPreview(item, scriptSrc, forcePreview) {
+    if (!ui.snippetPreviewFrame || !ui.snippetPreviewHint) {
+      return;
+    }
+    if (!scriptSrc) {
+      ui.snippetPreviewHint.textContent = "Lade ein Snippet, um die Einbindung wie in Ghost direkt zu pruefen.";
+      ui.snippetPreviewFrame.srcdoc = "";
+      return;
+    }
+    const label = item && item.name ? item.name : "Snippet";
+    ui.snippetPreviewHint.textContent = forcePreview
+      ? `Live-Vorschau fuer '${label}' geladen.`
+      : `Embed fuer '${label}' geladen. Die Vorschau ist darunter sofort einsatzbereit.`;
+    ui.snippetPreviewFrame.srcdoc = buildSnippetPreviewDocument(scriptSrc);
+  }
+
+  function buildSnippetPreviewDocument(scriptSrc) {
+    const safeScriptSrc = escapeAttr(scriptSrc);
+    return `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>body{margin:0;padding:16px;background:#faf7f0;font-family:Arial,sans-serif}#eep-preview{min-height:80px}</style>
+  </head>
+  <body>
+    <div id="eep-preview"></div>
+    <script src="${safeScriptSrc}" data-target="#eep-preview" defer></script>
+  </body>
+</html>`;
+  }
+
+  async function onSnippetCopyEmbed() {
+    const value = String(ui.snippetEmbedOutput ? ui.snippetEmbedOutput.value : "").trim();
+    if (!value) {
+      setFlash("Bitte zuerst ein Snippet laden.", "error");
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(value);
+      setFlash("Embed-Code wurde in die Zwischenablage kopiert.");
+      return;
+    }
+    ui.snippetEmbedOutput.focus();
+    ui.snippetEmbedOutput.select();
+    document.execCommand("copy");
+    setFlash("Embed-Code wurde in die Zwischenablage kopiert.");
+  }
+
+  function openSnippetURL(field) {
+    const value = String(field && field.value ? field.value : "").trim();
+    if (!value) {
+      setFlash("Bitte zuerst ein Snippet laden.", "error");
+      return;
+    }
+    window.open(value, "_blank", "noopener");
   }
 
   function slugify(value) {

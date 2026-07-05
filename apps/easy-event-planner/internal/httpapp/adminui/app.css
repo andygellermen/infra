@@ -679,6 +679,14 @@ tr {
   font-size: 0.84rem;
 }
 
+.snippet-preview-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid #d8e6e7;
+  border-radius: 14px;
+  background: #fff;
+}
+
 .placeholder p {
   margin: 6px 0;
 }

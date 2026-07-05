@@ -69,6 +69,7 @@
                     <th>Status</th>
                     <th>Bestaetigt</th>
                     <th>Warteliste</th>
+                    <th>Aktionen</th>
                   </tr>
                 </thead>
                 <tbody id="nextEventsTableBody"></tbody>
@@ -149,12 +150,20 @@
                   <textarea name="description" rows="5" placeholder="Kurzbeschreibung, Ablauf, Hinweise, Paketinhalte ..."></textarea>
                 </label>
                 <label>
-                  Start (lokal)
-                  <input name="starts_at" type="datetime-local" step="900" required>
+                  Startdatum
+                  <input name="starts_at_date" type="date" required>
                 </label>
                 <label>
-                  Ende (optional)
-                  <input name="ends_at" type="datetime-local" step="900">
+                  Startzeit
+                  <select name="starts_at_time" required></select>
+                </label>
+                <label>
+                  Enddatum (optional)
+                  <input name="ends_at_date" type="date">
+                </label>
+                <label>
+                  Endzeit
+                  <select name="ends_at_time"></select>
                 </label>
                 <label>
                   Zeitzone
@@ -374,6 +383,15 @@
                   Limit (optional)
                   <input name="limit" type="number" min="1" step="1" placeholder="6">
                 </label>
+                <label>
+                  Theme
+                  <select name="theme">
+                    <option value="light">Light</option>
+                    <option value="sand">Sand</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
+                <label class="checkline"><input name="register" type="checkbox" checked> CTA "Zur Anmeldung" anzeigen</label>
                 <label class="checkline"><input name="include_past" type="checkbox"> Vergangene Events einbeziehen</label>
                 <label class="checkline"><input name="is_active" type="checkbox" checked> Aktiv</label>
                 <button id="snippetSubmitBtn" class="btn primary" type="submit">Snippet speichern</button>
@@ -404,11 +422,30 @@
 
           <div class="card">
             <h2>Embed-Code</h2>
-            <p class="muted">Waehle in der Liste „Embed“, um den Script-Code zu laden.</p>
+            <p class="muted">Waehle in der Liste „Embed“ oder „Preview“, um die Ghost-Einbindung direkt vorzubereiten.</p>
             <label>
               Snippet Script
               <textarea id="snippetEmbedOutput" class="code-output" rows="4" readonly placeholder="<script src=\"...\" defer></script>"></textarea>
             </label>
+            <label>
+              Script-URL
+              <input id="snippetScriptSrcOutput" type="text" readonly placeholder="https://events.example.com/demo/include.js?config=footer-upcoming">
+            </label>
+            <label>
+              Public JSON
+              <input id="snippetDataUrlOutput" type="text" readonly placeholder="https://events.example.com/api/v1/public/demo/snippet/events?config=footer-upcoming">
+            </label>
+            <div class="toolbar-actions">
+              <button id="snippetCopyEmbedBtn" class="btn ghost" type="button">Embed kopieren</button>
+              <button id="snippetOpenScriptBtn" class="btn light" type="button">Script oeffnen</button>
+              <button id="snippetOpenDataBtn" class="btn light" type="button">JSON oeffnen</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Ghost-Vorschau</h2>
+            <p id="snippetPreviewHint" class="muted">Lade ein Snippet, um die Einbindung wie in Ghost direkt zu pruefen.</p>
+            <iframe id="snippetPreviewFrame" class="snippet-preview-frame" title="Snippet Vorschau"></iframe>
           </div>
         </section>
 

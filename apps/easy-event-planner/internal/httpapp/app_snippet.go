@@ -516,7 +516,9 @@ func buildSnippetIncludeJS(tenantSlug string) string {
     .then(function (payload) {
       const items = Array.isArray(payload.items) ? payload.items : [];
       const view = String(payload.view || "cards").toLowerCase();
-      render(container, items, view);
+      const displayOptions = payload && payload.config && payload.config.display_options ? payload.config.display_options : {};
+      applyTheme(container, displayOptions);
+      render(container, items, view, displayOptions);
       container.classList.remove("eep-loading");
     })
     .catch(function () {
@@ -544,47 +546,116 @@ func buildSnippetIncludeJS(tenantSlug string) string {
     document.head.appendChild(link);
   }
 
-  function render(root, items, view) {
+  function applyTheme(root, displayOptions) {
+    root.classList.remove("eep-theme-light", "eep-theme-sand", "eep-theme-dark");
+    const theme = String(displayOptions && displayOptions.theme || "light").toLowerCase();
+    if (theme === "sand" || theme === "dark") {
+      root.classList.add("eep-theme-" + theme);
+      return;
+    }
+    root.classList.add("eep-theme-light");
+  }
+
+  function render(root, items, view, displayOptions) {
     if (!items.length) {
       root.innerHTML = "<div class=\"eep-empty\">Derzeit keine Termine.</div>";
       return;
     }
-    if (view === "list" || view === "table") {
-      root.innerHTML = renderList(items);
+    if (view === "table") {
+      root.innerHTML = renderTable(items, displayOptions);
       return;
     }
-    root.innerHTML = renderCards(items);
+    if (view === "list") {
+      root.innerHTML = renderList(items, displayOptions);
+      return;
+    }
+    if (view === "minimal") {
+      root.innerHTML = renderMinimal(items, displayOptions);
+      return;
+    }
+    if (view === "button") {
+      root.innerHTML = renderButtons(items, displayOptions);
+      return;
+    }
+    root.innerHTML = renderCards(items, displayOptions);
   }
 
-  function renderCards(items) {
+  function renderCards(items, displayOptions) {
     const cards = items.map(function (item) {
       const title = escapeHTML(item.title || "Event");
       const subtitle = item.subtitle ? "<p class=\"eep-subtitle\">" + escapeHTML(item.subtitle) + "</p>" : "";
       const startsAt = formatDate(item.starts_at);
       const location = item.location_name ? "<p class=\"eep-location\">" + escapeHTML(item.location_name) + "</p>" : "";
       const href = escapeHTML(item.event_url || "#");
+      const cta = escapeHTML(callToActionLabel(displayOptions, item));
       return "<article class=\"eep-card\">" +
         "<h3 class=\"eep-title\">" + title + "</h3>" +
         subtitle +
         "<p class=\"eep-date\">" + startsAt + "</p>" +
         location +
-        "<a class=\"eep-link\" href=\"" + href + "\">Details</a>" +
+        "<a class=\"eep-link\" href=\"" + href + "\">" + cta + "</a>" +
       "</article>";
     }).join("");
     return "<div class=\"eep-cards\">" + cards + "</div>";
   }
 
-  function renderList(items) {
+  function renderList(items, displayOptions) {
     const rows = items.map(function (item) {
       const title = escapeHTML(item.title || "Event");
       const startsAt = formatDate(item.starts_at);
       const href = escapeHTML(item.event_url || "#");
+      const cta = escapeHTML(callToActionLabel(displayOptions, item));
       return "<li class=\"eep-list-item\">" +
         "<span class=\"eep-list-date\">" + startsAt + "</span>" +
         "<a class=\"eep-list-link\" href=\"" + href + "\">" + title + "</a>" +
+        "<a class=\"eep-inline-cta\" href=\"" + href + "\">" + cta + "</a>" +
       "</li>";
     }).join("");
     return "<ul class=\"eep-list\">" + rows + "</ul>";
+  }
+
+  function renderTable(items, displayOptions) {
+    const rows = items.map(function (item) {
+      const title = escapeHTML(item.title || "Event");
+      const startsAt = formatDate(item.starts_at);
+      const location = escapeHTML(item.location_name || "—");
+      const href = escapeHTML(item.event_url || "#");
+      const cta = escapeHTML(callToActionLabel(displayOptions, item));
+      return "<tr>" +
+        "<td>" + startsAt + "</td>" +
+        "<td><a class=\"eep-list-link\" href=\"" + href + "\">" + title + "</a></td>" +
+        "<td>" + location + "</td>" +
+        "<td><a class=\"eep-inline-cta\" href=\"" + href + "\">" + cta + "</a></td>" +
+      "</tr>";
+    }).join("");
+    return "<div class=\"eep-table-wrap\"><table class=\"eep-table\"><thead><tr><th>Termin</th><th>Event</th><th>Ort</th><th>Link</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+  }
+
+  function renderMinimal(items, displayOptions) {
+    const links = items.map(function (item) {
+      const title = escapeHTML(item.title || "Event");
+      const startsAt = formatDate(item.starts_at);
+      const href = escapeHTML(item.event_url || "#");
+      const cta = escapeHTML(callToActionLabel(displayOptions, item));
+      return "<a class=\"eep-minimal-link\" href=\"" + href + "\"><strong>" + title + "</strong><span>" + startsAt + "</span><em>" + cta + "</em></a>";
+    }).join("");
+    return "<div class=\"eep-minimal\">" + links + "</div>";
+  }
+
+  function renderButtons(items, displayOptions) {
+    const buttons = items.map(function (item) {
+      const href = escapeHTML(item.event_url || "#");
+      const label = escapeHTML(item.title || callToActionLabel(displayOptions, item));
+      return "<a class=\"eep-button-link\" href=\"" + href + "\">" + label + "</a>";
+    }).join("");
+    return "<div class=\"eep-buttons\">" + buttons + "</div>";
+  }
+
+  function callToActionLabel(displayOptions, item) {
+    if (displayOptions && displayOptions.register && item && item.registration_enabled !== false) {
+      return "Zur Anmeldung";
+    }
+    return "Details";
   }
 
   function formatDate(raw) {
@@ -631,6 +702,18 @@ const snippetCSS = `.eep-widget {
   color: #17212b;
 }
 
+.eep-widget.eep-theme-light {
+  color: #17212b;
+}
+
+.eep-widget.eep-theme-sand {
+  color: #4f3523;
+}
+
+.eep-widget.eep-theme-dark {
+  color: #f4f7fb;
+}
+
 .eep-loading,
 .eep-empty,
 .eep-error {
@@ -644,6 +727,18 @@ const snippetCSS = `.eep-widget {
   color: #8f1f1f;
 }
 
+.eep-widget.eep-theme-dark .eep-loading,
+.eep-widget.eep-theme-dark .eep-empty {
+  background: #213244;
+  color: #f4f7fb;
+}
+
+.eep-widget.eep-theme-sand .eep-loading,
+.eep-widget.eep-theme-sand .eep-empty {
+  background: #f4eadc;
+  color: #5c4332;
+}
+
 .eep-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -655,6 +750,16 @@ const snippetCSS = `.eep-widget {
   border-radius: 12px;
   padding: 14px;
   background: #ffffff;
+}
+
+.eep-widget.eep-theme-dark .eep-card {
+  background: #17212b;
+  border-color: #314355;
+}
+
+.eep-widget.eep-theme-sand .eep-card {
+  background: #fffaf2;
+  border-color: #e6d2b7;
 }
 
 .eep-title {
@@ -676,6 +781,13 @@ const snippetCSS = `.eep-widget {
   font-weight: 600;
 }
 
+.eep-inline-cta,
+.eep-button-link {
+  color: #0f5ca8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
 .eep-list {
   list-style: none;
   padding: 0;
@@ -688,6 +800,7 @@ const snippetCSS = `.eep-widget {
   display: flex;
   align-items: baseline;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .eep-list-date {
@@ -700,6 +813,62 @@ const snippetCSS = `.eep-widget {
   color: #0f5ca8;
   text-decoration: none;
   font-weight: 600;
+
+}
+
+.eep-table-wrap {
+  overflow-x: auto;
+}
+
+.eep-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.eep-table th,
+.eep-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e4e9ef;
+  text-align: left;
+  font-size: 0.92rem;
+}
+
+.eep-minimal {
+  display: grid;
+  gap: 10px;
+}
+
+.eep-minimal-link {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e4e9ef;
+  color: inherit;
+  text-decoration: none;
+}
+
+.eep-minimal-link span,
+.eep-minimal-link em {
+  color: #4b5b6c;
+  font-size: 0.9rem;
+  font-style: normal;
+}
+
+.eep-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.eep-button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #0f5ca8;
+  color: #fff;
 }`
 
 func snippetConfigPayload(item snippet.Config) map[string]any {

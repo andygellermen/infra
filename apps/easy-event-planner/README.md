@@ -76,7 +76,7 @@ Die erste Admin-Oberflaeche ist unter `/admin` verfuegbar:
 open http://localhost:8080/admin
 ```
 
-Enthalten sind aktuell: Login (Magic Link), Dashboard, Event-Anlage/-Bearbeitung mit linker Event-Navigation, Sichtbarkeits-Toggle, Archivieren statt Schnell-Loeschen, Wiederholungsmodus fuer neue Termine, Event-Serienverwaltung im Listen-/Detail-Layout mit Terminschnellwahl, Teilnehmerlisten mit Event-Wechsel plus Teilnehmer-Historie und der Snippet-Builder.
+Enthalten sind aktuell: Login (Magic Link), Dashboard mit Event-Schnellaktionen, Event-Anlage/-Bearbeitung mit linker Event-Navigation, sichtbarer Datums-/Zeitwahl in Viertelstunden, Sichtbarkeits-Toggle, Archivieren statt Schnell-Loeschen, Wiederholungsmodus fuer neue Termine, Event-Serienverwaltung im Listen-/Detail-Layout mit Terminschnellwahl, Teilnehmerlisten mit Event-Wechsel plus Teilnehmer-Historie und der Snippet-Builder inklusive Embed-/Preview-Helfern fuer Ghost.
 
 Hinweis: Fuer den Login muss ein aktiver Organizer-User in `tenant_users` vorhanden sein.
 
