@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 var (
 	ErrTenantNotFound         = errors.New("tenant not found")
 	ErrTenantSettingsNotFound = errors.New("tenant settings not found")
+	ErrTenantHostAmbiguous    = errors.New("tenant host ambiguous")
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -168,6 +170,101 @@ func (r *Repository) LookupBySlug(ctx context.Context, slug string) (Tenant, err
 		return Tenant{}, fmt.Errorf("query tenant by slug: %w", err)
 	}
 	return tenant, nil
+}
+
+func (r *Repository) LookupByPublicHost(ctx context.Context, host string) (Tenant, error) {
+	normalizedHost, err := normalizeLookupHost(host)
+	if err != nil {
+		return Tenant{}, err
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, slug, name, public_base_url, default_timezone, default_locale, status, created_at, updated_at
+     FROM tenants`,
+	)
+	if err != nil {
+		return Tenant{}, fmt.Errorf("query tenants by public host: %w", err)
+	}
+	defer rows.Close()
+
+	matches := make([]Tenant, 0, 1)
+	for rows.Next() {
+		item, scanErr := scanTenant(rows)
+		if scanErr != nil {
+			return Tenant{}, fmt.Errorf("scan tenant by public host: %w", scanErr)
+		}
+
+		candidateHost, hostErr := normalizeLookupHost(item.PublicBaseURL)
+		if hostErr != nil {
+			continue
+		}
+		if candidateHost == normalizedHost {
+			matches = append(matches, item)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return Tenant{}, fmt.Errorf("iterate tenants by public host: %w", err)
+	}
+
+	switch len(matches) {
+	case 0:
+		return Tenant{}, ErrTenantNotFound
+	case 1:
+		return matches[0], nil
+	default:
+		return Tenant{}, ErrTenantHostAmbiguous
+	}
+}
+
+func (r *Repository) UpdateTenant(ctx context.Context, tenantID string, params UpdateTenantParams) (Tenant, error) {
+	current, err := r.GetByID(ctx, tenantID)
+	if err != nil {
+		return Tenant{}, err
+	}
+
+	name := current.Name
+	if params.Name != nil {
+		name = strings.TrimSpace(*params.Name)
+		if name == "" {
+			return Tenant{}, fmt.Errorf("tenant name must not be empty")
+		}
+	}
+
+	publicBaseURL := current.PublicBaseURL
+	if params.PublicBaseURL != nil {
+		publicBaseURL, err = normalizePublicBaseURL(*params.PublicBaseURL)
+		if err != nil {
+			return Tenant{}, err
+		}
+	}
+
+	defaultTimezone := current.DefaultTimezone
+	if params.DefaultTimezone != nil {
+		defaultTimezone = firstNonEmpty(*params.DefaultTimezone, DefaultTimezone)
+	}
+
+	defaultLocale := current.DefaultLocale
+	if params.DefaultLocale != nil {
+		defaultLocale = firstNonEmpty(*params.DefaultLocale, DefaultLocale)
+	}
+
+	if _, err := r.db.ExecContext(
+		ctx,
+		`UPDATE tenants
+     SET name = ?, public_base_url = ?, default_timezone = ?, default_locale = ?, updated_at = ?
+     WHERE id = ?`,
+		name,
+		publicBaseURL,
+		defaultTimezone,
+		defaultLocale,
+		r.nowFn().UTC().Format(time.RFC3339),
+		strings.TrimSpace(tenantID),
+	); err != nil {
+		return Tenant{}, fmt.Errorf("update tenant: %w", err)
+	}
+
+	return r.GetByID(ctx, tenantID)
 }
 
 func (r *Repository) GetSettings(ctx context.Context, tenantID string) (TenantSettings, error) {
@@ -443,6 +540,31 @@ func normalizePublicBaseURL(raw string) (string, error) {
 	}
 
 	return strings.TrimRight(value, "/"), nil
+}
+
+func normalizeLookupHost(raw string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return "", fmt.Errorf("tenant host must not be empty")
+	}
+
+	if strings.Contains(value, "://") {
+		parsed, err := url.Parse(value)
+		if err != nil {
+			return "", fmt.Errorf("parse tenant host: %w", err)
+		}
+		value = parsed.Host
+	}
+
+	value = strings.TrimSuffix(value, ".")
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		value = host
+	}
+	value = strings.Trim(value, "[]")
+	if value == "" {
+		return "", fmt.Errorf("tenant host must not be empty")
+	}
+	return value, nil
 }
 
 func normalizeSettingsInput(input TenantSettingsInput) (TenantSettingsInput, error) {

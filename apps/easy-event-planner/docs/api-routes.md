@@ -33,6 +33,7 @@ GET  /api/v1/auth/me
 ```
 
 Magic-Link-Anforderung antwortet immer neutral, um Account Enumeration zu vermeiden.
+Im Admin-Login kann der Mandant alternativ ueber die aufgerufene Domain statt ueber `tenant_slug` aufgeloest werden.
 
 ## Admin Tenant
 
@@ -41,6 +42,23 @@ GET   /api/v1/admin/tenant
 PATCH /api/v1/admin/tenant
 GET   /api/v1/admin/tenant/settings
 PATCH /api/v1/admin/tenant/settings
+```
+
+`/api/v1/admin/tenant/settings` kapselt sowohl Basiswerte wie Absender/Retention als auch `app_settings` fuer EEP-spezifische UI-Regeln, z. B.:
+
+```json
+{
+  "app_settings": {
+    "event_time_start": "08:00",
+    "event_time_end": "22:00",
+    "event_time_step_minutes": 15,
+    "event_slug_mode": "optional",
+    "allowed_embed_origins": [
+      "https://www.geller.men"
+    ],
+    "event_detail_base_url": "https://www.geller.men/events"
+  }
+}
 ```
 
 ## Admin User

@@ -63,6 +63,11 @@ body {
   padding: 28px 20px 40px;
 }
 
+.layout.is-login {
+  max-width: 640px;
+  padding-top: 56px;
+}
+
 .fade-in {
   animation: enter 0.5s ease-out;
 }
@@ -142,6 +147,7 @@ h2 {
 
 .login-card {
   max-width: 560px;
+  margin: 0 auto;
 }
 
 .workspace {

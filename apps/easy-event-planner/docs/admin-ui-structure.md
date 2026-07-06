@@ -38,7 +38,7 @@ Zeigt Retention Policies, letzten Löschlauf, nächsten Lauf und Dry-Run-Ergebni
 
 ## Einstellungen
 
-Mandantenprofil, Branding, E-Mail-Absender, PayPal, Datenschutzkontakt, Zeitzone, Sprache, Nutzer & Rollen.
+Mandantenprofil, Public Base URL, E-Mail-Absender, Event-Zeitfenster, Zeit-Schrittweite, Event-Slug-Modus, Embed Origins, Detailseiten-Basis-URL, Datenschutzkontakt, Zeitzone, Sprache, Nutzer & Rollen.
 
 ## UX-Regeln
 

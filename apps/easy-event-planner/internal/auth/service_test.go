@@ -215,6 +215,25 @@ func TestRequestMagicLinkNeutralForUnknownEmail(t *testing.T) {
 	}
 }
 
+func TestRequestMagicLinkResolvesTenantByRequestHost(t *testing.T) {
+	service, sender, _, _, _ := setupAuthService(t, testAuthConfig())
+
+	result, err := service.RequestMagicLink(context.Background(), RequestMagicLinkInput{
+		Email:       "owner@example.com",
+		Purpose:     PurposeOrganizerLogin,
+		RequestHost: "events.example.com",
+	})
+	if err != nil {
+		t.Fatalf("RequestMagicLink returned error: %v", err)
+	}
+	if !result.Accepted || !result.Sent {
+		t.Fatalf("expected accepted=true sent=true, got %+v", result)
+	}
+	if len(sender.messages) != 1 {
+		t.Fatalf("expected one sent message, got %d", len(sender.messages))
+	}
+}
+
 func TestRequestMagicLinkRateLimit(t *testing.T) {
 	cfg := testAuthConfig()
 	cfg.RateLimitRequests = 1

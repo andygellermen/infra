@@ -116,6 +116,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/event-series/", a.handleAdminEventSeriesItem)
 
 	a.mux.HandleFunc("/api/v1/admin/dashboard", a.handleAdminDashboard)
+	a.mux.HandleFunc("/api/v1/admin/tenant", a.handleAdminTenantItem)
+	a.mux.HandleFunc("/api/v1/admin/tenant/settings", a.handleAdminTenantSettingsItem)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
 	a.mux.HandleFunc("/api/v1/admin/calendar/feed", a.handleAdminCalendarFeed)
@@ -206,6 +208,7 @@ func (a *App) handleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
 		Email:        request.Email,
 		Purpose:      request.Purpose,
 		RedirectPath: request.RedirectPath,
+		RequestHost:  requestHost(r),
 		RequestIP:    clientIP(r),
 		UserAgent:    strings.TrimSpace(r.UserAgent()),
 	})
@@ -216,6 +219,12 @@ func (a *App) handleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, auth.ErrUnsupportedPurpose) {
 			writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Unbekannter Magic-Link-Zweck.")
+			return
+		}
+		if errors.Is(err, auth.ErrTenantContextMissing) ||
+			errors.Is(err, tenant.ErrTenantNotFound) ||
+			errors.Is(err, tenant.ErrTenantHostAmbiguous) {
+			writeAPIError(w, http.StatusBadRequest, "TENANT_RESOLUTION_FAILED", "Mandant konnte fuer diese Domain nicht ermittelt werden.")
 			return
 		}
 		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Magic-Link konnte nicht angefordert werden.")
@@ -1118,6 +1127,17 @@ func clientIP(r *http.Request) string {
 		return host
 	}
 	return strings.TrimSpace(r.RemoteAddr)
+}
+
+func requestHost(r *http.Request) string {
+	forwardedHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if forwardedHost != "" {
+		parts := strings.Split(forwardedHost, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+	return strings.TrimSpace(r.Host)
 }
 
 func writeText(w http.ResponseWriter, status int, body string) {

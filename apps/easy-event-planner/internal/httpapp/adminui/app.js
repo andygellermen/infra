@@ -1,6 +1,8 @@
 (() => {
   const state = {
     auth: null,
+    tenantProfile: null,
+    tenantSettings: null,
     dashboard: null,
     events: [],
     series: [],
@@ -14,10 +16,11 @@
   };
 
   const ui = {
+    layout: document.querySelector(".layout"),
+    topbar: document.querySelector("#topbar"),
     loginPanel: document.querySelector("#loginPanel"),
     workspace: document.querySelector("#workspace"),
     loginForm: document.querySelector("#loginForm"),
-    tenantSlug: document.querySelector("#tenantSlug"),
     email: document.querySelector("#email"),
     loginHint: document.querySelector("#loginHint"),
     loginSubmitBtn: document.querySelector("#loginSubmitBtn"),
@@ -72,16 +75,15 @@
     snippetOpenDataBtn: document.querySelector("#snippetOpenDataBtn"),
     snippetPreviewHint: document.querySelector("#snippetPreviewHint"),
     snippetPreviewFrame: document.querySelector("#snippetPreviewFrame"),
+    settingsProfileForm: document.querySelector("#settingsProfileForm"),
+    settingsProfileSubmitBtn: document.querySelector("#settingsProfileSubmitBtn"),
+    settingsRulesForm: document.querySelector("#settingsRulesForm"),
+    settingsRulesSubmitBtn: document.querySelector("#settingsRulesSubmitBtn"),
+    settingsRulesHint: document.querySelector("#settingsRulesHint"),
   };
-
-  const STORAGE_TENANT_KEY = "eep_admin_tenant_slug";
-  const SCHEDULE_MIN_HOUR = 8;
-  const SCHEDULE_MAX_HOUR = 22;
-  const DEFAULT_START_TIME = "09:00";
 
   bindUI();
   fillTimeSelectOptions();
-  restoreTenantSlug();
   resetEventForm();
   resetSeriesForm();
   resetParticipantBookings();
@@ -167,6 +169,12 @@
     if (ui.snippetOpenDataBtn) {
       ui.snippetOpenDataBtn.addEventListener("click", () => openSnippetURL(ui.snippetDataUrlOutput));
     }
+    if (ui.settingsProfileForm) {
+      ui.settingsProfileForm.addEventListener("submit", onTenantProfileSubmit);
+    }
+    if (ui.settingsRulesForm) {
+      ui.settingsRulesForm.addEventListener("submit", onTenantSettingsSubmit);
+    }
     if (ui.registrationEventSelect) {
       ui.registrationEventSelect.addEventListener("change", (ev) => {
         const id = String(ev.target.value || "").trim();
@@ -178,13 +186,6 @@
     ui.tabs.forEach((tab) => {
       tab.addEventListener("click", () => activateTab(String(tab.dataset.tab || "dashboard")));
     });
-  }
-
-  function restoreTenantSlug() {
-    const remembered = localStorage.getItem(STORAGE_TENANT_KEY);
-    if (remembered && ui.tenantSlug && !ui.tenantSlug.value) {
-      ui.tenantSlug.value = remembered;
-    }
   }
 
   function activateTab(tabName) {
@@ -202,6 +203,7 @@
       state.auth = payload;
       showWorkspace(payload);
       await loadSeries(false, { rerenderEvents: false });
+      await loadTenantSettings(false);
       await Promise.all([loadDashboard(false), loadEvents(false), loadSnippets(false)]);
     } catch (err) {
       if (err.status === 401) {
@@ -215,9 +217,17 @@
 
   function showLogin() {
     state.auth = null;
+    state.tenantProfile = null;
+    state.tenantSettings = null;
     ui.loginPanel.hidden = false;
     ui.workspace.hidden = true;
     ui.logoutBtn.hidden = true;
+    if (ui.topbar) {
+      ui.topbar.hidden = true;
+    }
+    if (ui.layout) {
+      ui.layout.classList.add("is-login");
+    }
     ui.currentUser.textContent = "Nicht angemeldet";
     ui.loginHint.textContent = "";
   }
@@ -229,6 +239,12 @@
     ui.loginPanel.hidden = true;
     ui.workspace.hidden = false;
     ui.logoutBtn.hidden = false;
+    if (ui.topbar) {
+      ui.topbar.hidden = false;
+    }
+    if (ui.layout) {
+      ui.layout.classList.remove("is-login");
+    }
     ui.currentUser.textContent = `${user.name || user.email || "User"} @ ${tenant.slug || "tenant"}`;
     activateTab("dashboard");
   }
@@ -237,22 +253,19 @@
     event.preventDefault();
     clearFlash();
 
-    const tenantSlug = String(ui.tenantSlug ? ui.tenantSlug.value : "").trim();
     const email = String(ui.email ? ui.email.value : "").trim().toLowerCase();
 
-    if (!tenantSlug || !email) {
-      ui.loginHint.textContent = "Bitte Tenant-Slug und E-Mail eintragen.";
+    if (!email) {
+      ui.loginHint.textContent = "Bitte E-Mail eintragen.";
       return;
     }
 
-    localStorage.setItem(STORAGE_TENANT_KEY, tenantSlug);
     setButtonBusy(ui.loginSubmitBtn, true, "Sende...");
 
     try {
       await apiRequest("/api/v1/auth/magic-link/request", {
         method: "POST",
         body: JSON.stringify({
-          tenant_slug: tenantSlug,
           email,
           purpose: "organizer_login",
           redirect_path: "/admin",
@@ -285,6 +298,127 @@
       }
     } catch (err) {
       setFlash(`Dashboard konnte nicht geladen werden: ${errorMessage(err)}`, "error");
+    }
+  }
+
+  async function loadTenantSettings(notify) {
+    try {
+      const [tenantPayload, settingsPayload] = await Promise.all([
+        apiRequest("/api/v1/admin/tenant"),
+        apiRequest("/api/v1/admin/tenant/settings"),
+      ]);
+      state.tenantProfile = tenantPayload && tenantPayload.item ? tenantPayload.item : null;
+      state.tenantSettings = settingsPayload && settingsPayload.item ? settingsPayload.item : null;
+      renderTenantSettings();
+      if (notify) {
+        setFlash("Settings aktualisiert.");
+      }
+    } catch (err) {
+      setFlash(`Settings konnten nicht geladen werden: ${errorMessage(err)}`, "error");
+    }
+  }
+
+  function renderTenantSettings() {
+    const tenantItem = state.tenantProfile || {};
+    const settingsItem = state.tenantSettings || {};
+    const appSettings = getAppSettings();
+
+    setFieldValue(ui.settingsProfileForm, "slug", tenantItem.slug || "");
+    setFieldValue(ui.settingsProfileForm, "name", tenantItem.name || "");
+    setFieldValue(ui.settingsProfileForm, "public_base_url", tenantItem.public_base_url || "");
+    setFieldValue(ui.settingsProfileForm, "default_timezone", tenantItem.default_timezone || "Europe/Berlin");
+    setFieldValue(ui.settingsProfileForm, "default_locale", tenantItem.default_locale || "de-DE");
+
+    setFieldValue(ui.settingsRulesForm, "event_time_start", appSettings.event_time_start);
+    setFieldValue(ui.settingsRulesForm, "event_time_end", appSettings.event_time_end);
+    setFieldValue(ui.settingsRulesForm, "event_time_step_minutes", String(appSettings.event_time_step_minutes));
+    setFieldValue(ui.settingsRulesForm, "event_slug_mode", appSettings.event_slug_mode);
+    setFieldValue(ui.settingsRulesForm, "event_detail_base_url", appSettings.event_detail_base_url || "");
+    setFieldValue(ui.settingsRulesForm, "sender_email", settingsItem.sender_email || "");
+    setFieldValue(ui.settingsRulesForm, "sender_name", settingsItem.sender_name || "");
+    setFieldValue(ui.settingsRulesForm, "default_retention_days", settingsItem.default_retention_days || 30);
+    setFieldValue(ui.settingsRulesForm, "allowed_embed_origins", (appSettings.allowed_embed_origins || []).join("\n"));
+
+    fillTimeSelectOptions();
+    applyEventSlugMode();
+    validateEventScheduleFields();
+  }
+
+  async function onTenantProfileSubmit(event) {
+    event.preventDefault();
+    clearFlash();
+
+    const formData = new FormData(ui.settingsProfileForm);
+    const body = {
+      name: String(formData.get("name") || "").trim(),
+      public_base_url: String(formData.get("public_base_url") || "").trim(),
+      default_timezone: String(formData.get("default_timezone") || "").trim(),
+      default_locale: String(formData.get("default_locale") || "").trim(),
+    };
+
+    if (!body.name || !body.public_base_url || !body.default_timezone || !body.default_locale) {
+      setFlash("Bitte alle Profilfelder ausfuellen.", "error");
+      return;
+    }
+
+    setButtonBusy(ui.settingsProfileSubmitBtn, true, "Speichere...");
+    try {
+      await apiRequest("/api/v1/admin/tenant", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      await loadTenantSettings(false);
+      setFlash("Mandantenprofil wurde aktualisiert.");
+    } catch (err) {
+      setFlash(`Mandantenprofil konnte nicht gespeichert werden: ${errorMessage(err)}`, "error");
+    } finally {
+      setButtonBusy(ui.settingsProfileSubmitBtn, false, "Profil speichern");
+    }
+  }
+
+  async function onTenantSettingsSubmit(event) {
+    event.preventDefault();
+    clearFlash();
+
+    const formData = new FormData(ui.settingsRulesForm);
+    const retention = Number(String(formData.get("default_retention_days") || "0").trim() || "0");
+    const appSettings = {
+      event_time_start: String(formData.get("event_time_start") || "").trim(),
+      event_time_end: String(formData.get("event_time_end") || "").trim(),
+      event_time_step_minutes: Number(String(formData.get("event_time_step_minutes") || "15").trim() || "15"),
+      event_slug_mode: String(formData.get("event_slug_mode") || "optional").trim(),
+      event_detail_base_url: String(formData.get("event_detail_base_url") || "").trim(),
+      allowed_embed_origins: parseOriginsTextarea(String(formData.get("allowed_embed_origins") || "")),
+    };
+
+    try {
+      validateSettingsSchedule(appSettings);
+    } catch (err) {
+      setFlash(errorMessage(err), "error");
+      return;
+    }
+    if (!Number.isInteger(retention) || retention <= 0) {
+      setFlash("Aufbewahrungstage muessen eine ganze Zahl > 0 sein.", "error");
+      return;
+    }
+
+    setButtonBusy(ui.settingsRulesSubmitBtn, true, "Speichere...");
+    try {
+      await apiRequest("/api/v1/admin/tenant/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          sender_email: String(formData.get("sender_email") || "").trim(),
+          sender_name: String(formData.get("sender_name") || "").trim(),
+          default_retention_days: retention,
+          app_settings: appSettings,
+        }),
+      });
+      await loadTenantSettings(false);
+      setFlash("EEP-Regeln wurden aktualisiert.");
+    } catch (err) {
+      setFlash(`EEP-Regeln konnten nicht gespeichert werden: ${errorMessage(err)}`, "error");
+    } finally {
+      setButtonBusy(ui.settingsRulesSubmitBtn, false, "Settings speichern");
     }
   }
 
@@ -777,7 +911,14 @@
 
     const providedSlug = String(formData.get("slug") || "").trim();
     const fallbackSlug = `event-${Math.floor(Date.now() / 1000)}`;
-    const slug = providedSlug || slugify(title) || fallbackSlug;
+    const scheduleConfig = getScheduleConfig();
+    let slug = providedSlug;
+    if (scheduleConfig.event_slug_mode === "required" && !slug) {
+      throw new Error("Bitte einen Event-Slug vergeben oder den Slug-Modus in den Settings anpassen.");
+    }
+    if (scheduleConfig.event_slug_mode === "auto" || !slug) {
+      slug = slugify(title) || fallbackSlug;
+    }
     const maxParticipantsRaw = String(formData.get("max_participants") || "").trim();
 
     let maxParticipants = null;
@@ -975,6 +1116,7 @@
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.hidden = false;
     }
+    applyEventSlugMode();
     syncRecurrenceFields();
   }
 
@@ -1019,8 +1161,9 @@
     setCheckboxValue(ui.eventForm, "registration_enabled", true);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", true);
     setFieldValue(ui.eventForm, "change_note", "");
-    setFieldValue(ui.eventForm, "starts_at_time", DEFAULT_START_TIME);
+    setFieldValue(ui.eventForm, "starts_at_time", getDefaultStartTime());
     setFieldValue(ui.eventForm, "ends_at_time", "");
+    applyEventSlugMode();
   }
 
   function syncRecurrenceFields() {
@@ -2077,7 +2220,7 @@
     const parts = localValue.split("T");
     return {
       date: parts[0] || "",
-      time: normalizeQuarterHourTime(parts[1] || ""),
+      time: normalizeScheduleTime(parts[1] || "", false),
     };
   }
 
@@ -2090,7 +2233,7 @@
     if (!time) {
       return `${date}T`;
     }
-    return `${date}T${normalizeQuarterHourTime(time)}`;
+    return `${date}T${normalizeScheduleTime(time, false)}`;
   }
 
   function setDateTimeFieldValue(form, fieldBaseName, value) {
@@ -2100,8 +2243,10 @@
   }
 
   function fillTimeSelectOptions() {
-    fillTimeSelect("starts_at_time", DEFAULT_START_TIME);
-    fillTimeSelect("ends_at_time", "", true);
+    const startField = ui.eventForm ? ui.eventForm.querySelector("[name='starts_at_time']") : null;
+    const endField = ui.eventForm ? ui.eventForm.querySelector("[name='ends_at_time']") : null;
+    fillTimeSelect("starts_at_time", startField ? startField.value : getDefaultStartTime());
+    fillTimeSelect("ends_at_time", endField ? endField.value : "", true);
   }
 
   function fillTimeSelect(fieldName, selectedValue, allowEmpty) {
@@ -2109,40 +2254,35 @@
     if (!field) {
       return;
     }
+    const scheduleConfig = getScheduleConfig();
     const options = allowEmpty ? ["<option value=''>Keine Endzeit</option>"] : [];
-    for (let hour = SCHEDULE_MIN_HOUR; hour <= SCHEDULE_MAX_HOUR; hour += 1) {
-      for (const minute of [0, 15, 30, 45]) {
-        if (hour === SCHEDULE_MAX_HOUR && minute > 0) {
-          continue;
-        }
-        const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-        options.push(`<option value="${value}">${value} Uhr</option>`);
-      }
+    const startMinutes = timeStringToMinutes(scheduleConfig.event_time_start);
+    const endMinutes = timeStringToMinutes(scheduleConfig.event_time_end);
+    for (let minutes = startMinutes; minutes <= endMinutes; minutes += scheduleConfig.event_time_step_minutes) {
+      const value = minutesToTimeString(minutes);
+      options.push(`<option value="${value}">${value} Uhr</option>`);
     }
     field.innerHTML = options.join("");
-    const fallbackValue = allowEmpty ? "" : DEFAULT_START_TIME;
-    field.value = selectedValue === "" ? "" : normalizeQuarterHourTime(selectedValue || field.value || fallbackValue);
+    const fallbackValue = allowEmpty ? "" : getDefaultStartTime();
+    field.value = selectedValue === "" ? "" : normalizeScheduleTime(selectedValue || field.value || fallbackValue, allowEmpty);
   }
 
-  function normalizeQuarterHourTime(value) {
+  function normalizeScheduleTime(value, allowEmpty) {
+    const scheduleConfig = getScheduleConfig();
     const raw = String(value || "").trim();
     if (!raw) {
-      return DEFAULT_START_TIME;
+      return allowEmpty ? "" : getDefaultStartTime();
     }
     const match = raw.match(/^(\d{2}):(\d{2})/);
     if (!match) {
-      return DEFAULT_START_TIME;
+      return allowEmpty ? "" : getDefaultStartTime();
     }
-    const hour = Number(match[1]);
-    const minute = Number(match[2]);
-    const roundedMinute = [0, 15, 30, 45].reduce((best, current) => {
-      return Math.abs(current - minute) < Math.abs(best - minute) ? current : best;
-    }, 0);
-    const clampedHour = Math.max(SCHEDULE_MIN_HOUR, Math.min(SCHEDULE_MAX_HOUR, hour));
-    if (clampedHour === SCHEDULE_MAX_HOUR) {
-      return "22:00";
-    }
-    return `${String(clampedHour).padStart(2, "0")}:${String(roundedMinute).padStart(2, "0")}`;
+    const rawMinutes = (Number(match[1]) * 60) + Number(match[2]);
+    const startMinutes = timeStringToMinutes(scheduleConfig.event_time_start);
+    const endMinutes = timeStringToMinutes(scheduleConfig.event_time_end);
+    const clamped = Math.max(startMinutes, Math.min(endMinutes, rawMinutes));
+    const aligned = startMinutes + (Math.round((clamped - startMinutes) / scheduleConfig.event_time_step_minutes) * scheduleConfig.event_time_step_minutes);
+    return minutesToTimeString(Math.max(startMinutes, Math.min(endMinutes, aligned)));
   }
 
   function setFieldValue(form, fieldName, value) {
@@ -2173,11 +2313,7 @@
       return;
     }
     const handler = () => {
-      const formData = new FormData(ui.eventForm);
-      const composedValue = composeLocalDateTimeValue(formData, fieldName);
-      const message = getScheduleValidationMessage(composedValue, label, !!allowEmpty);
-      dateField.setCustomValidity(message);
-      timeField.setCustomValidity(message);
+      applyDateTimeFieldValidation(fieldName, label, !!allowEmpty);
     };
     dateField.addEventListener("change", handler);
     dateField.addEventListener("input", handler);
@@ -2193,6 +2329,7 @@
   }
 
   function getScheduleValidationMessage(localDateTimeValue, label, allowEmpty) {
+    const scheduleConfig = getScheduleConfig();
     const value = String(localDateTimeValue || "").trim();
     if (!value) {
       return allowEmpty ? "" : `${label} ist erforderlich.`;
@@ -2206,13 +2343,127 @@
     }
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    if ([0, 15, 30, 45].indexOf(minutes) === -1) {
-      return `${label} muss auf Viertelstunden liegen (:00, :15, :30, :45).`;
+    const totalMinutes = (hours * 60) + minutes;
+    const minMinutes = timeStringToMinutes(scheduleConfig.event_time_start);
+    const maxMinutes = timeStringToMinutes(scheduleConfig.event_time_end);
+    if ((totalMinutes - minMinutes) % scheduleConfig.event_time_step_minutes !== 0) {
+      return `${label} muss auf die konfigurierte Schrittweite von ${scheduleConfig.event_time_step_minutes} Minuten passen.`;
     }
-    if (hours < SCHEDULE_MIN_HOUR || hours > SCHEDULE_MAX_HOUR || (hours === SCHEDULE_MAX_HOUR && minutes > 0)) {
-      return `${label} muss zwischen 08:00 und 22:00 Uhr liegen.`;
+    if (totalMinutes < minMinutes || totalMinutes > maxMinutes) {
+      return `${label} muss zwischen ${scheduleConfig.event_time_start} und ${scheduleConfig.event_time_end} Uhr liegen.`;
     }
     return "";
+  }
+
+  function getAppSettings() {
+    const source = state.tenantSettings && state.tenantSettings.app_settings
+      ? state.tenantSettings.app_settings
+      : {};
+    return {
+      event_time_start: String(source.event_time_start || "08:00").trim() || "08:00",
+      event_time_end: String(source.event_time_end || "22:00").trim() || "22:00",
+      event_time_step_minutes: Number(source.event_time_step_minutes || 15) || 15,
+      event_slug_mode: String(source.event_slug_mode || "optional").trim() || "optional",
+      allowed_embed_origins: Array.isArray(source.allowed_embed_origins) ? source.allowed_embed_origins : [],
+      event_detail_base_url: String(source.event_detail_base_url || "").trim(),
+    };
+  }
+
+  function getScheduleConfig() {
+    const settings = getAppSettings();
+    const step = Number(settings.event_time_step_minutes || 15);
+    return {
+      event_time_start: normalizeSimpleTime(settings.event_time_start, "08:00"),
+      event_time_end: normalizeSimpleTime(settings.event_time_end, "22:00"),
+      event_time_step_minutes: step > 0 ? step : 15,
+      event_slug_mode: settings.event_slug_mode || "optional",
+    };
+  }
+
+  function getDefaultStartTime() {
+    return getScheduleConfig().event_time_start;
+  }
+
+  function normalizeSimpleTime(value, fallback) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{2}):(\d{2})$/);
+    if (!match) {
+      return fallback;
+    }
+    return `${match[1]}:${match[2]}`;
+  }
+
+  function timeStringToMinutes(value) {
+    const match = String(value || "").trim().match(/^(\d{2}):(\d{2})$/);
+    if (!match) {
+      return 0;
+    }
+    return (Number(match[1]) * 60) + Number(match[2]);
+  }
+
+  function minutesToTimeString(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  function applyDateTimeFieldValidation(fieldName, label, allowEmpty) {
+    const dateField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_date']`) : null;
+    const timeField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_time']`) : null;
+    if (!dateField || !timeField) {
+      return;
+    }
+    const formData = new FormData(ui.eventForm);
+    const composedValue = composeLocalDateTimeValue(formData, fieldName);
+    const message = getScheduleValidationMessage(composedValue, label, !!allowEmpty);
+    dateField.setCustomValidity(message);
+    timeField.setCustomValidity(message);
+  }
+
+  function validateEventScheduleFields() {
+    applyDateTimeFieldValidation("starts_at", "Startzeit", false);
+    applyDateTimeFieldValidation("ends_at", "Endzeit", true);
+  }
+
+  function applyEventSlugMode() {
+    const slugField = ui.eventForm ? ui.eventForm.querySelector("[name='slug']") : null;
+    if (!slugField) {
+      return;
+    }
+    const mode = getScheduleConfig().event_slug_mode;
+    slugField.required = mode === "required";
+    if (mode === "auto") {
+      slugField.placeholder = "wird automatisch erzeugt";
+    } else if (mode === "required") {
+      slugField.placeholder = "event-slug";
+    } else {
+      slugField.placeholder = "smoke-event";
+    }
+  }
+
+  function parseOriginsTextarea(value) {
+    return String(value || "")
+      .split(/\r?\n|,/)
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean);
+  }
+
+  function validateSettingsSchedule(appSettings) {
+    const step = Number(appSettings && appSettings.event_time_step_minutes || 15);
+    if (!Number.isInteger(step) || step <= 0 || step > 60 || (60 % step) !== 0) {
+      throw new Error("Die Schrittweite muss ein Teiler von 60 sein.");
+    }
+    const start = normalizeSimpleTime(appSettings && appSettings.event_time_start, "");
+    const end = normalizeSimpleTime(appSettings && appSettings.event_time_end, "");
+    if (!start || !end) {
+      throw new Error("Bitte Start- und Endzeit vollstaendig setzen.");
+    }
+    if ((timeStringToMinutes(start) % step) !== 0 || (timeStringToMinutes(end) % step) !== 0) {
+      throw new Error(`Start- und Endzeit muessen zur Schrittweite von ${step} Minuten passen.`);
+    }
+    if (timeStringToMinutes(end) <= timeStringToMinutes(start)) {
+      throw new Error("Die Endzeit muss nach der Startzeit liegen.");
+    }
   }
 
   function isChecked(form, fieldName) {

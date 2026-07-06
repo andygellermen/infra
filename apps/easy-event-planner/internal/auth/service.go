@@ -28,10 +28,11 @@ const (
 )
 
 var (
-	ErrRateLimited        = errors.New("rate limit exceeded")
-	ErrInvalidMagicLink   = errors.New("invalid magic link")
-	ErrSessionNotFound    = errors.New("session not found")
-	ErrUnsupportedPurpose = errors.New("unsupported purpose")
+	ErrRateLimited          = errors.New("rate limit exceeded")
+	ErrInvalidMagicLink     = errors.New("invalid magic link")
+	ErrSessionNotFound      = errors.New("session not found")
+	ErrUnsupportedPurpose   = errors.New("unsupported purpose")
+	ErrTenantContextMissing = errors.New("tenant context missing")
 )
 
 type Config struct {
@@ -62,6 +63,7 @@ type RequestMagicLinkInput struct {
 	Email        string
 	Purpose      string
 	RedirectPath string
+	RequestHost  string
 	RequestIP    string
 	UserAgent    string
 }
@@ -151,13 +153,20 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 	}
 
 	tenantSlug := strings.TrimSpace(input.TenantSlug)
+	requestHost := strings.TrimSpace(input.RequestHost)
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	now := s.nowFn().UTC()
+	tenantRateKey := tenantSlug
+	if tenantRateKey == "" {
+		tenantRateKey = strings.ToLower(requestHost)
+	}
 
-	rateKeys := []string{
-		fmt.Sprintf("ip:%s|purpose:%s", strings.TrimSpace(input.RequestIP), purpose),
-		fmt.Sprintf("tenant:%s|email:%s|purpose:%s", tenantSlug, email, purpose),
-		fmt.Sprintf("tenant:%s|purpose:%s", tenantSlug, purpose),
+	rateKeys := []string{fmt.Sprintf("ip:%s|purpose:%s", strings.TrimSpace(input.RequestIP), purpose)}
+	if tenantRateKey != "" {
+		rateKeys = append(rateKeys,
+			fmt.Sprintf("tenant:%s|email:%s|purpose:%s", tenantRateKey, email, purpose),
+			fmt.Sprintf("tenant:%s|purpose:%s", tenantRateKey, purpose),
+		)
 	}
 	for _, key := range rateKeys {
 		if strings.TrimSpace(key) == "" {
@@ -174,18 +183,29 @@ func (s *Service) RequestMagicLink(ctx context.Context, input RequestMagicLinkIn
 		}
 	}
 
-	tenantRecord, err := s.tenants.LookupBySlug(ctx, tenantSlug)
-	if err != nil {
-		if errors.Is(err, tenant.ErrTenantNotFound) {
-			log.Printf(
-				"magic-link request accepted without send tenant=%s email=%s purpose=%s reason=tenant_not_found",
-				tenantSlug,
-				email,
-				purpose,
-			)
-			return RequestMagicLinkResult{Accepted: true, Sent: false}, nil
+	var tenantRecord tenant.Tenant
+	if tenantSlug != "" {
+		tenantRecord, err = s.tenants.LookupBySlug(ctx, tenantSlug)
+		if err != nil {
+			if errors.Is(err, tenant.ErrTenantNotFound) {
+				log.Printf(
+					"magic-link request accepted without send tenant=%s email=%s purpose=%s reason=tenant_not_found",
+					tenantSlug,
+					email,
+					purpose,
+				)
+				return RequestMagicLinkResult{Accepted: true, Sent: false}, nil
+			}
+			return RequestMagicLinkResult{}, err
 		}
-		return RequestMagicLinkResult{}, err
+	} else {
+		if requestHost == "" {
+			return RequestMagicLinkResult{}, ErrTenantContextMissing
+		}
+		tenantRecord, err = s.tenants.LookupByPublicHost(ctx, requestHost)
+		if err != nil {
+			return RequestMagicLinkResult{}, err
+		}
 	}
 
 	userID := ""

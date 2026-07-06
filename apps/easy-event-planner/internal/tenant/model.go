@@ -61,6 +61,13 @@ type UpsertTenantSettingsParams struct {
 	Settings TenantSettingsInput
 }
 
+type UpdateTenantParams struct {
+	Name            *string
+	PublicBaseURL   *string
+	DefaultTimezone *string
+	DefaultLocale   *string
+}
+
 type SeedAdminUserInput struct {
 	Email  string
 	Name   string

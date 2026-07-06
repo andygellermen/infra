@@ -196,6 +196,29 @@ func TestMagicLinkRequestNeutralForUnknownEmail(t *testing.T) {
 	}
 }
 
+func TestMagicLinkRequestUsesRequestHostWithoutTenantSlug(t *testing.T) {
+	app, sender, _ := setupAuthApp(t)
+
+	requestPayload := map[string]any{
+		"email":   "owner@example.com",
+		"purpose": "organizer_login",
+	}
+	requestBody, _ := json.Marshal(requestPayload)
+
+	requestReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/magic-link/request", bytes.NewReader(requestBody))
+	requestReq.Header.Set("Content-Type", "application/json")
+	requestReq.Host = "localhost:8080"
+	requestRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(requestRec, requestReq)
+
+	if requestRec.Code != http.StatusOK {
+		t.Fatalf("expected request status 200, got %d", requestRec.Code)
+	}
+	if sender.lastMessage.VerifyURL == "" {
+		t.Fatalf("expected magic link sender to receive verify url")
+	}
+}
+
 func extractTokenFromVerifyURL(t *testing.T, verifyURL string) string {
 	t.Helper()
 	parsed, err := url.Parse(verifyURL)

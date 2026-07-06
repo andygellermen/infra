@@ -10,8 +10,8 @@
   <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
   <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
 
-  <div class="layout fade-in">
-    <header class="topbar">
+  <div class="layout fade-in is-login">
+    <header id="topbar" class="topbar" hidden>
       <div>
         <p class="eyebrow">easy-event-planner</p>
         <h1>Admin Cockpit</h1>
@@ -25,12 +25,8 @@
     <main class="content">
       <section id="loginPanel" class="card login-card">
         <h2>Login per Magic Link</h2>
-        <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse.</p>
+        <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse. Der Mandant wird automatisch ueber die aufgerufene Domain erkannt.</p>
         <form id="loginForm" class="form-grid">
-          <label>
-            Tenant Slug
-            <input id="tenantSlug" name="tenantSlug" type="text" placeholder="demo" required>
-          </label>
           <label>
             E-Mail
             <input id="email" name="email" type="email" placeholder="owner@example.com" required>
@@ -47,7 +43,7 @@
           <button class="tab" data-tab="series" type="button">Serien</button>
           <button class="tab" data-tab="registrations" type="button">Teilnehmer</button>
           <button class="tab" data-tab="snippets" type="button">Snippets</button>
-          <button class="tab" data-tab="roadmap" type="button">Erweiterungen</button>
+          <button class="tab" data-tab="settings" type="button">Settings</button>
         </nav>
 
         <div id="flash" class="flash" hidden></div>
@@ -449,11 +445,99 @@
           </div>
         </section>
 
-        <section id="tab-roadmap" class="tabpane">
-          <div class="card placeholder">
-            <h2>Naechste UI-Erweiterungen</h2>
-            <p>Als naechstes bauen wir Datenschutz-Lauf, Kalender-Feed, Einladungen und kostenpflichtige Reservierungen in diese UI ein.</p>
-            <p class="muted">Mit Serien, Serienvorlagen und Event-Bearbeitung ist jetzt die Basis fuer mehrtaegige Formate und Terminfolgen gelegt.</p>
+        <section id="tab-settings" class="tabpane">
+          <div class="split split-wide">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Mandantenprofil</h2>
+                  <p class="muted compact">Domain, Anzeigename und Basis-Lokalisierung fuer den aktuellen EEP-Mandanten.</p>
+                </div>
+              </div>
+              <form id="settingsProfileForm" class="form-grid">
+                <label>
+                  Slug
+                  <input name="slug" type="text" readonly>
+                </label>
+                <label>
+                  Anzeigename
+                  <input name="name" type="text" placeholder="Easy Event Planner" required>
+                </label>
+                <label class="span-2">
+                  Public Base URL
+                  <input name="public_base_url" type="url" placeholder="https://events.geller.men" required>
+                </label>
+                <label>
+                  Zeitzone
+                  <input name="default_timezone" type="text" placeholder="Europe/Berlin" required>
+                </label>
+                <label>
+                  Sprache/Locale
+                  <input name="default_locale" type="text" placeholder="de-DE" required>
+                </label>
+                <button id="settingsProfileSubmitBtn" class="btn primary" type="submit">Profil speichern</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>EEP-Regeln</h2>
+                  <p class="muted compact">Zeitfenster, Schrittweite, Slug-Modus und künftige Einbettungsregeln zentral pflegen.</p>
+                </div>
+              </div>
+              <form id="settingsRulesForm" class="form-grid">
+                <label>
+                  Event-Zeit ab
+                  <input name="event_time_start" type="time" step="300" required>
+                </label>
+                <label>
+                  Event-Zeit bis
+                  <input name="event_time_end" type="time" step="300" required>
+                </label>
+                <label>
+                  Schrittweite
+                  <select name="event_time_step_minutes">
+                    <option value="5">5 Minuten</option>
+                    <option value="10">10 Minuten</option>
+                    <option value="15">15 Minuten</option>
+                    <option value="20">20 Minuten</option>
+                    <option value="30">30 Minuten</option>
+                    <option value="60">60 Minuten</option>
+                  </select>
+                </label>
+                <label>
+                  Event-Slug Modus
+                  <select name="event_slug_mode">
+                    <option value="optional">Optional / automatisch ableiten</option>
+                    <option value="required">Pflichtfeld</option>
+                    <option value="auto">Immer automatisch erzeugen</option>
+                  </select>
+                </label>
+                <label class="span-2">
+                  Detailseiten-Basis-URL (optional)
+                  <input name="event_detail_base_url" type="url" placeholder="https://www.geller.men/events">
+                </label>
+                <label>
+                  Absender E-Mail
+                  <input name="sender_email" type="email" placeholder="events@example.com">
+                </label>
+                <label>
+                  Absender Name
+                  <input name="sender_name" type="text" placeholder="Event Team">
+                </label>
+                <label>
+                  Aufbewahrungstage
+                  <input name="default_retention_days" type="number" min="1" step="1" placeholder="30">
+                </label>
+                <label class="span-2">
+                  Erlaubte Embed Origins
+                  <textarea name="allowed_embed_origins" rows="4" placeholder="https://www.geller.men&#10;https://ghost.geller.men"></textarea>
+                </label>
+                <button id="settingsRulesSubmitBtn" class="btn primary" type="submit">Settings speichern</button>
+              </form>
+              <p id="settingsRulesHint" class="muted compact">Die Embed Origins bereiten den kuenftigen CORS-/JS-Include-Ausbau vor.</p>
+            </div>
           </div>
         </section>
       </section>

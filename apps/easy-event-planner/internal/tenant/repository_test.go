@@ -70,6 +70,53 @@ func TestCreateTenantAndLookupBySlug(t *testing.T) {
 	}
 }
 
+func TestLookupByPublicHost(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "customer-xyz",
+		Name:          "Customer XYZ",
+		PublicBaseURL: "https://events.example.com/customer-xyz",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	lookup, err := repo.LookupByPublicHost(context.Background(), "events.example.com:443")
+	if err != nil {
+		t.Fatalf("LookupByPublicHost returned error: %v", err)
+	}
+	if lookup.ID != created.ID {
+		t.Fatalf("expected tenant id %q, got %q", created.ID, lookup.ID)
+	}
+}
+
+func TestLookupByPublicHostFailsWhenAmbiguous(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	for _, item := range []CreateTenantParams{
+		{
+			Slug:          "customer-xyz",
+			Name:          "Customer XYZ",
+			PublicBaseURL: "https://events.example.com/customer-xyz",
+		},
+		{
+			Slug:          "customer-abc",
+			Name:          "Customer ABC",
+			PublicBaseURL: "https://events.example.com/customer-abc",
+		},
+	} {
+		if _, err := repo.CreateTenant(context.Background(), item); err != nil {
+			t.Fatalf("CreateTenant returned error: %v", err)
+		}
+	}
+
+	_, err := repo.LookupByPublicHost(context.Background(), "events.example.com")
+	if !errors.Is(err, ErrTenantHostAmbiguous) {
+		t.Fatalf("expected ErrTenantHostAmbiguous, got %v", err)
+	}
+}
+
 func TestUpsertSettings(t *testing.T) {
 	repo := NewRepository(newMigratedDB(t))
 
@@ -104,6 +151,46 @@ func TestUpsertSettings(t *testing.T) {
 	}
 	if updated.DefaultRetentionDays != 45 {
 		t.Fatalf("unexpected retention days %d", updated.DefaultRetentionDays)
+	}
+}
+
+func TestUpdateTenant(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "demo",
+		Name:          "Demo Tenant",
+		PublicBaseURL: "https://events.example.com/demo",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	name := "Demo Tenant Updated"
+	baseURL := "https://events-updated.example.com"
+	timezone := "UTC"
+	locale := "en-GB"
+	updated, err := repo.UpdateTenant(context.Background(), created.ID, UpdateTenantParams{
+		Name:            &name,
+		PublicBaseURL:   &baseURL,
+		DefaultTimezone: &timezone,
+		DefaultLocale:   &locale,
+	})
+	if err != nil {
+		t.Fatalf("UpdateTenant returned error: %v", err)
+	}
+
+	if updated.Name != name {
+		t.Fatalf("expected updated name %q, got %q", name, updated.Name)
+	}
+	if updated.PublicBaseURL != baseURL {
+		t.Fatalf("expected updated public base url %q, got %q", baseURL, updated.PublicBaseURL)
+	}
+	if updated.DefaultTimezone != timezone {
+		t.Fatalf("expected updated timezone %q, got %q", timezone, updated.DefaultTimezone)
+	}
+	if updated.DefaultLocale != locale {
+		t.Fatalf("expected updated locale %q, got %q", locale, updated.DefaultLocale)
 	}
 }
 
