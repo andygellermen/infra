@@ -25,18 +25,16 @@
     <main class="content">
       <section id="loginPanel" class="card login-card">
         <div class="login-intro">
-          <p class="eyebrow">easy-event-planner</p>
-          <h1 class="login-title">Willkommen zur Event-Administration</h1>
-          <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse. Der Mandant wird automatisch ueber die aufgerufene Domain erkannt.</p>
+          <h1 class="login-title">Login</h1>
+          <p class="muted">Einloggen per Magic Link.</p>
         </div>
         <form id="loginForm" class="form-grid login-form">
           <label>
-            E-Mail
-            <input id="email" name="email" type="email" placeholder="owner@example.com" autocomplete="email" autofocus required>
+            E-Mail-Adresse
+            <input id="email" name="email" type="email" placeholder="name@domain.de" autocomplete="email" autofocus required>
           </label>
-          <button id="loginSubmitBtn" class="btn primary login-submit" type="submit">Magic Link senden</button>
+          <button id="loginSubmitBtn" class="btn primary login-submit" type="submit">Link senden</button>
         </form>
-        <p class="login-note muted">Du brauchst keinen Tenant-Slug mehr einzugeben.</p>
         <p id="loginHint" class="muted hint"></p>
       </section>
 
@@ -422,7 +420,7 @@
 
           <div class="card">
             <h2>Embed-Code</h2>
-            <p class="muted">Waehle in der Liste „Embed“ oder „Preview“, um die Ghost-Einbindung direkt vorzubereiten.</p>
+            <p class="muted">Waehle bei Snippets „Embed/Preview“ oder in der Event-Liste „Embed“, um Listen und Anmeldeformulare direkt vorzubereiten.</p>
             <label>
               Snippet Script
               <textarea id="snippetEmbedOutput" class="code-output" rows="4" readonly placeholder="<script src=\"...\" defer></script>"></textarea>
@@ -432,7 +430,7 @@
               <input id="snippetScriptSrcOutput" type="text" readonly placeholder="https://events.example.com/demo/include.js?config=footer-upcoming">
             </label>
             <label>
-              Public JSON
+              Public API
               <input id="snippetDataUrlOutput" type="text" readonly placeholder="https://events.example.com/api/v1/public/demo/snippet/events?config=footer-upcoming">
             </label>
             <div class="toolbar-actions">
@@ -444,7 +442,7 @@
 
           <div class="card">
             <h2>Ghost-Vorschau</h2>
-            <p id="snippetPreviewHint" class="muted">Lade ein Snippet, um die Einbindung wie in Ghost direkt zu pruefen.</p>
+            <p id="snippetPreviewHint" class="muted">Lade ein Snippet oder ein Event-Formular, um die Einbindung wie in Ghost direkt zu pruefen.</p>
             <iframe id="snippetPreviewFrame" class="snippet-preview-frame" title="Snippet Vorschau"></iframe>
           </div>
         </section>

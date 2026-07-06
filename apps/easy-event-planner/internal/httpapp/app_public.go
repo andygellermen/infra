@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,10 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Mandant konnte nicht geladen werden.")
+		return
+	}
+
+	if handled := a.handlePublicCORS(w, r, tenantItem, routeType); handled {
 		return
 	}
 
@@ -568,6 +573,96 @@ func publicSeriesPayload(item event.EventSeries) map[string]any {
 		"default_online_url":    item.DefaultOnlineURL,
 		"is_public":             item.IsPublic,
 	}
+}
+
+func (a *App) handlePublicCORS(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant, routeType string) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+
+	allowedOrigin, ok := a.resolveAllowedPublicOrigin(r, tenantItem, origin)
+	if !ok {
+		writeAPIError(w, http.StatusForbidden, "CORS_ORIGIN_NOT_ALLOWED", "Diese Origin ist fuer die Einbettung nicht freigegeben.")
+		return true
+	}
+
+	methods := publicRouteMethods(routeType)
+	headers := w.Header()
+	headers.Add("Vary", "Origin")
+	headers.Add("Vary", "Access-Control-Request-Method")
+	headers.Add("Vary", "Access-Control-Request-Headers")
+	headers.Set("Access-Control-Allow-Origin", allowedOrigin)
+	headers.Set("Access-Control-Allow-Methods", strings.Join(methods, ", "))
+	headers.Set("Access-Control-Allow-Headers", "Accept, Content-Type")
+	headers.Set("Access-Control-Max-Age", "600")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
+func (a *App) resolveAllowedPublicOrigin(r *http.Request, tenantItem tenant.Tenant, rawOrigin string) (string, bool) {
+	normalizedOrigin, ok := normalizeOrigin(rawOrigin)
+	if !ok {
+		return "", false
+	}
+
+	allowedOrigins := map[string]struct{}{}
+	if tenantOrigin, ok := normalizeOrigin(tenantItem.PublicBaseURL); ok {
+		allowedOrigins[tenantOrigin] = struct{}{}
+	}
+
+	if a.tenantRepo != nil {
+		settings, err := a.tenantRepo.GetSettings(r.Context(), tenantItem.ID)
+		if err == nil {
+			appSettings, _, err := parseAdminTenantAppSettings(settings.SettingsJSON)
+			if err == nil {
+				for _, origin := range appSettings.AllowedEmbedOrigins {
+					if strings.TrimSpace(origin) == "*" {
+						return "*", true
+					}
+					if normalized, ok := normalizeOrigin(origin); ok {
+						allowedOrigins[normalized] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+
+	_, exists := allowedOrigins[normalizedOrigin]
+	return normalizedOrigin, exists
+}
+
+func publicRouteMethods(routeType string) []string {
+	switch routeType {
+	case "events_list", "event_detail", "series_list", "series_events", "snippet_events", "registrations_calendar", "certificates_verify_public":
+		return []string{http.MethodGet, http.MethodOptions}
+	case "registrations_start", "payments_paypal_create_order":
+		return []string{http.MethodPost, http.MethodOptions}
+	case "registrations_verify":
+		return []string{http.MethodGet, http.MethodPost, http.MethodOptions}
+	case "invitations_resolve", "participants_portal_me", "participants_portal_registrations", "participants_portal_certificates", "participants_portal_certificate", "participants_portal_certificate_download":
+		return []string{http.MethodGet, http.MethodOptions}
+	case "participants_portal_request", "participants_portal_verify", "participants_portal_logout", "participants_portal_registration_cancel":
+		return []string{http.MethodPost, http.MethodOptions}
+	default:
+		return []string{http.MethodGet, http.MethodPost, http.MethodOptions}
+	}
+}
+
+func normalizeOrigin(raw string) (string, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", false
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", false
+	}
+	return fmt.Sprintf("%s://%s", strings.ToLower(parsed.Scheme), strings.ToLower(parsed.Host)), true
 }
 
 func publicEventPayload(item event.PublicEvent) map[string]any {

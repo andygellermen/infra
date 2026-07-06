@@ -464,6 +464,9 @@ func normalizeAllowedEmbedOrigins(raw []string) ([]string, error) {
 		if value == "" {
 			continue
 		}
+		if value == "*" {
+			return []string{"*"}, nil
+		}
 		parsed, err := url.Parse(value)
 		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			return nil, fmt.Errorf("allowed_embed_origins enthaelt eine ungueltige Origin")

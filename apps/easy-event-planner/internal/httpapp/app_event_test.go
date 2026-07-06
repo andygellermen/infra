@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -226,6 +227,64 @@ func TestAdminEventListCountsAndArchiveFlow(t *testing.T) {
 	app.Handler().ServeHTTP(rePublishRec, rePublishReq)
 	if rePublishRec.Code != http.StatusConflict {
 		t.Fatalf("expected publish-after-archive status 409, got %d", rePublishRec.Code)
+	}
+}
+
+func TestAdminEventRegistrationEmbedCode(t *testing.T) {
+	app, sender, tenantSlug := setupAuthApp(t)
+	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
+
+	createPayload := map[string]any{
+		"slug":                 "embed-event",
+		"title":                "Embed Event",
+		"starts_at":            "2026-08-12T09:00:00Z",
+		"participation_mode":   "hybrid",
+		"registration_enabled": true,
+	}
+	createBody, _ := json.Marshal(createPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	eventID := decodeBody[map[string]any](t, createRec)["item"].(map[string]any)["id"].(string)
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/publish", nil)
+	publishReq.AddCookie(sessionCookie)
+	publishRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("expected publish status 200, got %d", publishRec.Code)
+	}
+
+	embedReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/events/"+eventID+"/embed-code", nil)
+	embedReq.AddCookie(sessionCookie)
+	embedRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(embedRec, embedReq)
+	if embedRec.Code != http.StatusOK {
+		t.Fatalf("expected embed status 200, got %d", embedRec.Code)
+	}
+	payload := decodeBody[map[string]any](t, embedRec)
+	if payload["kind"] != "registration_form" {
+		t.Fatalf("expected kind registration_form, got %v", payload["kind"])
+	}
+	embedCode, _ := payload["embed_code"].(string)
+	if !strings.Contains(embedCode, "/"+tenantSlug+"/register.js?event=embed-event") {
+		t.Fatalf("expected embed code to contain register.js URL, got %q", embedCode)
+	}
+	detailURL, _ := payload["event_detail_api_url"].(string)
+	if !strings.Contains(detailURL, "/api/v1/public/"+tenantSlug+"/events/embed-event") {
+		t.Fatalf("expected event_detail_api_url for public event detail, got %q", detailURL)
+	}
+	warnings, ok := payload["warnings"].([]any)
+	if !ok {
+		t.Fatalf("expected warnings array")
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings for published public event, got %v", warnings)
 	}
 }
 

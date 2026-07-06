@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func tenantIDBySlug(t *testing.T, app *App, tenantSlug string) string {
@@ -256,6 +257,74 @@ func TestPublicRegistrationVerifyMovesToWaitlist(t *testing.T) {
 	}
 	if waitlist["position"] != float64(1) {
 		t.Fatalf("expected waitlist position 1, got %v", waitlist["position"])
+	}
+}
+
+func TestPublicRegistrationCORSAllowedOrigin(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	if _, err := app.tenantRepo.UpsertSettings(context.Background(), tenant.UpsertTenantSettingsParams{
+		TenantID: tenantID,
+		Settings: tenant.TenantSettingsInput{
+			SettingsJSON: `{"allowed_embed_origins":["https://ghost.geller.men"]}`,
+		},
+	}); err != nil {
+		t.Fatalf("upsert tenant settings: %v", err)
+	}
+
+	eventItem := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:     "cors-registration",
+		Title:    "CORS Registration",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	preflightReq := httptest.NewRequest(http.MethodOptions, "/api/v1/public/"+tenantSlug+"/registrations/start", nil)
+	preflightReq.Header.Set("Origin", "https://ghost.geller.men")
+	preflightReq.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	preflightRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(preflightRec, preflightReq)
+	if preflightRec.Code != http.StatusNoContent {
+		t.Fatalf("expected preflight status 204, got %d", preflightRec.Code)
+	}
+	if preflightRec.Header().Get("Access-Control-Allow-Origin") != "https://ghost.geller.men" {
+		t.Fatalf("expected allow origin header, got %q", preflightRec.Header().Get("Access-Control-Allow-Origin"))
+	}
+
+	startPayload := map[string]any{
+		"event_id":           eventItem.ID,
+		"name":               "CORS User",
+		"email":              "cors@example.com",
+		"participation_type": "onsite",
+		"privacy_accepted":   true,
+	}
+	startBody, _ := json.Marshal(startPayload)
+	startReq := httptest.NewRequest(http.MethodPost, "/api/v1/public/"+tenantSlug+"/registrations/start", bytes.NewReader(startBody))
+	startReq.Header.Set("Origin", "https://ghost.geller.men")
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(startRec, startReq)
+	if startRec.Code != http.StatusAccepted {
+		t.Fatalf("expected start status 202, got %d", startRec.Code)
+	}
+	if startRec.Header().Get("Access-Control-Allow-Origin") != "https://ghost.geller.men" {
+		t.Fatalf("expected allow origin header on POST, got %q", startRec.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestPublicRegistrationCORSRejectsUnknownOrigin(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/public/"+tenantSlug+"/registrations/start", nil)
+	req.Header.Set("Origin", "https://unknown.example.com")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", rec.Code)
+	}
+	payload := decodeBody[map[string]any](t, rec)
+	errorPayload := payload["error"].(map[string]any)
+	if errorPayload["code"] != "CORS_ORIGIN_NOT_ALLOWED" {
+		t.Fatalf("expected CORS_ORIGIN_NOT_ALLOWED, got %v", errorPayload["code"])
 	}
 }
 

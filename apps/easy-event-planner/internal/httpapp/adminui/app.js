@@ -229,7 +229,7 @@
       ui.layout.classList.add("is-login");
     }
     ui.currentUser.textContent = "Nicht angemeldet";
-    ui.loginHint.textContent = "";
+    setLoginHint("");
   }
 
   function showWorkspace(me) {
@@ -256,10 +256,11 @@
     const email = String(ui.email ? ui.email.value : "").trim().toLowerCase();
 
     if (!email) {
-      ui.loginHint.textContent = "Bitte E-Mail eintragen.";
+      setLoginHint("Bitte E-Mail eingeben.", "error");
       return;
     }
 
+    setLoginHint("");
     setButtonBusy(ui.loginSubmitBtn, true, "Sende...");
 
     try {
@@ -271,11 +272,11 @@
           redirect_path: "/admin",
         }),
       });
-      ui.loginHint.textContent = "Magic Link wurde versendet. Bitte E-Mail oeffnen und den Link klicken.";
+      setLoginHint("Link ist unterwegs.", "success");
     } catch (err) {
-      ui.loginHint.textContent = `Login-Link konnte nicht gesendet werden: ${errorMessage(err)}`;
+      setLoginHint(`Nicht gesendet: ${errorMessage(err)}`, "error");
     } finally {
-      setButtonBusy(ui.loginSubmitBtn, false, "Magic Link senden");
+      setButtonBusy(ui.loginSubmitBtn, false, "Link senden");
     }
   }
 
@@ -720,6 +721,7 @@
             ? `<button class="btn tiny light" type="button" data-event-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
                <button class="btn tiny light" type="button" data-event-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>`
             : `<button class="btn tiny light" type="button" data-event-action="edit" data-event-id="${escapeAttr(item.id)}">Bearbeiten</button>
+               <button class="btn tiny light" type="button" data-event-action="embed" data-event-id="${escapeAttr(item.id)}">Embed</button>
                <button class="btn tiny light" type="button" data-event-action="focus-registrations" data-event-id="${escapeAttr(item.id)}">Teilnehmer</button>
                <button class="btn tiny warn" type="button" data-event-action="archive" data-event-id="${escapeAttr(item.id)}">Archivieren</button>`}
         </div>
@@ -772,6 +774,11 @@
 
         if (action === "focus-registrations") {
           await focusRegistrationsForEvent(id);
+          return;
+        }
+
+        if (action === "embed") {
+          await loadEventRegistrationEmbedCode(id);
           return;
         }
 
@@ -1756,6 +1763,34 @@
     return payload;
   }
 
+  async function loadEventRegistrationEmbedCode(eventID) {
+    const payload = await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/embed-code`);
+    const embedCode = String(payload && payload.embed_code ? payload.embed_code : "").trim();
+    const scriptSrc = String(payload && payload.script_src ? payload.script_src : "").trim();
+    const detailURL = String(payload && payload.event_detail_api_url ? payload.event_detail_api_url : "").trim();
+    const item = payload && payload.item ? payload.item : null;
+    const warnings = Array.isArray(payload && payload.warnings) ? payload.warnings.filter(Boolean) : [];
+    ui.snippetEmbedOutput.value = embedCode;
+    if (ui.snippetScriptSrcOutput) {
+      ui.snippetScriptSrcOutput.value = scriptSrc;
+    }
+    if (ui.snippetDataUrlOutput) {
+      ui.snippetDataUrlOutput.value = detailURL;
+    }
+    if (embedCode) {
+      ui.snippetEmbedOutput.focus();
+      ui.snippetEmbedOutput.select();
+    }
+    renderSnippetPreview(item, scriptSrc, true);
+    activateTab("snippets");
+    if (warnings.length) {
+      setFlash(`Embed geladen. Hinweis: ${warnings.join(" ")}`);
+      return payload;
+    }
+    setFlash(`Anmeldeformular fuer '${item && item.title ? item.title : "Event"}' geladen.`);
+    return payload;
+  }
+
   function statusPill(value) {
     const status = String(value || "-").trim() || "-";
     return `<span class="status-pill" data-status="${escapeAttr(status)}">${escapeHTML(status)}</span>`;
@@ -1997,6 +2032,16 @@
     ui.flash.hidden = true;
     ui.flash.classList.remove("error");
     ui.flash.textContent = "";
+  }
+
+  function setLoginHint(message, type) {
+    if (!ui.loginHint) {
+      return;
+    }
+    const tone = String(type || "").trim();
+    ui.loginHint.textContent = message || "";
+    ui.loginHint.classList.toggle("is-success", tone === "success");
+    ui.loginHint.classList.toggle("is-error", tone === "error");
   }
 
   function setButtonBusy(button, busy, busyLabel) {
@@ -2527,11 +2572,11 @@
       return;
     }
     if (!scriptSrc) {
-      ui.snippetPreviewHint.textContent = "Lade ein Snippet, um die Einbindung wie in Ghost direkt zu pruefen.";
+      ui.snippetPreviewHint.textContent = "Lade ein Snippet oder ein Event-Formular, um die Einbindung wie in Ghost direkt zu pruefen.";
       ui.snippetPreviewFrame.srcdoc = "";
       return;
     }
-    const label = item && item.name ? item.name : "Snippet";
+    const label = item && (item.name || item.title) ? (item.name || item.title) : "Embed";
     ui.snippetPreviewHint.textContent = forcePreview
       ? `Live-Vorschau fuer '${label}' geladen.`
       : `Embed fuer '${label}' geladen. Die Vorschau ist darunter sofort einsatzbereit.`;
@@ -2557,7 +2602,7 @@
   async function onSnippetCopyEmbed() {
     const value = String(ui.snippetEmbedOutput ? ui.snippetEmbedOutput.value : "").trim();
     if (!value) {
-      setFlash("Bitte zuerst ein Snippet laden.", "error");
+      setFlash("Bitte zuerst ein Snippet oder Formular laden.", "error");
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2574,7 +2619,7 @@
   function openSnippetURL(field) {
     const value = String(field && field.value ? field.value : "").trim();
     if (!value) {
-      setFlash("Bitte zuerst ein Snippet laden.", "error");
+      setFlash("Bitte zuerst ein Snippet oder Formular laden.", "error");
       return;
     }
     window.open(value, "_blank", "noopener");

@@ -127,6 +127,7 @@
       EEP_SEED_ADMIN_NAME={{ item.eep_seed_admin_name | default('Owner', true) }}
       EEP_SEED_ADMIN_ROLE={{ item.eep_seed_admin_role | default('owner', true) }}
       EEP_SEED_PAYPAL_MODE={{ item.eep_seed_paypal_mode | default('disabled', true) }}
+      EEP_SEED_SETTINGS_JSON={{ item.eep_seed_settings_json | default('', true) }}
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0
 

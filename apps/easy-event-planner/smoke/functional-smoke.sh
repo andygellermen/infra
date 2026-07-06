@@ -174,6 +174,14 @@ echo "auth/me status code: ${AUTH_ME_CODE}"
 [ "$AUTH_ME_CODE" = "200" ] || die "auth/me returned HTTP ${AUTH_ME_CODE}"
 python3 -c 'import json,sys; data=json.load(open("/tmp/eep-functional-auth-me.json")); assert data.get("authenticated") is True'
 
+echo "== functional smoke: tenant embed settings =="
+TENANT_SETTINGS_RESP=$(curl -fsS -X PATCH "$BASE_URL/api/v1/admin/tenant/settings" \
+  -H "Content-Type: application/json" \
+  -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}" \
+  -d '{"app_settings":{"allowed_embed_origins":["https://ghost.geller.men"],"event_detail_base_url":"https://www.example.com/events"}}')
+printf "%s\n" "$TENANT_SETTINGS_RESP"
+printf "%s" "$TENANT_SETTINGS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); app=data["item"]["app_settings"]; assert "https://ghost.geller.men" in app["allowed_embed_origins"]'
+
 EVENT_SLUG="smoke-event-$(date +%s)"
 STARTS_AT=$(python3 - <<'PY'
 from datetime import datetime, timedelta, timezone
@@ -195,6 +203,13 @@ echo "== functional smoke: publish event =="
 PUBLISH_RESP=$(curl -fsS -X POST "$BASE_URL/api/v1/admin/events/${EVENT_ID}/publish" \
   -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}")
 printf "%s\n" "$PUBLISH_RESP"
+
+echo "== functional smoke: fetch event registration embed code =="
+EVENT_EMBED_RESP=$(curl -fsS "$BASE_URL/api/v1/admin/events/${EVENT_ID}/embed-code" \
+  -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}")
+printf "%s\n" "$EVENT_EMBED_RESP"
+printf "%s" "$EVENT_EMBED_RESP" | TENANT_SLUG_EXPECTED="$TENANT_SLUG" EVENT_SLUG_EXPECTED="$EVENT_SLUG" \
+  python3 -c 'import json,os,sys; data=json.load(sys.stdin); code=data.get("embed_code",""); expected="/" + os.environ["TENANT_SLUG_EXPECTED"] + "/register.js?event=" + os.environ["EVENT_SLUG_EXPECTED"]; assert expected in code; assert data.get("kind") == "registration_form"'
 
 echo "== functional smoke: list public events =="
 PUBLIC_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/events")
@@ -224,6 +239,21 @@ SNIPPET_INCLUDE_RESP=$(curl -fsS "$BASE_URL/${TENANT_SLUG}/include.js?config=${S
 printf "%s\n" "$SNIPPET_INCLUDE_RESP" | sed -n '1,8p'
 printf "%s" "$SNIPPET_INCLUDE_RESP" | TENANT_SLUG_EXPECTED="$TENANT_SLUG" \
   python3 -c 'import os,sys; body=sys.stdin.read(); assert "/api/v1/public/" in body; assert "/snippet/events" in body; assert os.environ["TENANT_SLUG_EXPECTED"] in body'
+
+echo "== functional smoke: registration register.js =="
+REGISTER_JS_RESP=$(curl -fsS "$BASE_URL/${TENANT_SLUG}/register.js?event=${EVENT_SLUG}")
+printf "%s\n" "$REGISTER_JS_RESP" | sed -n '1,8p'
+printf "%s" "$REGISTER_JS_RESP" | python3 -c 'import sys; body=sys.stdin.read(); assert "/api/v1/public/" in body; assert "/registrations/start" in body; assert "Magic Link anfordern" in body'
+
+echo "== functional smoke: CORS preflight =="
+CORS_CODE=$(curl -sS -o /tmp/eep-functional-cors.json -w "%{http_code}" -X OPTIONS "$BASE_URL/api/v1/public/${TENANT_SLUG}/registrations/start" \
+  -H "Origin: https://ghost.geller.men" \
+  -H "Access-Control-Request-Method: POST")
+[ "$CORS_CODE" = "204" ] || die "CORS preflight returned HTTP ${CORS_CODE}"
+ALLOW_ORIGIN=$(curl -sSI -X OPTIONS "$BASE_URL/api/v1/public/${TENANT_SLUG}/registrations/start" \
+  -H "Origin: https://ghost.geller.men" \
+  -H "Access-Control-Request-Method: POST" | tr -d '\r' | awk -F': ' 'BEGIN{IGNORECASE=1} $1=="Access-Control-Allow-Origin"{print $2; exit}')
+[ "$ALLOW_ORIGIN" = "https://ghost.geller.men" ] || die "unexpected CORS allow origin: ${ALLOW_ORIGIN}"
 
 echo "== functional smoke: snippet public events =="
 SNIPPET_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/snippet/events?config=${SNIPPET_SLUG}")

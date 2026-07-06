@@ -23,7 +23,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 20 aus `docs/codex-task-plan.md
 - Public Registration mit Magic-Link-Verifizierung (`internal/registration` + `/api/v1/public/{tenantSlug}/registrations/start|verify`)
 - Waitlist-Verwaltung mit Offer/Promote (`internal/registration` + Admin-API `/api/v1/admin/events/{eventId}/waitlist` und `/api/v1/admin/waitlist/{waitlistEntryId}/offer|promote`)
 - Admin Dashboard und Teilnehmerliste (`internal/registration` + Admin-API `/api/v1/admin/dashboard`, `/api/v1/admin/events/{eventId}/registrations`, `/api/v1/admin/registrations/{registrationId}`)
-- Ghost/CMS-Snippet mit Config-CRUD, Embed-Code, `include.js`, `snippet.css` und Public-Snippet-Events (`internal/snippet`, `/api/v1/admin/snippets`, `/{tenantSlug}/include.js`, `/{tenantSlug}/snippet.css`, `/api/v1/public/{tenantSlug}/snippet/events`)
+- Ghost/CMS-Snippet mit Config-CRUD, Embed-Code, `include.js`, `register.js`, `snippet.css` und Public-Snippet-/Registrierungs-Embeds (`internal/snippet`, `/api/v1/admin/snippets`, `/api/v1/admin/events/{eventId}/embed-code`, `/{tenantSlug}/include.js`, `/{tenantSlug}/register.js`, `/{tenantSlug}/snippet.css`, `/api/v1/public/{tenantSlug}/snippet/events`)
 - Tages-/Morgenuebersicht fuer Veranstalter als automatischer Email-Job (`internal/notification`, Template `organizer_morning_summary`)
 - Privacy-Retention mit Tenant-Policies, Dry-Run/Run, Teilnehmeranonymisierung, Magic-Link-/Session-/Email-Job-Cleanup, Audit-Log und Admin-API (`internal/privacy`, `/api/v1/admin/privacy/...`)
 - Event-Pflegeaktionen mit Statusuebergaengen (`changed`, `postponed`, `cancelled`, `completed`) und Admin-API-Aktionen (`/publish`, `/unpublish`, `/cancel`, `/postpone`, `/mark-completed`)
@@ -131,7 +131,27 @@ cd apps/easy-event-planner
 ./smoke/functional-smoke.sh
 ```
 
-Hinweis: Standard-Port ist `18081`, optional ueberschreibbar mit `EEP_SMOKE_PORT`. Der Functional Smoke deckt jetzt auch den Snippet-Flow (`/api/v1/admin/snippets`, `/{tenantSlug}/include.js`, `/api/v1/public/{tenantSlug}/snippet/events`) mit ab.
+Hinweis: Standard-Port ist `18081`, optional ueberschreibbar mit `EEP_SMOKE_PORT`. Der Functional Smoke deckt jetzt auch den Snippet-/Embed-Flow (`/api/v1/admin/snippets`, `/api/v1/admin/events/{eventId}/embed-code`, `/{tenantSlug}/include.js`, `/{tenantSlug}/register.js`, CORS-Preflight und `/api/v1/public/{tenantSlug}/snippet/events`) mit ab.
+
+## Ghost / Live-Embed
+
+Event-Liste per Snippet:
+
+```html
+<script src="https://events.geller.men/demo/include.js?config=footer-upcoming" defer></script>
+```
+
+Direktes Anmeldeformular fuer ein einzelnes Event:
+
+```html
+<script src="https://events.geller.men/demo/register.js?event=mein-event-slug" defer></script>
+```
+
+Wichtige Live-Settings:
+
+- `allowed_embed_origins` in den Tenant-Settings steuert CORS fuer Public-API-Requests des Formular-Embeds.
+- `event_detail_base_url` steuert, wohin Event-Listen aus `include.js` fuer Detailseiten verlinken.
+- Fuer infra-gesteuerte Mandanten kann beides zentral ueber `EEP_SEED_SETTINGS_JSON` gepflegt werden.
 
 ## Docker
 

@@ -14,6 +14,7 @@ Das Snippet ist reine Darstellung. Es darf keine Kapazität final entscheiden, k
 <script src="https://events.geller.men/customerxyz/include.js?events=all&view=10&layout=table" defer></script>
 <script src="https://events.geller.men/customerxyz/include.js?view=cards&limit=6" defer></script>
 <script src="https://events.geller.men/customerxyz/include.js?series=angst-workshop&register=true" defer></script>
+<script src="https://events.geller.men/customerxyz/register.js?event=angst-workshop-2026-09-18" defer></script>
 ```
 
 ## Parameter
@@ -36,9 +37,12 @@ Hinweis (Haertung): In produktiven Setups sollte nur die config-basierte Form ve
 
 Präfix `eep-`, optional Shadow DOM, kleine CSS-Datei, keine globalen Theme-Eingriffe.
 
-## MVP-Empfehlung
+## Live-Empfehlung
 
-Snippet zeigt Events und leitet zur autarken Eventseite. Modale Anmeldung kann später ergänzt werden.
+- `include.js` zeigt Event-Listen auf Ghost-/CMS-Seiten und verlinkt auf die gepflegte Detailseite.
+- `register.js` bettet das echte EEP-Anmeldeformular direkt auf einer Ghost-/HTML-Seite ein.
+- `event_detail_base_url` sollte auf die redaktionelle Detailseite zeigen, z. B. `https://www.geller.men/events`.
+- `allowed_embed_origins` muss die einbettende Seite enthalten; fuer bewusst universelle Einbettung ist auch `["*"]` moeglich.
 
 ## Akzeptanzkriterien
 

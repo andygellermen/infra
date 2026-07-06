@@ -89,6 +89,7 @@ POST   /api/v1/admin/events
 GET    /api/v1/admin/events/{eventId}
 PATCH  /api/v1/admin/events/{eventId}
 DELETE /api/v1/admin/events/{eventId}
+GET    /api/v1/admin/events/{eventId}/embed-code
 POST   /api/v1/admin/events/{eventId}/publish
 POST   /api/v1/admin/events/{eventId}/unpublish
 POST   /api/v1/admin/events/{eventId}/cancel
@@ -183,6 +184,7 @@ to
 
 ```http
 POST /api/v1/public/{tenantSlug}/registrations/start
+GET  /api/v1/public/{tenantSlug}/registrations/verify
 POST /api/v1/public/{tenantSlug}/registrations/verify
 POST /api/v1/public/{tenantSlug}/registrations/{registrationId}/cancel-request
 ```
@@ -253,9 +255,18 @@ Webhook-Pflichten:
 
 ```http
 GET /{tenantSlug}/include.js
+GET /{tenantSlug}/register.js
 GET /{tenantSlug}/snippet.css
 GET /api/v1/public/{tenantSlug}/snippet/events
 ```
+
+`register.js` laedt ein einzelnes Public-Anmeldeformular fuer ein Event-Slug nach:
+
+```html
+<script src="https://events.geller.men/demo/register.js?event=mein-event-slug" defer></script>
+```
+
+Fuer fremde Seiten nutzt das Formular-Embed CORS gegen `allowed_embed_origins` aus den Tenant-Settings. Fuer absichtlich universelle Einbettung kann dort `["*"]` gesetzt werden.
 
 ## Kalender
 

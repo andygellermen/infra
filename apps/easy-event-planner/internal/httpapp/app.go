@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -651,6 +652,14 @@ func (a *App) handleAdminEventsItem(w http.ResponseWriter, r *http.Request) {
 		a.handleAdminEventRegistrationManualCreate(w, r, eventID)
 		return
 	}
+	if action == "embed-code" {
+		if r.Method != http.MethodGet {
+			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
+			return
+		}
+		a.handleAdminEventEmbedCode(w, r, eventID)
+		return
+	}
 
 	if r.Method != http.MethodPost {
 		writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")
@@ -982,6 +991,57 @@ func (a *App) handleAdminEventMarkCompleted(w http.ResponseWriter, r *http.Reque
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"item": eventPayload(item),
+	})
+}
+
+func (a *App) handleAdminEventEmbedCode(w http.ResponseWriter, r *http.Request, eventID string) {
+	principal, ok := a.requireAdminPrincipal(w, r, false)
+	if !ok {
+		return
+	}
+	if a.tenantRepo == nil {
+		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Tenant-Service ist nicht verfuegbar.")
+		return
+	}
+
+	item, err := a.eventRepo.GetEventByID(r.Context(), principal.TenantID, eventID)
+	if err != nil {
+		a.writeEventError(w, err)
+		return
+	}
+	if strings.TrimSpace(item.Slug) == "" {
+		writeAPIError(w, http.StatusConflict, "EVENT_SLUG_REQUIRED", "Fuer das Einbettungsformular wird ein Event-Slug benoetigt.")
+		return
+	}
+
+	tenantItem, err := a.tenantRepo.GetByID(r.Context(), principal.TenantID)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Mandant konnte nicht geladen werden.")
+		return
+	}
+
+	scriptSrc := buildRegistrationEmbedScriptSrc(a.cfg.BaseURL, tenantItem.Slug, item.Slug)
+	embedCode := fmt.Sprintf(`<script src="%s" defer></script>`, scriptSrc)
+	warnings := make([]string, 0, 3)
+	if !item.IsPublic {
+		warnings = append(warnings, "Event ist noch nicht oeffentlich sichtbar.")
+	}
+	switch strings.TrimSpace(strings.ToLower(item.Status)) {
+	case "draft", "cancelled", "completed", "archived":
+		warnings = append(warnings, "Event ist noch nicht in einem oeffentlichen Live-Status.")
+	}
+	if !item.RegistrationEnabled {
+		warnings = append(warnings, "Die Registrierung ist fuer dieses Event aktuell deaktiviert.")
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"kind":                 "registration_form",
+		"item":                 eventPayload(item),
+		"script_src":           scriptSrc,
+		"embed_code":           embedCode,
+		"event_detail_api_url": buildPublicEventDetailAPIURL(a.cfg.BaseURL, tenantItem.Slug, item.Slug),
+		"registration_api_url": buildPublicRegistrationStartAPIURL(a.cfg.BaseURL, tenantItem.Slug),
+		"warnings":             warnings,
 	})
 }
 

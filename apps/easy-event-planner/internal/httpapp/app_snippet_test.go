@@ -12,6 +12,7 @@ import (
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/snippet"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func TestAdminSnippetCRUDAndEmbedFlow(t *testing.T) {
@@ -151,6 +152,14 @@ func TestAdminSnippetReadonlyCannotWrite(t *testing.T) {
 func TestPublicSnippetEndpoints(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	if _, err := app.tenantRepo.UpsertSettings(context.Background(), tenant.UpsertTenantSettingsParams{
+		TenantID: tenantID,
+		Settings: tenant.TenantSettingsInput{
+			SettingsJSON: `{"event_detail_base_url":"https://www.example.com/events"}`,
+		},
+	}); err != nil {
+		t.Fatalf("upsert tenant settings: %v", err)
+	}
 
 	createPublishedEventForPublicTest(t, app, tenantID, event.CreateEventParams{
 		Slug:     "snippet-future",
@@ -193,6 +202,23 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 		t.Fatalf("expected include.js payload to include tenant slug %q", tenantSlug)
 	}
 
+	registerReq := httptest.NewRequest(http.MethodGet, "/"+tenantSlug+"/register.js?event=snippet-future", nil)
+	registerRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(registerRec, registerReq)
+	if registerRec.Code != http.StatusOK {
+		t.Fatalf("expected register.js status 200, got %d", registerRec.Code)
+	}
+	if !strings.Contains(registerRec.Header().Get("Content-Type"), "application/javascript") {
+		t.Fatalf("expected register.js javascript content type, got %q", registerRec.Header().Get("Content-Type"))
+	}
+	registerBody := registerRec.Body.String()
+	if !strings.Contains(registerBody, "/api/v1/public/") || !strings.Contains(registerBody, "/registrations/start") {
+		t.Fatalf("expected register.js payload to reference public registration endpoints")
+	}
+	if !strings.Contains(registerBody, "Magic Link anfordern") {
+		t.Fatalf("expected register.js payload to contain form submit label")
+	}
+
 	cssReq := httptest.NewRequest(http.MethodGet, "/"+tenantSlug+"/snippet.css", nil)
 	cssRec := httptest.NewRecorder()
 	app.Handler().ServeHTTP(cssRec, cssReq)
@@ -218,6 +244,17 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	}
 	if eventsPayload["view"] != "list" {
 		t.Fatalf("expected snippet view list, got %v", eventsPayload["view"])
+	}
+	items, ok := eventsPayload["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one public snippet item")
+	}
+	firstItem, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected public snippet item payload")
+	}
+	if firstItem["event_url"] != "https://www.example.com/events/snippet-future" {
+		t.Fatalf("expected event_url to use external detail base url, got %v", firstItem["event_url"])
 	}
 
 	tamperedReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=public-snippet&limit=50", nil)

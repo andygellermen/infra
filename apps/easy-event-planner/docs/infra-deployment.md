@@ -44,7 +44,10 @@ EEP_PAYPAL_MODE=sandbox
 EEP_PAYPAL_CLIENT_ID=...
 EEP_PAYPAL_CLIENT_SECRET=...
 EEP_PAYPAL_WEBHOOK_ID=...
+EEP_SEED_SETTINGS_JSON={"allowed_embed_origins":["*"],"event_detail_base_url":"https://www.geller.men/events"}
 ```
+
+Hinweis: `EEP_SEED_SETTINGS_JSON` ist der saubere Infra-Hebel fuer Tenant-spezifische Embed-Regeln wie CORS-Freigaben (`allowed_embed_origins`) und redaktionelle Detailseiten (`event_detail_base_url`).
 
 ## Docker Compose Beispiel
 
