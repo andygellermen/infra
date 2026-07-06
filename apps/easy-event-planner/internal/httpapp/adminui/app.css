@@ -68,6 +68,11 @@ body {
   padding-top: 56px;
 }
 
+.layout.is-login #topbar,
+.layout.is-login #workspace {
+  display: none !important;
+}
+
 .fade-in {
   animation: enter 0.5s ease-out;
 }
