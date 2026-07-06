@@ -33,7 +33,7 @@ const (
 
 	WaitlistStatusWaiting = "waiting"
 
-	SourcePublicPage = "public_page"
+	SourcePublicPage  = "public_page"
 	SourceAdminManual = "admin_manual"
 
 	DefaultVerificationTemplate = "registration_verify"
@@ -69,12 +69,13 @@ type Config struct {
 }
 
 type Service struct {
-	db                *sql.DB
-	cfg               Config
-	invitationService *invitation.Service
-	nowFn             func() time.Time
-	idFn              func(prefix string) string
-	tokFn             func() (string, error)
+	db                       *sql.DB
+	cfg                      Config
+	invitationService        *invitation.Service
+	participantCalendarURLFn func(tenantSlug, tenantID, registrationID, participantID string) string
+	nowFn                    func() time.Time
+	idFn                     func(prefix string) string
+	tokFn                    func() (string, error)
 }
 
 type StartInput struct {
@@ -175,6 +176,10 @@ func NewService(sqlDB *sql.DB, cfg Config) *Service {
 		idFn:              defaultID,
 		tokFn:             randomToken,
 	}
+}
+
+func (s *Service) SetParticipantCalendarURLBuilder(fn func(tenantSlug, tenantID, registrationID, participantID string) string) {
+	s.participantCalendarURLFn = fn
 }
 
 func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, error) {
@@ -726,6 +731,16 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 		return nil
 	}
 
+	tenantSlug, err := s.lookupTenantSlugTx(ctx, tx, tenantID)
+	if err != nil {
+		return err
+	}
+	eventURL := s.buildPublicEventPageURL(tenantSlug, eventItem.Slug)
+	calendarURL := ""
+	if s.participantCalendarURLFn != nil {
+		calendarURL = strings.TrimSpace(s.participantCalendarURLFn(tenantSlug, tenantID, registrationID, participantID))
+	}
+
 	subject := "Deine Anmeldung wurde bestaetigt"
 	bodyText := fmt.Sprintf(
 		"Hallo %s,\n\ndeine Anmeldung fuer \"%s\" wurde bestaetigt.\n",
@@ -733,6 +748,13 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 		eventItem.Title,
 	)
 	targetStatus := StatusConfirmed
+	metadata := map[string]any{
+		"registration_id": registrationID,
+		"event_id":        eventItem.ID,
+		"event_slug":      eventItem.Slug,
+		"target_status":   targetStatus,
+		"processed_at":    now.Format(time.RFC3339),
+	}
 	if templateKey == DefaultWaitlistTemplate {
 		subject = "Du stehst auf der Warteliste"
 		bodyText = fmt.Sprintf(
@@ -741,15 +763,40 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 			eventItem.Title,
 		)
 		targetStatus = StatusWaitlist
+		metadata["target_status"] = targetStatus
+		if eventURL != "" {
+			bodyText += fmt.Sprintf("\nDetails zur Veranstaltung: %s\n", eventURL)
+			metadata["event_url"] = eventURL
+		}
+		return s.queueEmailJobTx(ctx, tx, tenantID, templateKey, recipientEmail, subject, bodyText, metadata)
 	}
 
-	return s.queueEmailJobTx(ctx, tx, tenantID, templateKey, recipientEmail, subject, bodyText, map[string]any{
-		"registration_id": registrationID,
-		"event_id":        eventItem.ID,
-		"event_slug":      eventItem.Slug,
-		"target_status":   targetStatus,
-		"processed_at":    now.Format(time.RFC3339),
-	})
+	if calendarURL != "" {
+		bodyText += fmt.Sprintf("\nKalendereintrag direkt uebernehmen: %s\n", calendarURL)
+		metadata["calendar_url"] = calendarURL
+	}
+	if eventURL != "" {
+		bodyText += fmt.Sprintf("\nVeranstaltungsdetails: %s\n", eventURL)
+		metadata["event_url"] = eventURL
+	}
+
+	return s.queueEmailJobTx(ctx, tx, tenantID, templateKey, recipientEmail, subject, bodyText, metadata)
+}
+
+func (s *Service) lookupTenantSlugTx(ctx context.Context, tx *sql.Tx, tenantID string) (string, error) {
+	row := tx.QueryRowContext(
+		ctx,
+		`SELECT slug
+     FROM tenants
+     WHERE id = ?
+     LIMIT 1`,
+		strings.TrimSpace(tenantID),
+	)
+	var slug string
+	if err := row.Scan(&slug); err != nil {
+		return "", fmt.Errorf("lookup tenant slug for outcome mail: %w", err)
+	}
+	return strings.TrimSpace(slug), nil
 }
 
 func (s *Service) queueEmailJobTx(ctx context.Context, tx *sql.Tx, tenantID, templateKey, recipient, subject, bodyText string, metadata map[string]any) error {
@@ -953,6 +1000,16 @@ func (s *Service) buildVerifyURL(tenantSlug, token string) string {
 		base = "http://localhost:8080"
 	}
 	return fmt.Sprintf("%s/api/v1/public/%s/registrations/verify?token=%s", base, tenantSlug, url.QueryEscape(strings.TrimSpace(token)))
+}
+
+func (s *Service) buildPublicEventPageURL(tenantSlug, eventSlug string) string {
+	base := strings.TrimRight(strings.TrimSpace(s.cfg.BaseURL), "/")
+	slug := strings.TrimSpace(tenantSlug)
+	eventPath := strings.TrimSpace(eventSlug)
+	if base == "" || slug == "" || eventPath == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/events/%s", base, url.PathEscape(slug), url.PathEscape(eventPath))
 }
 
 func (s *Service) hash(raw string) string {

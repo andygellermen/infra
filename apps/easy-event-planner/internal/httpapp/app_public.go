@@ -411,10 +411,23 @@ func (a *App) handlePublicRegistrationVerify(w http.ResponseWriter, r *http.Requ
 		UserAgent: strings.TrimSpace(r.UserAgent()),
 	})
 	if err != nil {
+		if r.Method == http.MethodGet {
+			a.renderPublicRegistrationVerifyPage(w, r, tenantItem, registration.VerifyResult{}, err)
+			return
+		}
 		a.writePublicRegistrationError(w, err)
 		return
 	}
 
+	payload := a.publicRegistrationVerifyPayload(tenantItem, result)
+	if r.Method == http.MethodGet {
+		a.renderPublicRegistrationVerifyPage(w, r, tenantItem, result, nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, payload)
+}
+
+func (a *App) publicRegistrationVerifyPayload(tenantItem tenant.Tenant, result registration.VerifyResult) map[string]any {
 	payload := map[string]any{
 		"ok":              true,
 		"registration_id": result.RegistrationID,
@@ -442,7 +455,7 @@ func (a *App) handlePublicRegistrationVerify(w http.ResponseWriter, r *http.Requ
 			payload["calendar_url"] = calendarURL
 		}
 	}
-	writeJSON(w, http.StatusOK, payload)
+	return payload
 }
 
 func (a *App) writePublicRegistrationError(w http.ResponseWriter, err error) {

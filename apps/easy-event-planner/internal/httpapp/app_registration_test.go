@@ -138,6 +138,71 @@ func TestPublicRegistrationStartAndVerifyFlow(t *testing.T) {
 	}
 }
 
+func TestPublicRegistrationVerifyGETReturnsFriendlyHTML(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	eventItem := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:     "public-registration-get",
+		Title:    "Public Registration GET",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	startPayload := map[string]any{
+		"event_id":           eventItem.ID,
+		"name":               "Mira Muster",
+		"email":              "mira@example.com",
+		"participation_type": "onsite",
+		"privacy_accepted":   true,
+	}
+	startBody, _ := json.Marshal(startPayload)
+	startReq := httptest.NewRequest(http.MethodPost, "/api/v1/public/"+tenantSlug+"/registrations/start", bytes.NewReader(startBody))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(startRec, startReq)
+	if startRec.Code != http.StatusAccepted {
+		t.Fatalf("expected start status 202, got %d", startRec.Code)
+	}
+	startResult := decodeBody[map[string]any](t, startRec)
+	registrationID, _ := startResult["registration_id"].(string)
+	token := extractVerifyTokenFromJobInHTTPTest(t, app, tenantID, registrationID)
+
+	verifyReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/registrations/verify?token="+url.QueryEscape(token), nil)
+	verifyRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(verifyRec, verifyReq)
+	if verifyRec.Code != http.StatusOK {
+		t.Fatalf("expected verify status 200, got %d", verifyRec.Code)
+	}
+	if !strings.Contains(verifyRec.Header().Get("Content-Type"), "text/html") {
+		t.Fatalf("expected text/html content type, got %q", verifyRec.Header().Get("Content-Type"))
+	}
+	body := verifyRec.Body.String()
+	if !strings.Contains(body, "Anmeldung bestaetigt") {
+		t.Fatalf("expected friendly confirmation title, got %q", body)
+	}
+	if !strings.Contains(body, eventItem.Title) {
+		t.Fatalf("expected body to contain event title %q", eventItem.Title)
+	}
+	if !strings.Contains(body, "/calendar.ics?token=") {
+		t.Fatalf("expected body to contain calendar link")
+	}
+}
+
+func TestPublicRegistrationVerifyGETInvalidTokenReturnsFriendlyHTML(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/registrations/verify?token=invalid-token", nil)
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "text/html") {
+		t.Fatalf("expected text/html content type, got %q", rec.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(rec.Body.String(), "Magic-Link ungueltig") {
+		t.Fatalf("expected friendly invalid-link page, got %q", rec.Body.String())
+	}
+}
+
 func TestPublicRegistrationVerifyReturnsEventFull(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantID := tenantIDBySlug(t, app, tenantSlug)

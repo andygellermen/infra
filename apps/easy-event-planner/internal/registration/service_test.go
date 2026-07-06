@@ -115,8 +115,32 @@ func extractVerifyTokenFromLatestEmailJob(t *testing.T, dbHandle *sql.DB, tenant
 	return ""
 }
 
+func latestEmailJobByTemplate(t *testing.T, dbHandle *sql.DB, tenantID, templateKey string) (string, string) {
+	t.Helper()
+
+	row := dbHandle.QueryRowContext(
+		context.Background(),
+		`SELECT body_text, COALESCE(metadata_json, '')
+     FROM email_jobs
+     WHERE tenant_id = ? AND template_key = ?
+     ORDER BY created_at DESC
+     LIMIT 1`,
+		tenantID,
+		templateKey,
+	)
+	var bodyText string
+	var metadataJSON string
+	if err := row.Scan(&bodyText, &metadataJSON); err != nil {
+		t.Fatalf("query latest %s email job: %v", templateKey, err)
+	}
+	return bodyText, metadataJSON
+}
+
 func TestStartAndVerifyRegistrationFlow(t *testing.T) {
 	service, dbHandle, tenantItem := setupRegistrationService(t)
+	service.SetParticipantCalendarURLBuilder(func(tenantSlug, tenantID, registrationID, participantID string) string {
+		return "https://events.example.com/api/v1/public/" + tenantSlug + "/registrations/" + registrationID + "/calendar.ics?token=test-token"
+	})
 	eventItem := createPublishedEventForRegistration(t, dbHandle, tenantItem.ID, event.CreateEventParams{
 		Slug:     "open-workshop",
 		Title:    "Open Workshop",
@@ -180,6 +204,17 @@ func TestStartAndVerifyRegistrationFlow(t *testing.T) {
 	}
 	if !emailVerifiedAt.Valid {
 		t.Fatalf("expected participant email_verified_at to be set")
+	}
+
+	bodyText, metadataJSON := latestEmailJobByTemplate(t, dbHandle, tenantItem.ID, DefaultConfirmedTemplate)
+	if !strings.Contains(bodyText, "/calendar.ics?token=test-token") {
+		t.Fatalf("expected confirmation mail to contain calendar URL, got %q", bodyText)
+	}
+	if !strings.Contains(bodyText, "/demo/events/open-workshop") {
+		t.Fatalf("expected confirmation mail to contain event page URL, got %q", bodyText)
+	}
+	if !strings.Contains(metadataJSON, "\"calendar_url\"") {
+		t.Fatalf("expected confirmation mail metadata to include calendar_url, got %q", metadataJSON)
 	}
 }
 

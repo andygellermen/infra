@@ -288,12 +288,11 @@ VERIFY_URL=$(printf "%s\n" "$BODY_TEXT" | grep -Eo 'https?://[^[:space:]]+' | ta
 [ -n "$VERIFY_URL" ] || die "verification URL not found in email_jobs body"
 
 echo "== functional smoke: verify registration =="
-HTTP_CODE=$(curl -sS -o /tmp/eep-functional-verify.json -w "%{http_code}" "$VERIFY_URL")
-cat /tmp/eep-functional-verify.json
+HTTP_CODE=$(curl -sS -o /tmp/eep-functional-verify.html -w "%{http_code}" "$VERIFY_URL")
+cat /tmp/eep-functional-verify.html
 echo "verify status code: ${HTTP_CODE}"
 [ "$HTTP_CODE" = "200" ] || die "verify endpoint returned HTTP ${HTTP_CODE}"
-VERIFY_STATUS=$(python3 -c 'import json; import sys; data=json.load(open("/tmp/eep-functional-verify.json")); print(data.get("status",""))')
-[ "$VERIFY_STATUS" = "confirmed" ] || [ "$VERIFY_STATUS" = "waitlist" ] || die "unexpected verify status: ${VERIFY_STATUS}"
+python3 -c 'import re,sys; body=open("/tmp/eep-functional-verify.html").read(); assert "Anmeldung bestaetigt" in body or "Warteliste erfolgreich" in body; assert "/calendar.ics?token=" in body'
 
 echo "== functional smoke: admin dashboard =="
 DASHBOARD_RESP=$(curl -fsS "$BASE_URL/api/v1/admin/dashboard" -H "Cookie: ${SESSION_COOKIE_NAME}=${ADMIN_SESSION_TOKEN}")

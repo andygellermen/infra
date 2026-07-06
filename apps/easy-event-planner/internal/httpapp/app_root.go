@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
@@ -176,6 +177,108 @@ var publicEventPageTemplate = template.Must(template.New("eep-public-event").Par
 </html>
 `))
 
+var publicRegistrationVerifyTemplate = template.Must(template.New("eep-public-registration-verify").Parse(`<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{.Title}}</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f6f1e7;
+        color: #18313d;
+      }
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 40px 18px 64px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid #d9e1e8;
+        border-radius: 22px;
+        padding: 28px;
+        box-shadow: 0 16px 34px rgba(24, 49, 61, 0.08);
+      }
+      .eyebrow {
+        font-size: 0.92rem;
+        color: #587180;
+        margin-bottom: 10px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 2.7rem);
+        line-height: 1.08;
+      }
+      p {
+        margin: 0 0 14px;
+        line-height: 1.65;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 18px 0 22px;
+      }
+      .meta span {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #eef5f8;
+        color: #244657;
+        font-size: 0.92rem;
+        font-weight: 600;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .button-primary {
+        background: #159a9c;
+        color: #fff;
+      }
+      .button-secondary {
+        background: #eef5f8;
+        color: #244657;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <div class="eyebrow">{{.TenantName}}</div>
+        <h1>{{.Title}}</h1>
+        <p>{{.Message}}</p>
+        {{if .EventTitle}}<p><strong>{{.EventTitle}}</strong></p>{{end}}
+        {{if .StatusLabel}}
+          <div class="meta">
+            <span>{{.StatusLabel}}</span>
+            {{if .ConfirmedAt}}<span>{{.ConfirmedAt}}</span>{{end}}
+          </div>
+        {{end}}
+        <div class="actions">
+          {{if .CalendarURL}}<a class="button button-primary" href="{{.CalendarURL}}">Kalendereintrag laden</a>{{end}}
+          {{if .EventURL}}<a class="button button-secondary" href="{{.EventURL}}">Zur Veranstaltungsseite</a>{{end}}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+`))
+
 func (a *App) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -271,4 +374,79 @@ func publicEventPageMode(value string) string {
 	default:
 		return ""
 	}
+}
+
+func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant, result registration.VerifyResult, verifyErr error) {
+	data := struct {
+		TenantName  string
+		Title       string
+		Message     string
+		EventTitle  string
+		StatusLabel string
+		ConfirmedAt string
+		CalendarURL string
+		EventURL    string
+	}{
+		TenantName: strings.TrimSpace(tenantItem.Name),
+	}
+
+	statusCode := http.StatusOK
+	if verifyErr != nil {
+		statusCode = http.StatusBadRequest
+		data.Title, data.Message = publicRegistrationVerifyErrorCopy(verifyErr)
+	} else {
+		data.Title = "Anmeldung bestaetigt"
+		data.Message = "Deine Anmeldung ist jetzt aktiv. Wenn du magst, kannst du den Termin direkt in deinen Kalender uebernehmen."
+		switch strings.TrimSpace(result.Status) {
+		case registration.StatusWaitlist:
+			data.Title = "Warteliste erfolgreich"
+			data.Message = "Du stehst jetzt auf der Warteliste. Sobald ein Platz frei wird, geht es von dort fuer dich weiter."
+			data.StatusLabel = "Warteliste"
+		case registration.StatusConfirmed:
+			data.StatusLabel = "Teilnahme bestaetigt"
+		default:
+			data.StatusLabel = strings.TrimSpace(result.Status)
+		}
+		if result.ConfirmedAt != nil {
+			data.ConfirmedAt = result.ConfirmedAt.UTC().Format("02.01.2006 · 15:04 UTC")
+		}
+		if a.eventRepo != nil && strings.TrimSpace(result.EventID) != "" {
+			if item, err := a.eventRepo.GetEventByID(r.Context(), tenantItem.ID, result.EventID); err == nil {
+				data.EventTitle = strings.TrimSpace(item.Title)
+				data.EventURL = buildPublicEventPageURL(a.cfg.BaseURL, tenantItem.Slug, item.Slug)
+			}
+		}
+		if a.calendarService != nil && strings.TrimSpace(result.RegistrationID) != "" && strings.TrimSpace(result.ParticipantID) != "" {
+			data.CalendarURL = a.calendarService.ParticipantCalendarURL(tenantItem.Slug, tenantItem.ID, result.RegistrationID, result.ParticipantID)
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+	_ = publicRegistrationVerifyTemplate.Execute(w, data)
+}
+
+func publicRegistrationVerifyErrorCopy(err error) (title, message string) {
+	switch {
+	case errors.Is(err, registration.ErrInvalidVerificationToken), errors.Is(err, registration.ErrRegistrationVerificationNil):
+		return "Magic-Link ungueltig", "Der Link konnte nicht erkannt werden. Bitte fordere bei Bedarf einen neuen Link an."
+	case errors.Is(err, registration.ErrExpiredVerificationToken):
+		return "Magic-Link abgelaufen", "Der Link ist leider abgelaufen. Bitte starte die Anmeldung erneut, damit wir dir einen frischen Link senden koennen."
+	case errors.Is(err, registration.ErrRegistrationState):
+		return "Link bereits verwendet", "Die Anmeldung wurde bereits verarbeitet. Wenn du unsicher bist, pruefe bitte deine bestaetigte E-Mail oder fordere bei Bedarf einen neuen Link an."
+	case errors.Is(err, registration.ErrEventFull):
+		return "Veranstaltung ausgebucht", "Die Veranstaltung ist aktuell ausgebucht. Falls eine Warteliste aktiv ist, fuehren wir dich dort weiter."
+	default:
+		return "Anmeldung aktuell nicht moeglich", "Der Link konnte gerade nicht verarbeitet werden. Bitte versuche es spaeter erneut oder fordere einen neuen Link an."
+	}
+}
+
+func buildPublicEventPageURL(baseURL, tenantSlug, eventSlug string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	slug := strings.TrimSpace(tenantSlug)
+	eventPath := strings.TrimSpace(eventSlug)
+	if base == "" || slug == "" || eventPath == "" {
+		return ""
+	}
+	return base + "/" + slug + "/events/" + eventPath
 }

@@ -78,6 +78,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			BaseURL:     cfg.BaseURL,
 			TokenPepper: cfg.TokenPepper,
 		})
+		app.regService.SetParticipantCalendarURLBuilder(app.calendarService.ParticipantCalendarURL)
 		app.certificateService = certificate.NewService(sqlDB, certificate.Config{
 			BaseURL:     cfg.BaseURL,
 			TokenPepper: cfg.TokenPepper,
