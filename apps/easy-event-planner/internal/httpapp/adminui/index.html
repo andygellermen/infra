@@ -24,15 +24,19 @@
 
     <main class="content">
       <section id="loginPanel" class="card login-card">
-        <h2>Login per Magic Link</h2>
-        <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse. Der Mandant wird automatisch ueber die aufgerufene Domain erkannt.</p>
-        <form id="loginForm" class="form-grid">
+        <div class="login-intro">
+          <p class="eyebrow">easy-event-planner</p>
+          <h1 class="login-title">Willkommen zur Event-Administration</h1>
+          <p class="muted">Fuer den Einstieg senden wir einen sicheren Login-Link an deine Organizer-Adresse. Der Mandant wird automatisch ueber die aufgerufene Domain erkannt.</p>
+        </div>
+        <form id="loginForm" class="form-grid login-form">
           <label>
             E-Mail
-            <input id="email" name="email" type="email" placeholder="owner@example.com" required>
+            <input id="email" name="email" type="email" placeholder="owner@example.com" autocomplete="email" autofocus required>
           </label>
-          <button id="loginSubmitBtn" class="btn primary" type="submit">Magic Link senden</button>
+          <button id="loginSubmitBtn" class="btn primary login-submit" type="submit">Magic Link senden</button>
         </form>
+        <p class="login-note muted">Du brauchst keinen Tenant-Slug mehr einzugeben.</p>
         <p id="loginHint" class="muted hint"></p>
       </section>
 

@@ -65,7 +65,11 @@ body {
 
 .layout.is-login {
   max-width: 640px;
-  padding-top: 56px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
 }
 
 .layout.is-login #topbar,
@@ -140,6 +144,7 @@ h2 {
 
 .content {
   display: block;
+  width: 100%;
 }
 
 .card {
@@ -153,6 +158,33 @@ h2 {
 .login-card {
   max-width: 560px;
   margin: 0 auto;
+  padding: 28px 28px 22px;
+  border-color: #cfe0e1;
+  box-shadow: 0 20px 48px rgba(18, 48, 58, 0.14);
+}
+
+.login-intro {
+  margin-bottom: 18px;
+}
+
+.login-title {
+  margin: 6px 0 10px;
+  font-size: clamp(1.9rem, 4.3vw, 2.45rem);
+  line-height: 1.08;
+}
+
+.login-form {
+  gap: 14px;
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 44px;
+}
+
+.login-note {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
 }
 
 .workspace {
@@ -682,6 +714,7 @@ tr {
 }
 
 .hint {
+  margin-top: 10px;
   min-height: 1.4em;
 }
 
