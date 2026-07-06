@@ -417,6 +417,24 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 		a.handleRoot(w, r)
 		return
 	}
+	if tenantSlug, eventSlug, ok := parseTenantPublicEventPath(r.URL.Path); ok {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if a.tenantRepo == nil {
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		tenantItem, err := a.tenantRepo.LookupBySlug(r.Context(), tenantSlug)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		a.handleTenantPublicEventPage(w, r, tenantItem, eventSlug)
+		return
+	}
 	tenantSlug, assetType, ok := parseTenantAssetPath(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
@@ -449,6 +467,24 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func parseTenantPublicEventPath(path string) (tenantSlug, eventSlug string, ok bool) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" || trimmed == "/" {
+		return "", "", false
+	}
+	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
+	if len(parts) != 3 {
+		return "", "", false
+	}
+	tenantSlug = strings.TrimSpace(parts[0])
+	group := strings.TrimSpace(parts[1])
+	eventSlug = strings.TrimSpace(parts[2])
+	if tenantSlug == "" || eventSlug == "" || group != "events" {
+		return "", "", false
+	}
+	return tenantSlug, eventSlug, true
 }
 
 func parseTenantAssetPath(path string) (tenantSlug, assetType string, ok bool) {

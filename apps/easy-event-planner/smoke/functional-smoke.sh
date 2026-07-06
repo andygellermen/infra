@@ -216,6 +216,12 @@ PUBLIC_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/events")
 printf "%s\n" "$PUBLIC_EVENTS_RESP"
 printf "%s" "$PUBLIC_EVENTS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert int(data.get("total",0)) >= 1'
 
+echo "== functional smoke: public event fallback page =="
+PUBLIC_EVENT_PAGE_RESP=$(curl -fsS "$BASE_URL/${TENANT_SLUG}/events/${EVENT_SLUG}")
+printf "%s\n" "$PUBLIC_EVENT_PAGE_RESP" | sed -n '1,8p'
+printf "%s" "$PUBLIC_EVENT_PAGE_RESP" | EVENT_SLUG_EXPECTED="$EVENT_SLUG" TENANT_SLUG_EXPECTED="$TENANT_SLUG" \
+  python3 -c 'import os,sys; body=sys.stdin.read(); assert os.environ["EVENT_SLUG_EXPECTED"] in body; assert "/" + os.environ["TENANT_SLUG_EXPECTED"] + "/register.js?event=" + os.environ["EVENT_SLUG_EXPECTED"] in body'
+
 SNIPPET_SLUG="smoke-snippet-$(date +%s)"
 
 echo "== functional smoke: create snippet =="
@@ -253,12 +259,19 @@ CORS_CODE=$(curl -sS -o /tmp/eep-functional-cors.json -w "%{http_code}" -X OPTIO
 ALLOW_ORIGIN=$(curl -sSI -X OPTIONS "$BASE_URL/api/v1/public/${TENANT_SLUG}/registrations/start" \
   -H "Origin: https://ghost.geller.men" \
   -H "Access-Control-Request-Method: POST" | tr -d '\r' | awk -F': ' 'BEGIN{IGNORECASE=1} $1=="Access-Control-Allow-Origin"{print $2; exit}')
-[ "$ALLOW_ORIGIN" = "https://ghost.geller.men" ] || die "unexpected CORS allow origin: ${ALLOW_ORIGIN}"
+[ "$ALLOW_ORIGIN" = "*" ] || die "unexpected CORS allow origin: ${ALLOW_ORIGIN}"
 
 echo "== functional smoke: snippet public events =="
 SNIPPET_EVENTS_RESP=$(curl -fsS "$BASE_URL/api/v1/public/${TENANT_SLUG}/snippet/events?config=${SNIPPET_SLUG}")
 printf "%s\n" "$SNIPPET_EVENTS_RESP"
 printf "%s" "$SNIPPET_EVENTS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert int(data.get("total",0)) >= 1; assert data.get("view") == "cards"'
+
+echo "== functional smoke: snippet CORS GET =="
+SNIPPET_CORS_HEADERS=$(curl -sSI "$BASE_URL/api/v1/public/${TENANT_SLUG}/snippet/events?config=${SNIPPET_SLUG}" \
+  -H "Origin: https://erweckedeinekraft.de" | tr -d '\r')
+printf "%s\n" "$SNIPPET_CORS_HEADERS"
+SNIPPET_ALLOW_ORIGIN=$(printf "%s\n" "$SNIPPET_CORS_HEADERS" | awk -F': ' 'BEGIN{IGNORECASE=1} $1=="Access-Control-Allow-Origin"{print $2; exit}')
+[ "$SNIPPET_ALLOW_ORIGIN" = "*" ] || die "unexpected snippet CORS allow origin: ${SNIPPET_ALLOW_ORIGIN}"
 
 REG_EMAIL="max+$(date +%s)@example.com"
 

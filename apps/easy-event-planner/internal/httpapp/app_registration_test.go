@@ -286,7 +286,7 @@ func TestPublicRegistrationCORSAllowedOrigin(t *testing.T) {
 	if preflightRec.Code != http.StatusNoContent {
 		t.Fatalf("expected preflight status 204, got %d", preflightRec.Code)
 	}
-	if preflightRec.Header().Get("Access-Control-Allow-Origin") != "https://ghost.geller.men" {
+	if preflightRec.Header().Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatalf("expected allow origin header, got %q", preflightRec.Header().Get("Access-Control-Allow-Origin"))
 	}
 
@@ -306,14 +306,23 @@ func TestPublicRegistrationCORSAllowedOrigin(t *testing.T) {
 	if startRec.Code != http.StatusAccepted {
 		t.Fatalf("expected start status 202, got %d", startRec.Code)
 	}
-	if startRec.Header().Get("Access-Control-Allow-Origin") != "https://ghost.geller.men" {
+	if startRec.Header().Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatalf("expected allow origin header on POST, got %q", startRec.Header().Get("Access-Control-Allow-Origin"))
 	}
 }
 
-func TestPublicRegistrationCORSRejectsUnknownOrigin(t *testing.T) {
+func TestPublicPortalCORSRejectsUnknownOrigin(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/public/"+tenantSlug+"/registrations/start", nil)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	if _, err := app.tenantRepo.UpsertSettings(context.Background(), tenant.UpsertTenantSettingsParams{
+		TenantID: tenantID,
+		Settings: tenant.TenantSettingsInput{
+			SettingsJSON: `{"allowed_embed_origins":["https://ghost.geller.men"]}`,
+		},
+	}); err != nil {
+		t.Fatalf("upsert tenant settings: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/public/"+tenantSlug+"/participants/portal/request", nil)
 	req.Header.Set("Origin", "https://unknown.example.com")
 	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	rec := httptest.NewRecorder()

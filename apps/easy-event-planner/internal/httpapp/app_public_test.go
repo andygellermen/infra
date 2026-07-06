@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +64,19 @@ func TestPublicEventsAndDetailFlow(t *testing.T) {
 	}
 	if item["slug"] != published.Slug {
 		t.Fatalf("expected detail slug %q, got %v", published.Slug, item["slug"])
+	}
+
+	pageReq := httptest.NewRequest(http.MethodGet, "/"+tenantSlug+"/events/"+published.Slug, nil)
+	pageRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(pageRec, pageReq)
+	if pageRec.Code != http.StatusOK {
+		t.Fatalf("expected public event page status 200, got %d", pageRec.Code)
+	}
+	if !strings.Contains(pageRec.Body.String(), published.Title) {
+		t.Fatalf("expected public event page to contain title %q", published.Title)
+	}
+	if !strings.Contains(pageRec.Body.String(), "/"+tenantSlug+"/register.js?event="+published.Slug) {
+		t.Fatalf("expected public event page to embed register.js for %q", published.Slug)
 	}
 }
 

@@ -581,7 +581,7 @@ func (a *App) handlePublicCORS(w http.ResponseWriter, r *http.Request, tenantIte
 		return false
 	}
 
-	allowedOrigin, ok := a.resolveAllowedPublicOrigin(r, tenantItem, origin)
+	allowedOrigin, ok := a.resolveAllowedPublicOrigin(r, tenantItem, origin, routeType)
 	if !ok {
 		writeAPIError(w, http.StatusForbidden, "CORS_ORIGIN_NOT_ALLOWED", "Diese Origin ist fuer die Einbettung nicht freigegeben.")
 		return true
@@ -604,10 +604,14 @@ func (a *App) handlePublicCORS(w http.ResponseWriter, r *http.Request, tenantIte
 	return false
 }
 
-func (a *App) resolveAllowedPublicOrigin(r *http.Request, tenantItem tenant.Tenant, rawOrigin string) (string, bool) {
+func (a *App) resolveAllowedPublicOrigin(r *http.Request, tenantItem tenant.Tenant, rawOrigin string, routeType string) (string, bool) {
 	normalizedOrigin, ok := normalizeOrigin(rawOrigin)
 	if !ok {
 		return "", false
+	}
+
+	if publicRouteSupportsUniversalCORS(routeType) {
+		return "*", true
 	}
 
 	allowedOrigins := map[string]struct{}{}
@@ -615,11 +619,13 @@ func (a *App) resolveAllowedPublicOrigin(r *http.Request, tenantItem tenant.Tena
 		allowedOrigins[tenantOrigin] = struct{}{}
 	}
 
+	hasExplicitEmbedOrigins := false
 	if a.tenantRepo != nil {
 		settings, err := a.tenantRepo.GetSettings(r.Context(), tenantItem.ID)
 		if err == nil {
 			appSettings, _, err := parseAdminTenantAppSettings(settings.SettingsJSON)
 			if err == nil {
+				hasExplicitEmbedOrigins = len(appSettings.AllowedEmbedOrigins) > 0
 				for _, origin := range appSettings.AllowedEmbedOrigins {
 					if strings.TrimSpace(origin) == "*" {
 						return "*", true
@@ -632,8 +638,22 @@ func (a *App) resolveAllowedPublicOrigin(r *http.Request, tenantItem tenant.Tena
 		}
 	}
 
+	if !hasExplicitEmbedOrigins {
+		_, exists := allowedOrigins[normalizedOrigin]
+		return normalizedOrigin, exists
+	}
+
 	_, exists := allowedOrigins[normalizedOrigin]
 	return normalizedOrigin, exists
+}
+
+func publicRouteSupportsUniversalCORS(routeType string) bool {
+	switch routeType {
+	case "events_list", "event_detail", "series_list", "series_events", "snippet_events", "registrations_start", "registrations_verify", "registrations_calendar":
+		return true
+	default:
+		return false
+	}
 }
 
 func publicRouteMethods(routeType string) []string {

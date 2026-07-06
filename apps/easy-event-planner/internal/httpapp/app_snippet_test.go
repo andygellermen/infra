@@ -233,10 +233,14 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	}
 
 	eventsReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=public-snippet", nil)
+	eventsReq.Header.Set("Origin", "https://erweckedeinekraft.de")
 	eventsRec := httptest.NewRecorder()
 	app.Handler().ServeHTTP(eventsRec, eventsReq)
 	if eventsRec.Code != http.StatusOK {
 		t.Fatalf("expected snippet events status 200, got %d", eventsRec.Code)
+	}
+	if eventsRec.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatalf("expected wildcard allow origin, got %q", eventsRec.Header().Get("Access-Control-Allow-Origin"))
 	}
 	eventsPayload := decodeBody[map[string]any](t, eventsRec)
 	if eventsPayload["total"] != float64(1) {
