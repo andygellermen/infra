@@ -30,6 +30,7 @@ func TestAdminSnippetCRUDAndEmbedFlow(t *testing.T) {
 		"display_options": map[string]any{
 			"theme":    "light",
 			"register": true,
+			"load_css": false,
 		},
 	}
 	createBody, _ := json.Marshal(createPayload)
@@ -73,6 +74,15 @@ func TestAdminSnippetCRUDAndEmbedFlow(t *testing.T) {
 
 	patchPayload := map[string]any{
 		"view_type": "list",
+		"event_filter": map[string]any{
+			"series": "retreats",
+			"event":  "sommer-retreat",
+		},
+		"display_options": map[string]any{
+			"theme":    "sand",
+			"register": true,
+			"load_css": false,
+		},
 		"is_active": false,
 	}
 	patchBody, _ := json.Marshal(patchPayload)
@@ -91,6 +101,14 @@ func TestAdminSnippetCRUDAndEmbedFlow(t *testing.T) {
 	}
 	if patchedItem["is_active"] != false {
 		t.Fatalf("expected patched is_active false, got %v", patchedItem["is_active"])
+	}
+	displayOptions := patchedItem["display_options"].(map[string]any)
+	if displayOptions["load_css"] != false {
+		t.Fatalf("expected patched load_css false, got %v", displayOptions["load_css"])
+	}
+	eventFilter := patchedItem["event_filter"].(map[string]any)
+	if eventFilter["event"] != "sommer-retreat" {
+		t.Fatalf("expected event filter sommer-retreat, got %v", eventFilter["event"])
 	}
 
 	embedReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/snippets/"+snippetID+"/embed-code", nil)
@@ -173,10 +191,11 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	})
 
 	createdConfig, err := app.snippetRepo.CreateConfig(context.Background(), tenantID, snippet.CreateConfigParams{
-		Name:            "Public Snippet",
-		Slug:            "public-snippet",
-		ViewType:        "list",
-		EventFilterJSON: `{"events":"upcoming","limit":1}`,
+		Name:               "Public Snippet",
+		Slug:               "public-snippet",
+		ViewType:           "list",
+		EventFilterJSON:    `{"events":"upcoming","limit":1}`,
+		DisplayOptionsJSON: `{"theme":"sand","register":true,"load_css":false}`,
 	})
 	if err != nil {
 		t.Fatalf("create snippet config: %v", err)
@@ -201,6 +220,9 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	if !strings.Contains(includeBody, "\""+tenantSlug+"\"") {
 		t.Fatalf("expected include.js payload to include tenant slug %q", tenantSlug)
 	}
+	if !strings.Contains(includeBody, "displayOptions.load_css === false") {
+		t.Fatalf("expected include.js payload to support load_css opt-out")
+	}
 
 	registerReq := httptest.NewRequest(http.MethodGet, "/"+tenantSlug+"/register.js?event=snippet-future", nil)
 	registerRec := httptest.NewRecorder()
@@ -217,6 +239,9 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	}
 	if !strings.Contains(registerBody, "Magic Link anfordern") {
 		t.Fatalf("expected register.js payload to contain form submit label")
+	}
+	if !strings.Contains(registerBody, "data-css") {
+		t.Fatalf("expected register.js payload to support css overrides")
 	}
 
 	cssReq := httptest.NewRequest(http.MethodGet, "/"+tenantSlug+"/snippet.css", nil)
@@ -260,6 +285,17 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	if firstItem["event_url"] != "https://www.example.com/events/snippet-future" {
 		t.Fatalf("expected event_url to use external detail base url, got %v", firstItem["event_url"])
 	}
+	configPayload, ok := eventsPayload["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected config payload")
+	}
+	displayConfig, ok := configPayload["display_options"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected display_options payload")
+	}
+	if displayConfig["load_css"] != false {
+		t.Fatalf("expected display_options.load_css=false, got %v", displayConfig["load_css"])
+	}
 
 	tamperedReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=public-snippet&limit=50", nil)
 	tamperedRec := httptest.NewRecorder()
@@ -283,5 +319,37 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	errorPayload := missingPayload["error"].(map[string]any)
 	if errorPayload["code"] != "SNIPPET_NOT_FOUND" {
 		t.Fatalf("expected SNIPPET_NOT_FOUND, got %v", errorPayload["code"])
+	}
+}
+
+func TestPublicSnippetEventURLSupportsPlaceholderBase(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	if _, err := app.tenantRepo.UpsertSettings(context.Background(), tenant.UpsertTenantSettingsParams{
+		TenantID: tenantID,
+		Settings: tenant.TenantSettingsInput{
+			SettingsJSON: `{"event_detail_base_url":"https://www.example.com/events/{slug}?tenant={tenant_slug}"}`,
+		},
+	}); err != nil {
+		t.Fatalf("upsert tenant settings: %v", err)
+	}
+
+	createPublishedEventForPublicTest(t, app, tenantID, event.CreateEventParams{
+		Slug:     "placeholder-event",
+		Title:    "Placeholder Event",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	eventsReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?event=placeholder-event", nil)
+	eventsRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(eventsRec, eventsReq)
+	if eventsRec.Code != http.StatusOK {
+		t.Fatalf("expected snippet events status 200, got %d", eventsRec.Code)
+	}
+	eventsPayload := decodeBody[map[string]any](t, eventsRec)
+	items := eventsPayload["items"].([]any)
+	firstItem := items[0].(map[string]any)
+	if firstItem["event_url"] != "https://www.example.com/events/placeholder-event?tenant=customerxyz" {
+		t.Fatalf("expected placeholder event_url, got %v", firstItem["event_url"])
 	}
 }

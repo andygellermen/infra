@@ -120,6 +120,7 @@
                   Wiederholung
                   <select id="eventRecurrenceMode" name="recurrence_mode">
                     <option value="none">Keine Wiederholung</option>
+                    <option value="daily">Taeglich</option>
                     <option value="weekly">Woechentlich</option>
                     <option value="monthly">Monatlich</option>
                   </select>
@@ -353,7 +354,13 @@
         <section id="tab-snippets" class="tabpane">
           <div class="split">
             <div class="card">
-              <h2>Snippet anlegen</h2>
+              <div class="card-head">
+                <div>
+                  <h2 id="snippetFormHeading">Snippet anlegen</h2>
+                  <p class="muted compact">Ein gespeichertes Snippet ist eine stabile Einbettungs-Konfiguration fuer Ghost oder andere Seiten.</p>
+                </div>
+                <button id="snippetCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
+              </div>
               <form id="snippetForm" class="form-grid">
                 <label>
                   Name
@@ -378,6 +385,10 @@
                   <input name="series" type="text" placeholder="angst-workshop">
                 </label>
                 <label>
+                  Event-Slug (optional)
+                  <input name="event" type="text" placeholder="sommer-retreat-block-a">
+                </label>
+                <label>
                   Limit (optional)
                   <input name="limit" type="number" min="1" step="1" placeholder="6">
                 </label>
@@ -390,6 +401,7 @@
                   </select>
                 </label>
                 <label class="checkline"><input name="register" type="checkbox" checked> CTA "Zur Anmeldung" anzeigen</label>
+                <label class="checkline"><input name="load_css" type="checkbox" checked> EEP-CSS automatisch laden</label>
                 <label class="checkline"><input name="include_past" type="checkbox"> Vergangene Events einbeziehen</label>
                 <label class="checkline"><input name="is_active" type="checkbox" checked> Aktiv</label>
                 <button id="snippetSubmitBtn" class="btn primary" type="submit">Snippet speichern</button>

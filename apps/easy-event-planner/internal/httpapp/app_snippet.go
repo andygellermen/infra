@@ -568,7 +568,9 @@ func buildSnippetIncludeJS(tenantSlug string) string {
   const tenantSlug = %q;
   const apiURL = source.origin + "/api/v1/public/" + encodeURIComponent(tenantSlug) + "/snippet/events?" + params.toString();
 
-  ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+  if (!config && shouldLoadCSS(null, rawParams, script)) {
+    ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+  }
   const container = resolveContainer(script, targetSelector);
   container.classList.add("eep-widget");
   container.classList.add("eep-loading");
@@ -582,6 +584,9 @@ func buildSnippetIncludeJS(tenantSlug string) string {
       const items = Array.isArray(payload.items) ? payload.items : [];
       const view = String(payload.view || "cards").toLowerCase();
       const displayOptions = payload && payload.config && payload.config.display_options ? payload.config.display_options : {};
+      if (shouldLoadCSS(displayOptions, rawParams, script)) {
+        ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+      }
       applyTheme(container, displayOptions);
       render(container, payload, items, view, displayOptions);
       container.classList.remove("eep-loading");
@@ -609,6 +614,35 @@ func buildSnippetIncludeJS(tenantSlug string) string {
     link.rel = "stylesheet";
     link.href = href;
     document.head.appendChild(link);
+  }
+
+  function shouldLoadCSS(displayOptions, params, scriptNode) {
+    const attr = normalizeCSSMode(scriptNode && scriptNode.getAttribute ? scriptNode.getAttribute("data-css") : "");
+    if (attr !== "") return attr === "on";
+    const query = normalizeCSSMode(params && params.get ? params.get("css") : "");
+    if (query !== "") return query === "on";
+    if (displayOptions && displayOptions.load_css === false) {
+      return false;
+    }
+    return true;
+  }
+
+  function normalizeCSSMode(value) {
+    switch (String(value || "").trim().toLowerCase()) {
+      case "on":
+      case "true":
+      case "1":
+      case "yes":
+        return "on";
+      case "off":
+      case "false":
+      case "0":
+      case "no":
+      case "inherit":
+        return "off";
+      default:
+        return "";
+    }
   }
 
   function applyTheme(root, displayOptions) {
@@ -822,7 +856,9 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
   const registerURL = apiBase + "/registrations/start";
   const container = resolveContainer(script, targetSelector);
 
-  ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+  if (shouldLoadCSS(rawParams, script)) {
+    ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+  }
   container.classList.add("eep-widget", "eep-registration-widget", "eep-loading");
 
   if (!eventSlug) {
@@ -869,6 +905,32 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
     link.rel = "stylesheet";
     link.href = href;
     document.head.appendChild(link);
+  }
+
+  function shouldLoadCSS(params, scriptNode) {
+    const attr = normalizeCSSMode(scriptNode && scriptNode.getAttribute ? scriptNode.getAttribute("data-css") : "");
+    if (attr !== "") return attr === "on";
+    const query = normalizeCSSMode(params && params.get ? params.get("css") : "");
+    if (query !== "") return query === "on";
+    return true;
+  }
+
+  function normalizeCSSMode(value) {
+    switch (String(value || "").trim().toLowerCase()) {
+      case "on":
+      case "true":
+      case "1":
+      case "yes":
+        return "on";
+      case "off":
+      case "false":
+      case "0":
+      case "no":
+      case "inherit":
+        return "off";
+      default:
+        return "";
+    }
   }
 
   function renderForm(root, tenant, eventItem) {
@@ -1651,12 +1713,12 @@ func snippetPublicEventPayload(tenantItem tenant.Tenant, eventDetailBaseURL stri
 		"participation_mode":   item.ParticipationMode,
 		"status":               item.Status,
 		"series":               series,
-		"event_url":            buildPublicEventURL(tenantItem.PublicBaseURL, eventDetailBaseURL, item.Slug),
+		"event_url":            buildPublicEventURL(tenantItem.PublicBaseURL, eventDetailBaseURL, tenantItem.Slug, item.SeriesSlug, item.Slug),
 		"registration_enabled": item.RegistrationEnabled,
 	}
 }
 
-func buildPublicEventURL(publicBaseURL, eventDetailBaseURL, eventSlug string) string {
+func buildPublicEventURL(publicBaseURL, eventDetailBaseURL, tenantSlug, seriesSlug, eventSlug string) string {
 	slug := url.PathEscape(strings.TrimSpace(eventSlug))
 	if slug == "" {
 		return ""
@@ -1664,6 +1726,18 @@ func buildPublicEventURL(publicBaseURL, eventDetailBaseURL, eventSlug string) st
 
 	detailBase := strings.TrimRight(strings.TrimSpace(eventDetailBaseURL), "/")
 	if detailBase != "" {
+		replaced := detailBase
+		replaced = strings.ReplaceAll(replaced, "{slug}", slug)
+		replaced = strings.ReplaceAll(replaced, "{event_slug}", slug)
+		replaced = strings.ReplaceAll(replaced, "{tenant_slug}", url.PathEscape(strings.TrimSpace(tenantSlug)))
+		replaced = strings.ReplaceAll(replaced, "{series_slug}", url.PathEscape(strings.TrimSpace(seriesSlug)))
+		replaced = strings.ReplaceAll(replaced, "%7Bslug%7D", slug)
+		replaced = strings.ReplaceAll(replaced, "%7Bevent_slug%7D", slug)
+		replaced = strings.ReplaceAll(replaced, "%7Btenant_slug%7D", url.PathEscape(strings.TrimSpace(tenantSlug)))
+		replaced = strings.ReplaceAll(replaced, "%7Bseries_slug%7D", url.PathEscape(strings.TrimSpace(seriesSlug)))
+		if replaced != detailBase {
+			return replaced
+		}
 		return fmt.Sprintf("%s/%s", detailBase, slug)
 	}
 

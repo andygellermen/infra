@@ -13,6 +13,7 @@
     snippets: [],
     editingEventId: "",
     editingSeriesId: "",
+    editingSnippetId: "",
   };
 
   const ui = {
@@ -64,6 +65,8 @@
     participantBookingsHint: document.querySelector("#participantBookingsHint"),
     participantBookingsSummary: document.querySelector("#participantBookingsSummary"),
     snippetForm: document.querySelector("#snippetForm"),
+    snippetFormHeading: document.querySelector("#snippetFormHeading"),
+    snippetCancelEditBtn: document.querySelector("#snippetCancelEditBtn"),
     snippetSubmitBtn: document.querySelector("#snippetSubmitBtn"),
     refreshSnippetsBtn: document.querySelector("#refreshSnippetsBtn"),
     snippetsTableBody: document.querySelector("#snippetsTableBody"),
@@ -86,6 +89,7 @@
   fillTimeSelectOptions();
   resetEventForm();
   resetSeriesForm();
+  resetSnippetForm();
   resetParticipantBookings();
   refreshSession();
 
@@ -156,6 +160,12 @@
     }
     if (ui.snippetForm) {
       ui.snippetForm.addEventListener("submit", onSnippetCreateSubmit);
+    }
+    if (ui.snippetCancelEditBtn) {
+      ui.snippetCancelEditBtn.addEventListener("click", () => {
+        resetSnippetForm();
+        setFlash("Snippet-Bearbeitung abgebrochen.");
+      });
     }
     if (ui.refreshSnippetsBtn) {
       ui.refreshSnippetsBtn.addEventListener("click", () => loadSnippets(true));
@@ -695,7 +705,7 @@
     const subtitle = item.subtitle ? `<div class="event-card-subline">${escapeHTML(item.subtitle)}</div>` : "";
     const counts = `${Number(item.confirmed_participants || 0)} Teilnehmer · ${Number(item.waitlist_entries || 0)} Warteliste`;
     const visibilityToggleAllowed = canToggleVisibility(item);
-    const visibilityLabel = item.is_public ? "Aktiv" : "Inaktiv";
+    const visibilityLabel = item.is_public ? "Deaktivieren" : "Aktivieren";
     const visibilityClass = item.is_public ? "ok" : "light";
     const visibilityAction = item.is_public ? "unpublish" : "publish";
     const seriesTitle = resolveSeriesTitle(item.series_id);
@@ -1212,7 +1222,9 @@
     if (Number.isNaN(nextDate.getTime())) {
       throw new Error("Die Wiederholungsbasis ist ungueltig.");
     }
-    if (mode === "weekly") {
+    if (mode === "daily") {
+      nextDate.setDate(nextDate.getDate() + (interval * iteration));
+    } else if (mode === "weekly") {
       nextDate.setDate(nextDate.getDate() + (7 * interval * iteration));
     } else if (mode === "monthly") {
       nextDate.setMonth(nextDate.getMonth() + (interval * iteration));
@@ -1417,6 +1429,57 @@
     }
     renderSeriesEventTabs(item.id);
     updateSeriesActionButtons();
+  }
+
+  function resetSnippetForm() {
+    state.editingSnippetId = "";
+    if (ui.snippetForm) {
+      ui.snippetForm.reset();
+    }
+    setFieldValue(ui.snippetForm, "theme", "light");
+    setCheckboxValue(ui.snippetForm, "register", true);
+    setCheckboxValue(ui.snippetForm, "load_css", true);
+    setCheckboxValue(ui.snippetForm, "is_active", true);
+    if (ui.snippetFormHeading) {
+      ui.snippetFormHeading.textContent = "Snippet anlegen";
+    }
+    if (ui.snippetSubmitBtn) {
+      ui.snippetSubmitBtn.textContent = "Snippet speichern";
+      ui.snippetSubmitBtn.dataset.idleLabel = "Snippet speichern";
+    }
+    if (ui.snippetCancelEditBtn) {
+      ui.snippetCancelEditBtn.hidden = true;
+    }
+  }
+
+  function populateSnippetFormForEdit(item) {
+    state.editingSnippetId = String(item && item.id || "").trim();
+    if (ui.snippetForm) {
+      ui.snippetForm.reset();
+    }
+    const eventFilter = item && item.event_filter ? item.event_filter : {};
+    const displayOptions = item && item.display_options ? item.display_options : {};
+    setFieldValue(ui.snippetForm, "name", item && item.name || "");
+    setFieldValue(ui.snippetForm, "slug", item && item.slug || "");
+    setFieldValue(ui.snippetForm, "view_type", item && item.view_type || "cards");
+    setFieldValue(ui.snippetForm, "series", eventFilter.series || "");
+    setFieldValue(ui.snippetForm, "event", eventFilter.event || "");
+    setFieldValue(ui.snippetForm, "limit", eventFilter.limit === null || eventFilter.limit === undefined ? "" : eventFilter.limit);
+    setFieldValue(ui.snippetForm, "theme", displayOptions.theme || "light");
+    setCheckboxValue(ui.snippetForm, "register", displayOptions.register !== false);
+    setCheckboxValue(ui.snippetForm, "load_css", displayOptions.load_css !== false);
+    setCheckboxValue(ui.snippetForm, "include_past", !!eventFilter.include_past);
+    setCheckboxValue(ui.snippetForm, "is_active", item && item.is_active !== false);
+    if (ui.snippetFormHeading) {
+      ui.snippetFormHeading.textContent = "Snippet bearbeiten";
+    }
+    if (ui.snippetSubmitBtn) {
+      ui.snippetSubmitBtn.textContent = "Aenderungen speichern";
+      ui.snippetSubmitBtn.dataset.idleLabel = "Aenderungen speichern";
+    }
+    if (ui.snippetCancelEditBtn) {
+      ui.snippetCancelEditBtn.hidden = false;
+    }
   }
 
   function fillRegistrationEventSelect(items) {
@@ -1635,6 +1698,7 @@
             <td>${item.is_active ? "Ja" : "Nein"}</td>
             <td>
               <div class="row-actions">
+                <button class="btn tiny light" type="button" data-snippet-action="edit" data-snippet-id="${escapeAttr(item.id)}">Bearbeiten</button>
                 <button class="btn tiny light" type="button" data-snippet-action="embed" data-snippet-id="${escapeAttr(item.id)}">Embed</button>
                 <button class="btn tiny light" type="button" data-snippet-action="preview" data-snippet-id="${escapeAttr(item.id)}">Preview</button>
                 <button class="btn tiny ${item.is_active ? "warn" : "ok"}" type="button" data-snippet-action="toggle-active" data-snippet-id="${escapeAttr(item.id)}">${item.is_active ? "Deaktivieren" : "Aktivieren"}</button>
@@ -1655,6 +1719,16 @@
 
         setButtonBusy(btn, true, "...");
         try {
+          if (action === "edit") {
+            const item = state.snippets.find((entry) => entry.id === snippetID);
+            if (!item) {
+              throw new Error("Snippet nicht gefunden.");
+            }
+            populateSnippetFormForEdit(item);
+            activateTab("snippets");
+            setFlash(`Snippet '${item.name || "Snippet"}' zur Bearbeitung geladen.`);
+            return;
+          }
           if (action === "toggle-active") {
             await toggleSnippetActive(snippetID);
             setFlash("Snippet-Status wurde aktualisiert.");
@@ -1681,11 +1755,14 @@
     const providedSlug = String(formData.get("slug") || "").trim();
     const viewType = String(formData.get("view_type") || "cards").trim() || "cards";
     const series = String(formData.get("series") || "").trim();
+    const eventSlug = String(formData.get("event") || "").trim();
     const limitRaw = String(formData.get("limit") || "").trim();
     const includePast = isChecked(ui.snippetForm, "include_past");
     const isActive = isChecked(ui.snippetForm, "is_active");
     const theme = String(formData.get("theme") || "light").trim() || "light";
     const registerCTA = isChecked(ui.snippetForm, "register");
+    const loadCSS = isChecked(ui.snippetForm, "load_css");
+    const isEdit = !!state.editingSnippetId;
 
     if (!name) {
       setFlash("Snippet-Name ist ein Pflichtfeld.", "error");
@@ -1696,6 +1773,9 @@
     const eventFilter = {};
     if (series) {
       eventFilter.series = series;
+    }
+    if (eventSlug) {
+      eventFilter.event = eventSlug;
     }
     if (includePast) {
       eventFilter.include_past = true;
@@ -1717,27 +1797,30 @@
       display_options: {
         theme,
         register: registerCTA,
+        load_css: loadCSS,
       },
       is_active: isActive,
     };
 
+    const targetPath = isEdit
+      ? `/api/v1/admin/snippets/${encodeURIComponent(state.editingSnippetId)}`
+      : "/api/v1/admin/snippets";
+    const method = isEdit ? "PATCH" : "POST";
+
     setButtonBusy(ui.snippetSubmitBtn, true, "Speichere...");
     try {
-      await apiRequest("/api/v1/admin/snippets", {
-        method: "POST",
+      await apiRequest(targetPath, {
+        method,
         body: JSON.stringify(body),
       });
-      ui.snippetForm.reset();
-      setFieldValue(ui.snippetForm, "theme", "light");
-      setCheckboxValue(ui.snippetForm, "register", true);
-      setCheckboxValue(ui.snippetForm, "is_active", true);
+      resetSnippetForm();
       await loadSnippets(false);
-      setFlash("Snippet wurde angelegt.");
+      setFlash(isEdit ? "Snippet wurde aktualisiert." : "Snippet wurde angelegt.");
       activateTab("snippets");
     } catch (err) {
-      setFlash(`Snippet konnte nicht angelegt werden: ${errorMessage(err)}`, "error");
+      setFlash(`Snippet konnte nicht gespeichert werden: ${errorMessage(err)}`, "error");
     } finally {
-      setButtonBusy(ui.snippetSubmitBtn, false, "Snippet speichern");
+      setButtonBusy(ui.snippetSubmitBtn, false, isEdit ? "Aenderungen speichern" : "Snippet speichern");
     }
   }
 
@@ -2179,9 +2262,9 @@
   function dashboardVisibilityLabel(eventID) {
     const item = findEventByID(eventID);
     if (!item) {
-      return "Aktiv/Inaktiv";
+      return "Aktivieren";
     }
-    return item.is_public ? "Aktiv" : "Inaktiv";
+    return item.is_public ? "Deaktivieren" : "Aktivieren";
   }
 
   function dashboardVisibilityButtonClass(eventID) {
@@ -2523,6 +2606,9 @@
     if (eventFilter.series) {
       chips.push(`Serie ${eventFilter.series}`);
     }
+    if (eventFilter.event) {
+      chips.push(`Event ${eventFilter.event}`);
+    }
     if (eventFilter.limit) {
       chips.push(`Limit ${eventFilter.limit}`);
     }
@@ -2531,6 +2617,9 @@
     }
     if (displayOptions.register) {
       chips.push("CTA");
+    }
+    if (displayOptions.load_css === false) {
+      chips.push("Ohne EEP-CSS");
     }
     if (!chips.length) {
       return "";

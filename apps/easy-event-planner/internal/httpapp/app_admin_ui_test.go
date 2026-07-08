@@ -120,3 +120,35 @@ func TestAdminUIRouteDelegatesAdminTenantAssets(t *testing.T) {
 		t.Fatalf("expected include.js to target snippet events endpoint, got %q", body)
 	}
 }
+
+func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
+	app := New(testConfig(), nil)
+
+	shellReq := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	shellRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(shellRec, shellReq)
+	if shellRec.Code != http.StatusOK {
+		t.Fatalf("expected admin shell status 200, got %d", shellRec.Code)
+	}
+	shellBody := shellRec.Body.String()
+	if !strings.Contains(shellBody, "EEP-CSS automatisch laden") {
+		t.Fatalf("expected snippet css toggle in admin shell")
+	}
+	if !strings.Contains(shellBody, "value=\"daily\"") {
+		t.Fatalf("expected daily recurrence option in admin shell")
+	}
+
+	jsReq := httptest.NewRequest(http.MethodGet, "/admin-ui.js", nil)
+	jsRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(jsRec, jsReq)
+	if jsRec.Code != http.StatusOK {
+		t.Fatalf("expected admin js status 200, got %d", jsRec.Code)
+	}
+	jsBody := jsRec.Body.String()
+	if !strings.Contains(jsBody, "populateSnippetFormForEdit") {
+		t.Fatalf("expected snippet edit support in admin js")
+	}
+	if !strings.Contains(jsBody, "mode === \"daily\"") {
+		t.Fatalf("expected daily recurrence handling in admin js")
+	}
+}
