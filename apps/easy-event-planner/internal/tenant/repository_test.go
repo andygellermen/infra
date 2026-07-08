@@ -117,6 +117,56 @@ func TestLookupByPublicHostFailsWhenAmbiguous(t *testing.T) {
 	}
 }
 
+func TestLookupByPublicBaseURLSupportsPathPrefixes(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "events-demo",
+		Name:          "Events Demo",
+		PublicBaseURL: "https://events.example.com/veranstaltungen",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	lookup, err := repo.LookupByPublicBaseURL(context.Background(), "https://events.example.com/veranstaltungen/events/sommer-retreat")
+	if err != nil {
+		t.Fatalf("LookupByPublicBaseURL returned error: %v", err)
+	}
+	if lookup.ID != created.ID {
+		t.Fatalf("expected tenant id %q, got %q", created.ID, lookup.ID)
+	}
+}
+
+func TestLookupByPublicBaseURLPrefersLongestPathPrefix(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	if _, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "root-demo",
+		Name:          "Root Demo",
+		PublicBaseURL: "https://events.example.com",
+	}); err != nil {
+		t.Fatalf("CreateTenant root returned error: %v", err)
+	}
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "nested-demo",
+		Name:          "Nested Demo",
+		PublicBaseURL: "https://events.example.com/veranstaltungen",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant nested returned error: %v", err)
+	}
+
+	lookup, err := repo.LookupByPublicBaseURL(context.Background(), "https://events.example.com/veranstaltungen/events/sommer-retreat")
+	if err != nil {
+		t.Fatalf("LookupByPublicBaseURL returned error: %v", err)
+	}
+	if lookup.ID != created.ID {
+		t.Fatalf("expected nested tenant id %q, got %q", created.ID, lookup.ID)
+	}
+}
+
 func TestUpsertSettings(t *testing.T) {
 	repo := NewRepository(newMigratedDB(t))
 

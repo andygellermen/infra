@@ -257,7 +257,7 @@ func (a *App) handleAdminSnippetEmbedCode(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	scriptSrc := buildSnippetScriptSrc(a.cfg.BaseURL, tenantItem.Slug, item.Slug)
+	scriptSrc := buildSnippetScriptSrc(tenantItem.PublicBaseURL, tenantItem.Slug, item.Slug)
 	embedCode := fmt.Sprintf(`<script src="%s" defer></script>`, scriptSrc)
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -417,29 +417,6 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 		a.handleRoot(w, r)
 		return
 	}
-	if tenantSlug, eventSlug, ok := parseTenantPublicEventPath(r.URL.Path); ok {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		if a.tenantRepo == nil {
-			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
-			return
-		}
-
-		tenantItem, err := a.tenantRepo.LookupBySlug(r.Context(), tenantSlug)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		a.handleTenantPublicEventPage(w, r, tenantItem, eventSlug)
-		return
-	}
-	tenantSlug, assetType, ok := parseTenantAssetPath(r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -448,82 +425,158 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
-
-	tenantItem, err := a.tenantRepo.LookupBySlug(r.Context(), tenantSlug)
-	if err != nil {
+	resolved, ok := a.resolveTenantPublicRoute(r)
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
 
-	switch assetType {
+	switch resolved.routeType {
+	case "event_page":
+		a.handleTenantPublicEventPage(w, r, resolved.tenant, resolved.eventSlug)
+		return
 	case "include_js":
-		writeSnippetIncludeJS(w, tenantItem)
+		writeSnippetIncludeJS(w, resolved.tenant)
 	case "register_js":
-		writeRegistrationEmbedJS(w, tenantItem)
+		writeRegistrationEmbedJS(w, resolved.tenant)
 	case "snippet_css":
 		writeSnippetCSS(w)
 	case "organizer_calendar":
-		a.handleTenantOrganizerCalendarICS(w, r, tenantItem)
+		a.handleTenantOrganizerCalendarICS(w, r, resolved.tenant)
 	default:
 		http.NotFound(w, r)
 	}
 }
 
-func parseTenantPublicEventPath(path string) (tenantSlug, eventSlug string, ok bool) {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" || trimmed == "/" {
-		return "", "", false
-	}
-	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(parts) != 3 {
-		return "", "", false
-	}
-	tenantSlug = strings.TrimSpace(parts[0])
-	group := strings.TrimSpace(parts[1])
-	eventSlug = strings.TrimSpace(parts[2])
-	if tenantSlug == "" || eventSlug == "" || group != "events" {
-		return "", "", false
-	}
-	return tenantSlug, eventSlug, true
+type resolvedTenantPublicRoute struct {
+	tenant    tenant.Tenant
+	routeType string
+	eventSlug string
 }
 
-func parseTenantAssetPath(path string) (tenantSlug, assetType string, ok bool) {
+func (a *App) resolveTenantPublicRoute(r *http.Request) (resolvedTenantPublicRoute, bool) {
+	requestPath := normalizePublicPath(r.URL.Path)
+	if requestPath == "/" {
+		return resolvedTenantPublicRoute{}, false
+	}
+
+	if resolved, ok := a.resolveTenantPublicRouteByBaseURL(r, requestPath); ok {
+		return resolved, true
+	}
+	if resolved, ok := a.resolveTenantPublicRouteLegacy(r, requestPath); ok {
+		return resolved, true
+	}
+	return resolvedTenantPublicRoute{}, false
+}
+
+func (a *App) resolveTenantPublicRouteByBaseURL(r *http.Request, requestPath string) (resolvedTenantPublicRoute, bool) {
+	tenantItem, err := a.tenantRepo.LookupByPublicBaseURL(r.Context(), buildPublicLookupURL(r, requestPath))
+	if err != nil {
+		return resolvedTenantPublicRoute{}, false
+	}
+	relativePath, ok := trimPublicBasePathPrefix(requestPath, publicBasePathFromURL(tenantItem.PublicBaseURL))
+	if !ok {
+		return resolvedTenantPublicRoute{}, false
+	}
+	return classifyTenantPublicRelativePath(tenantItem, relativePath)
+}
+
+func (a *App) resolveTenantPublicRouteLegacy(r *http.Request, requestPath string) (resolvedTenantPublicRoute, bool) {
+	parts := strings.Split(strings.Trim(requestPath, "/"), "/")
+	if len(parts) == 0 {
+		return resolvedTenantPublicRoute{}, false
+	}
+	tenantSlug := strings.TrimSpace(parts[0])
+	if tenantSlug == "" {
+		return resolvedTenantPublicRoute{}, false
+	}
+	tenantItem, err := a.tenantRepo.LookupBySlug(r.Context(), tenantSlug)
+	if err != nil {
+		return resolvedTenantPublicRoute{}, false
+	}
+	relativePath := "/"
+	if len(parts) > 1 {
+		relativePath = "/" + strings.Join(parts[1:], "/")
+	}
+	return classifyTenantPublicRelativePath(tenantItem, relativePath)
+}
+
+func classifyTenantPublicRelativePath(tenantItem tenant.Tenant, relativePath string) (resolvedTenantPublicRoute, bool) {
+	normalized := normalizePublicPath(relativePath)
+	if normalized == "/" {
+		return resolvedTenantPublicRoute{}, false
+	}
+	parts := strings.Split(strings.Trim(normalized, "/"), "/")
+	if len(parts) == 0 {
+		return resolvedTenantPublicRoute{}, false
+	}
+
+	switch len(parts) {
+	case 1:
+		switch strings.TrimSpace(parts[0]) {
+		case "include.js":
+			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "include_js"}, true
+		case "register.js":
+			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "register_js"}, true
+		case "snippet.css":
+			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "snippet_css"}, true
+		default:
+			return resolvedTenantPublicRoute{}, false
+		}
+	case 2:
+		if strings.TrimSpace(parts[0]) == "events" && strings.TrimSpace(parts[1]) != "" {
+			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "event_page", eventSlug: strings.TrimSpace(parts[1])}, true
+		}
+		if strings.TrimSpace(parts[0]) == "calendar" && strings.TrimSpace(parts[1]) == "admin.ics" {
+			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "organizer_calendar"}, true
+		}
+		return resolvedTenantPublicRoute{}, false
+	default:
+		return resolvedTenantPublicRoute{}, false
+	}
+}
+
+func normalizePublicPath(path string) string {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" || trimmed == "/" {
-		return "", "", false
+		return "/"
 	}
-	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
-	switch len(parts) {
-	case 2:
-		tenantSlug = strings.TrimSpace(parts[0])
-		asset := strings.TrimSpace(parts[1])
-		if tenantSlug == "" {
-			return "", "", false
-		}
-		switch asset {
-		case "include.js":
-			return tenantSlug, "include_js", true
-		case "register.js":
-			return tenantSlug, "register_js", true
-		case "snippet.css":
-			return tenantSlug, "snippet_css", true
-		default:
-			return "", "", false
-		}
-	case 3:
-		tenantSlug = strings.TrimSpace(parts[0])
-		group := strings.TrimSpace(parts[1])
-		asset := strings.TrimSpace(parts[2])
-		if tenantSlug == "" {
-			return "", "", false
-		}
-		if group == "calendar" && asset == "admin.ics" {
-			return tenantSlug, "organizer_calendar", true
-		}
-		return "", "", false
-	default:
-		return "", "", false
+	return "/" + strings.Trim(trimmed, "/")
+}
+
+func buildPublicLookupURL(r *http.Request, requestPath string) string {
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
 	}
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
+		scheme = strings.ToLower(strings.TrimSpace(strings.Split(forwarded, ",")[0]))
+	}
+	return scheme + "://" + requestHost(r) + normalizePublicPath(requestPath)
+}
+
+func publicBasePathFromURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "/"
+	}
+	return normalizePublicPath(parsed.EscapedPath())
+}
+
+func trimPublicBasePathPrefix(requestPath, basePath string) (string, bool) {
+	request := normalizePublicPath(requestPath)
+	base := normalizePublicPath(basePath)
+	if base == "/" {
+		return request, true
+	}
+	if request == base {
+		return "/", true
+	}
+	prefix := base + "/"
+	if !strings.HasPrefix(request, prefix) {
+		return "", false
+	}
+	return "/" + strings.TrimPrefix(request, prefix), true
 }
 
 func writeSnippetIncludeJS(w http.ResponseWriter, tenantItem tenant.Tenant) {
@@ -553,6 +606,7 @@ func buildSnippetIncludeJS(tenantSlug string) string {
   if (!script) return;
 
   const source = new URL(script.src);
+  const assetBase = source.origin + source.pathname.replace(/\/[^/]*$/, "");
   const rawParams = new URLSearchParams(source.search);
   const params = new URLSearchParams();
   const config = rawParams.get("config");
@@ -569,7 +623,7 @@ func buildSnippetIncludeJS(tenantSlug string) string {
   const apiURL = source.origin + "/api/v1/public/" + encodeURIComponent(tenantSlug) + "/snippet/events?" + params.toString();
 
   if (!config && shouldLoadCSS(null, rawParams, script)) {
-    ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+    ensureCSS(assetBase + "/snippet.css", tenantSlug);
   }
   const container = resolveContainer(script, targetSelector);
   container.classList.add("eep-widget");
@@ -585,7 +639,7 @@ func buildSnippetIncludeJS(tenantSlug string) string {
       const view = String(payload.view || "cards").toLowerCase();
       const displayOptions = payload && payload.config && payload.config.display_options ? payload.config.display_options : {};
       if (shouldLoadCSS(displayOptions, rawParams, script)) {
-        ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+        ensureCSS(assetBase + "/snippet.css", tenantSlug);
       }
       applyTheme(container, displayOptions);
       render(container, payload, items, view, displayOptions);
@@ -847,6 +901,7 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
   if (!script) return;
 
   const source = new URL(script.src);
+  const assetBase = source.origin + source.pathname.replace(/\/[^/]*$/, "");
   const rawParams = new URLSearchParams(source.search);
   const tenantSlug = %q;
   const eventSlug = String(script.getAttribute("data-event") || rawParams.get("event") || "").trim();
@@ -857,7 +912,7 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
   const container = resolveContainer(script, targetSelector);
 
   if (shouldLoadCSS(rawParams, script)) {
-    ensureCSS(source.origin + "/" + encodeURIComponent(tenantSlug) + "/snippet.css", tenantSlug);
+    ensureCSS(assetBase + "/snippet.css", tenantSlug);
   }
   container.classList.add("eep-widget", "eep-registration-widget", "eep-loading");
 
@@ -1749,19 +1804,35 @@ func buildPublicEventURL(publicBaseURL, eventDetailBaseURL, tenantSlug, seriesSl
 }
 
 func buildSnippetScriptSrc(baseURL, tenantSlug, configSlug string) string {
-	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if base == "" {
-		base = "http://localhost:8080"
+	assetBase := buildTenantPublicAssetBaseURL(baseURL, tenantSlug)
+	if assetBase == "" {
+		return ""
 	}
-	return fmt.Sprintf("%s/%s/include.js?config=%s", base, url.PathEscape(strings.TrimSpace(tenantSlug)), url.QueryEscape(strings.TrimSpace(configSlug)))
+	return fmt.Sprintf("%s/include.js?config=%s", assetBase, url.QueryEscape(strings.TrimSpace(configSlug)))
 }
 
 func buildRegistrationEmbedScriptSrc(baseURL, tenantSlug, eventSlug string) string {
+	assetBase := buildTenantPublicAssetBaseURL(baseURL, tenantSlug)
+	if assetBase == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/register.js?event=%s", assetBase, url.QueryEscape(strings.TrimSpace(eventSlug)))
+}
+
+func buildTenantPublicAssetBaseURL(baseURL, tenantSlug string) string {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if base == "" {
 		base = "http://localhost:8080"
 	}
-	return fmt.Sprintf("%s/%s/register.js?event=%s", base, url.PathEscape(strings.TrimSpace(tenantSlug)), url.QueryEscape(strings.TrimSpace(eventSlug)))
+	if parsed, err := url.Parse(base); err == nil {
+		path := normalizePublicPath(parsed.EscapedPath())
+		if path != "/" {
+			parsed.Path = strings.TrimRight(path, "/")
+			parsed.RawPath = parsed.Path
+			return strings.TrimRight(parsed.String(), "/")
+		}
+	}
+	return fmt.Sprintf("%s/%s", base, url.PathEscape(strings.TrimSpace(tenantSlug)))
 }
 
 func buildPublicEventDetailAPIURL(baseURL, tenantSlug, eventSlug string) string {

@@ -333,7 +333,7 @@ func (a *App) handleTenantPublicEventPage(w http.ResponseWriter, r *http.Request
 		StartsAt:          formatPublicEventPageDate(item.StartsAt, item.Timezone),
 		Location:          publicEventPageLocation(item),
 		Mode:              publicEventPageMode(item.ParticipationMode),
-		RegisterScriptSrc: buildRegistrationEmbedScriptSrc(a.cfg.BaseURL, tenantItem.Slug, item.Slug),
+		RegisterScriptSrc: buildRegistrationEmbedScriptSrc(tenantItem.PublicBaseURL, tenantItem.Slug, item.Slug),
 	})
 }
 
@@ -413,7 +413,7 @@ func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.
 		if a.eventRepo != nil && strings.TrimSpace(result.EventID) != "" {
 			if item, err := a.eventRepo.GetEventByID(r.Context(), tenantItem.ID, result.EventID); err == nil {
 				data.EventTitle = strings.TrimSpace(item.Title)
-				data.EventURL = buildPublicEventPageURL(a.cfg.BaseURL, tenantItem.Slug, item.Slug)
+				data.EventURL = buildPublicEventPageURL(tenantItem.PublicBaseURL, tenantItem.Slug, item.Slug)
 			}
 		}
 		if a.calendarService != nil && strings.TrimSpace(result.RegistrationID) != "" && strings.TrimSpace(result.ParticipantID) != "" {
@@ -442,11 +442,5 @@ func publicRegistrationVerifyErrorCopy(err error) (title, message string) {
 }
 
 func buildPublicEventPageURL(baseURL, tenantSlug, eventSlug string) string {
-	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	slug := strings.TrimSpace(tenantSlug)
-	eventPath := strings.TrimSpace(eventSlug)
-	if base == "" || slug == "" || eventPath == "" {
-		return ""
-	}
-	return base + "/" + slug + "/events/" + eventPath
+	return buildPublicEventURL(baseURL, "", tenantSlug, "", eventSlug)
 }

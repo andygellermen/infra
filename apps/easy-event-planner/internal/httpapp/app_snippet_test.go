@@ -353,3 +353,41 @@ func TestPublicSnippetEventURLSupportsPlaceholderBase(t *testing.T) {
 		t.Fatalf("expected placeholder event_url, got %v", firstItem["event_url"])
 	}
 }
+
+func TestSnippetAssetRoutesSupportTenantPublicBasePath(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	publicBaseURL := "https://events.example.com/veranstaltungen"
+	if _, err := app.tenantRepo.UpdateTenant(context.Background(), tenantID, tenant.UpdateTenantParams{
+		PublicBaseURL: &publicBaseURL,
+	}); err != nil {
+		t.Fatalf("update tenant public base url: %v", err)
+	}
+
+	includeReq := httptest.NewRequest(http.MethodGet, "/veranstaltungen/include.js?config=public-snippet", nil)
+	includeReq.Host = "events.example.com"
+	includeRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(includeRec, includeReq)
+	if includeRec.Code != http.StatusOK {
+		t.Fatalf("expected include.js status 200, got %d", includeRec.Code)
+	}
+	if !strings.Contains(includeRec.Body.String(), `assetBase + "/snippet.css"`) {
+		t.Fatalf("expected include.js to load css relative to asset base path")
+	}
+
+	registerReq := httptest.NewRequest(http.MethodGet, "/veranstaltungen/register.js?event=path-based-event", nil)
+	registerReq.Host = "events.example.com"
+	registerRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(registerRec, registerReq)
+	if registerRec.Code != http.StatusOK {
+		t.Fatalf("expected register.js status 200, got %d", registerRec.Code)
+	}
+
+	cssReq := httptest.NewRequest(http.MethodGet, "/veranstaltungen/snippet.css", nil)
+	cssReq.Host = "events.example.com"
+	cssRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(cssRec, cssReq)
+	if cssRec.Code != http.StatusOK {
+		t.Fatalf("expected snippet.css status 200, got %d", cssRec.Code)
+	}
+}

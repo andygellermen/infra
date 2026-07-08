@@ -18,6 +18,7 @@ var (
 	ErrTenantNotFound         = errors.New("tenant not found")
 	ErrTenantSettingsNotFound = errors.New("tenant settings not found")
 	ErrTenantHostAmbiguous    = errors.New("tenant host ambiguous")
+	ErrTenantPathAmbiguous    = errors.New("tenant public path ambiguous")
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -214,6 +215,64 @@ func (r *Repository) LookupByPublicHost(ctx context.Context, host string) (Tenan
 		return matches[0], nil
 	default:
 		return Tenant{}, ErrTenantHostAmbiguous
+	}
+}
+
+func (r *Repository) LookupByPublicBaseURL(ctx context.Context, rawURL string) (Tenant, error) {
+	lookup, err := normalizePublicBaseLookup(rawURL)
+	if err != nil {
+		return Tenant{}, err
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, slug, name, public_base_url, default_timezone, default_locale, status, created_at, updated_at
+     FROM tenants`,
+	)
+	if err != nil {
+		return Tenant{}, fmt.Errorf("query tenants by public base url: %w", err)
+	}
+	defer rows.Close()
+
+	matches := make([]Tenant, 0, 1)
+	bestPathLen := -1
+	for rows.Next() {
+		item, scanErr := scanTenant(rows)
+		if scanErr != nil {
+			return Tenant{}, fmt.Errorf("scan tenant by public base url: %w", scanErr)
+		}
+
+		candidate, candidateErr := normalizePublicBaseLookup(item.PublicBaseURL)
+		if candidateErr != nil {
+			continue
+		}
+		if candidate.host != lookup.host {
+			continue
+		}
+		if !publicBasePathMatches(candidate.path, lookup.path) {
+			continue
+		}
+		pathLen := len(candidate.path)
+		if pathLen > bestPathLen {
+			matches = []Tenant{item}
+			bestPathLen = pathLen
+			continue
+		}
+		if pathLen == bestPathLen {
+			matches = append(matches, item)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return Tenant{}, fmt.Errorf("iterate tenants by public base url: %w", err)
+	}
+
+	switch len(matches) {
+	case 0:
+		return Tenant{}, ErrTenantNotFound
+	case 1:
+		return matches[0], nil
+	default:
+		return Tenant{}, ErrTenantPathAmbiguous
 	}
 }
 
@@ -565,6 +624,57 @@ func normalizeLookupHost(raw string) (string, error) {
 		return "", fmt.Errorf("tenant host must not be empty")
 	}
 	return value, nil
+}
+
+type publicBaseLookup struct {
+	host string
+	path string
+}
+
+func normalizePublicBaseLookup(raw string) (publicBaseLookup, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return publicBaseLookup{}, fmt.Errorf("tenant public base url must not be empty")
+	}
+
+	if !strings.Contains(value, "://") {
+		value = "https://" + strings.TrimLeft(value, "/")
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return publicBaseLookup{}, fmt.Errorf("parse tenant public base lookup: %w", err)
+	}
+	if parsed.Host == "" {
+		return publicBaseLookup{}, fmt.Errorf("tenant public base url must include host")
+	}
+
+	host, err := normalizeLookupHost(parsed.Host)
+	if err != nil {
+		return publicBaseLookup{}, err
+	}
+	path := normalizePublicBasePath(parsed.EscapedPath())
+	return publicBaseLookup{host: host, path: path}, nil
+}
+
+func normalizePublicBasePath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == "/" {
+		return "/"
+	}
+	return "/" + strings.Trim(strings.TrimSpace(trimmed), "/")
+}
+
+func publicBasePathMatches(basePath, requestPath string) bool {
+	base := normalizePublicBasePath(basePath)
+	request := normalizePublicBasePath(requestPath)
+	if base == "/" {
+		return true
+	}
+	if request == base {
+		return true
+	}
+	return strings.HasPrefix(request, base+"/")
 }
 
 func normalizeSettingsInput(input TenantSettingsInput) (TenantSettingsInput, error) {

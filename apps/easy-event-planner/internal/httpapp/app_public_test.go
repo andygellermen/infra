@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func TestPublicEventsAndDetailFlow(t *testing.T) {
@@ -144,6 +145,41 @@ func TestPublicEventsFiltersAndValidation(t *testing.T) {
 	errorPayload := invalidPayload["error"].(map[string]any)
 	if errorPayload["code"] != "VALIDATION_ERROR" {
 		t.Fatalf("expected VALIDATION_ERROR, got %v", errorPayload["code"])
+	}
+}
+
+func TestPublicEventPageSupportsTenantPublicBasePath(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	publicBaseURL := "https://events.example.com/veranstaltungen"
+	if _, err := app.tenantRepo.UpdateTenant(context.Background(), tenantItem.ID, tenant.UpdateTenantParams{
+		PublicBaseURL: &publicBaseURL,
+	}); err != nil {
+		t.Fatalf("update tenant public base url: %v", err)
+	}
+
+	published := createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		Slug:     "unterordner-event",
+		Title:    "Unterordner Event",
+		StartsAt: time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339),
+	})
+
+	pageReq := httptest.NewRequest(http.MethodGet, "/veranstaltungen/events/"+published.Slug, nil)
+	pageReq.Host = "events.example.com"
+	pageRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(pageRec, pageReq)
+	if pageRec.Code != http.StatusOK {
+		t.Fatalf("expected public event page status 200, got %d", pageRec.Code)
+	}
+	if !strings.Contains(pageRec.Body.String(), published.Title) {
+		t.Fatalf("expected public event page to contain title %q", published.Title)
+	}
+	if !strings.Contains(pageRec.Body.String(), "/veranstaltungen/register.js?event="+published.Slug) {
+		t.Fatalf("expected public event page to embed path-based register.js for %q", published.Slug)
 	}
 }
 

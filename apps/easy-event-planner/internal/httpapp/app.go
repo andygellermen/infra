@@ -1021,7 +1021,7 @@ func (a *App) handleAdminEventEmbedCode(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	scriptSrc := buildRegistrationEmbedScriptSrc(a.cfg.BaseURL, tenantItem.Slug, item.Slug)
+	scriptSrc := buildRegistrationEmbedScriptSrc(tenantItem.PublicBaseURL, tenantItem.Slug, item.Slug)
 	embedCode := fmt.Sprintf(`<script src="%s" defer></script>`, scriptSrc)
 	warnings := make([]string, 0, 3)
 	if !item.IsPublic {
