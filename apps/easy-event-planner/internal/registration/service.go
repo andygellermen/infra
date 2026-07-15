@@ -18,6 +18,7 @@ import (
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/auth"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/event"
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/invitation"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 const (
@@ -42,23 +43,24 @@ const (
 )
 
 var (
-	ErrEventNotFound                = errors.New("event not found")
-	ErrRegistrationDisabled         = errors.New("registration is disabled")
-	ErrRegistrationClosed           = errors.New("registration is closed for this event status")
-	ErrPrivacyAcceptanceRequired    = errors.New("privacy acceptance is required")
-	ErrAlreadyRegistered            = errors.New("participant is already registered")
-	ErrAlreadyWaitlisted            = errors.New("participant is already on waitlist")
-	ErrInvalidVerificationToken     = errors.New("invalid verification token")
-	ErrExpiredVerificationToken     = errors.New("expired verification token")
-	ErrRegistrationNotFound         = errors.New("registration not found")
-	ErrRegistrationState            = errors.New("registration state does not allow verification")
-	ErrRegistrationAttendNotAllowed = errors.New("registration state does not allow attendance mark")
-	ErrEventFull                    = errors.New("event is full")
-	ErrUnsupportedParticipation     = errors.New("unsupported participation type")
-	ErrInvalidStartInput            = errors.New("invalid registration start input")
-	ErrRegistrationVerificationNil  = errors.New("registration verification token is empty")
-	ErrParticipantAccessDenied      = errors.New("participant access denied")
-	ErrRegistrationCancelNotAllowed = errors.New("registration cannot be cancelled")
+	ErrEventNotFound                      = errors.New("event not found")
+	ErrRegistrationDisabled               = errors.New("registration is disabled")
+	ErrRegistrationClosed                 = errors.New("registration is closed for this event status")
+	ErrPrivacyAcceptanceRequired          = errors.New("privacy acceptance is required")
+	ErrAlreadyRegistered                  = errors.New("participant is already registered")
+	ErrAlreadyWaitlisted                  = errors.New("participant is already on waitlist")
+	ErrInvalidVerificationToken           = errors.New("invalid verification token")
+	ErrExpiredVerificationToken           = errors.New("expired verification token")
+	ErrRegistrationNotFound               = errors.New("registration not found")
+	ErrRegistrationState                  = errors.New("registration state does not allow verification")
+	ErrRegistrationAttendNotAllowed       = errors.New("registration state does not allow attendance mark")
+	ErrEventFull                          = errors.New("event is full")
+	ErrUnsupportedParticipation           = errors.New("unsupported participation type")
+	ErrInvalidStartInput                  = errors.New("invalid registration start input")
+	ErrRegistrationVerificationNil        = errors.New("registration verification token is empty")
+	ErrParticipantAccessDenied            = errors.New("participant access denied")
+	ErrRegistrationCancelNotAllowed       = errors.New("registration cannot be cancelled")
+	ErrRegistrationCancelDeadlineExceeded = errors.New("registration cancel deadline exceeded")
 )
 
 type Config struct {
@@ -129,6 +131,10 @@ type eventRecord struct {
 	TenantID            string
 	Title               string
 	Slug                string
+	StartsAt            time.Time
+	Timezone            string
+	LocationName        string
+	OnlineURL           string
 	Status              string
 	IsPublic            bool
 	RegistrationEnabled bool
@@ -539,7 +545,7 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (VerifyResult, 
 func (s *Service) lookupEvent(ctx context.Context, tenantID, eventID string) (eventRecord, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, title, slug, status, is_public, registration_enabled, waitlist_enabled, max_participants
+		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status, is_public, registration_enabled, waitlist_enabled, max_participants
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -552,7 +558,7 @@ func (s *Service) lookupEvent(ctx context.Context, tenantID, eventID string) (ev
 func (s *Service) lookupEventTx(ctx context.Context, tx *sql.Tx, tenantID, eventID string) (eventRecord, error) {
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, title, slug, status, is_public, registration_enabled, waitlist_enabled, max_participants
+		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status, is_public, registration_enabled, waitlist_enabled, max_participants
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -565,6 +571,7 @@ func (s *Service) lookupEventTx(ctx context.Context, tx *sql.Tx, tenantID, event
 func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 	var (
 		item               eventRecord
+		startsAtRaw        string
 		isPublicInt        int
 		registrationInt    int
 		waitlistEnabledInt int
@@ -574,6 +581,10 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 		&item.TenantID,
 		&item.Title,
 		&item.Slug,
+		&startsAtRaw,
+		&item.Timezone,
+		&item.LocationName,
+		&item.OnlineURL,
 		&item.Status,
 		&isPublicInt,
 		&registrationInt,
@@ -585,6 +596,11 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 		}
 		return eventRecord{}, fmt.Errorf("query event: %w", err)
 	}
+	startsAt, err := time.Parse(time.RFC3339, startsAtRaw)
+	if err != nil {
+		return eventRecord{}, fmt.Errorf("parse event starts_at: %w", err)
+	}
+	item.StartsAt = startsAt.UTC()
 	item.IsPublic = isPublicInt == 1
 	item.RegistrationEnabled = registrationInt == 1
 	item.WaitlistEnabled = waitlistEnabledInt == 1
@@ -735,18 +751,13 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 	if err != nil {
 		return err
 	}
+	cancelDeadlineHours := s.lookupParticipantCancelDeadlineHoursTx(ctx, tx, tenantID)
 	eventURL := s.buildPublicEventPageURL(tenantSlug, eventItem.Slug)
 	calendarURL := ""
 	if s.participantCalendarURLFn != nil {
 		calendarURL = strings.TrimSpace(s.participantCalendarURLFn(tenantSlug, tenantID, registrationID, participantID))
 	}
 
-	subject := "Deine Anmeldung wurde bestaetigt"
-	bodyText := fmt.Sprintf(
-		"Hallo %s,\n\ndeine Anmeldung fuer \"%s\" wurde bestaetigt.\n",
-		strings.TrimSpace(recipientName),
-		eventItem.Title,
-	)
 	targetStatus := StatusConfirmed
 	metadata := map[string]any{
 		"registration_id": registrationID,
@@ -756,8 +767,8 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 		"processed_at":    now.Format(time.RFC3339),
 	}
 	if templateKey == DefaultWaitlistTemplate {
-		subject = "Du stehst auf der Warteliste"
-		bodyText = fmt.Sprintf(
+		subject := "Du stehst auf der Warteliste"
+		bodyText := fmt.Sprintf(
 			"Hallo %s,\n\ndie Veranstaltung \"%s\" ist derzeit voll. Du stehst jetzt auf der Warteliste.\n",
 			strings.TrimSpace(recipientName),
 			eventItem.Title,
@@ -771,14 +782,25 @@ func (s *Service) queueOutcomeMailTx(ctx context.Context, tx *sql.Tx, tenantID, 
 		return s.queueEmailJobTx(ctx, tx, tenantID, templateKey, recipientEmail, subject, bodyText, metadata)
 	}
 
+	subject, bodyText := BuildConfirmedEmailContent(ConfirmationEmailContentInput{
+		RecipientName:                  recipientName,
+		EventTitle:                     eventItem.Title,
+		EventStartsAt:                  eventItem.StartsAt,
+		EventTimezone:                  eventItem.Timezone,
+		EventLocationName:              eventItem.LocationName,
+		EventOnlineURL:                 eventItem.OnlineURL,
+		EventURL:                       eventURL,
+		CalendarURL:                    calendarURL,
+		ParticipantCancelDeadlineHours: cancelDeadlineHours,
+	})
 	if calendarURL != "" {
-		bodyText += fmt.Sprintf("\nKalendereintrag direkt uebernehmen: %s\n", calendarURL)
 		metadata["calendar_url"] = calendarURL
 	}
 	if eventURL != "" {
-		bodyText += fmt.Sprintf("\nVeranstaltungsdetails: %s\n", eventURL)
 		metadata["event_url"] = eventURL
 	}
+	metadata["participant_cancel_deadline_hours"] = cancelDeadlineHours
+	metadata["participant_cancel_deadline_at"] = participantCancelDeadlineAt(eventItem.StartsAt, cancelDeadlineHours).UTC().Format(time.RFC3339)
 
 	return s.queueEmailJobTx(ctx, tx, tenantID, templateKey, recipientEmail, subject, bodyText, metadata)
 }
@@ -797,6 +819,22 @@ func (s *Service) lookupTenantSlugTx(ctx context.Context, tx *sql.Tx, tenantID s
 		return "", fmt.Errorf("lookup tenant slug for outcome mail: %w", err)
 	}
 	return strings.TrimSpace(slug), nil
+}
+
+func (s *Service) lookupParticipantCancelDeadlineHoursTx(ctx context.Context, tx *sql.Tx, tenantID string) int {
+	row := tx.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(settings_json, '')
+     FROM tenant_settings
+     WHERE tenant_id = ?
+     LIMIT 1`,
+		strings.TrimSpace(tenantID),
+	)
+	var settingsJSON string
+	if err := row.Scan(&settingsJSON); err != nil {
+		return tenant.DefaultParticipantCancelDeadlineHours
+	}
+	return tenant.ParticipantCancelDeadlineHoursFromSettingsJSON(settingsJSON)
 }
 
 func (s *Service) queueEmailJobTx(ctx context.Context, tx *sql.Tx, tenantID, templateKey, recipient, subject, bodyText string, metadata map[string]any) error {

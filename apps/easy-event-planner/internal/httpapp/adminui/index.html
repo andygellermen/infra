@@ -197,7 +197,7 @@
                   <input name="change_note" type="text" placeholder="Wird z. B. in Kalendern und Updates sichtbar">
                 </label>
 
-                <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
+                <label class="checkline"><input name="is_public" type="checkbox" checked> In oeffentlicher Uebersicht anzeigen</label>
                 <label class="checkline"><input name="registration_enabled" type="checkbox" checked> Anmeldung aktiv</label>
                 <label class="checkline"><input name="waitlist_enabled" type="checkbox" checked> Warteliste aktiv</label>
 
@@ -261,7 +261,7 @@
                     Standard-Online-URL
                     <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
                   </label>
-                  <label class="checkline"><input name="is_public" type="checkbox" checked> Oeffentlich sichtbar</label>
+                  <label class="checkline"><input name="is_public" type="checkbox" checked> Serie oeffentlich anzeigen</label>
 
                   <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
                 </form>
@@ -531,6 +531,10 @@
                 <label class="span-2">
                   Detailseiten-Basis-URL (optional)
                   <input name="event_detail_base_url" type="url" placeholder="https://www.geller.men/events">
+                </label>
+                <label>
+                  Abmeldefrist in Stunden
+                  <input name="participant_cancel_deadline_hours" type="number" min="0" step="1" placeholder="24">
                 </label>
                 <label>
                   Absender E-Mail

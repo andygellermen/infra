@@ -13,6 +13,9 @@ import (
 	neturl "net/url"
 	"strings"
 	"time"
+
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 const (
@@ -51,6 +54,7 @@ var (
 )
 
 type Config struct {
+	BaseURL              string
 	ReservationTTL       time.Duration
 	FallbackClientSecret string
 	FallbackWebhookID    string
@@ -62,13 +66,14 @@ type Config struct {
 }
 
 type Service struct {
-	db         *sql.DB
-	cfg        Config
-	nowFn      func() time.Time
-	idFn       func(prefix string) string
-	orderFn    func(ctx context.Context, input createOrderProviderInput) (createOrderProviderResult, error)
-	verifyFn   func(ctx context.Context, input verifyWebhookProviderInput) (verifyWebhookProviderResult, error)
-	httpClient *http.Client
+	db                       *sql.DB
+	cfg                      Config
+	nowFn                    func() time.Time
+	idFn                     func(prefix string) string
+	orderFn                  func(ctx context.Context, input createOrderProviderInput) (createOrderProviderResult, error)
+	verifyFn                 func(ctx context.Context, input verifyWebhookProviderInput) (verifyWebhookProviderResult, error)
+	httpClient               *http.Client
+	participantCalendarURLFn func(tenantSlug, tenantID, registrationID, participantID string) string
 }
 
 type CreatePayPalOrderInput struct {
@@ -205,6 +210,7 @@ func NewService(sqlDB *sql.DB, cfg Config) *Service {
 	service := &Service{
 		db: sqlDB,
 		cfg: Config{
+			BaseURL:              strings.TrimSpace(cfg.BaseURL),
 			ReservationTTL:       ttl,
 			FallbackClientSecret: strings.TrimSpace(cfg.FallbackClientSecret),
 			FallbackWebhookID:    strings.TrimSpace(cfg.FallbackWebhookID),
@@ -221,6 +227,10 @@ func NewService(sqlDB *sql.DB, cfg Config) *Service {
 	service.orderFn = service.defaultCreatePayPalOrder
 	service.verifyFn = service.defaultVerifyPayPalWebhookSignature
 	return service
+}
+
+func (s *Service) SetParticipantCalendarURLBuilder(fn func(tenantSlug, tenantID, registrationID, participantID string) string) {
+	s.participantCalendarURLFn = fn
 }
 
 func (s *Service) CreatePayPalOrder(ctx context.Context, input CreatePayPalOrderInput) (CreatePayPalOrderResult, error) {
@@ -555,6 +565,11 @@ func (s *Service) ProcessPayPalWebhook(ctx context.Context, headers PayPalWebhoo
 	action := webhookActionForEventType(eventType)
 	switch action {
 	case "paid":
+		registrationItem, err := s.lookupRegistrationForPaymentTx(ctx, tx, paymentItem.TenantID, paymentItem.RegistrationID)
+		if err != nil {
+			_ = tx.Rollback()
+			return ProcessPayPalWebhookResult{}, err
+		}
 		if _, err := tx.ExecContext(
 			ctx,
 			`UPDATE payments
@@ -588,6 +603,12 @@ func (s *Service) ProcessPayPalWebhook(ctx context.Context, headers PayPalWebhoo
 		); err != nil {
 			_ = tx.Rollback()
 			return ProcessPayPalWebhookResult{}, fmt.Errorf("confirm registration on payment webhook: %w", err)
+		}
+		if !strings.EqualFold(registrationItem.Status, registrationStatusConfirmed) {
+			if queueErr := s.queueConfirmationMailTx(ctx, tx, paymentItem.TenantID, paymentItem.RegistrationID, now); queueErr != nil {
+				_ = tx.Rollback()
+				return ProcessPayPalWebhookResult{}, queueErr
+			}
 		}
 		result.PaymentStatus = PaymentStatusPaid
 		result.Processed = true
@@ -817,6 +838,21 @@ func firstSettingsString(payload map[string]any, keys ...string) string {
 	return ""
 }
 
+type registrationConfirmationContext struct {
+	ParticipantID                  string
+	RecipientEmail                 string
+	RecipientName                  string
+	EventID                        string
+	EventTitle                     string
+	EventSlug                      string
+	EventStartsAt                  time.Time
+	EventTimezone                  string
+	EventLocationName              string
+	EventOnlineURL                 string
+	TenantSlug                     string
+	ParticipantCancelDeadlineHours int
+}
+
 func (s *Service) lookupRegistrationForPaymentTx(ctx context.Context, tx *sql.Tx, tenantID, registrationID string) (registrationForPayment, error) {
 	row := tx.QueryRowContext(
 		ctx,
@@ -834,6 +870,56 @@ func (s *Service) lookupRegistrationForPaymentTx(ctx context.Context, tx *sql.Tx
 		}
 		return registrationForPayment{}, fmt.Errorf("query registration for payment: %w", err)
 	}
+	return item, nil
+}
+
+func (s *Service) lookupRegistrationConfirmationContextTx(ctx context.Context, tx *sql.Tx, tenantID, registrationID string) (registrationConfirmationContext, error) {
+	row := tx.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(p.email, ''), COALESCE(p.name, ''),
+            COALESCE(e.id, ''), COALESCE(e.title, ''), COALESCE(e.slug, ''),
+            COALESCE(e.starts_at, ''), COALESCE(e.timezone, ''), COALESCE(e.location_name, ''), COALESCE(e.online_url, ''),
+            COALESCE(t.slug, ''), COALESCE(ts.settings_json, ''), COALESCE(r.participant_id, '')
+     FROM registrations r
+     JOIN participants p ON p.id = r.participant_id
+     JOIN events e ON e.id = r.event_id
+     JOIN tenants t ON t.id = r.tenant_id
+     LEFT JOIN tenant_settings ts ON ts.tenant_id = r.tenant_id
+     WHERE r.tenant_id = ? AND r.id = ?
+     LIMIT 1`,
+		tenantID,
+		registrationID,
+	)
+	var (
+		item         registrationConfirmationContext
+		startsAtRaw  string
+		settingsJSON string
+	)
+	if err := row.Scan(
+		&item.RecipientEmail,
+		&item.RecipientName,
+		&item.EventID,
+		&item.EventTitle,
+		&item.EventSlug,
+		&startsAtRaw,
+		&item.EventTimezone,
+		&item.EventLocationName,
+		&item.EventOnlineURL,
+		&item.TenantSlug,
+		&settingsJSON,
+		&item.ParticipantID,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return registrationConfirmationContext{}, ErrRegistrationNotFound
+		}
+		return registrationConfirmationContext{}, fmt.Errorf("lookup registration confirmation context: %w", err)
+	}
+	startsAt, err := time.Parse(time.RFC3339, startsAtRaw)
+	if err != nil {
+		return registrationConfirmationContext{}, fmt.Errorf("parse registration confirmation starts_at: %w", err)
+	}
+	item.EventStartsAt = startsAt.UTC()
+	item.ParticipantCancelDeadlineHours = tenant.ParticipantCancelDeadlineHoursFromSettingsJSON(settingsJSON)
 	return item, nil
 }
 
@@ -893,6 +979,104 @@ func canCreateOrderForRegistrationStatus(status string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *Service) queueConfirmationMailTx(ctx context.Context, tx *sql.Tx, tenantID, registrationID string, now time.Time) error {
+	item, err := s.lookupRegistrationConfirmationContextTx(ctx, tx, tenantID, registrationID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(item.RecipientEmail) == "" {
+		return nil
+	}
+
+	eventURL := s.buildPublicEventPageURL(item.TenantSlug, item.EventSlug)
+	calendarURL := ""
+	if s.participantCalendarURLFn != nil && strings.TrimSpace(item.ParticipantID) != "" {
+		calendarURL = strings.TrimSpace(s.participantCalendarURLFn(item.TenantSlug, tenantID, registrationID, item.ParticipantID))
+	}
+
+	subject, bodyText := registration.BuildConfirmedEmailContent(registration.ConfirmationEmailContentInput{
+		RecipientName:                  item.RecipientName,
+		EventTitle:                     item.EventTitle,
+		EventStartsAt:                  item.EventStartsAt,
+		EventTimezone:                  item.EventTimezone,
+		EventLocationName:              item.EventLocationName,
+		EventOnlineURL:                 item.EventOnlineURL,
+		EventURL:                       eventURL,
+		CalendarURL:                    calendarURL,
+		ParticipantCancelDeadlineHours: item.ParticipantCancelDeadlineHours,
+	})
+
+	metadata := map[string]any{
+		"registration_id":                   registrationID,
+		"event_id":                          item.EventID,
+		"event_slug":                        item.EventSlug,
+		"target_status":                     registrationStatusConfirmed,
+		"processed_at":                      now.UTC().Format(time.RFC3339),
+		"participant_cancel_deadline_hours": item.ParticipantCancelDeadlineHours,
+		"participant_cancel_deadline_at":    registration.ParticipantCancelDeadlineAtForMetadata(item.EventStartsAt, item.ParticipantCancelDeadlineHours),
+	}
+	if eventURL != "" {
+		metadata["event_url"] = eventURL
+	}
+	if calendarURL != "" {
+		metadata["calendar_url"] = calendarURL
+	}
+
+	return s.queueEmailJobTx(ctx, tx, tenantID, registration.DefaultConfirmedTemplate, item.RecipientEmail, subject, bodyText, metadata)
+}
+
+func (s *Service) queueEmailJobTx(ctx context.Context, tx *sql.Tx, tenantID, templateKey, recipient, subject, bodyText string, metadata map[string]any) error {
+	metadataJSON := ""
+	if len(metadata) > 0 {
+		payload, err := json.Marshal(metadata)
+		if err != nil {
+			return fmt.Errorf("marshal payment email metadata: %w", err)
+		}
+		metadataJSON = string(payload)
+	}
+	now := s.nowFn().UTC().Format(time.RFC3339)
+	if _, err := tx.ExecContext(
+		ctx,
+		`INSERT INTO email_jobs (
+      id, tenant_id, template_key, recipient_email, subject, body_text, body_html, status,
+      scheduled_for, metadata_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'queued', NULL, ?, ?, ?)`,
+		s.idFn("emj"),
+		tenantID,
+		templateKey,
+		recipient,
+		subject,
+		bodyText,
+		nullable(metadataJSON),
+		now,
+		now,
+	); err != nil {
+		return fmt.Errorf("insert payment confirmation email job: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) buildPublicEventPageURL(tenantSlug, eventSlug string) string {
+	base := strings.TrimRight(strings.TrimSpace(s.cfg.BaseURL), "/")
+	if base == "" {
+		base = "http://localhost:8080"
+	}
+	slug := strings.TrimSpace(tenantSlug)
+	eventPath := strings.TrimSpace(eventSlug)
+	if slug == "" || eventPath == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/events/%s", base, neturl.PathEscape(slug), neturl.PathEscape(eventPath))
+}
+
+func nullable(value string) any {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
 }
 
 func webhookActionForEventType(eventType string) string {

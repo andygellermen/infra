@@ -93,18 +93,22 @@ func TestAdminTenantProfileAndSettings(t *testing.T) {
 	if appSettings["event_time_start"] != "08:00" {
 		t.Fatalf("expected default event_time_start 08:00, got %v", appSettings["event_time_start"])
 	}
+	if appSettings["participant_cancel_deadline_hours"] != float64(24) {
+		t.Fatalf("expected default participant_cancel_deadline_hours 24, got %v", appSettings["participant_cancel_deadline_hours"])
+	}
 
 	updateSettingsBody, _ := json.Marshal(map[string]any{
 		"sender_email":           "events@example.com",
 		"sender_name":            "Event Team",
 		"default_retention_days": 45,
 		"app_settings": map[string]any{
-			"event_time_start":        "09:00",
-			"event_time_end":          "21:00",
-			"event_time_step_minutes": 30,
-			"event_slug_mode":         "required",
-			"allowed_embed_origins":   []string{"https://www.geller.men", "https://ghost.geller.men"},
-			"event_detail_base_url":   "https://www.geller.men/events",
+			"event_time_start":                  "09:00",
+			"event_time_end":                    "21:00",
+			"event_time_step_minutes":           30,
+			"event_slug_mode":                   "required",
+			"allowed_embed_origins":             []string{"https://www.geller.men", "https://ghost.geller.men"},
+			"event_detail_base_url":             "https://www.geller.men/events",
+			"participant_cancel_deadline_hours": 48,
 		},
 	})
 	updateSettingsReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/tenant/settings", bytes.NewReader(updateSettingsBody))
@@ -128,5 +132,8 @@ func TestAdminTenantProfileAndSettings(t *testing.T) {
 	}
 	if updatedAppSettings["event_time_step_minutes"] != float64(30) {
 		t.Fatalf("expected event_time_step_minutes 30, got %v", updatedAppSettings["event_time_step_minutes"])
+	}
+	if updatedAppSettings["participant_cancel_deadline_hours"] != float64(48) {
+		t.Fatalf("expected participant_cancel_deadline_hours 48, got %v", updatedAppSettings["participant_cancel_deadline_hours"])
 	}
 }

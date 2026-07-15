@@ -3,6 +3,7 @@ package registration
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,6 +114,13 @@ func TestWaitlistListOfferPromoteFlow(t *testing.T) {
 	}
 	if promoted.RegistrationStatus != StatusConfirmed {
 		t.Fatalf("expected registration status confirmed, got %q", promoted.RegistrationStatus)
+	}
+	bodyText, metadataJSON := latestEmailJobByTemplate(t, dbHandle, tenantItem.ID, "waitlist_promoted")
+	if !strings.Contains(bodyText, "wieder ab") {
+		t.Fatalf("expected waitlist promotion mail to contain cancel hint, got %q", bodyText)
+	}
+	if !strings.Contains(metadataJSON, "\"participant_cancel_deadline_hours\"") {
+		t.Fatalf("expected waitlist promotion metadata to contain cancel deadline, got %q", metadataJSON)
 	}
 
 	_, err = service.PromoteWaitlistEntry(context.Background(), tenantItem.ID, waitlistID)

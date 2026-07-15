@@ -432,6 +432,9 @@ func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch resolved.routeType {
+	case "events_overview":
+		a.handleTenantPublicEventsOverviewPage(w, r, resolved.tenant)
+		return
 	case "event_page":
 		a.handleTenantPublicEventPage(w, r, resolved.tenant, resolved.eventSlug)
 		return
@@ -504,7 +507,7 @@ func (a *App) resolveTenantPublicRouteLegacy(r *http.Request, requestPath string
 func classifyTenantPublicRelativePath(tenantItem tenant.Tenant, relativePath string) (resolvedTenantPublicRoute, bool) {
 	normalized := normalizePublicPath(relativePath)
 	if normalized == "/" {
-		return resolvedTenantPublicRoute{}, false
+		return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "events_overview"}, true
 	}
 	parts := strings.Split(strings.Trim(normalized, "/"), "/")
 	if len(parts) == 0 {

@@ -299,27 +299,34 @@ func participantPortalRegistrationPayload(item registration.ParticipantPortalReg
 	if item.CancelledAt != nil {
 		cancelledAt = item.CancelledAt.UTC().Format(time.RFC3339)
 	}
+	var selfCancelDeadline any
+	if item.SelfCancelDeadline != nil {
+		selfCancelDeadline = item.SelfCancelDeadline.UTC().Format(time.RFC3339)
+	}
 
 	return map[string]any{
-		"id":                  item.ID,
-		"event_id":            item.EventID,
-		"event_slug":          item.EventSlug,
-		"event_title":         item.EventTitle,
-		"event_starts_at":     item.EventStartsAt.UTC().Format(time.RFC3339),
-		"event_ends_at":       endsAt,
-		"event_timezone":      item.EventTimezone,
-		"event_location_name": item.EventLocationName,
-		"event_online_url":    item.EventOnlineURL,
-		"status":              item.Status,
-		"participation_type":  item.ParticipationType,
-		"quantity":            item.Quantity,
-		"source":              item.Source,
-		"payment_status":      emptyToNil(item.PaymentStatus),
-		"confirmed_at":        confirmedAt,
-		"cancelled_at":        cancelledAt,
-		"cancellation_reason": emptyToNil(item.CancellationReason),
-		"created_at":          item.CreatedAt.UTC().Format(time.RFC3339),
-		"updated_at":          item.UpdatedAt.UTC().Format(time.RFC3339),
+		"id":                         item.ID,
+		"event_id":                   item.EventID,
+		"event_slug":                 item.EventSlug,
+		"event_title":                item.EventTitle,
+		"event_starts_at":            item.EventStartsAt.UTC().Format(time.RFC3339),
+		"event_ends_at":              endsAt,
+		"event_timezone":             item.EventTimezone,
+		"event_location_name":        item.EventLocationName,
+		"event_online_url":           item.EventOnlineURL,
+		"status":                     item.Status,
+		"participation_type":         item.ParticipationType,
+		"quantity":                   item.Quantity,
+		"source":                     item.Source,
+		"payment_status":             emptyToNil(item.PaymentStatus),
+		"confirmed_at":               confirmedAt,
+		"cancelled_at":               cancelledAt,
+		"cancellation_reason":        emptyToNil(item.CancellationReason),
+		"self_cancel_allowed":        item.SelfCancelAllowed,
+		"self_cancel_deadline_at":    selfCancelDeadline,
+		"self_cancel_deadline_hours": item.SelfCancelDeadlineHours,
+		"created_at":                 item.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":                 item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -327,6 +334,8 @@ func (a *App) writeParticipantPortalRegistrationError(w http.ResponseWriter, err
 	switch {
 	case errors.Is(err, registration.ErrParticipantAccessDenied):
 		writeAPIError(w, http.StatusForbidden, "FORBIDDEN", "Zugriff verweigert.")
+	case errors.Is(err, registration.ErrRegistrationCancelDeadlineExceeded):
+		writeAPIError(w, http.StatusConflict, "REGISTRATION_CANCEL_DEADLINE_EXCEEDED", "Die Abmeldefrist fuer diese Anmeldung ist bereits abgelaufen.")
 	case errors.Is(err, registration.ErrRegistrationCancelNotAllowed):
 		writeAPIError(w, http.StatusConflict, "REGISTRATION_STATE_INVALID", "Anmeldung kann in diesem Status nicht storniert werden.")
 	case errors.Is(err, registration.ErrRegistrationNotFound):

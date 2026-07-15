@@ -17,9 +17,10 @@ Die technischen Grundlagen aus Paket 1 bis Paket 20 aus `docs/codex-task-plan.md
 - Magic-Link-Auth (`internal/auth`) mit Token-Hashing, Verify, Session, Logout, Rate-Limit und Audit-Log
 - Mailer-Adapter (`internal/notification`) mit `log`/`smtp`/`ses`-Provider-Setup
 - EmailJob Repository + Worker (`cmd/worker`) fuer `email_jobs` Queue-Verarbeitung
+- Registrierungs-Bestaetigungen und Wartelisten-/Outcome-Mails mit E-Mail-Queue inkl. Abmeldehinweis
 - Event-Series CRUD (`internal/event` + Admin-API `/api/v1/admin/event-series`)
 - Event-CRUD mit Publish/Unpublish (`internal/event` + Admin-API `/api/v1/admin/events`)
-- Public Event Pages (`internal/event` + Public-API `/api/v1/public/{tenantSlug}/...`)
+- Public Event Pages und oeffentliche Veranstaltungs-Uebersicht (`internal/event` + Public-API `/api/v1/public/{tenantSlug}/...` sowie `/{tenantSlug}` bzw. Tenant-`public_base_url`)
 - Public Registration mit Magic-Link-Verifizierung (`internal/registration` + `/api/v1/public/{tenantSlug}/registrations/start|verify`)
 - Waitlist-Verwaltung mit Offer/Promote (`internal/registration` + Admin-API `/api/v1/admin/events/{eventId}/waitlist` und `/api/v1/admin/waitlist/{waitlistEntryId}/offer|promote`)
 - Admin Dashboard und Teilnehmerliste (`internal/registration` + Admin-API `/api/v1/admin/dashboard`, `/api/v1/admin/events/{eventId}/registrations`, `/api/v1/admin/registrations/{registrationId}`)
@@ -29,7 +30,7 @@ Die technischen Grundlagen aus Paket 1 bis Paket 20 aus `docs/codex-task-plan.md
 - Event-Pflegeaktionen mit Statusuebergaengen (`changed`, `postponed`, `cancelled`, `completed`) und Admin-API-Aktionen (`/publish`, `/unpublish`, `/cancel`, `/postpone`, `/mark-completed`)
 - PayPal-Basisfluss mit optionaler Real-API-Integration (`OAuth2`, `create-order`) und Webhook-Signaturpruefung inklusive deduplizierter Event-Verarbeitung (`/api/v1/public/{tenantSlug}/payments/paypal/create-order`, `/api/v1/webhooks/paypal`)
 - Discounts & Invitations mit Admin-CRUD, Public-Resolve, Nutzungs-/Zeitfenster-/Scope-Validierung und Registrierungseinloesung inkl. Redemptions (`/api/v1/admin/invitations`, `/api/v1/public/{tenantSlug}/invitations/resolve`)
-- Teilnehmer-Portal mit Teilnehmer-Magic-Link, eigener Teilnehmer-Session, Registrierungsliste und Selbst-Storno (`/api/v1/public/{tenantSlug}/participants/portal/request|verify|me|registrations|logout`, `/api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel`)
+- Teilnehmer-Portal mit Teilnehmer-Magic-Link, eigener Teilnehmer-Session, Registrierungsliste und Selbst-Storno inkl. konfigurierbarer Abmeldefrist (`/api/v1/public/{tenantSlug}/participants/portal/request|verify|me|registrations|logout`, `/api/v1/public/{tenantSlug}/participants/portal/registrations/{registrationId}/cancel`)
 - Teilnahmezertifikate inkl. Admin-Ausstellung, Teilnehmer-Download und oeffentlicher Verifikation (`/api/v1/admin/registrations/{registrationId}/mark-attended|issue-certificate|certificate`, `/api/v1/public/{tenantSlug}/participants/portal/certificates`, `/api/v1/public/{tenantSlug}/certificates/verify`)
 - Dockerfile und `docker-compose.yml`
 - Unit-Tests und Smoke-Test-Skript

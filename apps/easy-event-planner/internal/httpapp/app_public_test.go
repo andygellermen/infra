@@ -81,6 +81,65 @@ func TestPublicEventsAndDetailFlow(t *testing.T) {
 	}
 }
 
+func TestPublicEventsOverviewPageUsesTenantRoot(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	publicSeries, err := app.eventRepo.CreateSeries(context.Background(), tenantItem.ID, event.CreateSeriesParams{
+		Slug:  "bildung",
+		Title: "Bildung",
+	})
+	if err != nil {
+		t.Fatalf("create public series: %v", err)
+	}
+
+	visible := createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		SeriesID:            publicSeries.ID,
+		Slug:                "resilienz-kompakt",
+		Title:               "Resilienz kompakt",
+		Subtitle:            "Ein Abend zum Kennenlernen",
+		StartsAt:            time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339),
+		ParticipationMode:   event.ParticipationModeOnline,
+		RegistrationEnabled: boolPtr(true),
+	})
+	_, err = app.eventRepo.CreateEvent(context.Background(), tenantItem.ID, event.CreateEventParams{
+		Slug:     "interner-planungstermin",
+		Title:    "Interner Planungstermin",
+		StartsAt: time.Now().UTC().Add(72 * time.Hour).Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create draft event: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/"+tenantSlug, nil)
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected overview status 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Veranstaltungs-Uebersicht") && !strings.Contains(body, "Veranstaltungs-Übersicht") {
+		t.Fatalf("expected overview heading, got %q", body)
+	}
+	if !strings.Contains(body, visible.Title) {
+		t.Fatalf("expected overview to contain public event title %q", visible.Title)
+	}
+	if strings.Contains(body, "Interner Planungstermin") {
+		t.Fatalf("expected overview to hide unpublished draft events")
+	}
+	if !strings.Contains(body, publicSeries.Title) {
+		t.Fatalf("expected overview to contain series category %q", publicSeries.Title)
+	}
+	if !strings.Contains(body, "/"+tenantSlug+"/events/"+visible.Slug) {
+		t.Fatalf("expected overview to link to detail page for %q", visible.Slug)
+	}
+}
+
 func TestPublicEventsFiltersAndValidation(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
@@ -145,6 +204,56 @@ func TestPublicEventsFiltersAndValidation(t *testing.T) {
 	errorPayload := invalidPayload["error"].(map[string]any)
 	if errorPayload["code"] != "VALIDATION_ERROR" {
 		t.Fatalf("expected VALIDATION_ERROR, got %v", errorPayload["code"])
+	}
+}
+
+func TestPublicOverviewPageSupportsTenantPublicBasePathAndFilters(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	publicBaseURL := "https://events.example.com/veranstaltungen"
+	if _, err := app.tenantRepo.UpdateTenant(context.Background(), tenantItem.ID, tenant.UpdateTenantParams{
+		PublicBaseURL: &publicBaseURL,
+	}); err != nil {
+		t.Fatalf("update tenant public base url: %v", err)
+	}
+
+	visibleSeries, err := app.eventRepo.CreateSeries(context.Background(), tenantItem.ID, event.CreateSeriesParams{
+		Slug:  "retreats",
+		Title: "Retreats",
+	})
+	if err != nil {
+		t.Fatalf("create public series: %v", err)
+	}
+
+	createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		SeriesID:          visibleSeries.ID,
+		Slug:              "sommer-retreat",
+		Title:             "Sommer Retreat",
+		StartsAt:          time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		ParticipationMode: event.ParticipationModeHybrid,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/veranstaltungen?series=retreats&mode=hybrid", nil)
+	req.Host = "events.example.com"
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected overview status 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Sommer Retreat") {
+		t.Fatalf("expected overview to contain event title, got %q", body)
+	}
+	if !strings.Contains(body, "/veranstaltungen/events/sommer-retreat") {
+		t.Fatalf("expected overview to use public base path detail link, got %q", body)
+	}
+	if !strings.Contains(body, "/veranstaltungen?mode=hybrid&amp;series=retreats") && !strings.Contains(body, "/veranstaltungen?series=retreats&amp;mode=hybrid") {
+		t.Fatalf("expected overview to preserve filter links, got %q", body)
 	}
 }
 
@@ -273,4 +382,8 @@ func createPublishedEventForPublicTest(t *testing.T, app *App, tenantID string, 
 		t.Fatalf("publish event: %v", err)
 	}
 	return published
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

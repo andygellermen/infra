@@ -12,13 +12,13 @@
 ## Kostenfreier Flow
 
 ```text
-Event öffnen -> Formular absenden -> Participant anlegen/finden -> Registration=verification_pending -> Magic Link senden -> Link prüfen -> Kapazität prüfen -> confirmed oder waitlist -> E-Mail senden
+Event öffnen -> Formular absenden -> Participant anlegen/finden -> Registration=verification_pending -> Magic Link senden -> Link prüfen -> Kapazität prüfen -> confirmed oder waitlist -> Outcome-E-Mail senden (inkl. Bestätigung bzw. Wartelisten-Hinweis und Abmeldehinweis)
 ```
 
 ## Kostenpflichtiger Flow
 
 ```text
-Formular absenden -> Kapazität prüfen -> Registration=reserved -> reserved_until setzen -> PayPal Order erzeugen -> payment_pending -> Webhook bestätigt Zahlung -> confirmed
+Formular absenden -> Kapazität prüfen -> Registration=reserved -> reserved_until setzen -> PayPal Order erzeugen -> payment_pending -> Webhook bestätigt Zahlung -> confirmed -> Bestätigungs-E-Mail senden
 ```
 
 ## Warteliste
@@ -41,7 +41,7 @@ Optional: `phone`, `participation_type`, `message`, `invite_code`.
 
 ## Stornierung
 
-Teilnehmer fordert Stornierungslink an, bestätigt per Magic Link, Registration wird `cancelled`, Platz wird frei, Warteliste kann nachrücken.
+Teilnehmer storniert im Teilnehmer-Portal innerhalb der tenantweit konfigurierten Abmeldefrist, Registration wird `cancelled`, Platz wird frei, Warteliste kann nachrücken.
 
 ## Missbrauchsschutz
 

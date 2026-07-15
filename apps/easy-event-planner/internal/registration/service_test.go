@@ -138,6 +138,15 @@ func latestEmailJobByTemplate(t *testing.T, dbHandle *sql.DB, tenantID, template
 
 func TestStartAndVerifyRegistrationFlow(t *testing.T) {
 	service, dbHandle, tenantItem := setupRegistrationService(t)
+	tenantRepo := tenant.NewRepository(dbHandle)
+	if _, err := tenantRepo.UpsertSettings(context.Background(), tenant.UpsertTenantSettingsParams{
+		TenantID: tenantItem.ID,
+		Settings: tenant.TenantSettingsInput{
+			SettingsJSON: `{"participant_cancel_deadline_hours":12}`,
+		},
+	}); err != nil {
+		t.Fatalf("upsert tenant settings: %v", err)
+	}
 	service.SetParticipantCalendarURLBuilder(func(tenantSlug, tenantID, registrationID, participantID string) string {
 		return "https://events.example.com/api/v1/public/" + tenantSlug + "/registrations/" + registrationID + "/calendar.ics?token=test-token"
 	})
@@ -213,8 +222,14 @@ func TestStartAndVerifyRegistrationFlow(t *testing.T) {
 	if !strings.Contains(bodyText, "/demo/events/open-workshop") {
 		t.Fatalf("expected confirmation mail to contain event page URL, got %q", bodyText)
 	}
+	if !strings.Contains(bodyText, "12 Stunden vor Terminbeginn") {
+		t.Fatalf("expected confirmation mail to contain cancel deadline hint, got %q", bodyText)
+	}
 	if !strings.Contains(metadataJSON, "\"calendar_url\"") {
 		t.Fatalf("expected confirmation mail metadata to include calendar_url, got %q", metadataJSON)
+	}
+	if !strings.Contains(metadataJSON, "\"participant_cancel_deadline_hours\":12") {
+		t.Fatalf("expected confirmation mail metadata to include cancel deadline hours, got %q", metadataJSON)
 	}
 }
 

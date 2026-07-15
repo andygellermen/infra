@@ -169,6 +169,15 @@ GET /api/v1/public/{tenantSlug}/series
 GET /api/v1/public/{tenantSlug}/series/{seriesSlug}/events
 ```
 
+Oeffentliche HTML-Seiten:
+
+```http
+GET /{tenantSlug}
+GET /{tenantSlug}/events/{eventSlug}
+```
+
+Wenn pro Tenant `public_base_url` gesetzt ist, werden dieselben Seiten alternativ unter diesem Pfad ausgeliefert.
+
 Query-Parameter:
 
 ```text

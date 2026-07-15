@@ -345,6 +345,7 @@
     setFieldValue(ui.settingsRulesForm, "event_time_step_minutes", String(appSettings.event_time_step_minutes));
     setFieldValue(ui.settingsRulesForm, "event_slug_mode", appSettings.event_slug_mode);
     setFieldValue(ui.settingsRulesForm, "event_detail_base_url", appSettings.event_detail_base_url || "");
+    setFieldValue(ui.settingsRulesForm, "participant_cancel_deadline_hours", String(appSettings.participant_cancel_deadline_hours));
     setFieldValue(ui.settingsRulesForm, "sender_email", settingsItem.sender_email || "");
     setFieldValue(ui.settingsRulesForm, "sender_name", settingsItem.sender_name || "");
     setFieldValue(ui.settingsRulesForm, "default_retention_days", settingsItem.default_retention_days || 30);
@@ -393,12 +394,14 @@
 
     const formData = new FormData(ui.settingsRulesForm);
     const retention = Number(String(formData.get("default_retention_days") || "0").trim() || "0");
+    const cancelDeadlineHours = Number(String(formData.get("participant_cancel_deadline_hours") || "24").trim() || "24");
     const appSettings = {
       event_time_start: String(formData.get("event_time_start") || "").trim(),
       event_time_end: String(formData.get("event_time_end") || "").trim(),
       event_time_step_minutes: Number(String(formData.get("event_time_step_minutes") || "15").trim() || "15"),
       event_slug_mode: String(formData.get("event_slug_mode") || "optional").trim(),
       event_detail_base_url: String(formData.get("event_detail_base_url") || "").trim(),
+      participant_cancel_deadline_hours: cancelDeadlineHours,
       allowed_embed_origins: parseOriginsTextarea(String(formData.get("allowed_embed_origins") || "")),
     };
 
@@ -410,6 +413,10 @@
     }
     if (!Number.isInteger(retention) || retention <= 0) {
       setFlash("Aufbewahrungstage muessen eine ganze Zahl > 0 sein.", "error");
+      return;
+    }
+    if (!Number.isInteger(cancelDeadlineHours) || cancelDeadlineHours < 0) {
+      setFlash("Die Abmeldefrist muss eine ganze Zahl >= 0 sein.", "error");
       return;
     }
 
@@ -705,10 +712,11 @@
     const subtitle = item.subtitle ? `<div class="event-card-subline">${escapeHTML(item.subtitle)}</div>` : "";
     const counts = `${Number(item.confirmed_participants || 0)} Teilnehmer · ${Number(item.waitlist_entries || 0)} Warteliste`;
     const visibilityToggleAllowed = canToggleVisibility(item);
-    const visibilityLabel = item.is_public ? "Deaktivieren" : "Aktivieren";
+    const visibilityLabel = item.is_public ? "Verbergen" : "Freigeben";
     const visibilityClass = item.is_public ? "ok" : "light";
     const visibilityAction = item.is_public ? "unpublish" : "publish";
     const seriesTitle = resolveSeriesTitle(item.series_id);
+    const visibilityText = item.is_public ? "Oeffentlich freigegeben" : "Nicht oeffentlich";
 
     return `
       <article class="event-card${isActive ? " is-active" : ""}" data-event-card="${escapeAttr(item.id)}" data-event-context="${escapeAttr(context)}">
@@ -720,6 +728,7 @@
         ${subtitle}
         <div class="event-card-badges">
           ${statusPill(item.status)}
+          <span class="series-chip">${escapeHTML(visibilityText)}</span>
           ${seriesTitle ? `<span class="series-chip">${escapeHTML(seriesTitle)}</span>` : ""}
         </div>
         <div class="event-card-foot">
@@ -826,7 +835,7 @@
           await Promise.all([loadEvents(false), loadDashboard(false)]);
           {
             const currentItem = findEventByID(id);
-            setFlash(`Sichtbarkeit fuer '${currentItem ? currentItem.title : "Event"}' wurde aktualisiert.`);
+            setFlash(`Freigabe fuer '${currentItem ? currentItem.title : "Event"}' wurde aktualisiert.`);
           }
         } catch (err) {
           setFlash(`Event-Aktion fehlgeschlagen: ${errorMessage(err)}`, "error");
@@ -1909,7 +1918,7 @@
       <article class="event-card series-card${isActive ? " is-active" : ""}" data-series-card="${escapeAttr(item.id)}">
         <div class="event-card-meta-row">
           <span class="event-card-date">${escapeHTML(item.slug || "")}</span>
-          <span class="series-chip">${item.is_public ? "Sichtbar" : "Intern"}</span>
+          <span class="series-chip">${item.is_public ? "Oeffentlich" : "Intern"}</span>
         </div>
         <div class="event-card-title">${escapeHTML(item.title || "-")}</div>
         ${item.description ? `<div class="event-card-subline">${escapeHTML(item.description)}</div>` : ""}
@@ -2494,6 +2503,9 @@
       event_slug_mode: String(source.event_slug_mode || "optional").trim() || "optional",
       allowed_embed_origins: Array.isArray(source.allowed_embed_origins) ? source.allowed_embed_origins : [],
       event_detail_base_url: String(source.event_detail_base_url || "").trim(),
+      participant_cancel_deadline_hours: Number.isInteger(Number(source.participant_cancel_deadline_hours)) && Number(source.participant_cancel_deadline_hours) >= 0
+        ? Number(source.participant_cancel_deadline_hours)
+        : 24,
     };
   }
 

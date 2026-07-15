@@ -280,16 +280,37 @@ func (s *Service) PromoteWaitlistEntry(ctx context.Context, tenantID, waitlistEn
 		return WaitlistEntry{}, fmt.Errorf("mark waitlist entry promoted: %w", err)
 	}
 
-	subject := "Nachruecken bestaetigt"
-	bodyText := fmt.Sprintf(
-		"Hallo %s,\n\ndein Wartelistenplatz fuer \"%s\" wurde bestaetigt.\n",
-		entry.ParticipantName,
-		entry.EventTitle,
-	)
+	tenantSlug, err := s.lookupTenantSlugTx(ctx, tx, tenant)
+	if err != nil {
+		_ = tx.Rollback()
+		return WaitlistEntry{}, err
+	}
+	cancelDeadlineHours := s.lookupParticipantCancelDeadlineHoursTx(ctx, tx, tenant)
+	eventURL := s.buildPublicEventPageURL(tenantSlug, eventItem.Slug)
+	calendarURL := ""
+	if s.participantCalendarURLFn != nil {
+		calendarURL = strings.TrimSpace(s.participantCalendarURLFn(tenantSlug, tenant, entry.RegistrationID, entry.ParticipantID))
+	}
+	subject, bodyText := BuildWaitlistPromotedEmailContent(ConfirmationEmailContentInput{
+		RecipientName:                  entry.ParticipantName,
+		EventTitle:                     eventItem.Title,
+		EventStartsAt:                  eventItem.StartsAt,
+		EventTimezone:                  eventItem.Timezone,
+		EventLocationName:              eventItem.LocationName,
+		EventOnlineURL:                 eventItem.OnlineURL,
+		EventURL:                       eventURL,
+		CalendarURL:                    calendarURL,
+		ParticipantCancelDeadlineHours: cancelDeadlineHours,
+	})
 	if queueErr := s.queueEmailJobTx(ctx, tx, tenant, "waitlist_promoted", entry.ParticipantEmail, subject, bodyText, map[string]any{
-		"waitlist_entry_id": waitlistEntryID,
-		"registration_id":   entry.RegistrationID,
-		"event_id":          entry.EventID,
+		"waitlist_entry_id":                 waitlistEntryID,
+		"registration_id":                   entry.RegistrationID,
+		"event_id":                          entry.EventID,
+		"event_slug":                        eventItem.Slug,
+		"event_url":                         eventURL,
+		"calendar_url":                      calendarURL,
+		"participant_cancel_deadline_hours": cancelDeadlineHours,
+		"participant_cancel_deadline_at":    participantCancelDeadlineAt(eventItem.StartsAt, cancelDeadlineHours).UTC().Format(time.RFC3339),
 	}); queueErr != nil {
 		_ = tx.Rollback()
 		return WaitlistEntry{}, queueErr

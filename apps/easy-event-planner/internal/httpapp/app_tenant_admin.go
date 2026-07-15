@@ -21,12 +21,13 @@ const (
 )
 
 type adminTenantAppSettings struct {
-	EventTimeStart      string   `json:"event_time_start"`
-	EventTimeEnd        string   `json:"event_time_end"`
-	EventTimeStepMinute int      `json:"event_time_step_minutes"`
-	EventSlugMode       string   `json:"event_slug_mode"`
-	AllowedEmbedOrigins []string `json:"allowed_embed_origins"`
-	EventDetailBaseURL  string   `json:"event_detail_base_url"`
+	EventTimeStart                 string   `json:"event_time_start"`
+	EventTimeEnd                   string   `json:"event_time_end"`
+	EventTimeStepMinute            int      `json:"event_time_step_minutes"`
+	EventSlugMode                  string   `json:"event_slug_mode"`
+	AllowedEmbedOrigins            []string `json:"allowed_embed_origins"`
+	EventDetailBaseURL             string   `json:"event_detail_base_url"`
+	ParticipantCancelDeadlineHours int      `json:"participant_cancel_deadline_hours"`
 }
 
 func (a *App) handleAdminTenantItem(w http.ResponseWriter, r *http.Request) {
@@ -283,12 +284,13 @@ func parseAdminTenantAppSettings(raw string) (adminTenantAppSettings, map[string
 	}
 
 	settings := adminTenantAppSettings{
-		EventTimeStart:      defaultEventTimeStart,
-		EventTimeEnd:        defaultEventTimeEnd,
-		EventTimeStepMinute: defaultEventTimeStepMinutes,
-		EventSlugMode:       defaultEventSlugMode,
-		AllowedEmbedOrigins: []string{},
-		EventDetailBaseURL:  "",
+		EventTimeStart:                 defaultEventTimeStart,
+		EventTimeEnd:                   defaultEventTimeEnd,
+		EventTimeStepMinute:            defaultEventTimeStepMinutes,
+		EventSlugMode:                  defaultEventSlugMode,
+		AllowedEmbedOrigins:            []string{},
+		EventDetailBaseURL:             "",
+		ParticipantCancelDeadlineHours: tenant.DefaultParticipantCancelDeadlineHours,
 	}
 	if value, ok := data["event_time_start"].(string); ok && strings.TrimSpace(value) != "" {
 		settings.EventTimeStart = strings.TrimSpace(value)
@@ -304,6 +306,9 @@ func parseAdminTenantAppSettings(raw string) (adminTenantAppSettings, map[string
 	}
 	if value, ok := data["event_detail_base_url"].(string); ok && strings.TrimSpace(value) != "" {
 		settings.EventDetailBaseURL = strings.TrimSpace(value)
+	}
+	if value, ok := data["participant_cancel_deadline_hours"].(float64); ok && value >= 0 {
+		settings.ParticipantCancelDeadlineHours = int(value)
 	}
 	if rawOrigins, ok := data["allowed_embed_origins"].([]any); ok {
 		settings.AllowedEmbedOrigins = make([]string, 0, len(rawOrigins))
@@ -341,6 +346,9 @@ func mergeAdminTenantAppSettings(current, update adminTenantAppSettings) adminTe
 	if update.EventDetailBaseURL != "" || current.EventDetailBaseURL != "" {
 		next.EventDetailBaseURL = strings.TrimSpace(update.EventDetailBaseURL)
 	}
+	if update.ParticipantCancelDeadlineHours >= 0 {
+		next.ParticipantCancelDeadlineHours = update.ParticipantCancelDeadlineHours
+	}
 	return next
 }
 
@@ -360,6 +368,7 @@ func marshalAdminTenantAppSettings(existing map[string]any, settings adminTenant
 	payload["event_slug_mode"] = normalized.EventSlugMode
 	payload["allowed_embed_origins"] = normalized.AllowedEmbedOrigins
 	payload["event_detail_base_url"] = normalized.EventDetailBaseURL
+	payload["participant_cancel_deadline_hours"] = normalized.ParticipantCancelDeadlineHours
 
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -411,14 +420,19 @@ func normalizeAdminTenantAppSettings(settings adminTenantAppSettings) (adminTena
 		}
 		detailBaseURL = strings.TrimRight(parsed.String(), "/")
 	}
+	cancelDeadlineHours := settings.ParticipantCancelDeadlineHours
+	if cancelDeadlineHours < 0 {
+		return adminTenantAppSettings{}, fmt.Errorf("participant_cancel_deadline_hours muss >= 0 sein")
+	}
 
 	return adminTenantAppSettings{
-		EventTimeStart:      start,
-		EventTimeEnd:        end,
-		EventTimeStepMinute: step,
-		EventSlugMode:       slugMode,
-		AllowedEmbedOrigins: origins,
-		EventDetailBaseURL:  detailBaseURL,
+		EventTimeStart:                 start,
+		EventTimeEnd:                   end,
+		EventTimeStepMinute:            step,
+		EventSlugMode:                  slugMode,
+		AllowedEmbedOrigins:            origins,
+		EventDetailBaseURL:             detailBaseURL,
+		ParticipantCancelDeadlineHours: cancelDeadlineHours,
 	}, nil
 }
 

@@ -119,6 +119,9 @@ func setupPaymentService(t *testing.T, paypalMode string) (*Service, *sql.DB, te
 
 func TestCreatePayPalOrderAndWebhookFlow(t *testing.T) {
 	service, sqlDB, tenantItem, registrationID := setupPaymentService(t, "sandbox")
+	service.SetParticipantCalendarURLBuilder(func(tenantSlug, tenantID, registrationID, participantID string) string {
+		return "https://events.example.com/api/v1/public/" + tenantSlug + "/registrations/" + registrationID + "/calendar.ics?token=pay-test"
+	})
 
 	createResult, err := service.CreatePayPalOrder(context.Background(), CreatePayPalOrderInput{
 		TenantID:            tenantItem.ID,
@@ -227,6 +230,32 @@ func TestCreatePayPalOrderAndWebhookFlow(t *testing.T) {
 	}
 	if confirmedAtRaw == "" {
 		t.Fatalf("expected confirmed_at to be set after paid webhook")
+	}
+	var emailTemplate string
+	var emailBody string
+	var metadataJSON string
+	if err := sqlDB.QueryRowContext(
+		context.Background(),
+		`SELECT template_key, body_text, COALESCE(metadata_json, '')
+     FROM email_jobs
+     WHERE tenant_id = ?
+     ORDER BY created_at DESC
+     LIMIT 1`,
+		tenantItem.ID,
+	).Scan(&emailTemplate, &emailBody, &metadataJSON); err != nil {
+		t.Fatalf("query latest email job after paid webhook: %v", err)
+	}
+	if emailTemplate != "registration_confirmed" {
+		t.Fatalf("expected registration_confirmed email template, got %q", emailTemplate)
+	}
+	if !strings.Contains(emailBody, "wieder ab") {
+		t.Fatalf("expected payment confirmation mail to contain cancel hint, got %q", emailBody)
+	}
+	if !strings.Contains(emailBody, "/calendar.ics?token=pay-test") {
+		t.Fatalf("expected payment confirmation mail to contain calendar URL, got %q", emailBody)
+	}
+	if !strings.Contains(metadataJSON, "\"participant_cancel_deadline_hours\"") {
+		t.Fatalf("expected payment confirmation metadata to contain cancel deadline, got %q", metadataJSON)
 	}
 
 	duplicateResult, err := service.ProcessPayPalWebhook(context.Background(), PayPalWebhookHeaders{}, webhookBody)

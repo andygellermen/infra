@@ -85,6 +85,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			StorageDir:  cfg.CertificateStorageDir,
 		})
 		app.paymentService = payment.NewService(sqlDB, payment.Config{
+			BaseURL:              cfg.BaseURL,
 			FallbackClientID:     cfg.PayPalClientID,
 			FallbackClientSecret: cfg.PayPalClientSecret,
 			FallbackWebhookID:    cfg.PayPalWebhookID,
@@ -93,6 +94,7 @@ func New(cfg config.Config, sqlDB *sql.DB) *App {
 			HTTPTimeout:          cfg.PayPalHTTPTimeout,
 			UseRealPayPalAPI:     cfg.PayPalUseRealAPI,
 		})
+		app.paymentService.SetParticipantCalendarURLBuilder(app.calendarService.ParticipantCalendarURL)
 		app.privacyService = privacy.NewService(sqlDB)
 		app.snippetRepo = snippet.NewRepository(sqlDB)
 	}

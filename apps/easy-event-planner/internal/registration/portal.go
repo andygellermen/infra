@@ -7,29 +7,34 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 type ParticipantPortalRegistration struct {
-	ID                 string
-	TenantID           string
-	EventID            string
-	EventSlug          string
-	EventTitle         string
-	EventStartsAt      time.Time
-	EventEndsAt        *time.Time
-	EventTimezone      string
-	EventLocationName  string
-	EventOnlineURL     string
-	Status             string
-	ParticipationType  string
-	Quantity           int
-	Source             string
-	PaymentStatus      string
-	ConfirmedAt        *time.Time
-	CancelledAt        *time.Time
-	CancellationReason string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                      string
+	TenantID                string
+	EventID                 string
+	EventSlug               string
+	EventTitle              string
+	EventStartsAt           time.Time
+	EventEndsAt             *time.Time
+	EventTimezone           string
+	EventLocationName       string
+	EventOnlineURL          string
+	Status                  string
+	ParticipationType       string
+	Quantity                int
+	Source                  string
+	PaymentStatus           string
+	ConfirmedAt             *time.Time
+	CancelledAt             *time.Time
+	CancellationReason      string
+	SelfCancelAllowed       bool
+	SelfCancelDeadline      *time.Time
+	SelfCancelDeadlineHours int
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func (s *Service) ListParticipantRegistrations(ctx context.Context, tenantID, participantID string) ([]ParticipantPortalRegistration, error) {
@@ -70,12 +75,14 @@ func (s *Service) ListParticipantRegistrations(ctx context.Context, tenantID, pa
 	}
 	defer rows.Close()
 
+	cancelDeadlineHours := s.lookupParticipantCancelDeadlineHours(ctx, tenantID)
 	items := make([]ParticipantPortalRegistration, 0)
 	for rows.Next() {
 		item, scanErr := scanParticipantPortalRegistration(rows)
 		if scanErr != nil {
 			return nil, scanErr
 		}
+		applyParticipantCancelDeadline(&item, cancelDeadlineHours, s.nowFn().UTC())
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -127,6 +134,7 @@ func (s *Service) GetParticipantRegistration(ctx context.Context, tenantID, part
 		}
 		return ParticipantPortalRegistration{}, err
 	}
+	applyParticipantCancelDeadline(&item, s.lookupParticipantCancelDeadlineHours(ctx, tenantID), s.nowFn().UTC())
 	return item, nil
 }
 
@@ -147,6 +155,9 @@ func (s *Service) CancelParticipantRegistration(ctx context.Context, tenantID, p
 	}
 	if !canCancelParticipantRegistrationStatus(current.Status) {
 		return ParticipantPortalRegistration{}, ErrRegistrationCancelNotAllowed
+	}
+	if !current.SelfCancelAllowed {
+		return ParticipantPortalRegistration{}, ErrRegistrationCancelDeadlineExceeded
 	}
 
 	now := s.nowFn().UTC()
@@ -207,6 +218,32 @@ func canCancelParticipantRegistrationStatus(status string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *Service) lookupParticipantCancelDeadlineHours(ctx context.Context, tenantID string) int {
+	row := s.db.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(settings_json, '')
+     FROM tenant_settings
+     WHERE tenant_id = ?
+     LIMIT 1`,
+		strings.TrimSpace(tenantID),
+	)
+	var settingsJSON string
+	if err := row.Scan(&settingsJSON); err != nil {
+		return tenant.DefaultParticipantCancelDeadlineHours
+	}
+	return tenant.ParticipantCancelDeadlineHoursFromSettingsJSON(settingsJSON)
+}
+
+func applyParticipantCancelDeadline(item *ParticipantPortalRegistration, hours int, now time.Time) {
+	if item == nil {
+		return
+	}
+	item.SelfCancelDeadlineHours = hours
+	deadline := participantCancelDeadlineAt(item.EventStartsAt, hours)
+	item.SelfCancelDeadline = &deadline
+	item.SelfCancelAllowed = canCancelParticipantRegistrationStatus(item.Status) && !now.After(deadline)
 }
 
 func scanParticipantPortalRegistration(row interface{ Scan(dest ...any) error }) (ParticipantPortalRegistration, error) {
