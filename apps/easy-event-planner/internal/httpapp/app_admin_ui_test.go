@@ -137,6 +137,12 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "value=\"daily\"") {
 		t.Fatalf("expected daily recurrence option in admin shell")
 	}
+	if !strings.Contains(shellBody, "eventDetailBaseUrlHint") {
+		t.Fatalf("expected detail base url hint in admin shell")
+	}
+	if !strings.Contains(shellBody, ".../events/{event_slug}") {
+		t.Fatalf("expected detail base url route hint in admin shell")
+	}
 
 	jsReq := httptest.NewRequest(http.MethodGet, "/admin-ui.js", nil)
 	jsRec := httptest.NewRecorder()
@@ -150,5 +156,8 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "mode === \"daily\"") {
 		t.Fatalf("expected daily recurrence handling in admin js")
+	}
+	if !strings.Contains(jsBody, "updateEventDetailBaseURLHint") {
+		t.Fatalf("expected detail base url preview support in admin js")
 	}
 }

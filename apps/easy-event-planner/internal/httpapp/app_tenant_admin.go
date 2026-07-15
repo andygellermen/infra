@@ -270,6 +270,8 @@ func (a *App) writeTenantError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "Mandant nicht gefunden.")
 	case errors.Is(err, tenant.ErrTenantSettingsNotFound):
 		writeAPIError(w, http.StatusNotFound, "TENANT_SETTINGS_NOT_FOUND", "Mandanten-Einstellungen nicht gefunden.")
+	case errors.Is(err, tenant.ErrTenantPublicBaseURLConflict):
+		writeAPIError(w, http.StatusConflict, "TENANT_PUBLIC_BASE_URL_CONFLICT", "Diese Public-Base-URL ist bereits einem anderen Mandanten zugeordnet.")
 	default:
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
 	}

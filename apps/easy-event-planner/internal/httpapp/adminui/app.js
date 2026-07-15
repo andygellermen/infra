@@ -83,6 +83,7 @@
     settingsRulesForm: document.querySelector("#settingsRulesForm"),
     settingsRulesSubmitBtn: document.querySelector("#settingsRulesSubmitBtn"),
     settingsRulesHint: document.querySelector("#settingsRulesHint"),
+    eventDetailBaseUrlHint: document.querySelector("#eventDetailBaseUrlHint"),
   };
 
   bindUI();
@@ -181,9 +182,17 @@
     }
     if (ui.settingsProfileForm) {
       ui.settingsProfileForm.addEventListener("submit", onTenantProfileSubmit);
+      const publicBaseField = ui.settingsProfileForm.querySelector("[name='public_base_url']");
+      if (publicBaseField) {
+        publicBaseField.addEventListener("input", updateEventDetailBaseURLHint);
+      }
     }
     if (ui.settingsRulesForm) {
       ui.settingsRulesForm.addEventListener("submit", onTenantSettingsSubmit);
+      const detailBaseField = ui.settingsRulesForm.querySelector("[name='event_detail_base_url']");
+      if (detailBaseField) {
+        detailBaseField.addEventListener("input", updateEventDetailBaseURLHint);
+      }
     }
     if (ui.registrationEventSelect) {
       ui.registrationEventSelect.addEventListener("change", (ev) => {
@@ -351,6 +360,7 @@
     setFieldValue(ui.settingsRulesForm, "default_retention_days", settingsItem.default_retention_days || 30);
     setFieldValue(ui.settingsRulesForm, "allowed_embed_origins", (appSettings.allowed_embed_origins || []).join("\n"));
 
+    updateEventDetailBaseURLHint();
     fillTimeSelectOptions();
     applyEventSlugMode();
     validateEventScheduleFields();
@@ -2507,6 +2517,65 @@
         ? Number(source.participant_cancel_deadline_hours)
         : 24,
     };
+  }
+
+  function updateEventDetailBaseURLHint() {
+    if (!ui.eventDetailBaseUrlHint) {
+      return;
+    }
+
+    const exampleSlug = "beispiel-event";
+    const publicBaseField = ui.settingsProfileForm ? ui.settingsProfileForm.querySelector("[name='public_base_url']") : null;
+    const detailBaseField = ui.settingsRulesForm ? ui.settingsRulesForm.querySelector("[name='event_detail_base_url']") : null;
+    const publicBaseURL = String(publicBaseField && publicBaseField.value ? publicBaseField.value : state.tenantProfile && state.tenantProfile.public_base_url || "").trim();
+    const detailBaseURL = String(detailBaseField && detailBaseField.value ? detailBaseField.value : "").trim();
+
+    const defaultURL = buildDetailPreviewURL(publicBaseURL, "", exampleSlug) || `.../events/${exampleSlug}`;
+    const configuredURL = buildDetailPreviewURL(publicBaseURL, detailBaseURL, exampleSlug);
+    const usesCustomBase = detailBaseURL !== "";
+    const sameAsPublicBase = normalizePreviewURL(detailBaseURL) !== "" && normalizePreviewURL(detailBaseURL) === normalizePreviewURL(publicBaseURL);
+
+    if (!usesCustomBase) {
+      ui.eventDetailBaseUrlHint.innerHTML = `Leer lassen, wenn EEP die Standard-Detailseiten selbst ausliefern soll. Beispiel draussen: <code>${escapeHTML(defaultURL)}</code>`;
+      return;
+    }
+
+    let message = `Aktuelle Detailseiten-Vorschau: <code>${escapeHTML(configuredURL || detailBaseURL)}</code>`;
+    if (sameAsPublicBase) {
+      message += ` Wenn dieselbe URL wie bei <code>public_base_url</code> gesetzt wird, entsteht bewusst kein automatisches <code>/events</code>. Fuer die bisherige EEP-Standardroute nutze besser <code>${escapeHTML(trimTrailingSlash(publicBaseURL) + "/events")}</code> oder lasse das Feld leer.`;
+    } else {
+      message += ` Erlaubte Platzhalter sind <code>{event_slug}</code>, <code>{slug}</code>, <code>{tenant_slug}</code> und <code>{series_slug}</code>.`;
+    }
+    ui.eventDetailBaseUrlHint.innerHTML = message;
+  }
+
+  function buildDetailPreviewURL(publicBaseURL, detailBaseURL, eventSlug) {
+    const base = trimTrailingSlash(String(detailBaseURL || "").trim());
+    const publicBase = trimTrailingSlash(String(publicBaseURL || "").trim());
+    const slug = encodeURIComponent(String(eventSlug || "").trim());
+    if (!slug) {
+      return "";
+    }
+    if (!base) {
+      return publicBase ? `${publicBase}/events/${slug}` : "";
+    }
+    let resolved = base;
+    resolved = resolved.replaceAll("{event_slug}", slug);
+    resolved = resolved.replaceAll("{slug}", slug);
+    resolved = resolved.replaceAll("{tenant_slug}", "tenant-demo");
+    resolved = resolved.replaceAll("{series_slug}", "serie-demo");
+    if (resolved !== base) {
+      return resolved;
+    }
+    return `${base}/${slug}`;
+  }
+
+  function normalizePreviewURL(value) {
+    return trimTrailingSlash(String(value || "").trim().toLowerCase());
+  }
+
+  function trimTrailingSlash(value) {
+    return String(value || "").replace(/\/+$/, "");
   }
 
   function getScheduleConfig() {

@@ -244,6 +244,56 @@ func TestUpdateTenant(t *testing.T) {
 	}
 }
 
+func TestCreateTenantRejectsConflictingPublicBaseURL(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	if _, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "demo-a",
+		Name:          "Demo A",
+		PublicBaseURL: "https://events.example.com/veranstaltungen",
+	}); err != nil {
+		t.Fatalf("CreateTenant first returned error: %v", err)
+	}
+
+	_, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "demo-b",
+		Name:          "Demo B",
+		PublicBaseURL: "https://events.example.com/veranstaltungen/",
+	})
+	if !errors.Is(err, ErrTenantPublicBaseURLConflict) {
+		t.Fatalf("expected ErrTenantPublicBaseURLConflict, got %v", err)
+	}
+}
+
+func TestUpdateTenantRejectsConflictingPublicBaseURL(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	first, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "demo-a",
+		Name:          "Demo A",
+		PublicBaseURL: "https://events.example.com/a",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant first returned error: %v", err)
+	}
+	second, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "demo-b",
+		Name:          "Demo B",
+		PublicBaseURL: "https://events.example.com/b",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant second returned error: %v", err)
+	}
+
+	targetBaseURL := first.PublicBaseURL
+	_, err = repo.UpdateTenant(context.Background(), second.ID, UpdateTenantParams{
+		PublicBaseURL: &targetBaseURL,
+	})
+	if !errors.Is(err, ErrTenantPublicBaseURLConflict) {
+		t.Fatalf("expected ErrTenantPublicBaseURLConflict, got %v", err)
+	}
+}
+
 func TestSeedTenantIsIdempotent(t *testing.T) {
 	repo := NewRepository(newMigratedDB(t))
 

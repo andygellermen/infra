@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	ErrTenantNotFound         = errors.New("tenant not found")
-	ErrTenantSettingsNotFound = errors.New("tenant settings not found")
-	ErrTenantHostAmbiguous    = errors.New("tenant host ambiguous")
-	ErrTenantPathAmbiguous    = errors.New("tenant public path ambiguous")
+	ErrTenantNotFound              = errors.New("tenant not found")
+	ErrTenantSettingsNotFound      = errors.New("tenant settings not found")
+	ErrTenantHostAmbiguous         = errors.New("tenant host ambiguous")
+	ErrTenantPathAmbiguous         = errors.New("tenant public path ambiguous")
+	ErrTenantPublicBaseURLConflict = errors.New("tenant public base url conflicts with another tenant")
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -52,6 +53,9 @@ func (r *Repository) CreateTenant(ctx context.Context, params CreateTenantParams
 	}
 	publicBaseURL, err := normalizePublicBaseURL(params.PublicBaseURL)
 	if err != nil {
+		return Tenant{}, err
+	}
+	if err := r.ensurePublicBaseURLAvailable(ctx, "", publicBaseURL); err != nil {
 		return Tenant{}, err
 	}
 
@@ -294,6 +298,9 @@ func (r *Repository) UpdateTenant(ctx context.Context, tenantID string, params U
 	if params.PublicBaseURL != nil {
 		publicBaseURL, err = normalizePublicBaseURL(*params.PublicBaseURL)
 		if err != nil {
+			return Tenant{}, err
+		}
+		if err := r.ensurePublicBaseURLAvailable(ctx, current.ID, publicBaseURL); err != nil {
 			return Tenant{}, err
 		}
 	}
@@ -624,6 +631,46 @@ func normalizeLookupHost(raw string) (string, error) {
 		return "", fmt.Errorf("tenant host must not be empty")
 	}
 	return value, nil
+}
+
+func (r *Repository) ensurePublicBaseURLAvailable(ctx context.Context, ignoreTenantID, rawURL string) error {
+	lookup, err := normalizePublicBaseLookup(rawURL)
+	if err != nil {
+		return err
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, public_base_url
+     FROM tenants`,
+	)
+	if err != nil {
+		return fmt.Errorf("query tenant public base urls: %w", err)
+	}
+	defer rows.Close()
+
+	ignoreID := strings.TrimSpace(ignoreTenantID)
+	for rows.Next() {
+		var tenantID string
+		var publicBaseURL string
+		if err := rows.Scan(&tenantID, &publicBaseURL); err != nil {
+			return fmt.Errorf("scan tenant public base url: %w", err)
+		}
+		if ignoreID != "" && strings.TrimSpace(tenantID) == ignoreID {
+			continue
+		}
+		candidate, err := normalizePublicBaseLookup(publicBaseURL)
+		if err != nil {
+			continue
+		}
+		if candidate.host == lookup.host && candidate.path == lookup.path {
+			return ErrTenantPublicBaseURLConflict
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate tenant public base urls: %w", err)
+	}
+	return nil
 }
 
 type publicBaseLookup struct {

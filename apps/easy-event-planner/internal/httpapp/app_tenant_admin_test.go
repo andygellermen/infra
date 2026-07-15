@@ -2,10 +2,13 @@ package httpapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func authenticateAdminSession(t *testing.T, app *App, sender *fakeMagicLinkSender, host string) *http.Cookie {
@@ -135,5 +138,40 @@ func TestAdminTenantProfileAndSettings(t *testing.T) {
 	}
 	if updatedAppSettings["participant_cancel_deadline_hours"] != float64(48) {
 		t.Fatalf("expected participant_cancel_deadline_hours 48, got %v", updatedAppSettings["participant_cancel_deadline_hours"])
+	}
+}
+
+func TestAdminTenantPatchRejectsConflictingPublicBaseURL(t *testing.T) {
+	app, sender, _ := setupAuthApp(t)
+	sessionCookie := authenticateAdminSession(t, app, sender, "localhost:8080")
+
+	_, err := app.tenantRepo.CreateTenant(context.Background(), tenant.CreateTenantParams{
+		Slug:          "second-tenant",
+		Name:          "Second Tenant",
+		PublicBaseURL: "https://events.example.com/second",
+	})
+	if err != nil {
+		t.Fatalf("create second tenant: %v", err)
+	}
+
+	updateTenantBody, _ := json.Marshal(map[string]any{
+		"name":             "Customer XYZ Updated",
+		"public_base_url":  "https://events.example.com/second",
+		"default_timezone": "UTC",
+		"default_locale":   "en-GB",
+	})
+	updateTenantReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/tenant", bytes.NewReader(updateTenantBody))
+	updateTenantReq.Header.Set("Content-Type", "application/json")
+	updateTenantReq.AddCookie(sessionCookie)
+	updateTenantRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(updateTenantRec, updateTenantReq)
+
+	if updateTenantRec.Code != http.StatusConflict {
+		t.Fatalf("expected tenant patch status 409, got %d", updateTenantRec.Code)
+	}
+	payload := decodeBody[map[string]any](t, updateTenantRec)
+	errorPayload := payload["error"].(map[string]any)
+	if errorPayload["code"] != "TENANT_PUBLIC_BASE_URL_CONFLICT" {
+		t.Fatalf("expected TENANT_PUBLIC_BASE_URL_CONFLICT, got %v", errorPayload["code"])
 	}
 }
