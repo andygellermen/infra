@@ -77,16 +77,22 @@ func TestEventCRUDAndPublishFlow(t *testing.T) {
 	if !published.IsPublic {
 		t.Fatalf("expected is_public true after publish")
 	}
+	if published.PublishedAt == nil {
+		t.Fatalf("expected published_at to be set after publish")
+	}
 
 	unpublished, err := repo.UnpublishEvent(context.Background(), tenantID, created.ID)
 	if err != nil {
 		t.Fatalf("UnpublishEvent returned error: %v", err)
 	}
-	if unpublished.Status != EventStatusDraft {
-		t.Fatalf("expected draft status after unpublish, got %q", unpublished.Status)
+	if unpublished.Status != EventStatusScheduled {
+		t.Fatalf("expected scheduled status after unpublish, got %q", unpublished.Status)
 	}
-	if unpublished.IsPublic {
-		t.Fatalf("expected is_public false after unpublish")
+	if !unpublished.IsPublic {
+		t.Fatalf("expected public intent to remain after unpublish")
+	}
+	if unpublished.PublishedAt != nil {
+		t.Fatalf("expected published_at to be cleared after unpublish")
 	}
 
 	deleted, err := repo.DeleteEvent(context.Background(), tenantID, created.ID)
@@ -204,6 +210,45 @@ func TestUpdateEventRejectsEmptyPatch(t *testing.T) {
 	_, err = repo.UpdateEvent(context.Background(), tenantID, created.ID, UpdateEventParams{})
 	if err == nil {
 		t.Fatal("expected error for empty patch")
+	}
+}
+
+func TestUpdateEventClearsPublishedAtWhenPublicVisibilityIsRemoved(t *testing.T) {
+	repo, tenantID, _ := setupEventRepository(t)
+
+	isPublic := true
+	created, err := repo.CreateEvent(context.Background(), tenantID, CreateEventParams{
+		Slug:     "private-again",
+		Title:    "Private Again",
+		StartsAt: "2026-09-01T18:00:00Z",
+		IsPublic: &isPublic,
+	})
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	published, err := repo.PublishEvent(context.Background(), tenantID, created.ID)
+	if err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	if published.PublishedAt == nil {
+		t.Fatalf("expected published_at after publish")
+	}
+
+	disablePublic := false
+	updated, err := repo.UpdateEvent(context.Background(), tenantID, created.ID, UpdateEventParams{
+		IsPublic: &disablePublic,
+	})
+	if err != nil {
+		t.Fatalf("update event: %v", err)
+	}
+	if updated.IsPublic {
+		t.Fatalf("expected is_public=false after update")
+	}
+	if updated.PublishedAt != nil {
+		t.Fatalf("expected published_at to be cleared when public visibility is removed")
+	}
+	if updated.IsPublished() {
+		t.Fatalf("expected event to no longer be published")
 	}
 }
 

@@ -703,6 +703,10 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 	if item.EndsAt != nil {
 		endsAt = item.EndsAt.UTC().Format(time.RFC3339)
 	}
+	var publishedAt any
+	if item.PublishedAt != nil {
+		publishedAt = item.PublishedAt.UTC().Format(time.RFC3339)
+	}
 	var maxParticipants any
 	if item.MaxParticipants != nil {
 		maxParticipants = *item.MaxParticipants
@@ -732,6 +736,9 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 		"participation_mode":   item.ParticipationMode,
 		"status":               item.Status,
 		"is_public":            item.IsPublic,
+		"is_published":         item.IsPublished(),
+		"publication_state":    item.PublicationState(),
+		"published_at":         publishedAt,
 		"registration_enabled": item.RegistrationEnabled,
 		"waitlist_enabled":     item.WaitlistEnabled,
 		"max_participants":     maxParticipants,

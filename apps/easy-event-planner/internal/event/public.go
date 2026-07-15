@@ -47,12 +47,12 @@ func (r *Repository) ListPublicEvents(ctx context.Context, tenantID string, filt
 	query := strings.Builder{}
 	query.WriteString(`SELECT e.id, e.tenant_id, COALESCE(e.series_id, ''), e.slug, e.title, COALESCE(e.subtitle, ''), COALESCE(e.description, ''),
       e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
-      e.participation_mode, e.status, e.is_public, e.registration_enabled, e.waitlist_enabled, e.max_participants,
+      e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
       COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
       COALESCE(s.slug, ''), COALESCE(s.title, '')
     FROM events e
     LEFT JOIN event_series s ON s.tenant_id = e.tenant_id AND s.id = e.series_id AND s.is_public = 1
-    WHERE e.tenant_id = ? AND e.is_public = 1 AND e.status <> ? AND e.status <> ?`)
+    WHERE e.tenant_id = ? AND e.is_public = 1 AND e.published_at IS NOT NULL AND e.status <> ? AND e.status <> ?`)
 	args := []any{tenant, EventStatusDraft, EventStatusArchived}
 
 	if !normalized.IncludePast {
@@ -124,12 +124,12 @@ func (r *Repository) GetPublicEventBySlug(ctx context.Context, tenantID, eventSl
 		ctx,
 		`SELECT e.id, e.tenant_id, COALESCE(e.series_id, ''), e.slug, e.title, COALESCE(e.subtitle, ''), COALESCE(e.description, ''),
           e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
-          e.participation_mode, e.status, e.is_public, e.registration_enabled, e.waitlist_enabled, e.max_participants,
+          e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
           COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
           COALESCE(s.slug, ''), COALESCE(s.title, '')
      FROM events e
      LEFT JOIN event_series s ON s.tenant_id = e.tenant_id AND s.id = e.series_id AND s.is_public = 1
-     WHERE e.tenant_id = ? AND e.slug = ? AND e.is_public = 1 AND e.status <> ? AND e.status <> ?
+     WHERE e.tenant_id = ? AND e.slug = ? AND e.is_public = 1 AND e.published_at IS NOT NULL AND e.status <> ? AND e.status <> ?
      LIMIT 1`,
 		tenant,
 		slug,
@@ -269,6 +269,7 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		startsAtRaw         string
 		endsAtRaw           string
 		isPublicInt         int
+		publishedAtRaw      string
 		registrationEnabled int
 		waitlistEnabled     int
 		maxParticipantsRaw  sql.NullInt64
@@ -293,6 +294,7 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		&item.ParticipationMode,
 		&item.Status,
 		&isPublicInt,
+		&publishedAtRaw,
 		&registrationEnabled,
 		&waitlistEnabled,
 		&maxParticipantsRaw,
@@ -319,6 +321,15 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		parsedEndsAt = parsedEndsAt.UTC()
 		endsAt = &parsedEndsAt
 	}
+	var publishedAt *time.Time
+	if strings.TrimSpace(publishedAtRaw) != "" {
+		parsedPublishedAt, parseErr := time.Parse(time.RFC3339, publishedAtRaw)
+		if parseErr != nil {
+			return PublicEvent{}, fmt.Errorf("parse public event published_at: %w", parseErr)
+		}
+		parsedPublishedAt = parsedPublishedAt.UTC()
+		publishedAt = &parsedPublishedAt
+	}
 	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
 	if err != nil {
 		return PublicEvent{}, fmt.Errorf("parse public event created_at: %w", err)
@@ -331,6 +342,7 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 	item.StartsAt = startsAt.UTC()
 	item.EndsAt = endsAt
 	item.IsPublic = isPublicInt == 1
+	item.PublishedAt = publishedAt
 	item.RegistrationEnabled = registrationEnabled == 1
 	item.WaitlistEnabled = waitlistEnabled == 1
 	if maxParticipantsRaw.Valid {

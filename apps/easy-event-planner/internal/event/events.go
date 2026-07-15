@@ -51,6 +51,7 @@ type Event struct {
 	ParticipationMode     string
 	Status                string
 	IsPublic              bool
+	PublishedAt           *time.Time
 	RegistrationEnabled   bool
 	WaitlistEnabled       bool
 	MaxParticipants       *int
@@ -117,7 +118,7 @@ func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, 
 		ctx,
 		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
             starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
-            participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            participation_mode, status, is_public, COALESCE(published_at, ''), registration_enabled, waitlist_enabled, max_participants,
             (SELECT COUNT(*)
              FROM registrations r
              WHERE r.tenant_id = events.tenant_id
@@ -179,9 +180,9 @@ func (r *Repository) CreateEvent(ctx context.Context, tenantID string, params Cr
 		ctx,
 		`INSERT INTO events (
       id, tenant_id, series_id, slug, title, subtitle, description, starts_at, ends_at, timezone,
-      location_name, address, online_url, participation_mode, status, is_public, registration_enabled,
+      location_name, address, online_url, participation_mode, status, is_public, published_at, registration_enabled,
       waitlist_enabled, max_participants, change_note, cancelled_reason, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		eventID,
 		tenant,
 		nullable(seriesID),
@@ -198,6 +199,7 @@ func (r *Repository) CreateEvent(ctx context.Context, tenantID string, params Cr
 		normalized.ParticipationMode,
 		EventStatusDraft,
 		boolToInt(normalized.IsPublic),
+		nil,
 		boolToInt(normalized.RegistrationEnabled),
 		boolToInt(normalized.WaitlistEnabled),
 		nullableInt(normalized.MaxParticipants),
@@ -234,7 +236,7 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID, eventID string)
 		ctx,
 		`SELECT id, tenant_id, COALESCE(series_id, ''), slug, title, COALESCE(subtitle, ''), COALESCE(description, ''),
             starts_at, COALESCE(ends_at, ''), timezone, COALESCE(location_name, ''), COALESCE(address, ''), COALESCE(online_url, ''),
-            participation_mode, status, is_public, registration_enabled, waitlist_enabled, max_participants,
+            participation_mode, status, is_public, COALESCE(published_at, ''), registration_enabled, waitlist_enabled, max_participants,
             (SELECT COUNT(*)
              FROM registrations r
              WHERE r.tenant_id = events.tenant_id
@@ -294,7 +296,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 		ctx,
 		`UPDATE events
      SET series_id = ?, slug = ?, title = ?, subtitle = ?, description = ?, starts_at = ?, ends_at = ?, timezone = ?,
-         location_name = ?, address = ?, online_url = ?, participation_mode = ?, is_public = ?, registration_enabled = ?,
+         location_name = ?, address = ?, online_url = ?, participation_mode = ?, is_public = ?, published_at = ?, registration_enabled = ?,
          waitlist_enabled = ?, max_participants = ?, change_note = ?, cancelled_reason = ?, status = ?, updated_at = ?
      WHERE tenant_id = ? AND id = ?`,
 		nullable(updated.SeriesID),
@@ -310,6 +312,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 		nullable(updated.OnlineURL),
 		updated.ParticipationMode,
 		boolToInt(updated.IsPublic),
+		nullableTime(updated.PublishedAt),
 		boolToInt(updated.RegistrationEnabled),
 		boolToInt(updated.WaitlistEnabled),
 		nullableInt(updated.MaxParticipants),
@@ -518,7 +521,7 @@ func (r *Repository) ArchiveEvent(ctx context.Context, tenantID, eventID string)
 	result, err := r.db.ExecContext(
 		ctx,
 		`UPDATE events
-     SET status = ?, is_public = 0, registration_enabled = 0, waitlist_enabled = 0, updated_at = ?
+     SET status = ?, is_public = 0, published_at = NULL, registration_enabled = 0, waitlist_enabled = 0, updated_at = ?
      WHERE tenant_id = ? AND id = ?`,
 		EventStatusArchived,
 		now,
@@ -548,19 +551,28 @@ func (r *Repository) transitionPublishState(ctx context.Context, tenantID, event
 		return Event{}, ErrInvalidStatusTransition
 	}
 
-	targetStatus := EventStatusDraft
-	if published {
+	targetStatus := current.Status
+	if published && strings.EqualFold(strings.TrimSpace(current.Status), EventStatusDraft) {
 		targetStatus = EventStatusScheduled
 	}
 
 	now := r.nowFn().UTC().Format(time.RFC3339)
+	var publishedAt any
+	targetIsPublic := current.IsPublic
+	if published {
+		targetIsPublic = true
+		publishedAt = now
+	} else {
+		publishedAt = nil
+	}
 	result, err := r.db.ExecContext(
 		ctx,
 		`UPDATE events
-     SET status = ?, is_public = ?, updated_at = ?
+     SET status = ?, is_public = ?, published_at = ?, updated_at = ?
      WHERE tenant_id = ? AND id = ?`,
 		targetStatus,
-		boolToInt(published),
+		boolToInt(targetIsPublic),
+		publishedAt,
 		now,
 		strings.TrimSpace(tenantID),
 		strings.TrimSpace(eventID),
@@ -617,6 +629,23 @@ func canMarkCompleted(status string) bool {
 
 func canArchive(status string) bool {
 	return strings.ToLower(strings.TrimSpace(status)) != EventStatusArchived
+}
+
+func (e Event) IsPublished() bool {
+	return e.IsPublic && e.PublishedAt != nil && canEventBePublic(e.Status)
+}
+
+func (e Event) PublicationState() string {
+	switch {
+	case strings.EqualFold(strings.TrimSpace(e.Status), EventStatusArchived):
+		return "archived"
+	case e.IsPublished():
+		return "published"
+	case e.IsPublic:
+		return "prepared"
+	default:
+		return "internal"
+	}
 }
 
 func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, current Event, params UpdateEventParams) (Event, bool, error) {
@@ -724,6 +753,9 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 	}
 	if params.IsPublic != nil {
 		updated.IsPublic = *params.IsPublic
+		if !updated.IsPublic {
+			updated.PublishedAt = nil
+		}
 		hasChange = true
 	}
 	if params.RegistrationEnabled != nil {
@@ -971,6 +1003,7 @@ func scanEvent(row rowScanner) (Event, error) {
 		startsAtRaw         string
 		endsAtRaw           string
 		isPublicInt         int
+		publishedAtRaw      string
 		registrationEnabled int
 		waitlistEnabled     int
 		maxParticipantsRaw  sql.NullInt64
@@ -995,6 +1028,7 @@ func scanEvent(row rowScanner) (Event, error) {
 		&item.ParticipationMode,
 		&item.Status,
 		&isPublicInt,
+		&publishedAtRaw,
 		&registrationEnabled,
 		&waitlistEnabled,
 		&maxParticipantsRaw,
@@ -1021,6 +1055,15 @@ func scanEvent(row rowScanner) (Event, error) {
 		parsedEndsAt = parsedEndsAt.UTC()
 		endsAt = &parsedEndsAt
 	}
+	var publishedAt *time.Time
+	if strings.TrimSpace(publishedAtRaw) != "" {
+		parsedPublishedAt, parseErr := time.Parse(time.RFC3339, publishedAtRaw)
+		if parseErr != nil {
+			return Event{}, fmt.Errorf("parse event published_at: %w", parseErr)
+		}
+		parsedPublishedAt = parsedPublishedAt.UTC()
+		publishedAt = &parsedPublishedAt
+	}
 	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
 	if err != nil {
 		return Event{}, fmt.Errorf("parse event created_at: %w", err)
@@ -1033,6 +1076,7 @@ func scanEvent(row rowScanner) (Event, error) {
 	item.StartsAt = startsAt.UTC()
 	item.EndsAt = endsAt
 	item.IsPublic = isPublicInt == 1
+	item.PublishedAt = publishedAt
 	item.RegistrationEnabled = registrationEnabled == 1
 	item.WaitlistEnabled = waitlistEnabled == 1
 	if maxParticipantsRaw.Valid {
@@ -1042,4 +1086,13 @@ func scanEvent(row rowScanner) (Event, error) {
 	item.CreatedAt = createdAt.UTC()
 	item.UpdatedAt = updatedAt.UTC()
 	return item, nil
+}
+
+func canEventBePublic(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case EventStatusDraft, EventStatusArchived:
+		return false
+	default:
+		return true
+	}
 }

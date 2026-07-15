@@ -1026,12 +1026,13 @@ func (a *App) handleAdminEventEmbedCode(w http.ResponseWriter, r *http.Request, 
 	scriptSrc := buildRegistrationEmbedScriptSrc(tenantItem.PublicBaseURL, tenantItem.Slug, item.Slug)
 	embedCode := fmt.Sprintf(`<script src="%s" defer></script>`, scriptSrc)
 	warnings := make([]string, 0, 3)
-	if !item.IsPublic {
-		warnings = append(warnings, "Event ist noch nicht oeffentlich sichtbar.")
-	}
-	switch strings.TrimSpace(strings.ToLower(item.Status)) {
-	case "draft", "cancelled", "completed", "archived":
-		warnings = append(warnings, "Event ist noch nicht in einem oeffentlichen Live-Status.")
+	if !item.IsPublished() {
+		switch item.PublicationState() {
+		case "prepared":
+			warnings = append(warnings, "Event ist fuer die oeffentliche Uebersicht vorbereitet, aber noch nicht freigegeben.")
+		default:
+			warnings = append(warnings, "Event ist aktuell nicht oeffentlich sichtbar.")
+		}
 	}
 	if !item.RegistrationEnabled {
 		warnings = append(warnings, "Die Registrierung ist fuer dieses Event aktuell deaktiviert.")
@@ -1105,6 +1106,10 @@ func eventPayload(item event.Event) map[string]any {
 	if item.EndsAt != nil {
 		endsAt = item.EndsAt.UTC().Format(time.RFC3339)
 	}
+	var publishedAt any
+	if item.PublishedAt != nil {
+		publishedAt = item.PublishedAt.UTC().Format(time.RFC3339)
+	}
 	var seriesID any
 	if strings.TrimSpace(item.SeriesID) != "" {
 		seriesID = item.SeriesID
@@ -1131,6 +1136,9 @@ func eventPayload(item event.Event) map[string]any {
 		"participation_mode":     item.ParticipationMode,
 		"status":                 item.Status,
 		"is_public":              item.IsPublic,
+		"is_published":           item.IsPublished(),
+		"publication_state":      item.PublicationState(),
+		"published_at":           publishedAt,
 		"registration_enabled":   item.RegistrationEnabled,
 		"waitlist_enabled":       item.WaitlistEnabled,
 		"max_participants":       maxParticipants,

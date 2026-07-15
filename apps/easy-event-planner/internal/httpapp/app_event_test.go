@@ -45,6 +45,12 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	if item["status"] != "draft" {
 		t.Fatalf("expected draft status on create, got %v", item["status"])
 	}
+	if item["is_published"] != false {
+		t.Fatalf("expected is_published=false on create, got %v", item["is_published"])
+	}
+	if item["publication_state"] != "internal" {
+		t.Fatalf("expected internal publication_state on create, got %v", item["publication_state"])
+	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/events", nil)
 	listReq.AddCookie(sessionCookie)
@@ -103,6 +109,12 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	if publishedItem["is_public"] != true {
 		t.Fatalf("expected is_public=true after publish, got %v", publishedItem["is_public"])
 	}
+	if publishedItem["is_published"] != true {
+		t.Fatalf("expected is_published=true after publish, got %v", publishedItem["is_published"])
+	}
+	if publishedItem["published_at"] == nil {
+		t.Fatalf("expected published_at after publish")
+	}
 
 	unpublishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/unpublish", nil)
 	unpublishReq.AddCookie(sessionCookie)
@@ -113,11 +125,20 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	}
 	unpublishResult := decodeBody[map[string]any](t, unpublishRec)
 	unpublishedItem := unpublishResult["item"].(map[string]any)
-	if unpublishedItem["status"] != "draft" {
-		t.Fatalf("expected draft status after unpublish, got %v", unpublishedItem["status"])
+	if unpublishedItem["status"] != "scheduled" {
+		t.Fatalf("expected scheduled status after unpublish, got %v", unpublishedItem["status"])
 	}
-	if unpublishedItem["is_public"] != false {
-		t.Fatalf("expected is_public=false after unpublish, got %v", unpublishedItem["is_public"])
+	if unpublishedItem["is_public"] != true {
+		t.Fatalf("expected public intent to remain after unpublish, got %v", unpublishedItem["is_public"])
+	}
+	if unpublishedItem["is_published"] != false {
+		t.Fatalf("expected is_published=false after unpublish, got %v", unpublishedItem["is_published"])
+	}
+	if unpublishedItem["published_at"] != nil {
+		t.Fatalf("expected published_at to be cleared after unpublish, got %v", unpublishedItem["published_at"])
+	}
+	if unpublishedItem["publication_state"] != "prepared" {
+		t.Fatalf("expected prepared publication_state after unpublish, got %v", unpublishedItem["publication_state"])
 	}
 
 	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/events/"+eventID, nil)
@@ -216,6 +237,9 @@ func TestAdminEventListCountsAndArchiveFlow(t *testing.T) {
 	}
 	if archived["is_public"] != false {
 		t.Fatalf("expected archived event to be hidden, got %v", archived["is_public"])
+	}
+	if archived["published_at"] != nil {
+		t.Fatalf("expected archived event published_at to be cleared, got %v", archived["published_at"])
 	}
 	if archived["registration_enabled"] != false {
 		t.Fatalf("expected archived event registration disabled, got %v", archived["registration_enabled"])

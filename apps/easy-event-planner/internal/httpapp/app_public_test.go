@@ -207,6 +207,49 @@ func TestPublicEventsFiltersAndValidation(t *testing.T) {
 	}
 }
 
+func TestPreparedEventStaysHiddenUntilPublished(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	isPublic := true
+	prepared, err := app.eventRepo.CreateEvent(context.Background(), tenantItem.ID, event.CreateEventParams{
+		Slug:     "prepared-only",
+		Title:    "Prepared Only",
+		StartsAt: time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339),
+		IsPublic: &isPublic,
+	})
+	if err != nil {
+		t.Fatalf("create prepared event: %v", err)
+	}
+	if _, err := app.eventRepo.PublishEvent(context.Background(), tenantItem.ID, prepared.ID); err != nil {
+		t.Fatalf("publish prepared event: %v", err)
+	}
+	if _, err := app.eventRepo.UnpublishEvent(context.Background(), tenantItem.ID, prepared.ID); err != nil {
+		t.Fatalf("unpublish prepared event: %v", err)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/events", nil)
+	listRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d", listRec.Code)
+	}
+	listPayload := decodeBody[map[string]any](t, listRec)
+	if listPayload["total"] != float64(0) {
+		t.Fatalf("expected prepared event to stay hidden, got total=%v", listPayload["total"])
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/events/"+prepared.Slug, nil)
+	detailRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusNotFound {
+		t.Fatalf("expected prepared event detail to stay hidden, got %d", detailRec.Code)
+	}
+}
+
 func TestPublicOverviewPageSupportsTenantPublicBasePathAndFilters(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)

@@ -36,6 +36,7 @@
     eventForm: document.querySelector("#eventForm"),
     eventFormHeading: document.querySelector("#eventFormHeading"),
     eventFormHint: document.querySelector("#eventFormHint"),
+    eventPublicationHint: document.querySelector("#eventPublicationHint"),
     eventCancelEditBtn: document.querySelector("#eventCancelEditBtn"),
     eventSeriesSelect: document.querySelector("#eventSeriesSelect"),
     eventRecurrenceMode: document.querySelector("#eventRecurrenceMode"),
@@ -111,6 +112,12 @@
       ui.eventForm.addEventListener("submit", onEventSubmit);
       bindDateTimeFieldValidation("starts_at", "Startzeit");
       bindDateTimeFieldValidation("ends_at", "Endzeit", true);
+      const eventPublicField = ui.eventForm.querySelector("input[name='is_public']");
+      if (eventPublicField) {
+        eventPublicField.addEventListener("change", () => {
+          updateEventPublicationHint(currentEditingEvent());
+        });
+      }
     }
     if (ui.eventRecurrenceMode) {
       ui.eventRecurrenceMode.addEventListener("change", syncRecurrenceFields);
@@ -722,11 +729,11 @@
     const subtitle = item.subtitle ? `<div class="event-card-subline">${escapeHTML(item.subtitle)}</div>` : "";
     const counts = `${Number(item.confirmed_participants || 0)} Teilnehmer · ${Number(item.waitlist_entries || 0)} Warteliste`;
     const visibilityToggleAllowed = canToggleVisibility(item);
-    const visibilityLabel = item.is_public ? "Verbergen" : "Freigeben";
-    const visibilityClass = item.is_public ? "ok" : "light";
-    const visibilityAction = item.is_public ? "unpublish" : "publish";
+    const publicationMeta = getPublicationMeta(item);
+    const visibilityLabel = item.is_published ? "Verbergen" : "Freigeben";
+    const visibilityClass = item.is_published ? "ok" : "light";
+    const visibilityAction = item.is_published ? "unpublish" : "publish";
     const seriesTitle = resolveSeriesTitle(item.series_id);
-    const visibilityText = item.is_public ? "Oeffentlich freigegeben" : "Nicht oeffentlich";
 
     return `
       <article class="event-card${isActive ? " is-active" : ""}" data-event-card="${escapeAttr(item.id)}" data-event-context="${escapeAttr(context)}">
@@ -738,11 +745,11 @@
         ${subtitle}
         <div class="event-card-badges">
           ${statusPill(item.status)}
-          <span class="series-chip">${escapeHTML(visibilityText)}</span>
+          <span class="series-chip">${escapeHTML(publicationMeta.label)}</span>
           ${seriesTitle ? `<span class="series-chip">${escapeHTML(seriesTitle)}</span>` : ""}
         </div>
         <div class="event-card-foot">
-          <span class="muted">${escapeHTML(counts)}</span>
+          <span class="muted">${escapeHTML(`${counts} · ${publicationMeta.detail}`)}</span>
           <span class="muted">${escapeHTML(item.slug || "")}</span>
         </div>
         <div class="event-card-actions">
@@ -1104,6 +1111,7 @@
       ui.eventCancelEditBtn.hidden = true;
     }
     syncRecurrenceFields();
+    updateEventPublicationHint(null);
   }
 
   function populateEventFormForEdit(item) {
@@ -1154,6 +1162,7 @@
     }
     applyEventSlugMode();
     syncRecurrenceFields();
+    updateEventPublicationHint(item);
   }
 
   function startEventCreationFromSeries(seriesID) {
@@ -1200,6 +1209,7 @@
     setFieldValue(ui.eventForm, "starts_at_time", getDefaultStartTime());
     setFieldValue(ui.eventForm, "ends_at_time", "");
     applyEventSlugMode();
+    updateEventPublicationHint(currentEditingEvent());
   }
 
   function syncRecurrenceFields() {
@@ -1898,6 +1908,64 @@
     return `<span class="status-pill" data-status="${escapeAttr(status)}">${escapeHTML(status)}</span>`;
   }
 
+  function publicationStateOf(item) {
+    const explicit = String(item && item.publication_state ? item.publication_state : "").trim();
+    if (explicit) {
+      return explicit;
+    }
+    if (item && item.is_published) {
+      return "published";
+    }
+    if (item && item.is_public) {
+      return "prepared";
+    }
+    return "internal";
+  }
+
+  function getPublicationMeta(item) {
+    const stateName = publicationStateOf(item);
+    switch (stateName) {
+      case "published":
+        return {
+          label: "Oeffentlich live",
+          detail: item && item.published_at ? `Live seit ${formatDateTime(item.published_at)}` : "Live geschaltet",
+        };
+      case "prepared":
+        return {
+          label: "Fuer Freigabe vorbereitet",
+          detail: "Wird erst ueber 'Freigeben' sichtbar",
+        };
+      case "archived":
+        return {
+          label: "Archiviert",
+          detail: "Nicht mehr oeffentlich sichtbar",
+        };
+      default:
+        return {
+          label: "Nur intern",
+          detail: "Nicht fuer die oeffentliche Uebersicht vorgesehen",
+        };
+    }
+  }
+
+  function updateEventPublicationHint(item) {
+    if (!ui.eventPublicationHint || !ui.eventForm) {
+      return;
+    }
+    const isPublicChecked = isChecked(ui.eventForm, "is_public");
+    if (item && item.is_published) {
+      ui.eventPublicationHint.textContent = item.published_at
+        ? `Dieses Event ist aktuell live und seit ${formatDateTime(item.published_at)} freigegeben. Mit "Verbergen" blendest du es aus, ohne die oeffentliche Vorbereitung zu verlieren.`
+        : "Dieses Event ist aktuell live. Mit 'Verbergen' blendest du es aus, ohne die oeffentliche Vorbereitung zu verlieren.";
+      return;
+    }
+    if (isPublicChecked) {
+      ui.eventPublicationHint.textContent = "Mit Haken ist das Event fuer die oeffentliche Uebersicht vorbereitet. Live geht es erst ueber den Button 'Freigeben'.";
+      return;
+    }
+    ui.eventPublicationHint.textContent = "Ohne Haken bleibt das Event intern und erscheint auch nach einer Freigabe nicht in der oeffentlichen Uebersicht.";
+  }
+
   function rowMessage(message, columnCount) {
     return `<tr><td colspan="${columnCount}">${escapeHTML(message)}</td></tr>`;
   }
@@ -2245,7 +2313,7 @@
             setFlash("Event fuer Sichtbarkeitswechsel nicht gefunden.", "error");
             return;
           }
-          const visibilityAction = item.is_public ? "unpublish" : "publish";
+          const visibilityAction = item.is_published ? "unpublish" : "publish";
           setButtonBusy(btn, true, "...");
           try {
             await apiRequest(`/api/v1/admin/events/${encodeURIComponent(eventID)}/${encodeURIComponent(visibilityAction)}`, {
@@ -2281,9 +2349,9 @@
   function dashboardVisibilityLabel(eventID) {
     const item = findEventByID(eventID);
     if (!item) {
-      return "Aktivieren";
+      return "Freigeben";
     }
-    return item.is_public ? "Deaktivieren" : "Aktivieren";
+    return item.is_published ? "Verbergen" : "Freigeben";
   }
 
   function dashboardVisibilityButtonClass(eventID) {
@@ -2291,7 +2359,7 @@
     if (!item) {
       return "light";
     }
-    return item.is_public ? "ok" : "light";
+    return item.is_published ? "ok" : "light";
   }
 
   function dashboardVisibilityDisabled(eventID) {
