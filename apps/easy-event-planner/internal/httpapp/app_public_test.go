@@ -466,6 +466,39 @@ func TestPublicTenantNotFound(t *testing.T) {
 	}
 }
 
+func TestPublicOverviewPageSupportsActiveTenantDomainBinding(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		Slug:     "custom-domain-event",
+		Title:    "Custom Domain Event",
+		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	if _, err := app.tenantRepo.CreateDomainBinding(context.Background(), tenant.CreateTenantDomainBindingParams{
+		TenantID: tenantItem.ID,
+		Domain:   "events.customer-domain.example",
+		Status:   tenant.DomainBindingStatusActive,
+	}); err != nil {
+		t.Fatalf("create tenant domain binding: %v", err)
+	}
+
+	overviewReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	overviewReq.Host = "events.customer-domain.example"
+	overviewRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(overviewRec, overviewReq)
+	if overviewRec.Code != http.StatusOK {
+		t.Fatalf("expected overview status 200, got %d", overviewRec.Code)
+	}
+	if body := overviewRec.Body.String(); !strings.Contains(body, "Custom Domain Event") {
+		t.Fatalf("expected overview body to contain event title, got %q", body)
+	}
+}
+
 func createPublishedEventForPublicTest(t *testing.T, app *App, tenantID string, params event.CreateEventParams) event.Event {
 	t.Helper()
 

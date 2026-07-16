@@ -121,6 +121,8 @@ func (a *App) routes() {
 
 	a.mux.HandleFunc("/api/v1/admin/dashboard", a.handleAdminDashboard)
 	a.mux.HandleFunc("/api/v1/admin/tenant", a.handleAdminTenantItem)
+	a.mux.HandleFunc("/api/v1/admin/tenant/domains", a.handleAdminTenantDomainsCollection)
+	a.mux.HandleFunc("/api/v1/admin/tenant/domains/", a.handleAdminTenantDomainsItem)
 	a.mux.HandleFunc("/api/v1/admin/tenant/settings", a.handleAdminTenantSettingsItem)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)

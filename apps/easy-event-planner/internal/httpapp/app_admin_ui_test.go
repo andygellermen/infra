@@ -140,6 +140,15 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "eventDetailBaseUrlHint") {
 		t.Fatalf("expected detail base url hint in admin shell")
 	}
+	if !strings.Contains(shellBody, "Externe Detailseiten-Basis-URL") {
+		t.Fatalf("expected clarified external detail base url label in admin shell")
+	}
+	if !strings.Contains(shellBody, "Public-Domains") {
+		t.Fatalf("expected public domains card in admin shell")
+	}
+	if !strings.Contains(shellBody, "tenantDomainForm") {
+		t.Fatalf("expected tenant domain form in admin shell")
+	}
 	if !strings.Contains(shellBody, ".../events/{event_slug}") {
 		t.Fatalf("expected detail base url route hint in admin shell")
 	}
@@ -168,6 +177,15 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "updateEventDetailBaseURLHint") {
 		t.Fatalf("expected detail base url preview support in admin js")
+	}
+	if !strings.Contains(jsBody, "Aktuelle externe Detailseiten-Vorschau") {
+		t.Fatalf("expected clarified external detail page preview copy in admin js")
+	}
+	if !strings.Contains(jsBody, "saveTenantDomain") {
+		t.Fatalf("expected tenant domain save support in admin js")
+	}
+	if !strings.Contains(jsBody, "findPrimaryTenantDomain") {
+		t.Fatalf("expected primary tenant domain helper in admin js")
 	}
 	if !strings.Contains(jsBody, "updateEventPublicationHint") {
 		t.Fatalf("expected publication hint support in admin js")

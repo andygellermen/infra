@@ -391,3 +391,26 @@ func TestSnippetAssetRoutesSupportTenantPublicBasePath(t *testing.T) {
 		t.Fatalf("expected snippet.css status 200, got %d", cssRec.Code)
 	}
 }
+
+func TestSnippetAssetRoutesSupportActiveTenantDomainBinding(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	if _, err := app.tenantRepo.CreateDomainBinding(context.Background(), tenant.CreateTenantDomainBindingParams{
+		TenantID: tenantID,
+		Domain:   "events.customer-domain.example",
+		Status:   tenant.DomainBindingStatusActive,
+	}); err != nil {
+		t.Fatalf("create tenant domain binding: %v", err)
+	}
+
+	includeReq := httptest.NewRequest(http.MethodGet, "/include.js?config=public-snippet", nil)
+	includeReq.Host = "events.customer-domain.example"
+	includeRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(includeRec, includeReq)
+	if includeRec.Code != http.StatusOK {
+		t.Fatalf("expected include.js status 200, got %d", includeRec.Code)
+	}
+	if !strings.Contains(includeRec.Body.String(), `const tenantSlug = "customerxyz";`) {
+		t.Fatalf("expected include.js payload to resolve tenant via custom domain")
+	}
+}

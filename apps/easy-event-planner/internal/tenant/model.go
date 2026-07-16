@@ -45,6 +45,45 @@ type TenantSettingsInput struct {
 	SettingsJSON         string
 }
 
+const (
+	DomainBindingStatusPendingDNS = "pending_dns"
+	DomainBindingStatusActive     = "active"
+	DomainBindingStatusDisabled   = "disabled"
+)
+
+type TenantDomainBinding struct {
+	ID        string
+	TenantID  string
+	Domain    string
+	BasePath  string
+	Status    string
+	IsPrimary bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type CreateTenantDomainBindingParams struct {
+	TenantID  string
+	Domain    string
+	BasePath  string
+	Status    string
+	IsPrimary bool
+}
+
+type UpdateTenantDomainBindingParams struct {
+	Domain    *string
+	BasePath  *string
+	Status    *string
+	IsPrimary *bool
+}
+
+type PublicRouteMatch struct {
+	Tenant   Tenant
+	BaseURL  string
+	BasePath string
+	Source   string
+}
+
 type CreateTenantParams struct {
 	ID              string
 	Slug            string

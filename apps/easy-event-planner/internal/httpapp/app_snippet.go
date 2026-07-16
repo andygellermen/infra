@@ -413,19 +413,23 @@ func repoNow(repo *event.Repository) time.Time {
 }
 
 func (a *App) handleTenantAssetRoutes(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		a.handleRoot(w, r)
-		return
-	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	if a.tenantRepo == nil {
+		if r.URL.Path == "/" {
+			a.handleRoot(w, r)
+			return
+		}
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	resolved, ok := a.resolveTenantPublicRoute(r)
+	if r.URL.Path == "/" && !ok {
+		a.handleRoot(w, r)
+		return
+	}
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -460,6 +464,9 @@ type resolvedTenantPublicRoute struct {
 func (a *App) resolveTenantPublicRoute(r *http.Request) (resolvedTenantPublicRoute, bool) {
 	requestPath := normalizePublicPath(r.URL.Path)
 	if requestPath == "/" {
+		if resolved, ok := a.resolveTenantPublicRouteByBaseURL(r, requestPath); ok {
+			return resolved, true
+		}
 		return resolvedTenantPublicRoute{}, false
 	}
 
@@ -473,15 +480,15 @@ func (a *App) resolveTenantPublicRoute(r *http.Request) (resolvedTenantPublicRou
 }
 
 func (a *App) resolveTenantPublicRouteByBaseURL(r *http.Request, requestPath string) (resolvedTenantPublicRoute, bool) {
-	tenantItem, err := a.tenantRepo.LookupByPublicBaseURL(r.Context(), buildPublicLookupURL(r, requestPath))
+	match, err := a.tenantRepo.LookupPublicRoute(r.Context(), buildPublicLookupURL(r, requestPath))
 	if err != nil {
 		return resolvedTenantPublicRoute{}, false
 	}
-	relativePath, ok := trimPublicBasePathPrefix(requestPath, publicBasePathFromURL(tenantItem.PublicBaseURL))
+	relativePath, ok := trimPublicBasePathPrefix(requestPath, match.BasePath)
 	if !ok {
 		return resolvedTenantPublicRoute{}, false
 	}
-	return classifyTenantPublicRelativePath(tenantItem, relativePath)
+	return classifyTenantPublicRelativePath(match.Tenant, relativePath)
 }
 
 func (a *App) resolveTenantPublicRouteLegacy(r *http.Request, requestPath string) (resolvedTenantPublicRoute, bool) {

@@ -175,3 +175,93 @@ func TestAdminTenantPatchRejectsConflictingPublicBaseURL(t *testing.T) {
 		t.Fatalf("expected TENANT_PUBLIC_BASE_URL_CONFLICT, got %v", errorPayload["code"])
 	}
 }
+
+func TestAdminTenantDomainBindingsLifecycle(t *testing.T) {
+	app, sender, _ := setupAuthApp(t)
+	sessionCookie := authenticateAdminSession(t, app, sender, "localhost:8080")
+
+	createBody, _ := json.Marshal(map[string]any{
+		"domain":     "events.customer-domain.example",
+		"base_path":  "/",
+		"status":     "pending_dns",
+		"is_primary": false,
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenant/domains", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	createPayload := decodeBody[map[string]any](t, createRec)
+	createdItem := createPayload["item"].(map[string]any)
+	if createdItem["domain"] != "events.customer-domain.example" {
+		t.Fatalf("expected created domain, got %v", createdItem["domain"])
+	}
+	bindingID := createdItem["id"].(string)
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/tenant/domains", nil)
+	listReq.AddCookie(sessionCookie)
+	listRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d", listRec.Code)
+	}
+	listPayload := decodeBody[map[string]any](t, listRec)
+	if listPayload["dns_target_host"] == "" {
+		t.Fatalf("expected dns_target_host in payload")
+	}
+
+	updateBody, _ := json.Marshal(map[string]any{
+		"status":     "active",
+		"is_primary": true,
+	})
+	updateReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/tenant/domains/"+bindingID, bytes.NewReader(updateBody))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.AddCookie(sessionCookie)
+	updateRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("expected update status 200, got %d", updateRec.Code)
+	}
+	updatePayload := decodeBody[map[string]any](t, updateRec)
+	updatedItem := updatePayload["item"].(map[string]any)
+	if updatedItem["is_primary"] != true {
+		t.Fatalf("expected binding to be primary, got %v", updatedItem["is_primary"])
+	}
+
+	getTenantReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/tenant", nil)
+	getTenantReq.AddCookie(sessionCookie)
+	getTenantRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(getTenantRec, getTenantReq)
+	if getTenantRec.Code != http.StatusOK {
+		t.Fatalf("expected tenant get status 200, got %d", getTenantRec.Code)
+	}
+	tenantPayload := decodeBody[map[string]any](t, getTenantRec)
+	tenantItem := tenantPayload["item"].(map[string]any)
+	if tenantItem["public_base_url"] != "https://events.customer-domain.example" {
+		t.Fatalf("expected synced public_base_url, got %v", tenantItem["public_base_url"])
+	}
+
+	lockedTenantBody, _ := json.Marshal(map[string]any{
+		"name":             "Customer XYZ Updated",
+		"public_base_url":  "https://another.example.com",
+		"default_timezone": "UTC",
+		"default_locale":   "en-GB",
+	})
+	lockedTenantReq := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/tenant", bytes.NewReader(lockedTenantBody))
+	lockedTenantReq.Header.Set("Content-Type", "application/json")
+	lockedTenantReq.AddCookie(sessionCookie)
+	lockedTenantRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(lockedTenantRec, lockedTenantReq)
+	if lockedTenantRec.Code != http.StatusConflict {
+		t.Fatalf("expected tenant patch status 409, got %d", lockedTenantRec.Code)
+	}
+	lockedPayload := decodeBody[map[string]any](t, lockedTenantRec)
+	lockedError := lockedPayload["error"].(map[string]any)
+	if lockedError["code"] != "TENANT_PUBLIC_BASE_URL_MANAGED_BY_DOMAIN_BINDING" {
+		t.Fatalf("expected TENANT_PUBLIC_BASE_URL_MANAGED_BY_DOMAIN_BINDING, got %v", lockedError["code"])
+	}
+}

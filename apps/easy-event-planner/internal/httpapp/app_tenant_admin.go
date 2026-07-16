@@ -272,6 +272,14 @@ func (a *App) writeTenantError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusNotFound, "TENANT_SETTINGS_NOT_FOUND", "Mandanten-Einstellungen nicht gefunden.")
 	case errors.Is(err, tenant.ErrTenantPublicBaseURLConflict):
 		writeAPIError(w, http.StatusConflict, "TENANT_PUBLIC_BASE_URL_CONFLICT", "Diese Public-Base-URL ist bereits einem anderen Mandanten zugeordnet.")
+	case errors.Is(err, tenant.ErrTenantDomainBindingNotFound):
+		writeAPIError(w, http.StatusNotFound, "TENANT_DOMAIN_BINDING_NOT_FOUND", "Domain-Binding nicht gefunden.")
+	case errors.Is(err, tenant.ErrTenantDomainBindingConflict):
+		writeAPIError(w, http.StatusConflict, "TENANT_DOMAIN_BINDING_CONFLICT", "Diese Domain oder dieser Pfad ist bereits einem anderen Public-Auftritt zugeordnet.")
+	case errors.Is(err, tenant.ErrTenantPrimaryDomainBindingLocked):
+		writeAPIError(w, http.StatusConflict, "TENANT_PRIMARY_DOMAIN_BINDING_LOCKED", "Die primaere Domain kann erst ersetzt oder deaktiviert werden, wenn eine andere primaere Domain gewaehlt wurde.")
+	case errors.Is(err, tenant.ErrTenantPublicBaseURLManagedByDomainBinding):
+		writeAPIError(w, http.StatusConflict, "TENANT_PUBLIC_BASE_URL_MANAGED_BY_DOMAIN_BINDING", "Die Public-Base-URL wird aktuell von der primaeren Domain-Bindung verwaltet.")
 	default:
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
 	}

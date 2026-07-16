@@ -3,6 +3,8 @@
     auth: null,
     tenantProfile: null,
     tenantSettings: null,
+    tenantDomains: [],
+    tenantDomainMeta: null,
     dashboard: null,
     events: [],
     series: [],
@@ -14,6 +16,7 @@
     editingEventId: "",
     editingSeriesId: "",
     editingSnippetId: "",
+    editingTenantDomainId: "",
   };
 
   const ui = {
@@ -81,10 +84,17 @@
     snippetPreviewFrame: document.querySelector("#snippetPreviewFrame"),
     settingsProfileForm: document.querySelector("#settingsProfileForm"),
     settingsProfileSubmitBtn: document.querySelector("#settingsProfileSubmitBtn"),
+    settingsProfileHint: document.querySelector("#settingsProfileHint"),
     settingsRulesForm: document.querySelector("#settingsRulesForm"),
     settingsRulesSubmitBtn: document.querySelector("#settingsRulesSubmitBtn"),
     settingsRulesHint: document.querySelector("#settingsRulesHint"),
     eventDetailBaseUrlHint: document.querySelector("#eventDetailBaseUrlHint"),
+    tenantDomainForm: document.querySelector("#tenantDomainForm"),
+    tenantDomainNewBtn: document.querySelector("#tenantDomainNewBtn"),
+    tenantDomainSubmitBtn: document.querySelector("#tenantDomainSubmitBtn"),
+    tenantDomainCancelEditBtn: document.querySelector("#tenantDomainCancelEditBtn"),
+    tenantDomainHint: document.querySelector("#tenantDomainHint"),
+    tenantDomainsList: document.querySelector("#tenantDomainsList"),
   };
 
   bindUI();
@@ -92,6 +102,7 @@
   resetEventForm();
   resetSeriesForm();
   resetSnippetForm();
+  resetTenantDomainForm();
   resetParticipantBookings();
   refreshSession();
 
@@ -200,6 +211,21 @@
         publicBaseField.addEventListener("input", updateEventDetailBaseURLHint);
       }
     }
+    if (ui.tenantDomainForm) {
+      ui.tenantDomainForm.addEventListener("submit", onTenantDomainSubmit);
+    }
+    if (ui.tenantDomainNewBtn) {
+      ui.tenantDomainNewBtn.addEventListener("click", () => {
+        resetTenantDomainForm();
+        setFlash("Neue Public-Domain vorbereitet.");
+      });
+    }
+    if (ui.tenantDomainCancelEditBtn) {
+      ui.tenantDomainCancelEditBtn.addEventListener("click", () => {
+        resetTenantDomainForm();
+        setFlash("Domain-Bearbeitung abgebrochen.");
+      });
+    }
     if (ui.settingsRulesForm) {
       ui.settingsRulesForm.addEventListener("submit", onTenantSettingsSubmit);
       const detailBaseField = ui.settingsRulesForm.querySelector("[name='event_detail_base_url']");
@@ -251,6 +277,9 @@
     state.auth = null;
     state.tenantProfile = null;
     state.tenantSettings = null;
+    state.tenantDomains = [];
+    state.tenantDomainMeta = null;
+    state.editingTenantDomainId = "";
     ui.loginPanel.hidden = false;
     ui.workspace.hidden = true;
     ui.logoutBtn.hidden = true;
@@ -336,12 +365,15 @@
 
   async function loadTenantSettings(notify) {
     try {
-      const [tenantPayload, settingsPayload] = await Promise.all([
+      const [tenantPayload, settingsPayload, domainsPayload] = await Promise.all([
         apiRequest("/api/v1/admin/tenant"),
         apiRequest("/api/v1/admin/tenant/settings"),
+        apiRequest("/api/v1/admin/tenant/domains"),
       ]);
       state.tenantProfile = tenantPayload && tenantPayload.item ? tenantPayload.item : null;
       state.tenantSettings = settingsPayload && settingsPayload.item ? settingsPayload.item : null;
+      state.tenantDomains = domainsPayload && Array.isArray(domainsPayload.items) ? domainsPayload.items : [];
+      state.tenantDomainMeta = domainsPayload || null;
       renderTenantSettings();
       if (notify) {
         setFlash("Settings aktualisiert.");
@@ -374,6 +406,8 @@
     setFieldValue(ui.settingsRulesForm, "allowed_embed_origins", (appSettings.allowed_embed_origins || []).join("\n"));
 
     updateEventDetailBaseURLHint();
+    updateTenantProfileHint();
+    renderTenantDomains();
     fillTimeSelectOptions();
     applySteppedDateTimeInputConfig();
     applyEventSlugMode();
@@ -461,6 +495,211 @@
       setFlash(`EEP-Regeln konnten nicht gespeichert werden: ${errorMessage(err)}`, "error");
     } finally {
       setButtonBusy(ui.settingsRulesSubmitBtn, false, "Settings speichern");
+    }
+  }
+
+  function updateTenantProfileHint() {
+    if (!ui.settingsProfileHint) {
+      return;
+    }
+    const publicBaseField = ui.settingsProfileForm ? ui.settingsProfileForm.querySelector("[name='public_base_url']") : null;
+    const primaryDomain = findPrimaryTenantDomain();
+    if (!primaryDomain) {
+      if (publicBaseField) {
+        publicBaseField.readOnly = false;
+        publicBaseField.title = "";
+      }
+      ui.settingsProfileHint.innerHTML = "Ohne primaere Domain-Bindung bleibt diese URL die kanonische EEP-Frontend-Adresse des Mandanten.";
+      return;
+    }
+
+    if (publicBaseField) {
+      publicBaseField.readOnly = true;
+      publicBaseField.title = "Diese URL wird von der primaeren Domain-Bindung verwaltet.";
+    }
+    ui.settingsProfileHint.innerHTML = `Die primaere Domain-Bindung <code>${escapeHTML(primaryDomain.public_base_url || "")}</code> verwaltet aktuell die kanonische Public Base URL.`;
+  }
+
+  function renderTenantDomains() {
+    if (!ui.tenantDomainsList) {
+      return;
+    }
+
+    const items = Array.isArray(state.tenantDomains) ? state.tenantDomains : [];
+    updateTenantDomainHint();
+
+    if (!items.length) {
+      ui.tenantDomainsList.innerHTML = `<div class="empty-stack">Noch keine eigene Public-Domain hinterlegt. Ohne primaere Domain-Bindung nutzt EEP weiter die Public Base URL des Mandanten.</div>`;
+      return;
+    }
+
+    ui.tenantDomainsList.innerHTML = items.map((item) => renderTenantDomainCard(item)).join("");
+    ui.tenantDomainsList.querySelectorAll("[data-domain-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const item = findTenantDomainByID(String(button.dataset.domainEdit || ""));
+        if (!item) {
+          setFlash("Domain-Binding konnte nicht geladen werden.", "error");
+          return;
+        }
+        populateTenantDomainForm(item);
+      });
+    });
+    ui.tenantDomainsList.querySelectorAll("[data-domain-primary]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = findTenantDomainByID(String(button.dataset.domainPrimary || ""));
+        if (!item) {
+          setFlash("Domain-Binding konnte nicht geladen werden.", "error");
+          return;
+        }
+        await saveTenantDomain(item.id, {
+          status: "active",
+          is_primary: true,
+        }, `Primaere Public-Domain wurde auf '${item.domain || "Domain"}' gesetzt.`);
+      });
+    });
+    ui.tenantDomainsList.querySelectorAll("[data-domain-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = findTenantDomainByID(String(button.dataset.domainDelete || ""));
+        if (!item) {
+          setFlash("Domain-Binding konnte nicht geladen werden.", "error");
+          return;
+        }
+        if (!window.confirm(`Soll die Domain '${item.domain || "Domain"}' wirklich entfernt werden?`)) {
+          return;
+        }
+        setButtonBusy(button, true, "Loesche...");
+        try {
+          await apiRequest(`/api/v1/admin/tenant/domains/${encodeURIComponent(item.id)}`, {
+            method: "DELETE",
+          });
+          if (state.editingTenantDomainId === item.id) {
+            resetTenantDomainForm();
+          }
+          await loadTenantSettings(false);
+          setFlash(`Domain '${item.domain || "Domain"}' wurde entfernt.`);
+        } catch (err) {
+          setFlash(`Domain konnte nicht entfernt werden: ${errorMessage(err)}`, "error");
+        } finally {
+          setButtonBusy(button, false);
+        }
+      });
+    });
+  }
+
+  function renderTenantDomainCard(item) {
+    const isActive = state.editingTenantDomainId && state.editingTenantDomainId === item.id;
+    const statusLabel = tenantDomainStatusLabel(item.status);
+    const dnsTarget = state.tenantDomainMeta && state.tenantDomainMeta.dns_target_host
+      ? String(state.tenantDomainMeta.dns_target_host)
+      : String(item.dns_target_host || "");
+    const pathLabel = String(item.base_path || "/").trim() || "/";
+    return `
+      <article class="event-card participant-booking-card ${isActive ? "is-active" : ""}">
+        <div class="event-card-meta-row">
+          <span class="status-pill" data-status="${escapeHTML(item.status || "")}">${escapeHTML(statusLabel)}</span>
+          ${item.is_primary ? '<span class="series-chip">Primaer</span>' : ""}
+        </div>
+        <div class="event-card-title">${escapeHTML(item.domain || "")}</div>
+        <div class="event-card-subline"><code>${escapeHTML(item.public_base_url || "")}</code></div>
+        <div class="meta-stack">Pfad-Basis: <code>${escapeHTML(pathLabel)}</code></div>
+        <div class="meta-stack">DNS: <code>${escapeHTML(item.domain || "")}</code> als CNAME auf <code>${escapeHTML(dnsTarget)}</code></div>
+        <div class="event-card-actions">
+          <button class="btn light tiny" type="button" data-domain-edit="${escapeHTML(item.id || "")}">Bearbeiten</button>
+          ${!item.is_primary && item.status === "active" ? `<button class="btn ghost tiny" type="button" data-domain-primary="${escapeHTML(item.id || "")}">Als primaer</button>` : ""}
+          ${!item.is_primary ? `<button class="btn warn tiny" type="button" data-domain-delete="${escapeHTML(item.id || "")}">Entfernen</button>` : ""}
+        </div>
+      </article>
+    `;
+  }
+
+  function updateTenantDomainHint() {
+    if (!ui.tenantDomainHint) {
+      return;
+    }
+    const targetHost = state.tenantDomainMeta && state.tenantDomainMeta.dns_target_host
+      ? String(state.tenantDomainMeta.dns_target_host)
+      : "events.example.com";
+    const primary = findPrimaryTenantDomain();
+    let message = `Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. DNS-Ziel aktuell: <code>${escapeHTML(targetHost)}</code>.`;
+    if (primary) {
+      message += ` Die primaere Domain <code>${escapeHTML(primary.public_base_url || "")}</code> setzt zugleich die kanonische Public Base URL.`;
+    } else {
+      message += " Nach DNS-Anpassung kann eine aktive Domain als primaere Frontend-Adresse gesetzt werden.";
+    }
+    ui.tenantDomainHint.innerHTML = message;
+  }
+
+  function populateTenantDomainForm(item) {
+    state.editingTenantDomainId = String(item && item.id ? item.id : "").trim();
+    setFieldValue(ui.tenantDomainForm, "domain", item && item.domain ? item.domain : "");
+    setFieldValue(ui.tenantDomainForm, "base_path", item && item.base_path ? item.base_path : "/");
+    setFieldValue(ui.tenantDomainForm, "status", item && item.status ? item.status : "pending_dns");
+    setCheckboxValue(ui.tenantDomainForm, "is_primary", !!(item && item.is_primary));
+    if (ui.tenantDomainSubmitBtn) {
+      ui.tenantDomainSubmitBtn.textContent = "Domain aktualisieren";
+      ui.tenantDomainSubmitBtn.dataset.idleLabel = "Domain aktualisieren";
+    }
+    if (ui.tenantDomainCancelEditBtn) {
+      ui.tenantDomainCancelEditBtn.hidden = false;
+    }
+    renderTenantDomains();
+  }
+
+  function resetTenantDomainForm() {
+    state.editingTenantDomainId = "";
+    setFieldValue(ui.tenantDomainForm, "domain", "");
+    setFieldValue(ui.tenantDomainForm, "base_path", "/");
+    setFieldValue(ui.tenantDomainForm, "status", "pending_dns");
+    setCheckboxValue(ui.tenantDomainForm, "is_primary", false);
+    if (ui.tenantDomainSubmitBtn) {
+      ui.tenantDomainSubmitBtn.textContent = "Domain speichern";
+      ui.tenantDomainSubmitBtn.dataset.idleLabel = "Domain speichern";
+    }
+    if (ui.tenantDomainCancelEditBtn) {
+      ui.tenantDomainCancelEditBtn.hidden = true;
+    }
+    renderTenantDomains();
+  }
+
+  async function onTenantDomainSubmit(event) {
+    event.preventDefault();
+    clearFlash();
+
+    const formData = new FormData(ui.tenantDomainForm);
+    const body = {
+      domain: String(formData.get("domain") || "").trim(),
+      base_path: normalizeTenantDomainBasePath(String(formData.get("base_path") || "").trim()),
+      status: String(formData.get("status") || "pending_dns").trim(),
+      is_primary: !!formData.get("is_primary"),
+    };
+
+    if (!body.domain) {
+      setFlash("Bitte einen Domain-Host eingeben.", "error");
+      return;
+    }
+    if (body.is_primary && body.status !== "active") {
+      setFlash("Primaere Domains muessen aktiv sein.", "error");
+      return;
+    }
+
+    await saveTenantDomain(state.editingTenantDomainId, body, state.editingTenantDomainId ? "Domain-Binding wurde aktualisiert." : "Neue Public-Domain wurde gespeichert.");
+  }
+
+  async function saveTenantDomain(domainID, body, successMessage) {
+    const isEditing = String(domainID || "").trim() !== "";
+    setButtonBusy(ui.tenantDomainSubmitBtn, true, isEditing ? "Aktualisiere..." : "Speichere...");
+    try {
+      await apiRequest(isEditing ? `/api/v1/admin/tenant/domains/${encodeURIComponent(domainID)}` : "/api/v1/admin/tenant/domains", {
+        method: isEditing ? "PATCH" : "POST",
+        body: JSON.stringify(body),
+      });
+      await loadTenantSettings(false);
+      resetTenantDomainForm();
+      setFlash(successMessage);
+    } catch (err) {
+      setFlash(`Domain konnte nicht gespeichert werden: ${errorMessage(err)}`, "error");
+    } finally {
+      setButtonBusy(ui.tenantDomainSubmitBtn, false, state.editingTenantDomainId ? "Domain aktualisieren" : "Domain speichern");
     }
   }
 
@@ -2652,6 +2891,38 @@
     }
   }
 
+  function findTenantDomainByID(domainID) {
+    const id = String(domainID || "").trim();
+    if (!id) {
+      return null;
+    }
+    return state.tenantDomains.find((item) => String(item.id || "").trim() === id) || null;
+  }
+
+  function findPrimaryTenantDomain() {
+    return (Array.isArray(state.tenantDomains) ? state.tenantDomains : []).find((item) => !!item.is_primary) || null;
+  }
+
+  function normalizeTenantDomainBasePath(value) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed || trimmed === "/") {
+      return "/";
+    }
+    return `/${trimmed.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+  }
+
+  function tenantDomainStatusLabel(status) {
+    switch (String(status || "").trim()) {
+      case "active":
+        return "Aktiv";
+      case "disabled":
+        return "Deaktiviert";
+      case "pending_dns":
+      default:
+        return "DNS vorbereiten";
+    }
+  }
+
   function bindDateTimeFieldValidation(fieldName, label, allowEmpty) {
     const dateField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_date']`) : null;
     const timeField = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}_time']`) : null;
@@ -2735,15 +3006,15 @@
     const sameAsPublicBase = normalizePreviewURL(detailBaseURL) !== "" && normalizePreviewURL(detailBaseURL) === normalizePreviewURL(publicBaseURL);
 
     if (!usesCustomBase) {
-      ui.eventDetailBaseUrlHint.innerHTML = `Leer lassen, wenn EEP die Standard-Detailseiten selbst ausliefern soll. Beispiel draussen: <code>${escapeHTML(defaultURL)}</code>`;
+      ui.eventDetailBaseUrlHint.innerHTML = `Nur setzen, wenn Snippets auf externe oder redaktionelle Detailseiten verlinken sollen. Leer lassen, wenn EEP die Standard-Detailseiten selbst ausliefern soll. Beispiel in EEP: <code>${escapeHTML(defaultURL)}</code>`;
       return;
     }
 
-    let message = `Aktuelle Detailseiten-Vorschau: <code>${escapeHTML(configuredURL || detailBaseURL)}</code>`;
+    let message = `Aktuelle externe Detailseiten-Vorschau: <code>${escapeHTML(configuredURL || detailBaseURL)}</code>`;
     if (sameAsPublicBase) {
-      message += ` Wenn dieselbe URL wie bei <code>public_base_url</code> gesetzt wird, entsteht bewusst kein automatisches <code>/events</code>. Fuer die bisherige EEP-Standardroute nutze besser <code>${escapeHTML(trimTrailingSlash(publicBaseURL) + "/events")}</code> oder lasse das Feld leer.`;
+      message += ` Dieses Feld ist fuer externe Detailseiten gedacht. Wenn dieselbe URL wie bei <code>public_base_url</code> gesetzt wird, entsteht bewusst kein automatisches <code>/events</code>. Fuer die bisherige EEP-Standardroute nutze besser <code>${escapeHTML(trimTrailingSlash(publicBaseURL) + "/events")}</code> oder lasse das Feld leer.`;
     } else {
-      message += ` Erlaubte Platzhalter sind <code>{event_slug}</code>, <code>{slug}</code>, <code>{tenant_slug}</code> und <code>{series_slug}</code>.`;
+      message += ` Erlaubte Platzhalter fuer externe Ziele sind <code>{event_slug}</code>, <code>{slug}</code>, <code>{tenant_slug}</code> und <code>{series_slug}</code>.`;
     }
     ui.eventDetailBaseUrlHint.innerHTML = message;
   }

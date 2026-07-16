@@ -475,36 +475,77 @@
 
         <section id="tab-settings" class="tabpane">
           <div class="split split-wide">
-            <div class="card">
-              <div class="card-head">
-                <div>
-                  <h2>Mandantenprofil</h2>
-                  <p class="muted compact">Domain, Anzeigename und Basis-Lokalisierung fuer den aktuellen EEP-Mandanten.</p>
+            <div class="stack-panel">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>Mandantenprofil</h2>
+                    <p class="muted compact">Kanonische Public-URL, Anzeigename und Basis-Lokalisierung fuer den aktuellen EEP-Mandanten.</p>
+                  </div>
                 </div>
+                <form id="settingsProfileForm" class="form-grid">
+                  <label>
+                    Slug
+                    <input name="slug" type="text" readonly>
+                  </label>
+                  <label>
+                    Anzeigename
+                    <input name="name" type="text" placeholder="Easy Event Planner" required>
+                  </label>
+                  <label class="span-2">
+                    Public Base URL
+                    <input name="public_base_url" type="url" placeholder="https://events.geller.men" required>
+                  </label>
+                  <p id="settingsProfileHint" class="muted compact span-2">Ohne primaere Domain-Bindung bleibt diese URL die kanonische EEP-Frontend-Adresse des Mandanten.</p>
+                  <label>
+                    Zeitzone
+                    <input name="default_timezone" type="text" placeholder="Europe/Berlin" required>
+                  </label>
+                  <label>
+                    Sprache/Locale
+                    <input name="default_locale" type="text" placeholder="de-DE" required>
+                  </label>
+                  <button id="settingsProfileSubmitBtn" class="btn primary" type="submit">Profil speichern</button>
+                </form>
               </div>
-              <form id="settingsProfileForm" class="form-grid">
-                <label>
-                  Slug
-                  <input name="slug" type="text" readonly>
-                </label>
-                <label>
-                  Anzeigename
-                  <input name="name" type="text" placeholder="Easy Event Planner" required>
-                </label>
-                <label class="span-2">
-                  Public Base URL
-                  <input name="public_base_url" type="url" placeholder="https://events.geller.men" required>
-                </label>
-                <label>
-                  Zeitzone
-                  <input name="default_timezone" type="text" placeholder="Europe/Berlin" required>
-                </label>
-                <label>
-                  Sprache/Locale
-                  <input name="default_locale" type="text" placeholder="de-DE" required>
-                </label>
-                <button id="settingsProfileSubmitBtn" class="btn primary" type="submit">Profil speichern</button>
-              </form>
+
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>Public-Domains</h2>
+                    <p class="muted compact">Eigene Kunden-Domains anbinden, DNS-Hinweise sehen und eine primaere Frontend-Domain auswaehlen.</p>
+                  </div>
+                  <button id="tenantDomainNewBtn" class="btn ghost" type="button">Neue Domain</button>
+                </div>
+                <form id="tenantDomainForm" class="form-grid">
+                  <label class="span-2">
+                    Domain / Host
+                    <input name="domain" type="text" placeholder="events.erweckedeinekraft.de" required>
+                  </label>
+                  <label>
+                    Pfad-Basis
+                    <input name="base_path" type="text" placeholder="/">
+                  </label>
+                  <label>
+                    Status
+                    <select name="status">
+                      <option value="pending_dns">DNS vorbereiten</option>
+                      <option value="active">Aktiv</option>
+                      <option value="disabled">Deaktiviert</option>
+                    </select>
+                  </label>
+                  <label class="checkline span-2">
+                    <input name="is_primary" type="checkbox">
+                    Als primaere Public-Domain verwenden und Public Base URL darauf setzen
+                  </label>
+                  <p id="tenantDomainHint" class="muted compact span-2">Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. Nach DNS-Anpassung kann die Domain aktiv geschaltet und als primaere Frontend-Adresse genutzt werden.</p>
+                  <div class="toolbar-actions span-2">
+                    <button id="tenantDomainSubmitBtn" class="btn primary" type="submit">Domain speichern</button>
+                    <button id="tenantDomainCancelEditBtn" class="btn light" type="button" hidden>Bearbeitung abbrechen</button>
+                  </div>
+                </form>
+                <div id="tenantDomainsList" class="stack-list"></div>
+              </div>
             </div>
 
             <div class="card">
@@ -543,10 +584,10 @@
                   </select>
                 </label>
                 <label class="span-2">
-                  Detailseiten-Basis-URL (optional)
+                  Externe Detailseiten-Basis-URL (optional)
                   <input name="event_detail_base_url" type="url" placeholder="https://www.geller.men/events">
                 </label>
-                <p id="eventDetailBaseUrlHint" class="muted compact span-2">Leer lassen, wenn EEP die Standard-Detailseiten unter <code>.../events/{event_slug}</code> selbst ausliefern soll.</p>
+                <p id="eventDetailBaseUrlHint" class="muted compact span-2">Nur setzen, wenn Snippets auf redaktionelle Detailseiten ausserhalb von EEP verlinken sollen. Leer lassen, wenn EEP die Standard-Detailseiten unter <code>.../events/{event_slug}</code> selbst ausliefern soll.</p>
                 <label>
                   Abmeldefrist in Stunden
                   <input name="participant_cancel_deadline_hours" type="number" min="0" step="1" placeholder="24">

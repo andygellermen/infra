@@ -444,6 +444,112 @@ func TestSeedTenantRejectsInvalidAdminEmail(t *testing.T) {
 	}
 }
 
+func TestPrimaryDomainBindingSyncsTenantPublicBaseURL(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "domain-demo",
+		Name:          "Domain Demo",
+		PublicBaseURL: "https://events.example.com/domain-demo",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	binding, err := repo.CreateDomainBinding(context.Background(), CreateTenantDomainBindingParams{
+		TenantID:  created.ID,
+		Domain:    "events.customer-domain.example",
+		BasePath:  "/",
+		Status:    DomainBindingStatusActive,
+		IsPrimary: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateDomainBinding returned error: %v", err)
+	}
+	if !binding.IsPrimary {
+		t.Fatalf("expected binding to be primary")
+	}
+
+	updatedTenant, err := repo.GetByID(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetByID returned error: %v", err)
+	}
+	if updatedTenant.PublicBaseURL != "https://events.customer-domain.example" {
+		t.Fatalf("expected synced public base url, got %q", updatedTenant.PublicBaseURL)
+	}
+
+	match, err := repo.LookupPublicRoute(context.Background(), "https://events.customer-domain.example/events/sommer-retreat")
+	if err != nil {
+		t.Fatalf("LookupPublicRoute returned error: %v", err)
+	}
+	if match.Tenant.ID != created.ID {
+		t.Fatalf("expected tenant id %q, got %q", created.ID, match.Tenant.ID)
+	}
+	if match.BasePath != "/" {
+		t.Fatalf("expected root base path, got %q", match.BasePath)
+	}
+}
+
+func TestUpdateTenantPublicBaseURLRejectedWhenPrimaryDomainBindingExists(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "domain-demo",
+		Name:          "Domain Demo",
+		PublicBaseURL: "https://events.example.com/domain-demo",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	if _, err := repo.CreateDomainBinding(context.Background(), CreateTenantDomainBindingParams{
+		TenantID:  created.ID,
+		Domain:    "events.customer-domain.example",
+		Status:    DomainBindingStatusActive,
+		IsPrimary: true,
+	}); err != nil {
+		t.Fatalf("CreateDomainBinding returned error: %v", err)
+	}
+
+	nextPublicBaseURL := "https://another.example.com"
+	_, err = repo.UpdateTenant(context.Background(), created.ID, UpdateTenantParams{
+		PublicBaseURL: &nextPublicBaseURL,
+	})
+	if !errors.Is(err, ErrTenantPublicBaseURLManagedByDomainBinding) {
+		t.Fatalf("expected ErrTenantPublicBaseURLManagedByDomainBinding, got %v", err)
+	}
+}
+
+func TestLookupByPublicBaseURLSupportsActiveDomainBindingPathPrefix(t *testing.T) {
+	repo := NewRepository(newMigratedDB(t))
+
+	created, err := repo.CreateTenant(context.Background(), CreateTenantParams{
+		Slug:          "domain-demo",
+		Name:          "Domain Demo",
+		PublicBaseURL: "https://events.example.com/domain-demo",
+	})
+	if err != nil {
+		t.Fatalf("CreateTenant returned error: %v", err)
+	}
+
+	if _, err := repo.CreateDomainBinding(context.Background(), CreateTenantDomainBindingParams{
+		TenantID: created.ID,
+		Domain:   "events.customer-domain.example",
+		BasePath: "/veranstaltungen",
+		Status:   DomainBindingStatusActive,
+	}); err != nil {
+		t.Fatalf("CreateDomainBinding returned error: %v", err)
+	}
+
+	lookup, err := repo.LookupByPublicBaseURL(context.Background(), "https://events.customer-domain.example/veranstaltungen/events/sommer-retreat")
+	if err != nil {
+		t.Fatalf("LookupByPublicBaseURL returned error: %v", err)
+	}
+	if lookup.ID != created.ID {
+		t.Fatalf("expected tenant id %q, got %q", created.ID, lookup.ID)
+	}
+}
+
 func TestLookupBySlugNotFound(t *testing.T) {
 	repo := NewRepository(newMigratedDB(t))
 

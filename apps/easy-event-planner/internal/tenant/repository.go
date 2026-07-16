@@ -15,11 +15,15 @@ import (
 )
 
 var (
-	ErrTenantNotFound              = errors.New("tenant not found")
-	ErrTenantSettingsNotFound      = errors.New("tenant settings not found")
-	ErrTenantHostAmbiguous         = errors.New("tenant host ambiguous")
-	ErrTenantPathAmbiguous         = errors.New("tenant public path ambiguous")
-	ErrTenantPublicBaseURLConflict = errors.New("tenant public base url conflicts with another tenant")
+	ErrTenantNotFound                            = errors.New("tenant not found")
+	ErrTenantSettingsNotFound                    = errors.New("tenant settings not found")
+	ErrTenantHostAmbiguous                       = errors.New("tenant host ambiguous")
+	ErrTenantPathAmbiguous                       = errors.New("tenant public path ambiguous")
+	ErrTenantPublicBaseURLConflict               = errors.New("tenant public base url conflicts with another tenant")
+	ErrTenantDomainBindingNotFound               = errors.New("tenant domain binding not found")
+	ErrTenantDomainBindingConflict               = errors.New("tenant domain binding conflicts with another public route")
+	ErrTenantPrimaryDomainBindingLocked          = errors.New("primary tenant domain binding must remain active until another primary domain is selected")
+	ErrTenantPublicBaseURLManagedByDomainBinding = errors.New("tenant public base url is managed by the primary domain binding")
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -185,6 +189,44 @@ func (r *Repository) LookupByPublicHost(ctx context.Context, host string) (Tenan
 
 	rows, err := r.db.QueryContext(
 		ctx,
+		`SELECT t.id, t.slug, t.name, t.public_base_url, t.default_timezone, t.default_locale, t.status, t.created_at, t.updated_at
+     FROM tenant_domain_bindings b
+     INNER JOIN tenants t ON t.id = b.tenant_id
+     WHERE b.status = ? AND b.domain_host = ?`,
+		DomainBindingStatusActive,
+		normalizedHost,
+	)
+	if err != nil {
+		return Tenant{}, fmt.Errorf("query tenants by active domain binding host: %w", err)
+	}
+	defer rows.Close()
+
+	bindingMatches := make([]Tenant, 0, 1)
+	seenTenantIDs := map[string]struct{}{}
+	for rows.Next() {
+		item, scanErr := scanTenant(rows)
+		if scanErr != nil {
+			return Tenant{}, fmt.Errorf("scan tenant by active domain binding host: %w", scanErr)
+		}
+		if _, ok := seenTenantIDs[item.ID]; ok {
+			continue
+		}
+		seenTenantIDs[item.ID] = struct{}{}
+		bindingMatches = append(bindingMatches, item)
+	}
+	if err := rows.Err(); err != nil {
+		return Tenant{}, fmt.Errorf("iterate tenants by active domain binding host: %w", err)
+	}
+	switch len(bindingMatches) {
+	case 1:
+		return bindingMatches[0], nil
+	case 0:
+	default:
+		return Tenant{}, ErrTenantHostAmbiguous
+	}
+
+	rows, err = r.db.QueryContext(
+		ctx,
 		`SELECT id, slug, name, public_base_url, default_timezone, default_locale, status, created_at, updated_at
      FROM tenants`,
 	)
@@ -223,61 +265,11 @@ func (r *Repository) LookupByPublicHost(ctx context.Context, host string) (Tenan
 }
 
 func (r *Repository) LookupByPublicBaseURL(ctx context.Context, rawURL string) (Tenant, error) {
-	lookup, err := normalizePublicBaseLookup(rawURL)
+	match, err := r.LookupPublicRoute(ctx, rawURL)
 	if err != nil {
 		return Tenant{}, err
 	}
-
-	rows, err := r.db.QueryContext(
-		ctx,
-		`SELECT id, slug, name, public_base_url, default_timezone, default_locale, status, created_at, updated_at
-     FROM tenants`,
-	)
-	if err != nil {
-		return Tenant{}, fmt.Errorf("query tenants by public base url: %w", err)
-	}
-	defer rows.Close()
-
-	matches := make([]Tenant, 0, 1)
-	bestPathLen := -1
-	for rows.Next() {
-		item, scanErr := scanTenant(rows)
-		if scanErr != nil {
-			return Tenant{}, fmt.Errorf("scan tenant by public base url: %w", scanErr)
-		}
-
-		candidate, candidateErr := normalizePublicBaseLookup(item.PublicBaseURL)
-		if candidateErr != nil {
-			continue
-		}
-		if candidate.host != lookup.host {
-			continue
-		}
-		if !publicBasePathMatches(candidate.path, lookup.path) {
-			continue
-		}
-		pathLen := len(candidate.path)
-		if pathLen > bestPathLen {
-			matches = []Tenant{item}
-			bestPathLen = pathLen
-			continue
-		}
-		if pathLen == bestPathLen {
-			matches = append(matches, item)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return Tenant{}, fmt.Errorf("iterate tenants by public base url: %w", err)
-	}
-
-	switch len(matches) {
-	case 0:
-		return Tenant{}, ErrTenantNotFound
-	case 1:
-		return matches[0], nil
-	default:
-		return Tenant{}, ErrTenantPathAmbiguous
-	}
+	return match.Tenant, nil
 }
 
 func (r *Repository) UpdateTenant(ctx context.Context, tenantID string, params UpdateTenantParams) (Tenant, error) {
@@ -299,6 +291,14 @@ func (r *Repository) UpdateTenant(ctx context.Context, tenantID string, params U
 		publicBaseURL, err = normalizePublicBaseURL(*params.PublicBaseURL)
 		if err != nil {
 			return Tenant{}, err
+		}
+		if primaryBinding, bindingErr := r.GetPrimaryDomainBinding(ctx, current.ID); bindingErr == nil {
+			managedPublicBaseURL := buildDomainBindingPublicBaseURL(primaryBinding.Domain, primaryBinding.BasePath)
+			if managedPublicBaseURL != publicBaseURL {
+				return Tenant{}, ErrTenantPublicBaseURLManagedByDomainBinding
+			}
+		} else if bindingErr != nil && !errors.Is(bindingErr, ErrTenantDomainBindingNotFound) {
+			return Tenant{}, bindingErr
 		}
 		if err := r.ensurePublicBaseURLAvailable(ctx, current.ID, publicBaseURL); err != nil {
 			return Tenant{}, err
@@ -634,41 +634,11 @@ func normalizeLookupHost(raw string) (string, error) {
 }
 
 func (r *Repository) ensurePublicBaseURLAvailable(ctx context.Context, ignoreTenantID, rawURL string) error {
-	lookup, err := normalizePublicBaseLookup(rawURL)
-	if err != nil {
-		return err
-	}
-
-	rows, err := r.db.QueryContext(
-		ctx,
-		`SELECT id, public_base_url
-     FROM tenants`,
-	)
-	if err != nil {
-		return fmt.Errorf("query tenant public base urls: %w", err)
-	}
-	defer rows.Close()
-
-	ignoreID := strings.TrimSpace(ignoreTenantID)
-	for rows.Next() {
-		var tenantID string
-		var publicBaseURL string
-		if err := rows.Scan(&tenantID, &publicBaseURL); err != nil {
-			return fmt.Errorf("scan tenant public base url: %w", err)
-		}
-		if ignoreID != "" && strings.TrimSpace(tenantID) == ignoreID {
-			continue
-		}
-		candidate, err := normalizePublicBaseLookup(publicBaseURL)
-		if err != nil {
-			continue
-		}
-		if candidate.host == lookup.host && candidate.path == lookup.path {
+	if err := r.ensurePublicRouteAvailable(ctx, ignoreTenantID, "", rawURL); err != nil {
+		if errors.Is(err, ErrTenantDomainBindingConflict) {
 			return ErrTenantPublicBaseURLConflict
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate tenant public base urls: %w", err)
+		return err
 	}
 	return nil
 }
