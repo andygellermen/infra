@@ -118,6 +118,12 @@
           updateEventPublicationHint(currentEditingEvent());
         });
       }
+      const registrationEnabledField = ui.eventForm.querySelector("input[name='registration_enabled']");
+      if (registrationEnabledField) {
+        registrationEnabledField.addEventListener("change", () => {
+          applyRegistrationActivationShortcut();
+        });
+      }
     }
     if (ui.eventRecurrenceMode) {
       ui.eventRecurrenceMode.addEventListener("change", syncRecurrenceFields);
@@ -1227,6 +1233,45 @@
     setFieldValue(ui.eventForm, "ends_at_time", "");
     applyEventSlugMode();
     updateEventPublicationHint(currentEditingEvent());
+  }
+
+  function applyRegistrationActivationShortcut() {
+    if (!ui.eventForm) {
+      return;
+    }
+    const registrationEnabledField = ui.eventForm.querySelector("input[name='registration_enabled']");
+    if (!registrationEnabledField || !registrationEnabledField.checked) {
+      return;
+    }
+    if (!confirmRegistrationActivationShortcut()) {
+      registrationEnabledField.checked = false;
+      return;
+    }
+    const nowValue = currentSteppedLocalDateTimeValue();
+    if (!nowValue) {
+      return;
+    }
+    setFieldValue(ui.eventForm, "public_visible_from", nowValue);
+    setFieldValue(ui.eventForm, "registration_opens_at", nowValue);
+    setFieldValue(ui.eventForm, "registration_closes_at", "");
+    updateEventPublicationHint(currentEditingEvent());
+  }
+
+  function confirmRegistrationActivationShortcut() {
+    const message = [
+      "Achtung: 'Anmeldung aktiv' setzt sofort neue Werte.",
+      "",
+      "Folgende Felder werden ueberschrieben:",
+      "- Oeffentlich sichtbar ab = jetzt",
+      "- Registrierung moeglich ab = jetzt",
+      "- Registrierung moeglich bis = leer",
+      "",
+      "Moechtest du fortfahren?"
+    ].join("\n");
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+      return window.confirm(message);
+    }
+    return true;
   }
 
   function syncRecurrenceFields() {
@@ -2540,6 +2585,21 @@
     const aligned = Math.round(totalMinutes / scheduleConfig.event_time_step_minutes) * scheduleConfig.event_time_step_minutes;
     const clamped = Math.max(0, Math.min((24 * 60) - scheduleConfig.event_time_step_minutes, aligned));
     return minutesToTimeString(clamped);
+  }
+
+  function currentSteppedLocalDateTimeValue() {
+    const now = new Date();
+    if (Number.isNaN(now.getTime())) {
+      return "";
+    }
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const time = normalizeSteppedTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+    if (!time) {
+      return "";
+    }
+    return `${year}-${month}-${day}T${time}`;
   }
 
   function readOptionalSteppedDateTime(formData, fieldName, label) {

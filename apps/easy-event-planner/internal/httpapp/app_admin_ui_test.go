@@ -178,4 +178,16 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(jsBody, "applySteppedDateTimeInputConfig") {
 		t.Fatalf("expected stepped datetime configuration in admin js")
 	}
+	if !strings.Contains(jsBody, "applyRegistrationActivationShortcut") {
+		t.Fatalf("expected registration activation shortcut in admin js")
+	}
+	if !strings.Contains(jsBody, "currentSteppedLocalDateTimeValue") {
+		t.Fatalf("expected stepped current datetime helper in admin js")
+	}
+	if !strings.Contains(jsBody, "confirmRegistrationActivationShortcut") {
+		t.Fatalf("expected registration activation confirmation in admin js")
+	}
+	if !strings.Contains(jsBody, "Moechtest du fortfahren?") {
+		t.Fatalf("expected confirmation copy in admin js")
+	}
 }
