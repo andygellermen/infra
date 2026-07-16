@@ -149,6 +149,9 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "Nach Freigabe in oeffentlicher Uebersicht anzeigen") {
 		t.Fatalf("expected clarified public visibility wording in admin shell")
 	}
+	if !strings.Contains(shellBody, "public_visible_from") || !strings.Contains(shellBody, "registration_opens_at") || !strings.Contains(shellBody, "registration_closes_at") {
+		t.Fatalf("expected publication and registration window fields in admin shell")
+	}
 
 	jsReq := httptest.NewRequest(http.MethodGet, "/admin-ui.js", nil)
 	jsRec := httptest.NewRecorder()
@@ -171,5 +174,8 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "getPublicationMeta") {
 		t.Fatalf("expected publication meta helper in admin js")
+	}
+	if !strings.Contains(jsBody, "applySteppedDateTimeInputConfig") {
+		t.Fatalf("expected stepped datetime configuration in admin js")
 	}
 }

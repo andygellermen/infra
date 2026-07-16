@@ -369,6 +369,7 @@
 
     updateEventDetailBaseURLHint();
     fillTimeSelectOptions();
+    applySteppedDateTimeInputConfig();
     applyEventSlugMode();
     validateEventScheduleFields();
   }
@@ -973,6 +974,13 @@
       maxParticipants = parsed;
     }
 
+    const publicVisibleFrom = readOptionalSteppedDateTime(formData, "public_visible_from", "Oeffentlich sichtbar ab");
+    const registrationOpensAt = readOptionalSteppedDateTime(formData, "registration_opens_at", "Registrierung moeglich ab");
+    const registrationClosesAt = readOptionalSteppedDateTime(formData, "registration_closes_at", "Registrierung moeglich bis");
+    if (registrationOpensAt && registrationClosesAt && new Date(registrationClosesAt).getTime() < new Date(registrationOpensAt).getTime()) {
+      throw new Error("Registrierung moeglich bis muss nach Registrierung moeglich ab liegen.");
+    }
+
     const body = {
       series_id: String(formData.get("series_id") || "").trim(),
       slug,
@@ -987,6 +995,9 @@
       online_url: String(formData.get("online_url") || "").trim(),
       participation_mode: String(formData.get("participation_mode") || "onsite").trim() || "onsite",
       is_public: isChecked(ui.eventForm, "is_public"),
+      public_visible_from: publicVisibleFrom,
+      registration_opens_at: registrationOpensAt,
+      registration_closes_at: registrationClosesAt,
       registration_enabled: isChecked(ui.eventForm, "registration_enabled"),
       waitlist_enabled: isChecked(ui.eventForm, "waitlist_enabled"),
       max_participants: maxParticipants,
@@ -1135,6 +1146,9 @@
     setFieldValue(ui.eventForm, "participation_mode", item.participation_mode || "onsite");
     setFieldValue(ui.eventForm, "max_participants", item.max_participants === null || item.max_participants === undefined ? "" : item.max_participants);
     setFieldValue(ui.eventForm, "change_note", item.change_note || "");
+    setFieldValue(ui.eventForm, "public_visible_from", toLocalDateTimeInputValue(item.public_visible_from));
+    setFieldValue(ui.eventForm, "registration_opens_at", toLocalDateTimeInputValue(item.registration_opens_at));
+    setFieldValue(ui.eventForm, "registration_closes_at", toLocalDateTimeInputValue(item.registration_closes_at));
     setCheckboxValue(ui.eventForm, "is_public", item.is_public === true);
     setCheckboxValue(ui.eventForm, "registration_enabled", item.registration_enabled !== false);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", item.waitlist_enabled !== false);
@@ -1205,6 +1219,9 @@
     setCheckboxValue(ui.eventForm, "is_public", true);
     setCheckboxValue(ui.eventForm, "registration_enabled", true);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", true);
+    setFieldValue(ui.eventForm, "public_visible_from", "");
+    setFieldValue(ui.eventForm, "registration_opens_at", "");
+    setFieldValue(ui.eventForm, "registration_closes_at", "");
     setFieldValue(ui.eventForm, "change_note", "");
     setFieldValue(ui.eventForm, "starts_at_time", getDefaultStartTime());
     setFieldValue(ui.eventForm, "ends_at_time", "");
@@ -1925,6 +1942,11 @@
   function getPublicationMeta(item) {
     const stateName = publicationStateOf(item);
     switch (stateName) {
+      case "scheduled_publication":
+        return {
+          label: "Freigegeben ab",
+          detail: item && item.public_visible_from ? formatDateTime(item.public_visible_from) : "Noch nicht sichtbar",
+        };
       case "published":
         return {
           label: "Oeffentlich live",
@@ -1953,6 +1975,12 @@
       return;
     }
     const isPublicChecked = isChecked(ui.eventForm, "is_public");
+    if (item && item.publication_state === "scheduled_publication") {
+      ui.eventPublicationHint.textContent = item.public_visible_from
+        ? `Dieses Event ist bereits freigegeben und wird ab ${formatDateTime(item.public_visible_from)} automatisch sichtbar. Mit "Verbergen" stoppst du die geplante Freigabe.`
+        : "Dieses Event ist bereits freigegeben und wird automatisch sichtbar, sobald der Sichtbarkeitszeitpunkt erreicht ist.";
+      return;
+    }
     if (item && item.is_published) {
       ui.eventPublicationHint.textContent = item.published_at
         ? `Dieses Event ist aktuell live und seit ${formatDateTime(item.published_at)} freigegeben. Mit "Verbergen" blendest du es aus, ohne die oeffentliche Vorbereitung zu verlieren.`
@@ -2462,6 +2490,7 @@
     const endField = ui.eventForm ? ui.eventForm.querySelector("[name='ends_at_time']") : null;
     fillTimeSelect("starts_at_time", startField ? startField.value : getDefaultStartTime());
     fillTimeSelect("ends_at_time", endField ? endField.value : "", true);
+    applySteppedDateTimeInputConfig();
   }
 
   function fillTimeSelect(fieldName, selectedValue, allowEmpty) {
@@ -2498,6 +2527,48 @@
     const clamped = Math.max(startMinutes, Math.min(endMinutes, rawMinutes));
     const aligned = startMinutes + (Math.round((clamped - startMinutes) / scheduleConfig.event_time_step_minutes) * scheduleConfig.event_time_step_minutes);
     return minutesToTimeString(Math.max(startMinutes, Math.min(endMinutes, aligned)));
+  }
+
+  function normalizeSteppedTime(value) {
+    const scheduleConfig = getScheduleConfig();
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{2}):(\d{2})/);
+    if (!match) {
+      return "";
+    }
+    const totalMinutes = (Number(match[1]) * 60) + Number(match[2]);
+    const aligned = Math.round(totalMinutes / scheduleConfig.event_time_step_minutes) * scheduleConfig.event_time_step_minutes;
+    const clamped = Math.max(0, Math.min((24 * 60) - scheduleConfig.event_time_step_minutes, aligned));
+    return minutesToTimeString(clamped);
+  }
+
+  function readOptionalSteppedDateTime(formData, fieldName, label) {
+    const raw = String(formData.get(fieldName) || "").trim();
+    if (!raw) {
+      return "";
+    }
+    const normalized = raw.includes("T")
+      ? `${raw.split("T")[0]}T${normalizeSteppedTime(raw.split("T")[1] || "")}`
+      : raw;
+    const iso = toISO(normalized);
+    if (!iso) {
+      throw new Error(`${label} ist ungueltig.`);
+    }
+    return iso;
+  }
+
+  function applySteppedDateTimeInputConfig() {
+    if (!ui.eventForm) {
+      return;
+    }
+    const scheduleConfig = getScheduleConfig();
+    const stepSeconds = scheduleConfig.event_time_step_minutes * 60;
+    ["public_visible_from", "registration_opens_at", "registration_closes_at"].forEach((fieldName) => {
+      const field = ui.eventForm.querySelector(`[name='${fieldName}']`);
+      if (field) {
+        field.step = String(stepSeconds);
+      }
+    });
   }
 
   function setFieldValue(form, fieldName, value) {

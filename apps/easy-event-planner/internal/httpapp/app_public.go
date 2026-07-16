@@ -699,6 +699,7 @@ func normalizeOrigin(raw string) (string, bool) {
 }
 
 func publicEventPayload(item event.PublicEvent) map[string]any {
+	now := time.Now().UTC()
 	var endsAt any
 	if item.EndsAt != nil {
 		endsAt = item.EndsAt.UTC().Format(time.RFC3339)
@@ -706,6 +707,18 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 	var publishedAt any
 	if item.PublishedAt != nil {
 		publishedAt = item.PublishedAt.UTC().Format(time.RFC3339)
+	}
+	var publicVisibleFrom any
+	if item.PublicVisibleFrom != nil {
+		publicVisibleFrom = item.PublicVisibleFrom.UTC().Format(time.RFC3339)
+	}
+	var registrationOpensAt any
+	if item.RegistrationOpensAt != nil {
+		registrationOpensAt = item.RegistrationOpensAt.UTC().Format(time.RFC3339)
+	}
+	var registrationClosesAt any
+	if item.RegistrationClosesAt != nil {
+		registrationClosesAt = item.RegistrationClosesAt.UTC().Format(time.RFC3339)
 	}
 	var maxParticipants any
 	if item.MaxParticipants != nil {
@@ -721,28 +734,34 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 	}
 
 	return map[string]any{
-		"id":                   item.ID,
-		"series":               series,
-		"slug":                 item.Slug,
-		"title":                item.Title,
-		"subtitle":             item.Subtitle,
-		"description":          item.Description,
-		"starts_at":            item.StartsAt.UTC().Format(time.RFC3339),
-		"ends_at":              endsAt,
-		"timezone":             item.Timezone,
-		"location_name":        item.LocationName,
-		"address":              item.Address,
-		"online_url":           item.OnlineURL,
-		"participation_mode":   item.ParticipationMode,
-		"status":               item.Status,
-		"is_public":            item.IsPublic,
-		"is_published":         item.IsPublished(),
-		"publication_state":    item.PublicationState(),
-		"published_at":         publishedAt,
-		"registration_enabled": item.RegistrationEnabled,
-		"waitlist_enabled":     item.WaitlistEnabled,
-		"max_participants":     maxParticipants,
-		"change_note":          item.ChangeNote,
-		"cancelled_reason":     item.CancelledReason,
+		"id":                      item.ID,
+		"series":                  series,
+		"slug":                    item.Slug,
+		"title":                   item.Title,
+		"subtitle":                item.Subtitle,
+		"description":             item.Description,
+		"starts_at":               item.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":                 endsAt,
+		"timezone":                item.Timezone,
+		"location_name":           item.LocationName,
+		"address":                 item.Address,
+		"online_url":              item.OnlineURL,
+		"participation_mode":      item.ParticipationMode,
+		"status":                  item.Status,
+		"is_public":               item.IsPublic,
+		"is_published":            item.IsPublished(),
+		"is_visible_now":          item.IsVisibleAt(now),
+		"publication_state":       item.PublicationState(),
+		"published_at":            publishedAt,
+		"public_visible_from":     publicVisibleFrom,
+		"registration_enabled":    item.IsRegistrationOpenAt(now),
+		"registration_configured": item.RegistrationEnabled,
+		"registration_opens_at":   registrationOpensAt,
+		"registration_closes_at":  registrationClosesAt,
+		"is_registration_open":    item.IsRegistrationOpenAt(now),
+		"waitlist_enabled":        item.WaitlistEnabled,
+		"max_participants":        maxParticipants,
+		"change_note":             item.ChangeNote,
+		"cancelled_reason":        item.CancelledReason,
 	}
 }

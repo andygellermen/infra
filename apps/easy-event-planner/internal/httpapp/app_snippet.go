@@ -821,6 +821,12 @@ func buildSnippetIncludeJS(tenantSlug string) string {
     if (displayOptions && displayOptions.register && item && item.registration_enabled !== false) {
       return "Platz sichern";
     }
+    if (item && item.registration_opens_at) {
+      const opensAt = new Date(item.registration_opens_at);
+      if (!Number.isNaN(opensAt.getTime()) && opensAt.getTime() > Date.now()) {
+        return "Anmeldung ab " + formatDate(item.registration_opens_at);
+      }
+    }
     return "Mehr erfahren";
   }
 
@@ -1005,7 +1011,7 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
     const intro = tenant && tenant.name ? "<div class=\"eep-intro-subtitle\">" + escapeHTML(tenant.name) + "</div>" : "";
     const modeField = renderParticipationField(eventItem);
     const disabledNote = disabled
-      ? "<div class=\"eep-empty\">Die Anmeldung ist fuer dieses Event aktuell nicht aktiv.</div>"
+      ? "<div class=\"eep-empty\">" + escapeHTML(registrationClosedMessage(eventItem)) + "</div>"
       : "";
     const form = disabled ? "" : "<form class=\"eep-registration-form\" novalidate>" +
       "<input type=\"hidden\" name=\"event_id\" value=\"" + escapeAttr(eventItem.id) + "\">" +
@@ -1165,6 +1171,25 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
       return normalized;
     }
     return normalized.slice(0, Math.max(0, limit - 1)).trim() + "…";
+  }
+
+  function registrationClosedMessage(eventItem) {
+    if (!eventItem || eventItem.registration_configured === false) {
+      return "Die Anmeldung ist fuer dieses Event aktuell nicht aktiv.";
+    }
+    if (eventItem.registration_opens_at) {
+      const opensAt = new Date(eventItem.registration_opens_at);
+      if (!Number.isNaN(opensAt.getTime()) && opensAt.getTime() > Date.now()) {
+        return "Die Anmeldung startet am " + formatDate(eventItem.registration_opens_at) + ".";
+      }
+    }
+    if (eventItem.registration_closes_at) {
+      const closesAt = new Date(eventItem.registration_closes_at);
+      if (!Number.isNaN(closesAt.getTime()) && closesAt.getTime() < Date.now()) {
+        return "Die Anmeldung ist seit " + formatDate(eventItem.registration_closes_at) + " geschlossen.";
+      }
+    }
+    return "Die Anmeldung ist fuer dieses Event aktuell nicht aktiv.";
   }
 
   function escapeHTML(value) {
@@ -1743,9 +1768,22 @@ func applySnippetOptionsFromValues(values url.Values, filter *event.PublicEventF
 }
 
 func snippetPublicEventPayload(tenantItem tenant.Tenant, eventDetailBaseURL string, item event.PublicEvent) map[string]any {
+	now := time.Now().UTC()
 	var endsAt any
 	if item.EndsAt != nil {
 		endsAt = item.EndsAt.UTC().Format(time.RFC3339)
+	}
+	var publicVisibleFrom any
+	if item.PublicVisibleFrom != nil {
+		publicVisibleFrom = item.PublicVisibleFrom.UTC().Format(time.RFC3339)
+	}
+	var registrationOpensAt any
+	if item.RegistrationOpensAt != nil {
+		registrationOpensAt = item.RegistrationOpensAt.UTC().Format(time.RFC3339)
+	}
+	var registrationClosesAt any
+	if item.RegistrationClosesAt != nil {
+		registrationClosesAt = item.RegistrationClosesAt.UTC().Format(time.RFC3339)
 	}
 	var series any
 	if strings.TrimSpace(item.SeriesSlug) != "" {
@@ -1757,22 +1795,27 @@ func snippetPublicEventPayload(tenantItem tenant.Tenant, eventDetailBaseURL stri
 	}
 
 	return map[string]any{
-		"id":                   item.ID,
-		"slug":                 item.Slug,
-		"title":                item.Title,
-		"subtitle":             item.Subtitle,
-		"description":          item.Description,
-		"starts_at":            item.StartsAt.UTC().Format(time.RFC3339),
-		"ends_at":              endsAt,
-		"timezone":             item.Timezone,
-		"location_name":        item.LocationName,
-		"address":              item.Address,
-		"online_url":           item.OnlineURL,
-		"participation_mode":   item.ParticipationMode,
-		"status":               item.Status,
-		"series":               series,
-		"event_url":            buildPublicEventURL(tenantItem.PublicBaseURL, eventDetailBaseURL, tenantItem.Slug, item.SeriesSlug, item.Slug),
-		"registration_enabled": item.RegistrationEnabled,
+		"id":                      item.ID,
+		"slug":                    item.Slug,
+		"title":                   item.Title,
+		"subtitle":                item.Subtitle,
+		"description":             item.Description,
+		"starts_at":               item.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":                 endsAt,
+		"timezone":                item.Timezone,
+		"location_name":           item.LocationName,
+		"address":                 item.Address,
+		"online_url":              item.OnlineURL,
+		"participation_mode":      item.ParticipationMode,
+		"status":                  item.Status,
+		"series":                  series,
+		"event_url":               buildPublicEventURL(tenantItem.PublicBaseURL, eventDetailBaseURL, tenantItem.Slug, item.SeriesSlug, item.Slug),
+		"public_visible_from":     publicVisibleFrom,
+		"registration_enabled":    item.IsRegistrationOpenAt(now),
+		"registration_configured": item.RegistrationEnabled,
+		"registration_opens_at":   registrationOpensAt,
+		"registration_closes_at":  registrationClosesAt,
+		"is_registration_open":    item.IsRegistrationOpenAt(now),
 	}
 }
 

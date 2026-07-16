@@ -250,6 +250,59 @@ func TestPreparedEventStaysHiddenUntilPublished(t *testing.T) {
 	}
 }
 
+func TestPublishedEventRespectsFutureVisibilityAndRegistrationWindows(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)
+	if err != nil {
+		t.Fatalf("lookup tenant by slug: %v", err)
+	}
+
+	now := time.Now().UTC()
+	futureVisible := now.Add(24 * time.Hour).Format(time.RFC3339)
+	createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		Slug:              "future-visible",
+		Title:             "Future Visible",
+		StartsAt:          now.Add(72 * time.Hour).Format(time.RFC3339),
+		PublicVisibleFrom: futureVisible,
+	})
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/events", nil)
+	listRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d", listRec.Code)
+	}
+	listPayload := decodeBody[map[string]any](t, listRec)
+	if listPayload["total"] != float64(0) {
+		t.Fatalf("expected future-visible event to stay hidden, got total=%v", listPayload["total"])
+	}
+
+	visibleEvent := createPublishedEventForPublicTest(t, app, tenantItem.ID, event.CreateEventParams{
+		Slug:                 "registration-window",
+		Title:                "Registration Window",
+		StartsAt:             now.Add(96 * time.Hour).Format(time.RFC3339),
+		RegistrationOpensAt:  now.Add(36 * time.Hour).Format(time.RFC3339),
+		RegistrationClosesAt: now.Add(84 * time.Hour).Format(time.RFC3339),
+	})
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/events/"+visibleEvent.Slug, nil)
+	detailRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("expected detail status 200, got %d", detailRec.Code)
+	}
+	item := decodeBody[map[string]any](t, detailRec)["item"].(map[string]any)
+	if item["registration_enabled"] != false {
+		t.Fatalf("expected registration_enabled=false before registration_opens_at, got %v", item["registration_enabled"])
+	}
+	if item["registration_configured"] != true {
+		t.Fatalf("expected registration_configured=true, got %v", item["registration_configured"])
+	}
+	if item["registration_opens_at"] == nil {
+		t.Fatalf("expected registration_opens_at in public payload")
+	}
+}
+
 func TestPublicOverviewPageSupportsTenantPublicBasePathAndFilters(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantItem, err := app.tenantRepo.LookupBySlug(context.Background(), tenantSlug)

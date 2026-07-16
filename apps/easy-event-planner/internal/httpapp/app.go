@@ -715,22 +715,25 @@ func (a *App) handleAdminEventsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request struct {
-		SeriesID            string `json:"series_id"`
-		Slug                string `json:"slug"`
-		Title               string `json:"title"`
-		Subtitle            string `json:"subtitle"`
-		Description         string `json:"description"`
-		StartsAt            string `json:"starts_at"`
-		EndsAt              string `json:"ends_at"`
-		Timezone            string `json:"timezone"`
-		LocationName        string `json:"location_name"`
-		Address             string `json:"address"`
-		OnlineURL           string `json:"online_url"`
-		ParticipationMode   string `json:"participation_mode"`
-		IsPublic            *bool  `json:"is_public"`
-		RegistrationEnabled *bool  `json:"registration_enabled"`
-		WaitlistEnabled     *bool  `json:"waitlist_enabled"`
-		MaxParticipants     *int   `json:"max_participants"`
+		SeriesID             string `json:"series_id"`
+		Slug                 string `json:"slug"`
+		Title                string `json:"title"`
+		Subtitle             string `json:"subtitle"`
+		Description          string `json:"description"`
+		StartsAt             string `json:"starts_at"`
+		EndsAt               string `json:"ends_at"`
+		Timezone             string `json:"timezone"`
+		LocationName         string `json:"location_name"`
+		Address              string `json:"address"`
+		OnlineURL            string `json:"online_url"`
+		ParticipationMode    string `json:"participation_mode"`
+		IsPublic             *bool  `json:"is_public"`
+		PublicVisibleFrom    string `json:"public_visible_from"`
+		RegistrationOpensAt  string `json:"registration_opens_at"`
+		RegistrationClosesAt string `json:"registration_closes_at"`
+		RegistrationEnabled  *bool  `json:"registration_enabled"`
+		WaitlistEnabled      *bool  `json:"waitlist_enabled"`
+		MaxParticipants      *int   `json:"max_participants"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -738,22 +741,25 @@ func (a *App) handleAdminEventsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	created, err := a.eventRepo.CreateEvent(r.Context(), principal.TenantID, event.CreateEventParams{
-		SeriesID:            request.SeriesID,
-		Slug:                request.Slug,
-		Title:               request.Title,
-		Subtitle:            request.Subtitle,
-		Description:         request.Description,
-		StartsAt:            request.StartsAt,
-		EndsAt:              request.EndsAt,
-		Timezone:            request.Timezone,
-		LocationName:        request.LocationName,
-		Address:             request.Address,
-		OnlineURL:           request.OnlineURL,
-		ParticipationMode:   request.ParticipationMode,
-		IsPublic:            request.IsPublic,
-		RegistrationEnabled: request.RegistrationEnabled,
-		WaitlistEnabled:     request.WaitlistEnabled,
-		MaxParticipants:     request.MaxParticipants,
+		SeriesID:             request.SeriesID,
+		Slug:                 request.Slug,
+		Title:                request.Title,
+		Subtitle:             request.Subtitle,
+		Description:          request.Description,
+		StartsAt:             request.StartsAt,
+		EndsAt:               request.EndsAt,
+		Timezone:             request.Timezone,
+		LocationName:         request.LocationName,
+		Address:              request.Address,
+		OnlineURL:            request.OnlineURL,
+		ParticipationMode:    request.ParticipationMode,
+		IsPublic:             request.IsPublic,
+		PublicVisibleFrom:    request.PublicVisibleFrom,
+		RegistrationOpensAt:  request.RegistrationOpensAt,
+		RegistrationClosesAt: request.RegistrationClosesAt,
+		RegistrationEnabled:  request.RegistrationEnabled,
+		WaitlistEnabled:      request.WaitlistEnabled,
+		MaxParticipants:      request.MaxParticipants,
 	})
 	if err != nil {
 		a.writeEventError(w, err)
@@ -802,6 +808,9 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 		OnlineURL            *string `json:"online_url"`
 		ParticipationMode    *string `json:"participation_mode"`
 		IsPublic             *bool   `json:"is_public"`
+		PublicVisibleFrom    *string `json:"public_visible_from"`
+		RegistrationOpensAt  *string `json:"registration_opens_at"`
+		RegistrationClosesAt *string `json:"registration_closes_at"`
 		RegistrationEnabled  *bool   `json:"registration_enabled"`
 		WaitlistEnabled      *bool   `json:"waitlist_enabled"`
 		MaxParticipants      *int    `json:"max_participants"`
@@ -828,6 +837,9 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 		OnlineURL:            request.OnlineURL,
 		ParticipationMode:    request.ParticipationMode,
 		IsPublic:             request.IsPublic,
+		PublicVisibleFrom:    request.PublicVisibleFrom,
+		RegistrationOpensAt:  request.RegistrationOpensAt,
+		RegistrationClosesAt: request.RegistrationClosesAt,
 		RegistrationEnabled:  request.RegistrationEnabled,
 		WaitlistEnabled:      request.WaitlistEnabled,
 		MaxParticipants:      request.MaxParticipants,
@@ -1110,6 +1122,18 @@ func eventPayload(item event.Event) map[string]any {
 	if item.PublishedAt != nil {
 		publishedAt = item.PublishedAt.UTC().Format(time.RFC3339)
 	}
+	var publicVisibleFrom any
+	if item.PublicVisibleFrom != nil {
+		publicVisibleFrom = item.PublicVisibleFrom.UTC().Format(time.RFC3339)
+	}
+	var registrationOpensAt any
+	if item.RegistrationOpensAt != nil {
+		registrationOpensAt = item.RegistrationOpensAt.UTC().Format(time.RFC3339)
+	}
+	var registrationClosesAt any
+	if item.RegistrationClosesAt != nil {
+		registrationClosesAt = item.RegistrationClosesAt.UTC().Format(time.RFC3339)
+	}
 	var seriesID any
 	if strings.TrimSpace(item.SeriesID) != "" {
 		seriesID = item.SeriesID
@@ -1137,9 +1161,14 @@ func eventPayload(item event.Event) map[string]any {
 		"status":                 item.Status,
 		"is_public":              item.IsPublic,
 		"is_published":           item.IsPublished(),
+		"is_visible_now":         item.IsVisible(),
 		"publication_state":      item.PublicationState(),
 		"published_at":           publishedAt,
+		"public_visible_from":    publicVisibleFrom,
+		"registration_opens_at":  registrationOpensAt,
+		"registration_closes_at": registrationClosesAt,
 		"registration_enabled":   item.RegistrationEnabled,
+		"is_registration_open":   item.IsRegistrationOpen(),
 		"waitlist_enabled":       item.WaitlistEnabled,
 		"max_participants":       maxParticipants,
 		"confirmed_participants": item.ConfirmedParticipants,

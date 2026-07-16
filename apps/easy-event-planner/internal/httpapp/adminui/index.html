@@ -199,6 +199,19 @@
 
                 <label class="checkline"><input name="is_public" type="checkbox" checked> Nach Freigabe in oeffentlicher Uebersicht anzeigen</label>
                 <p id="eventPublicationHint" class="muted compact">Mit Haken ist das Event fuer die oeffentliche Uebersicht vorbereitet. Live geht es erst ueber den Button "Freigeben".</p>
+                <label>
+                  Oeffentlich sichtbar ab (optional)
+                  <input name="public_visible_from" type="datetime-local">
+                </label>
+                <label>
+                  Registrierung moeglich ab (optional)
+                  <input name="registration_opens_at" type="datetime-local">
+                </label>
+                <label>
+                  Registrierung moeglich bis (optional)
+                  <input name="registration_closes_at" type="datetime-local">
+                </label>
+                <p class="muted compact span-2">Diese drei Zeitpunkte nutzen dieselbe Schrittweite wie deine Eventzeiten, ignorieren aber bewusst das globale Event-Zeitfenster.</p>
                 <label class="checkline"><input name="registration_enabled" type="checkbox" checked> Anmeldung aktiv</label>
                 <label class="checkline"><input name="waitlist_enabled" type="checkbox" checked> Warteliste aktiv</label>
 

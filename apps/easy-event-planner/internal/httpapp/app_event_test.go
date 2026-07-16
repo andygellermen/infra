@@ -16,13 +16,16 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	sessionCookie := loginSessionCookie(t, app, sender, tenantSlug, "owner@example.com")
 
 	createPayload := map[string]any{
-		"slug":               "sommer-retreat",
-		"title":              "Sommer Retreat",
-		"starts_at":          "2026-08-10T08:00:00Z",
-		"ends_at":            "2026-08-10T16:00:00Z",
-		"timezone":           "Europe/Berlin",
-		"participation_mode": "hybrid",
-		"location_name":      "Haus am See",
+		"slug":                   "sommer-retreat",
+		"title":                  "Sommer Retreat",
+		"starts_at":              "2026-08-10T08:00:00Z",
+		"ends_at":                "2026-08-10T16:00:00Z",
+		"timezone":               "Europe/Berlin",
+		"participation_mode":     "hybrid",
+		"location_name":          "Haus am See",
+		"public_visible_from":    "2026-07-10T09:00:00Z",
+		"registration_opens_at":  "2026-08-02T10:00:00Z",
+		"registration_closes_at": "2026-08-09T18:00:00Z",
 	}
 	createBody, _ := json.Marshal(createPayload)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events", bytes.NewReader(createBody))
@@ -50,6 +53,15 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	}
 	if item["publication_state"] != "internal" {
 		t.Fatalf("expected internal publication_state on create, got %v", item["publication_state"])
+	}
+	if item["public_visible_from"] != "2026-07-10T09:00:00Z" {
+		t.Fatalf("expected public_visible_from in create response, got %v", item["public_visible_from"])
+	}
+	if item["registration_opens_at"] != "2026-08-02T10:00:00Z" {
+		t.Fatalf("expected registration_opens_at in create response, got %v", item["registration_opens_at"])
+	}
+	if item["registration_closes_at"] != "2026-08-09T18:00:00Z" {
+		t.Fatalf("expected registration_closes_at in create response, got %v", item["registration_closes_at"])
 	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/events", nil)
@@ -114,6 +126,9 @@ func TestAdminEventCRUDAndPublishFlow(t *testing.T) {
 	}
 	if publishedItem["published_at"] == nil {
 		t.Fatalf("expected published_at after publish")
+	}
+	if publishedItem["publication_state"] != "published" {
+		t.Fatalf("expected published publication_state after publish, got %v", publishedItem["publication_state"])
 	}
 
 	unpublishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/events/"+eventID+"/unpublish", nil)

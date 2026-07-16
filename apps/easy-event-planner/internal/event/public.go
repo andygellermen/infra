@@ -47,13 +47,16 @@ func (r *Repository) ListPublicEvents(ctx context.Context, tenantID string, filt
 	query := strings.Builder{}
 	query.WriteString(`SELECT e.id, e.tenant_id, COALESCE(e.series_id, ''), e.slug, e.title, COALESCE(e.subtitle, ''), COALESCE(e.description, ''),
       e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
-      e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
+      e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), COALESCE(e.public_visible_from, ''),
+      COALESCE(e.registration_opens_at, ''), COALESCE(e.registration_closes_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
       COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
       COALESCE(s.slug, ''), COALESCE(s.title, '')
     FROM events e
     LEFT JOIN event_series s ON s.tenant_id = e.tenant_id AND s.id = e.series_id AND s.is_public = 1
-    WHERE e.tenant_id = ? AND e.is_public = 1 AND e.published_at IS NOT NULL AND e.status <> ? AND e.status <> ?`)
-	args := []any{tenant, EventStatusDraft, EventStatusArchived}
+    WHERE e.tenant_id = ? AND e.is_public = 1 AND e.published_at IS NOT NULL
+      AND (e.public_visible_from IS NULL OR e.public_visible_from = '' OR e.public_visible_from <= ?)
+      AND e.status <> ? AND e.status <> ?`)
+	args := []any{tenant, r.nowFn().UTC().Format(time.RFC3339), EventStatusDraft, EventStatusArchived}
 
 	if !normalized.IncludePast {
 		query.WriteString(` AND e.starts_at >= ?`)
@@ -124,15 +127,19 @@ func (r *Repository) GetPublicEventBySlug(ctx context.Context, tenantID, eventSl
 		ctx,
 		`SELECT e.id, e.tenant_id, COALESCE(e.series_id, ''), e.slug, e.title, COALESCE(e.subtitle, ''), COALESCE(e.description, ''),
           e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
-          e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
+          e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), COALESCE(e.public_visible_from, ''),
+          COALESCE(e.registration_opens_at, ''), COALESCE(e.registration_closes_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
           COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
           COALESCE(s.slug, ''), COALESCE(s.title, '')
      FROM events e
      LEFT JOIN event_series s ON s.tenant_id = e.tenant_id AND s.id = e.series_id AND s.is_public = 1
-     WHERE e.tenant_id = ? AND e.slug = ? AND e.is_public = 1 AND e.published_at IS NOT NULL AND e.status <> ? AND e.status <> ?
+     WHERE e.tenant_id = ? AND e.slug = ? AND e.is_public = 1 AND e.published_at IS NOT NULL
+       AND (e.public_visible_from IS NULL OR e.public_visible_from = '' OR e.public_visible_from <= ?)
+       AND e.status <> ? AND e.status <> ?
      LIMIT 1`,
 		tenant,
 		slug,
+		r.nowFn().UTC().Format(time.RFC3339),
 		EventStatusDraft,
 		EventStatusArchived,
 	)
@@ -265,16 +272,19 @@ func normalizePublicEventFilter(filter PublicEventFilter) (PublicEventFilter, er
 
 func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 	var (
-		item                PublicEvent
-		startsAtRaw         string
-		endsAtRaw           string
-		isPublicInt         int
-		publishedAtRaw      string
-		registrationEnabled int
-		waitlistEnabled     int
-		maxParticipantsRaw  sql.NullInt64
-		createdAtRaw        string
-		updatedAtRaw        string
+		item                    PublicEvent
+		startsAtRaw             string
+		endsAtRaw               string
+		isPublicInt             int
+		publishedAtRaw          string
+		publicVisibleFromRaw    string
+		registrationOpensAtRaw  string
+		registrationClosesAtRaw string
+		registrationEnabled     int
+		waitlistEnabled         int
+		maxParticipantsRaw      sql.NullInt64
+		createdAtRaw            string
+		updatedAtRaw            string
 	)
 
 	if err := row.Scan(
@@ -295,6 +305,9 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		&item.Status,
 		&isPublicInt,
 		&publishedAtRaw,
+		&publicVisibleFromRaw,
+		&registrationOpensAtRaw,
+		&registrationClosesAtRaw,
 		&registrationEnabled,
 		&waitlistEnabled,
 		&maxParticipantsRaw,
@@ -330,6 +343,18 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		parsedPublishedAt = parsedPublishedAt.UTC()
 		publishedAt = &parsedPublishedAt
 	}
+	publicVisibleFrom, err := parseOptionalRFC3339(publicVisibleFromRaw, "public event public_visible_from")
+	if err != nil {
+		return PublicEvent{}, err
+	}
+	registrationOpensAt, err := parseOptionalRFC3339(registrationOpensAtRaw, "public event registration_opens_at")
+	if err != nil {
+		return PublicEvent{}, err
+	}
+	registrationClosesAt, err := parseOptionalRFC3339(registrationClosesAtRaw, "public event registration_closes_at")
+	if err != nil {
+		return PublicEvent{}, err
+	}
 	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
 	if err != nil {
 		return PublicEvent{}, fmt.Errorf("parse public event created_at: %w", err)
@@ -343,6 +368,9 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 	item.EndsAt = endsAt
 	item.IsPublic = isPublicInt == 1
 	item.PublishedAt = publishedAt
+	item.PublicVisibleFrom = publicVisibleFrom
+	item.RegistrationOpensAt = registrationOpensAt
+	item.RegistrationClosesAt = registrationClosesAt
 	item.RegistrationEnabled = registrationEnabled == 1
 	item.WaitlistEnabled = waitlistEnabled == 1
 	if maxParticipantsRaw.Valid {

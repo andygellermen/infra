@@ -252,6 +252,45 @@ func TestUpdateEventClearsPublishedAtWhenPublicVisibilityIsRemoved(t *testing.T)
 	}
 }
 
+func TestEventVisibilityAndRegistrationWindows(t *testing.T) {
+	repo, tenantID, _ := setupEventRepository(t)
+
+	isPublic := true
+	created, err := repo.CreateEvent(context.Background(), tenantID, CreateEventParams{
+		Slug:                 "visibility-window",
+		Title:                "Visibility Window",
+		StartsAt:             "2026-09-10T18:00:00Z",
+		IsPublic:             &isPublic,
+		PublicVisibleFrom:    "2026-08-01T09:00:00Z",
+		RegistrationOpensAt:  "2026-08-02T10:00:00Z",
+		RegistrationClosesAt: "2026-08-09T18:00:00Z",
+	})
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+
+	published, err := repo.PublishEvent(context.Background(), tenantID, created.ID)
+	if err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+
+	if published.IsVisibleAt(time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected event to stay hidden before public_visible_from")
+	}
+	if !published.IsVisibleAt(time.Date(2026, 8, 1, 9, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected event to become visible at public_visible_from")
+	}
+	if published.IsRegistrationOpenAt(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected registration to stay closed before registration_opens_at")
+	}
+	if !published.IsRegistrationOpenAt(time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected registration to be open inside configured window")
+	}
+	if published.IsRegistrationOpenAt(time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected registration to be closed after registration_closes_at")
+	}
+}
+
 func TestEventMaintenanceActions(t *testing.T) {
 	repo, tenantID, _ := setupEventRepository(t)
 

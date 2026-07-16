@@ -806,7 +806,7 @@ func publicOverviewFilterFromRequest(r *http.Request) (event.PublicEventFilter, 
 
 func publicOverviewEventPayload(tenantItem tenant.Tenant, item event.PublicEvent) publicOverviewEventCard {
 	statusLabel, statusClass := publicOverviewStatus(item.Status)
-	registrationLabel, registrationClass := publicOverviewRegistration(item.RegistrationEnabled)
+	registrationLabel, registrationClass := publicOverviewRegistration(item, time.Now().UTC())
 
 	return publicOverviewEventCard{
 		Title:             strings.TrimSpace(item.Title),
@@ -839,9 +839,12 @@ func publicOverviewStatus(value string) (label, className string) {
 	}
 }
 
-func publicOverviewRegistration(enabled bool) (label, className string) {
-	if enabled {
+func publicOverviewRegistration(item event.PublicEvent, now time.Time) (label, className string) {
+	if item.IsRegistrationOpenAt(now) {
 		return "Anmeldung offen", "status-ok"
+	}
+	if item.RegistrationEnabled && item.RegistrationOpensAt != nil && now.Before(item.RegistrationOpensAt.UTC()) {
+		return "Anmeldung spaeter", "status-warning"
 	}
 	return "Anmeldung geschlossen", "status-warning"
 }

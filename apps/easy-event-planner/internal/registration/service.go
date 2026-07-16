@@ -127,19 +127,23 @@ type VerifyResult struct {
 }
 
 type eventRecord struct {
-	ID                  string
-	TenantID            string
-	Title               string
-	Slug                string
-	StartsAt            time.Time
-	Timezone            string
-	LocationName        string
-	OnlineURL           string
-	Status              string
-	IsPublic            bool
-	RegistrationEnabled bool
-	WaitlistEnabled     bool
-	MaxParticipants     sql.NullInt64
+	ID                   string
+	TenantID             string
+	Title                string
+	Slug                 string
+	StartsAt             time.Time
+	Timezone             string
+	LocationName         string
+	OnlineURL            string
+	Status               string
+	IsPublic             bool
+	PublishedAt          *time.Time
+	PublicVisibleFrom    *time.Time
+	RegistrationOpensAt  *time.Time
+	RegistrationClosesAt *time.Time
+	RegistrationEnabled  bool
+	WaitlistEnabled      bool
+	MaxParticipants      sql.NullInt64
 }
 
 type registrationRecord struct {
@@ -238,17 +242,16 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 	if err != nil {
 		return StartResult{}, err
 	}
-	if !eventItem.IsPublic {
+	now := s.nowFn().UTC()
+	if !eventItem.IsVisibleAt(now) {
 		return StartResult{}, ErrEventNotFound
 	}
 	if !eventItem.RegistrationEnabled {
 		return StartResult{}, ErrRegistrationDisabled
 	}
-	if !canRegisterForEventStatus(eventItem.Status) {
+	if !eventItem.IsRegistrationOpenAt(now) {
 		return StartResult{}, ErrRegistrationClosed
 	}
-
-	now := s.nowFn().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return StartResult{}, fmt.Errorf("begin registration transaction: %w", err)
@@ -431,7 +434,7 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (VerifyResult, 
 		_ = tx.Rollback()
 		return VerifyResult{}, err
 	}
-	if !eventItem.RegistrationEnabled || !canRegisterForEventStatus(eventItem.Status) || !eventItem.IsPublic {
+	if !eventItem.IsRegistrationOpenAt(now) {
 		if _, updErr := tx.ExecContext(
 			ctx,
 			`UPDATE registrations SET status = ?, updated_at = ? WHERE id = ?`,
@@ -545,7 +548,9 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (VerifyResult, 
 func (s *Service) lookupEvent(ctx context.Context, tenantID, eventID string) (eventRecord, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status, is_public, registration_enabled, waitlist_enabled, max_participants
+		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status,
+            is_public, COALESCE(published_at, ''), COALESCE(public_visible_from, ''), COALESCE(registration_opens_at, ''), COALESCE(registration_closes_at, ''),
+            registration_enabled, waitlist_enabled, max_participants
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -558,7 +563,9 @@ func (s *Service) lookupEvent(ctx context.Context, tenantID, eventID string) (ev
 func (s *Service) lookupEventTx(ctx context.Context, tx *sql.Tx, tenantID, eventID string) (eventRecord, error) {
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status, is_public, registration_enabled, waitlist_enabled, max_participants
+		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status,
+            is_public, COALESCE(published_at, ''), COALESCE(public_visible_from, ''), COALESCE(registration_opens_at, ''), COALESCE(registration_closes_at, ''),
+            registration_enabled, waitlist_enabled, max_participants
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -570,11 +577,15 @@ func (s *Service) lookupEventTx(ctx context.Context, tx *sql.Tx, tenantID, event
 
 func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 	var (
-		item               eventRecord
-		startsAtRaw        string
-		isPublicInt        int
-		registrationInt    int
-		waitlistEnabledInt int
+		item                    eventRecord
+		startsAtRaw             string
+		isPublicInt             int
+		publishedAtRaw          string
+		publicVisibleFromRaw    string
+		registrationOpensAtRaw  string
+		registrationClosesAtRaw string
+		registrationInt         int
+		waitlistEnabledInt      int
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -587,6 +598,10 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 		&item.OnlineURL,
 		&item.Status,
 		&isPublicInt,
+		&publishedAtRaw,
+		&publicVisibleFromRaw,
+		&registrationOpensAtRaw,
+		&registrationClosesAtRaw,
 		&registrationInt,
 		&waitlistEnabledInt,
 		&item.MaxParticipants,
@@ -600,11 +615,67 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 	if err != nil {
 		return eventRecord{}, fmt.Errorf("parse event starts_at: %w", err)
 	}
+	publishedAt, err := parseOptionalRFC3339(publishedAtRaw, "event published_at")
+	if err != nil {
+		return eventRecord{}, err
+	}
+	publicVisibleFrom, err := parseOptionalRFC3339(publicVisibleFromRaw, "event public_visible_from")
+	if err != nil {
+		return eventRecord{}, err
+	}
+	registrationOpensAt, err := parseOptionalRFC3339(registrationOpensAtRaw, "event registration_opens_at")
+	if err != nil {
+		return eventRecord{}, err
+	}
+	registrationClosesAt, err := parseOptionalRFC3339(registrationClosesAtRaw, "event registration_closes_at")
+	if err != nil {
+		return eventRecord{}, err
+	}
 	item.StartsAt = startsAt.UTC()
 	item.IsPublic = isPublicInt == 1
+	item.PublishedAt = publishedAt
+	item.PublicVisibleFrom = publicVisibleFrom
+	item.RegistrationOpensAt = registrationOpensAt
+	item.RegistrationClosesAt = registrationClosesAt
 	item.RegistrationEnabled = registrationInt == 1
 	item.WaitlistEnabled = waitlistEnabledInt == 1
 	return item, nil
+}
+
+func (e eventRecord) IsPublished() bool {
+	return e.IsPublic && e.PublishedAt != nil && canEventBePublicStatus(e.Status)
+}
+
+func (e eventRecord) IsVisibleAt(now time.Time) bool {
+	if !e.IsPublished() {
+		return false
+	}
+	if e.PublicVisibleFrom == nil {
+		return true
+	}
+	return !now.UTC().Before(e.PublicVisibleFrom.UTC())
+}
+
+func (e eventRecord) IsRegistrationOpenAt(now time.Time) bool {
+	if !e.IsVisibleAt(now) || !e.RegistrationEnabled || !canRegisterForEventStatus(e.Status) {
+		return false
+	}
+	if e.RegistrationOpensAt != nil && now.UTC().Before(e.RegistrationOpensAt.UTC()) {
+		return false
+	}
+	if e.RegistrationClosesAt != nil && now.UTC().After(e.RegistrationClosesAt.UTC()) {
+		return false
+	}
+	return true
+}
+
+func canEventBePublicStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case event.EventStatusDraft, event.EventStatusArchived:
+		return false
+	default:
+		return true
+	}
 }
 
 func (s *Service) upsertParticipantTx(ctx context.Context, tx *sql.Tx, tenantID, email, name, phone string, now time.Time) (string, error) {

@@ -431,3 +431,55 @@ func TestPublicRegistrationStartRequiresPrivacyAcceptance(t *testing.T) {
 		t.Fatalf("expected VALIDATION_ERROR, got %v", errorPayload["code"])
 	}
 }
+
+func TestPublicRegistrationStartRespectsRegistrationWindows(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	now := time.Now().UTC()
+
+	notOpenYet := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:                "not-open-yet",
+		Title:               "Not Open Yet",
+		StartsAt:            now.Add(72 * time.Hour).Format(time.RFC3339),
+		RegistrationOpensAt: now.Add(24 * time.Hour).Format(time.RFC3339),
+	})
+
+	startPayload := map[string]any{
+		"event_id":           notOpenYet.ID,
+		"name":               "Max Mustermann",
+		"email":              "max@example.com",
+		"participation_type": "onsite",
+		"privacy_accepted":   true,
+	}
+	startBody, _ := json.Marshal(startPayload)
+	startReq := httptest.NewRequest(http.MethodPost, "/api/v1/public/"+tenantSlug+"/registrations/start", bytes.NewReader(startBody))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(startRec, startReq)
+	if startRec.Code != http.StatusConflict {
+		t.Fatalf("expected not-open-yet start status 409, got %d", startRec.Code)
+	}
+
+	alreadyClosed := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:                 "already-closed",
+		Title:                "Already Closed",
+		StartsAt:             now.Add(72 * time.Hour).Format(time.RFC3339),
+		RegistrationClosesAt: now.Add(-1 * time.Hour).Format(time.RFC3339),
+	})
+
+	closedPayload := map[string]any{
+		"event_id":           alreadyClosed.ID,
+		"name":               "Mira Muster",
+		"email":              "mira@example.com",
+		"participation_type": "onsite",
+		"privacy_accepted":   true,
+	}
+	closedBody, _ := json.Marshal(closedPayload)
+	closedReq := httptest.NewRequest(http.MethodPost, "/api/v1/public/"+tenantSlug+"/registrations/start", bytes.NewReader(closedBody))
+	closedReq.Header.Set("Content-Type", "application/json")
+	closedRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(closedRec, closedReq)
+	if closedRec.Code != http.StatusConflict {
+		t.Fatalf("expected already-closed start status 409, got %d", closedRec.Code)
+	}
+}
