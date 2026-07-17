@@ -355,6 +355,13 @@
       - "{{ item.domain }}"
   args:
     chdir: /home/andy/infra
+  environment:
+    EEP_EDGE_SYNC_BASE_URL: "{{ item.eep_edge_sync_base_url | default(item.eep_base_url | default('https://' ~ item.domain, true), true) }}"
+    EEP_EDGE_SYNC_TOKEN: "{{ item.eep_infra_sync_token | default(item.eep_token_pepper | default('change-me', true), true) }}"
+    EEP_EDGE_SYNC_OUTPUT_FILE: "{{ item.eep_edge_sync_output_file | default('/home/andy/infra/data/traefik/eep-domain-bindings-' ~ (item.domain | replace('.', '-')) ~ '.yml', true) }}"
+    EEP_EDGE_SYNC_DOCKER_SERVICE: "{{ item.eep_edge_sync_docker_service | default('easy-event-planner-' ~ (item.domain | replace('.', '-')) ~ '@docker', true) }}"
+    EEP_EDGE_SYNC_CERTRESOLVER: "{{ item.eep_edge_sync_certresolver | default('letsEncrypt', true) }}"
+    EEP_EDGE_SYNC_REFRESH_AFTER_RENDER: "{{ (item.eep_edge_sync_refresh_after_render | default(true, true) | bool) | ternary('true', 'false') }}"
   changed_when: false
   loop: "{{ eep_sites_effective }}"
   when:
