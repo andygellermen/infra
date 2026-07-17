@@ -18,7 +18,10 @@ func (r *Repository) ListDomainBindings(ctx context.Context, tenantID string) ([
 
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, created_at, updated_at
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+            COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
+            COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
+            COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
      FROM tenant_domain_bindings
      WHERE tenant_id = ?
      ORDER BY is_primary DESC, domain_host ASC, base_path ASC`,
@@ -43,6 +46,35 @@ func (r *Repository) ListDomainBindings(ctx context.Context, tenantID string) ([
 	return items, nil
 }
 
+func (r *Repository) ListAllDomainBindings(ctx context.Context) ([]TenantDomainBinding, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+            COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
+            COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
+            COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
+     FROM tenant_domain_bindings
+     ORDER BY domain_host ASC, base_path ASC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query all tenant domain bindings: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]TenantDomainBinding, 0)
+	for rows.Next() {
+		item, scanErr := scanTenantDomainBinding(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan all tenant domain bindings: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate all tenant domain bindings: %w", err)
+	}
+	return items, nil
+}
+
 func (r *Repository) GetDomainBindingByID(ctx context.Context, tenantID, bindingID string) (TenantDomainBinding, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	bindingID = strings.TrimSpace(bindingID)
@@ -55,7 +87,10 @@ func (r *Repository) GetDomainBindingByID(ctx context.Context, tenantID, binding
 
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, created_at, updated_at
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+            COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
+            COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
+            COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
      FROM tenant_domain_bindings
      WHERE tenant_id = ? AND id = ?`,
 		tenantID,
@@ -79,7 +114,10 @@ func (r *Repository) GetPrimaryDomainBinding(ctx context.Context, tenantID strin
 
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, created_at, updated_at
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+            COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
+            COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
+            COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
      FROM tenant_domain_bindings
      WHERE tenant_id = ? AND is_primary = 1
      LIMIT 1`,
@@ -123,6 +161,7 @@ func (r *Repository) CreateDomainBinding(ctx context.Context, params CreateTenan
 	}
 
 	itemID := r.idFn("tdb")
+	verificationToken := newDomainBindingVerificationToken(r)
 	now := r.nowFn().UTC().Format(time.RFC3339)
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -132,14 +171,17 @@ func (r *Repository) CreateDomainBinding(ctx context.Context, params CreateTenan
 	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO tenant_domain_bindings (
-      id, tenant_id, domain_host, base_path, status, is_primary, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+      ssl_status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		itemID,
 		tenantID,
 		domain,
 		basePath,
 		status,
 		boolToInt(params.IsPrimary),
+		verificationToken,
+		initialSSLStatusForDomainBinding(status),
 		now,
 		now,
 	); err != nil {
@@ -187,16 +229,24 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 	}
 
 	domain := current.Domain
+	basePath := current.BasePath
+	domainChanged := false
 	if params.Domain != nil {
 		domain, err = normalizeDomainBindingDomain(*params.Domain)
 		if err != nil {
 			return TenantDomainBinding{}, err
 		}
+		domainChanged = domain != current.Domain
 	}
-	basePath := current.BasePath
 	if params.BasePath != nil {
 		basePath = normalizePublicBasePath(*params.BasePath)
+		domainChanged = domainChanged || basePath != current.BasePath
 	}
+
+	if current.IsPrimary && domainChanged {
+		return TenantDomainBinding{}, ErrTenantPrimaryDomainBindingLocked
+	}
+
 	status := current.Status
 	if params.Status != nil {
 		status, err = normalizeDomainBindingStatus(*params.Status)
@@ -218,6 +268,36 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 		return TenantDomainBinding{}, ErrTenantPrimaryDomainBindingLocked
 	}
 
+	verificationToken := current.VerificationToken
+	dnsVerifiedAt := current.DNSVerifiedAt
+	routingVerifiedAt := current.RoutingVerifiedAt
+	lastDNSCheckAt := current.LastDNSCheckAt
+	lastDNSError := current.LastDNSError
+	lastRoutingCheckAt := current.LastRoutingCheckAt
+	lastRoutingError := current.LastRoutingError
+	sslStatus := current.SSLStatus
+	sslCertificateIssuer := current.SSLCertificateIssuer
+	sslCertificateExpiresAt := current.SSLCertificateExpiresAt
+	lastSSLCheckAt := current.LastSSLCheckAt
+	lastSSLError := current.LastSSLError
+	if domainChanged {
+		verificationToken = newDomainBindingVerificationToken(r)
+		dnsVerifiedAt = nil
+		routingVerifiedAt = nil
+		lastDNSCheckAt = nil
+		lastDNSError = ""
+		lastRoutingCheckAt = nil
+		lastRoutingError = ""
+		sslStatus = DomainBindingSSLStatusPending
+		sslCertificateIssuer = ""
+		sslCertificateExpiresAt = nil
+		lastSSLCheckAt = nil
+		lastSSLError = ""
+		if status != DomainBindingStatusDisabled {
+			status = DomainBindingStatusPendingDNS
+		}
+	}
+
 	publicBaseURL := buildDomainBindingPublicBaseURL(domain, basePath)
 	if err := r.ensureDomainBindingAvailable(ctx, current.TenantID, current.ID, publicBaseURL); err != nil {
 		return TenantDomainBinding{}, err
@@ -232,12 +312,27 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 	if _, err := tx.ExecContext(
 		ctx,
 		`UPDATE tenant_domain_bindings
-     SET domain_host = ?, base_path = ?, status = ?, is_primary = ?, updated_at = ?
+     SET domain_host = ?, base_path = ?, status = ?, is_primary = ?, verification_token = ?,
+         dns_verified_at = ?, routing_verified_at = ?, last_dns_check_at = ?, last_dns_error = ?,
+         last_routing_check_at = ?, last_routing_error = ?, ssl_status = ?, ssl_certificate_issuer = ?,
+         ssl_certificate_expires_at = ?, last_ssl_check_at = ?, last_ssl_error = ?, updated_at = ?
      WHERE tenant_id = ? AND id = ?`,
 		domain,
 		basePath,
 		status,
 		boolToInt(isPrimary),
+		verificationToken,
+		formatOptionalRFC3339(dnsVerifiedAt),
+		formatOptionalRFC3339(routingVerifiedAt),
+		formatOptionalRFC3339(lastDNSCheckAt),
+		lastDNSError,
+		formatOptionalRFC3339(lastRoutingCheckAt),
+		lastRoutingError,
+		normalizeSSLStatus(sslStatus),
+		sslCertificateIssuer,
+		formatOptionalRFC3339(sslCertificateExpiresAt),
+		formatOptionalRFC3339(lastSSLCheckAt),
+		lastSSLError,
 		now,
 		current.TenantID,
 		current.ID,
@@ -275,6 +370,76 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 
 	if err := tx.Commit(); err != nil {
 		return TenantDomainBinding{}, fmt.Errorf("commit tenant domain binding update transaction: %w", err)
+	}
+	return r.GetDomainBindingByID(ctx, current.TenantID, current.ID)
+}
+
+func (r *Repository) RotateDomainBindingVerificationToken(ctx context.Context, tenantID, bindingID string) (TenantDomainBinding, error) {
+	current, err := r.GetDomainBindingByID(ctx, tenantID, bindingID)
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+
+	nextStatus := current.Status
+	if nextStatus != DomainBindingStatusDisabled {
+		nextStatus = DomainBindingStatusPendingDNS
+	}
+
+	if _, err := r.db.ExecContext(
+		ctx,
+		`UPDATE tenant_domain_bindings
+     SET verification_token = ?, status = ?, dns_verified_at = NULL, routing_verified_at = NULL,
+         last_dns_check_at = NULL, last_dns_error = '', last_routing_check_at = NULL, last_routing_error = '',
+         ssl_status = ?, ssl_certificate_issuer = '', ssl_certificate_expires_at = NULL,
+         last_ssl_check_at = NULL, last_ssl_error = '', updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		newDomainBindingVerificationToken(r),
+		nextStatus,
+		initialSSLStatusForDomainBinding(nextStatus),
+		r.nowFn().UTC().Format(time.RFC3339),
+		current.TenantID,
+		current.ID,
+	); err != nil {
+		return TenantDomainBinding{}, fmt.Errorf("rotate tenant domain binding verification token: %w", err)
+	}
+	return r.GetDomainBindingByID(ctx, current.TenantID, current.ID)
+}
+
+func (r *Repository) ApplyDomainCheckResult(ctx context.Context, tenantID, bindingID string, result DomainCheckResult) (TenantDomainBinding, error) {
+	current, err := r.GetDomainBindingByID(ctx, tenantID, bindingID)
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+
+	status := normalizeSystemManagedDomainBindingStatus(current.Status, result)
+	if current.Status == DomainBindingStatusDisabled {
+		status = DomainBindingStatusDisabled
+	}
+
+	if _, err := r.db.ExecContext(
+		ctx,
+		`UPDATE tenant_domain_bindings
+     SET status = ?, dns_verified_at = ?, routing_verified_at = ?, last_dns_check_at = ?, last_dns_error = ?,
+         last_routing_check_at = ?, last_routing_error = ?, ssl_status = ?, ssl_certificate_issuer = ?,
+         ssl_certificate_expires_at = ?, last_ssl_check_at = ?, last_ssl_error = ?, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		status,
+		formatOptionalRFC3339(optionalTimeIf(result.DNSVerified, result.LastDNSCheckAt)),
+		formatOptionalRFC3339(optionalTimeIf(result.RoutingVerified, result.LastRoutingCheckAt)),
+		formatOptionalRFC3339(result.LastDNSCheckAt),
+		strings.TrimSpace(result.LastDNSError),
+		formatOptionalRFC3339(result.LastRoutingCheckAt),
+		strings.TrimSpace(result.LastRoutingError),
+		normalizeSSLStatus(result.SSLStatus),
+		strings.TrimSpace(result.SSLCertificateIssuer),
+		formatOptionalRFC3339(result.SSLCertificateExpiresAt),
+		formatOptionalRFC3339(result.LastSSLCheckAt),
+		strings.TrimSpace(result.LastSSLError),
+		r.nowFn().UTC().Format(time.RFC3339),
+		current.TenantID,
+		current.ID,
+	); err != nil {
+		return TenantDomainBinding{}, fmt.Errorf("apply tenant domain binding check result: %w", err)
 	}
 	return r.GetDomainBindingByID(ctx, current.TenantID, current.ID)
 }
@@ -455,10 +620,23 @@ func normalizeDomainBindingStatus(raw string) (string, error) {
 	switch status {
 	case "", DomainBindingStatusPendingDNS:
 		return DomainBindingStatusPendingDNS, nil
-	case DomainBindingStatusActive, DomainBindingStatusDisabled:
+	case DomainBindingStatusDNSVerified, DomainBindingStatusSSLPending, DomainBindingStatusActive, DomainBindingStatusDisabled:
 		return status, nil
 	default:
 		return "", fmt.Errorf("tenant domain binding status %q ist ungueltig", raw)
+	}
+}
+
+func normalizeSSLStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case DomainBindingSSLStatusValid:
+		return DomainBindingSSLStatusValid
+	case DomainBindingSSLStatusInvalid:
+		return DomainBindingSSLStatusInvalid
+	case DomainBindingSSLStatusExpired:
+		return DomainBindingSSLStatusExpired
+	default:
+		return DomainBindingSSLStatusPending
 	}
 }
 
@@ -472,6 +650,45 @@ func buildDomainBindingPublicBaseURL(domain, basePath string) string {
 		return "https://" + host
 	}
 	return "https://" + host + path
+}
+
+func buildDomainBindingVerificationRecordName(domain string) string {
+	normalized := strings.Trim(strings.TrimSpace(domain), ".")
+	if normalized == "" {
+		return ""
+	}
+	return "_eep-domain-verification." + normalized
+}
+
+func buildDomainBindingVerificationRecordValue(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if trimmed == "" {
+		return ""
+	}
+	return "eep-domain-verification=" + trimmed
+}
+
+func initialSSLStatusForDomainBinding(status string) string {
+	if strings.TrimSpace(status) == DomainBindingStatusActive {
+		return DomainBindingSSLStatusValid
+	}
+	return DomainBindingSSLStatusPending
+}
+
+func normalizeSystemManagedDomainBindingStatus(currentStatus string, result DomainCheckResult) string {
+	if currentStatus == DomainBindingStatusDisabled {
+		return DomainBindingStatusDisabled
+	}
+	if !result.DNSVerified {
+		return DomainBindingStatusPendingDNS
+	}
+	if !result.RoutingVerified {
+		return DomainBindingStatusDNSVerified
+	}
+	if normalizeSSLStatus(result.SSLStatus) != DomainBindingSSLStatusValid {
+		return DomainBindingStatusSSLPending
+	}
+	return DomainBindingStatusActive
 }
 
 func (r *Repository) ensureDomainBindingAvailable(ctx context.Context, tenantID, ignoreBindingID, rawURL string) error {
@@ -553,15 +770,48 @@ func (r *Repository) ensurePublicRouteAvailable(ctx context.Context, ignoreTenan
 		if candidate.host != lookup.host || candidate.path != lookup.path {
 			continue
 		}
-		if ignoreTenantID != "" && strings.TrimSpace(tenantID) == ignoreTenantID {
-			return ErrTenantDomainBindingConflict
-		}
 		return ErrTenantDomainBindingConflict
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("iterate tenant domain routes: %w", err)
 	}
 	return nil
+}
+
+func newDomainBindingVerificationToken(r *Repository) string {
+	token := strings.TrimSpace(strings.TrimPrefix(r.idFn("dnsv"), "dnsv_"))
+	token = strings.ReplaceAll(token, "_", "")
+	if token == "" {
+		token = strings.ReplaceAll(strings.TrimSpace(r.idFn("tdb")), "_", "")
+	}
+	return token
+}
+
+func formatOptionalRFC3339(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func parseOptionalRFC3339(raw, label string) (*time.Time, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", label, err)
+	}
+	utc := parsed.UTC()
+	return &utc, nil
+}
+
+func optionalTimeIf(condition bool, value *time.Time) *time.Time {
+	if !condition {
+		return nil
+	}
+	return value
 }
 
 func boolToInt(value bool) int {
@@ -573,10 +823,16 @@ func boolToInt(value bool) int {
 
 func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 	var (
-		item         TenantDomainBinding
-		isPrimaryRaw int
-		createdAtRaw string
-		updatedAtRaw string
+		item                    TenantDomainBinding
+		isPrimaryRaw            int
+		dnsVerifiedAtRaw        string
+		routingVerifiedAtRaw    string
+		lastDNSCheckAtRaw       string
+		lastRoutingCheckAtRaw   string
+		sslCertificateExpiryRaw string
+		lastSSLCheckAtRaw       string
+		createdAtRaw            string
+		updatedAtRaw            string
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -585,6 +841,18 @@ func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 		&item.BasePath,
 		&item.Status,
 		&isPrimaryRaw,
+		&item.VerificationToken,
+		&dnsVerifiedAtRaw,
+		&routingVerifiedAtRaw,
+		&lastDNSCheckAtRaw,
+		&item.LastDNSError,
+		&lastRoutingCheckAtRaw,
+		&item.LastRoutingError,
+		&item.SSLStatus,
+		&item.SSLCertificateIssuer,
+		&sslCertificateExpiryRaw,
+		&lastSSLCheckAtRaw,
+		&item.LastSSLError,
 		&createdAtRaw,
 		&updatedAtRaw,
 	); err != nil {
@@ -600,7 +868,34 @@ func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 		return TenantDomainBinding{}, fmt.Errorf("parse tenant domain binding updated_at: %w", err)
 	}
 
+	item.DNSVerifiedAt, err = parseOptionalRFC3339(dnsVerifiedAtRaw, "tenant domain binding dns_verified_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+	item.RoutingVerifiedAt, err = parseOptionalRFC3339(routingVerifiedAtRaw, "tenant domain binding routing_verified_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+	item.LastDNSCheckAt, err = parseOptionalRFC3339(lastDNSCheckAtRaw, "tenant domain binding last_dns_check_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+	item.LastRoutingCheckAt, err = parseOptionalRFC3339(lastRoutingCheckAtRaw, "tenant domain binding last_routing_check_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+	item.SSLCertificateExpiresAt, err = parseOptionalRFC3339(sslCertificateExpiryRaw, "tenant domain binding ssl_certificate_expires_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+	item.LastSSLCheckAt, err = parseOptionalRFC3339(lastSSLCheckAtRaw, "tenant domain binding last_ssl_check_at")
+	if err != nil {
+		return TenantDomainBinding{}, err
+	}
+
 	item.BasePath = normalizePublicBasePath(item.BasePath)
+	item.Status = firstNonEmpty(item.Status, DomainBindingStatusPendingDNS)
+	item.SSLStatus = normalizeSSLStatus(item.SSLStatus)
 	item.IsPrimary = isPrimaryRaw == 1
 	item.CreatedAt = createdAt
 	item.UpdatedAt = updatedAt

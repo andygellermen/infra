@@ -98,6 +98,7 @@
       EEP_TOKEN_PEPPER={{ item.eep_token_pepper | default('change-me', true) }}
       EEP_SESSION_COOKIE_NAME={{ item.eep_session_cookie_name | default('eep_session', true) }}
       EEP_SECURE_COOKIES={{ (item.eep_secure_cookies | default(true, true) | bool) | ternary('true', 'false') }}
+      EEP_INFRA_SYNC_TOKEN={{ item.eep_infra_sync_token | default(item.eep_token_pepper | default('change-me', true), true) }}
       EEP_MAIL_PROVIDER={{ item.eep_mail_provider | default(('ses' if (eep_shared_ses_enabled | default(false) | bool) else 'log'), true) }}
       EEP_MAIL_FROM={{ item.eep_mail_from | default(eep_shared_ses_from_email | default('noreply@' ~ item.domain, true), true) }}
       EEP_MAIL_FROM_NAME={{ item.eep_mail_from_name | default(eep_shared_ses_from_name | default('', true), true) }}
@@ -128,6 +129,22 @@
       EEP_SEED_ADMIN_ROLE={{ item.eep_seed_admin_role | default('owner', true) }}
       EEP_SEED_PAYPAL_MODE={{ item.eep_seed_paypal_mode | default('disabled', true) }}
       EEP_SEED_SETTINGS_JSON={{ item.eep_seed_settings_json | default('', true) }}
+  loop: "{{ eep_sites_effective }}"
+  when: eep_sites_effective | length > 0
+
+- name: Render per-domain easy-event-planner edge sync env files
+  ansible.builtin.copy:
+    dest: "/srv/easy-event-planner/{{ item.domain }}/easy-event-planner-edge-sync.env"
+    mode: "0640"
+    owner: root
+    group: root
+    content: |
+      EEP_EDGE_SYNC_BASE_URL={{ item.eep_edge_sync_base_url | default(item.eep_base_url | default('https://' ~ item.domain, true), true) }}
+      EEP_EDGE_SYNC_TOKEN={{ item.eep_infra_sync_token | default(item.eep_token_pepper | default('change-me', true), true) }}
+      EEP_EDGE_SYNC_OUTPUT_FILE={{ item.eep_edge_sync_output_file | default('/home/andy/infra/data/traefik/eep-domain-bindings-' ~ (item.domain | replace('.', '-')) ~ '.yml', true) }}
+      EEP_EDGE_SYNC_DOCKER_SERVICE={{ item.eep_edge_sync_docker_service | default('easy-event-planner-' ~ (item.domain | replace('.', '-')) ~ '@docker', true) }}
+      EEP_EDGE_SYNC_CERTRESOLVER={{ item.eep_edge_sync_certresolver | default('letsEncrypt', true) }}
+      EEP_EDGE_SYNC_REFRESH_AFTER_RENDER={{ (item.eep_edge_sync_refresh_after_render | default(true, true) | bool) | ternary('true', 'false') }}
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0
 
@@ -303,6 +320,47 @@
     state: started
   loop: "{{ eep_sites_effective }}"
   when: eep_sites_effective | length > 0
+
+- name: Install easy-event-planner domain binding sync unit files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - name: eep-domain-bindings-sync@.service
+      src: "{{ playbook_dir }}/../monitoring/systemd/eep-domain-bindings-sync@.service"
+    - name: eep-domain-bindings-sync@.timer
+      src: "{{ playbook_dir }}/../monitoring/systemd/eep-domain-bindings-sync@.timer"
+  when: eep_sites_effective | length > 0
+
+- name: Enable and start easy-event-planner domain binding sync timers
+  ansible.builtin.systemd:
+    name: "eep-domain-bindings-sync@{{ item.domain }}.timer"
+    daemon_reload: true
+    enabled: true
+    state: started
+  loop: "{{ eep_sites_effective }}"
+  when:
+    - eep_sites_effective | length > 0
+    - item.eep_edge_sync_enabled | default(true, true) | bool
+
+- name: Trigger easy-event-planner domain binding edge sync after deploy
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - bash
+      - ./scripts/eep-domain-bindings-sync.sh
+      - "{{ item.domain }}"
+  args:
+    chdir: /home/andy/infra
+  changed_when: false
+  loop: "{{ eep_sites_effective }}"
+  when:
+    - eep_sites_effective | length > 0
+    - not ansible_check_mode
+    - item.eep_edge_sync_enabled | default(true, true) | bool
 
 - name: Run easy-event-planner post-deploy smoke check
   ansible.builtin.command:

@@ -530,6 +530,8 @@
                     Status
                     <select name="status">
                       <option value="pending_dns">DNS vorbereiten</option>
+                      <option value="dns_verified">DNS bestaetigt</option>
+                      <option value="ssl_pending">SSL ausstehend</option>
                       <option value="active">Aktiv</option>
                       <option value="disabled">Deaktiviert</option>
                     </select>
@@ -538,7 +540,7 @@
                     <input name="is_primary" type="checkbox">
                     Als primaere Public-Domain verwenden und Public Base URL darauf setzen
                   </label>
-                  <p id="tenantDomainHint" class="muted compact span-2">Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. Nach DNS-Anpassung kann die Domain aktiv geschaltet und als primaere Frontend-Adresse genutzt werden.</p>
+                  <p id="tenantDomainHint" class="muted compact span-2">Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. Lege zuerst TXT und CNAME an, pruefe danach DNS und TLS direkt in EEP und setze die Domain erst im aktiven Zustand als primaer.</p>
                   <div class="toolbar-actions span-2">
                     <button id="tenantDomainSubmitBtn" class="btn primary" type="submit">Domain speichern</button>
                     <button id="tenantDomainCancelEditBtn" class="btn light" type="button" hidden>Bearbeitung abbrechen</button>

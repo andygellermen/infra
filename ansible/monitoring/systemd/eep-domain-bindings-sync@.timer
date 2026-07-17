@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic Easy Event Planner domain binding sync for %i
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=5m
+Unit=eep-domain-bindings-sync@%i.service
+
+[Install]
+WantedBy=timers.target

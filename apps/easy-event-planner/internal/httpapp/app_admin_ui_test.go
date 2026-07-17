@@ -149,6 +149,9 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "tenantDomainForm") {
 		t.Fatalf("expected tenant domain form in admin shell")
 	}
+	if !strings.Contains(shellBody, "DNS vorbereiten") || !strings.Contains(shellBody, "SSL ausstehend") {
+		t.Fatalf("expected clarified domain lifecycle options in admin shell")
+	}
 	if !strings.Contains(shellBody, ".../events/{event_slug}") {
 		t.Fatalf("expected detail base url route hint in admin shell")
 	}
@@ -186,6 +189,9 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "findPrimaryTenantDomain") {
 		t.Fatalf("expected primary tenant domain helper in admin js")
+	}
+	if !strings.Contains(jsBody, "rotate-verification-token") || !strings.Contains(jsBody, "refresh-check") {
+		t.Fatalf("expected domain verification and refresh actions in admin js")
 	}
 	if !strings.Contains(jsBody, "updateEventPublicationHint") {
 		t.Fatalf("expected publication hint support in admin js")

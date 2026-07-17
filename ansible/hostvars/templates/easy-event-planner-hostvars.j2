@@ -17,6 +17,7 @@ eep_certificate_storage_dir: "/certificates"
 eep_token_pepper: ""
 eep_session_cookie_name: "eep_session"
 eep_secure_cookies: true
+eep_infra_sync_token: ""
 
 eep_mail_provider: "ses"
 eep_mail_from: ""
@@ -42,6 +43,11 @@ eep_smoke_retries: 15
 eep_smoke_delay_seconds: 2
 eep_smoke_timeout_seconds: 10
 eep_smoke_insecure: false
+eep_edge_sync_enabled: true
+eep_edge_sync_base_url: "https://{{ domain }}"
+eep_edge_sync_output_file: "/home/andy/infra/data/traefik/eep-domain-bindings-{{ domain | replace('.', '-') }}.yml"
+eep_edge_sync_certresolver: "letsEncrypt"
+eep_edge_sync_refresh_after_render: true
 
 eep_seed_enabled: false
 eep_seed_tenant_slug: "demo"

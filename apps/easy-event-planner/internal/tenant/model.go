@@ -46,20 +46,39 @@ type TenantSettingsInput struct {
 }
 
 const (
-	DomainBindingStatusPendingDNS = "pending_dns"
-	DomainBindingStatusActive     = "active"
-	DomainBindingStatusDisabled   = "disabled"
+	DomainBindingStatusPendingDNS  = "pending_dns"
+	DomainBindingStatusDNSVerified = "dns_verified"
+	DomainBindingStatusSSLPending  = "ssl_pending"
+	DomainBindingStatusActive      = "active"
+	DomainBindingStatusDisabled    = "disabled"
+
+	DomainBindingSSLStatusPending = "pending"
+	DomainBindingSSLStatusValid   = "valid"
+	DomainBindingSSLStatusInvalid = "invalid"
+	DomainBindingSSLStatusExpired = "expired"
 )
 
 type TenantDomainBinding struct {
-	ID        string
-	TenantID  string
-	Domain    string
-	BasePath  string
-	Status    string
-	IsPrimary bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                      string
+	TenantID                string
+	Domain                  string
+	BasePath                string
+	Status                  string
+	IsPrimary               bool
+	VerificationToken       string
+	DNSVerifiedAt           *time.Time
+	RoutingVerifiedAt       *time.Time
+	LastDNSCheckAt          *time.Time
+	LastDNSError            string
+	LastRoutingCheckAt      *time.Time
+	LastRoutingError        string
+	SSLStatus               string
+	SSLCertificateIssuer    string
+	SSLCertificateExpiresAt *time.Time
+	LastSSLCheckAt          *time.Time
+	LastSSLError            string
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 type CreateTenantDomainBindingParams struct {
@@ -82,6 +101,23 @@ type PublicRouteMatch struct {
 	BaseURL  string
 	BasePath string
 	Source   string
+}
+
+type DomainCheckResult struct {
+	VerificationRecordName  string
+	VerificationRecordValue string
+	DNSVerified             bool
+	RoutingVerified         bool
+	LastDNSCheckAt          *time.Time
+	LastDNSError            string
+	LastRoutingCheckAt      *time.Time
+	LastRoutingError        string
+	SSLStatus               string
+	SSLCertificateIssuer    string
+	SSLCertificateExpiresAt *time.Time
+	LastSSLCheckAt          *time.Time
+	LastSSLError            string
+	Status                  string
 }
 
 type CreateTenantParams struct {

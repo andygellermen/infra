@@ -22,6 +22,7 @@ func clearEEPEnv(t *testing.T) {
 		"EEP_MAIL_PROVIDER",
 		"EEP_MAIL_FROM",
 		"EEP_MAIL_FROM_NAME",
+		"EEP_INFRA_SYNC_TOKEN",
 		"EEP_PAYPAL_USE_REAL_API",
 		"EEP_PAYPAL_CLIENT_ID",
 		"EEP_PAYPAL_CLIENT_SECRET",
@@ -107,6 +108,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MailFromName != "" {
 		t.Fatalf("expected default mail from name empty, got %q", cfg.MailFromName)
 	}
+	if cfg.InfraSyncToken != "" {
+		t.Fatalf("expected default infra sync token empty, got %q", cfg.InfraSyncToken)
+	}
 	if cfg.PayPalUseRealAPI {
 		t.Fatalf("expected paypal real api default false")
 	}
@@ -184,6 +188,7 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("EEP_MAIL_PROVIDER", "ses")
 	t.Setenv("EEP_MAIL_FROM", "events@example.com")
 	t.Setenv("EEP_MAIL_FROM_NAME", "Events Team")
+	t.Setenv("EEP_INFRA_SYNC_TOKEN", "infra-sync-secret")
 	t.Setenv("EEP_PAYPAL_USE_REAL_API", "true")
 	t.Setenv("EEP_PAYPAL_CLIENT_ID", "paypal-client-id")
 	t.Setenv("EEP_PAYPAL_CLIENT_SECRET", "paypal-client-secret")
@@ -251,6 +256,9 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.MailFromName != "Events Team" {
 		t.Fatalf("expected mail from name override, got %q", cfg.MailFromName)
+	}
+	if cfg.InfraSyncToken != "infra-sync-secret" {
+		t.Fatalf("expected infra sync token override, got %q", cfg.InfraSyncToken)
 	}
 	if !cfg.PayPalUseRealAPI {
 		t.Fatalf("expected paypal real api override to true")

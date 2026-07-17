@@ -140,6 +140,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/invitations/", a.handleAdminInvitationsItem)
 	a.mux.HandleFunc("/api/v1/admin/registrations/", a.handleAdminRegistrationItem)
 	a.mux.HandleFunc("/api/v1/admin/waitlist/", a.handleAdminWaitlistItem)
+	a.mux.HandleFunc("/api/v1/internal/infra/domain-bindings/export", a.handleInfraDomainBindingsExport)
+	a.mux.HandleFunc("/api/v1/internal/infra/domain-bindings/refresh", a.handleInfraDomainBindingsRefresh)
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
 	a.mux.HandleFunc("/api/v1/webhooks/paypal", a.handlePayPalWebhook)

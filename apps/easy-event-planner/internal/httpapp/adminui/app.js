@@ -544,6 +544,51 @@
         populateTenantDomainForm(item);
       });
     });
+    ui.tenantDomainsList.querySelectorAll("[data-domain-refresh]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = findTenantDomainByID(String(button.dataset.domainRefresh || ""));
+        if (!item) {
+          setFlash("Domain-Binding konnte nicht geladen werden.", "error");
+          return;
+        }
+        setButtonBusy(button, true, "Pruefe...");
+        try {
+          await apiRequest(`/api/v1/admin/tenant/domains/${encodeURIComponent(item.id)}/refresh-check`, {
+            method: "POST",
+          });
+          await loadTenantSettings(false);
+          setFlash(`DNS- und SSL-Status fuer '${item.domain || "Domain"}' wurden aktualisiert.`);
+        } catch (err) {
+          setFlash(`Domain-Pruefung fehlgeschlagen: ${errorMessage(err)}`, "error");
+        } finally {
+          setButtonBusy(button, false);
+        }
+      });
+    });
+    ui.tenantDomainsList.querySelectorAll("[data-domain-rotate-token]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = findTenantDomainByID(String(button.dataset.domainRotateToken || ""));
+        if (!item) {
+          setFlash("Domain-Binding konnte nicht geladen werden.", "error");
+          return;
+        }
+        if (!window.confirm(`Soll ein neuer Verifikations-Token fuer '${item.domain || "Domain"}' erzeugt werden? Die aktuelle TXT-Pruefung wird dadurch sofort ungueltig.`)) {
+          return;
+        }
+        setButtonBusy(button, true, "Erzeuge...");
+        try {
+          await apiRequest(`/api/v1/admin/tenant/domains/${encodeURIComponent(item.id)}/rotate-verification-token`, {
+            method: "POST",
+          });
+          await loadTenantSettings(false);
+          setFlash(`Verifikations-Token fuer '${item.domain || "Domain"}' wurde erneuert.`);
+        } catch (err) {
+          setFlash(`Verifikations-Token konnte nicht erneuert werden: ${errorMessage(err)}`, "error");
+        } finally {
+          setButtonBusy(button, false);
+        }
+      });
+    });
     ui.tenantDomainsList.querySelectorAll("[data-domain-primary]").forEach((button) => {
       button.addEventListener("click", async () => {
         const item = findTenantDomainByID(String(button.dataset.domainPrimary || ""));
@@ -589,10 +634,22 @@
   function renderTenantDomainCard(item) {
     const isActive = state.editingTenantDomainId && state.editingTenantDomainId === item.id;
     const statusLabel = tenantDomainStatusLabel(item.status);
+    const sslStatusLabel = tenantDomainSSLStatusLabel(item.ssl_status);
     const dnsTarget = state.tenantDomainMeta && state.tenantDomainMeta.dns_target_host
       ? String(state.tenantDomainMeta.dns_target_host)
       : String(item.dns_target_host || "");
     const pathLabel = String(item.base_path || "/").trim() || "/";
+    const verificationRecordName = String(item.verification_record_name || "").trim();
+    const verificationRecordValue = String(item.verification_record_value || "").trim();
+    const dnsMeta = item.dns_verified_at
+      ? `TXT bestaetigt seit ${escapeHTML(formatDateTime(item.dns_verified_at))}`
+      : escapeHTML(String(item.last_dns_error || "TXT-Pruefung noch offen."));
+    const routingMeta = item.routing_verified_at
+      ? `Routing bestaetigt seit ${escapeHTML(formatDateTime(item.routing_verified_at))}`
+      : escapeHTML(String(item.last_routing_error || `CNAME/ALIAS noch nicht auf ${dnsTarget}.`));
+    const sslMeta = item.ssl_certificate_expires_at
+      ? `Zertifikat gueltig bis ${escapeHTML(formatDateTime(item.ssl_certificate_expires_at))}${item.ssl_certificate_issuer ? ` · Issuer: ${escapeHTML(item.ssl_certificate_issuer)}` : ""}`
+      : escapeHTML(String(item.last_ssl_error || "TLS-Livecheck noch offen."));
     return `
       <article class="event-card participant-booking-card ${isActive ? "is-active" : ""}">
         <div class="event-card-meta-row">
@@ -603,7 +660,13 @@
         <div class="event-card-subline"><code>${escapeHTML(item.public_base_url || "")}</code></div>
         <div class="meta-stack">Pfad-Basis: <code>${escapeHTML(pathLabel)}</code></div>
         <div class="meta-stack">DNS: <code>${escapeHTML(item.domain || "")}</code> als CNAME auf <code>${escapeHTML(dnsTarget)}</code></div>
+        <div class="meta-stack">TXT: <code>${escapeHTML(verificationRecordName)}</code> = <code>${escapeHTML(verificationRecordValue)}</code></div>
+        <div class="meta-stack">${dnsMeta}</div>
+        <div class="meta-stack">${routingMeta}</div>
+        <div class="meta-stack"><span class="status-pill" data-status="${escapeHTML(item.ssl_status || "")}">${escapeHTML(sslStatusLabel)}</span> ${sslMeta}</div>
         <div class="event-card-actions">
+          <button class="btn light tiny" type="button" data-domain-refresh="${escapeHTML(item.id || "")}">DNS/TLS pruefen</button>
+          <button class="btn ghost tiny" type="button" data-domain-rotate-token="${escapeHTML(item.id || "")}">TXT erneuern</button>
           <button class="btn light tiny" type="button" data-domain-edit="${escapeHTML(item.id || "")}">Bearbeiten</button>
           ${!item.is_primary && item.status === "active" ? `<button class="btn ghost tiny" type="button" data-domain-primary="${escapeHTML(item.id || "")}">Als primaer</button>` : ""}
           ${!item.is_primary ? `<button class="btn warn tiny" type="button" data-domain-delete="${escapeHTML(item.id || "")}">Entfernen</button>` : ""}
@@ -620,11 +683,11 @@
       ? String(state.tenantDomainMeta.dns_target_host)
       : "events.example.com";
     const primary = findPrimaryTenantDomain();
-    let message = `Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. DNS-Ziel aktuell: <code>${escapeHTML(targetHost)}</code>.`;
+    let message = `Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. DNS-Ziel aktuell: <code>${escapeHTML(targetHost)}</code>. Eigentumsnachweis erfolgt ueber einen TXT-Record auf <code>_eep-domain-verification.&lt;deine-domain&gt;</code>.`;
     if (primary) {
       message += ` Die primaere Domain <code>${escapeHTML(primary.public_base_url || "")}</code> setzt zugleich die kanonische Public Base URL.`;
     } else {
-      message += " Nach DNS-Anpassung kann eine aktive Domain als primaere Frontend-Adresse gesetzt werden.";
+      message += " Nach DNS- und TLS-Pruefung kann eine aktive Domain als primaere Frontend-Adresse gesetzt werden.";
     }
     ui.tenantDomainHint.innerHTML = message;
   }
@@ -2915,11 +2978,29 @@
     switch (String(status || "").trim()) {
       case "active":
         return "Aktiv";
+      case "ssl_pending":
+        return "SSL ausstehend";
+      case "dns_verified":
+        return "DNS bestaetigt";
       case "disabled":
         return "Deaktiviert";
       case "pending_dns":
       default:
         return "DNS vorbereiten";
+    }
+  }
+
+  function tenantDomainSSLStatusLabel(status) {
+    switch (String(status || "").trim()) {
+      case "valid":
+        return "TLS gueltig";
+      case "expired":
+        return "TLS abgelaufen";
+      case "invalid":
+        return "TLS ungueltig";
+      case "pending":
+      default:
+        return "TLS ausstehend";
     }
   }
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync Easy Event Planner domain bindings for %i into Traefik
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/andy/infra
+EnvironmentFile=-/srv/easy-event-planner/%i/easy-event-planner-edge-sync.env
+ExecStart=/usr/bin/env bash ./scripts/eep-domain-bindings-sync.sh %i

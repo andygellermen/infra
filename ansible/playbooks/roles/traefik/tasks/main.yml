@@ -130,6 +130,8 @@
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--certificatesresolvers.letsEncrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsEncrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsEncrypt.acme.email=andy@geller.men"

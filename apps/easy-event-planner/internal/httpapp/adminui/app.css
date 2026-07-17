@@ -606,7 +606,8 @@ tr {
 .status-pill[data-status="scheduled"],
 .status-pill[data-status="confirmed"],
 .status-pill[data-status="attended"],
-.status-pill[data-status="active"] {
+.status-pill[data-status="active"],
+.status-pill[data-status="valid"] {
   background: #edf8f0;
   border-color: #b8dfc1;
   color: var(--ok);
@@ -620,6 +621,18 @@ tr {
   color: #5f6671;
 }
 
+.status-pill[data-status="dns_verified"] {
+  background: #eef6ff;
+  border-color: #bfd8f7;
+  color: #245a96;
+}
+
+.status-pill[data-status="ssl_pending"] {
+  background: #fff5e9;
+  border-color: #f0d3ae;
+  color: var(--warn);
+}
+
 .status-pill[data-status="waitlist"],
 .status-pill[data-status="offered"] {
   background: #fff5e9;
@@ -629,7 +642,8 @@ tr {
 
 .status-pill[data-status="cancelled"],
 .status-pill[data-status="expired"],
-.status-pill[data-status="disabled"] {
+.status-pill[data-status="disabled"],
+.status-pill[data-status="invalid"] {
   background: #feefec;
   border-color: #efc6bf;
   color: var(--danger);

@@ -33,6 +33,7 @@ EEP_DB_PATH=/data/easy-event-planner.sqlite
 EEP_CERTIFICATE_STORAGE_DIR=/certificates
 EEP_SESSION_SECRET=...
 EEP_TOKEN_PEPPER=...
+EEP_INFRA_SYNC_TOKEN=...
 EEP_MAIL_PROVIDER=ses
 EEP_SES_REGION=eu-north-1
 EEP_SES_SMTP_HOST=email-smtp.eu-north-1.amazonaws.com
@@ -48,6 +49,12 @@ EEP_SEED_SETTINGS_JSON={"allowed_embed_origins":["*"],"event_detail_base_url":"h
 ```
 
 Hinweis: `EEP_SEED_SETTINGS_JSON` ist der saubere Infra-Hebel fuer Tenant-spezifische Embed-Regeln wie CORS-Freigaben (`allowed_embed_origins`) und redaktionelle Detailseiten (`event_detail_base_url`).
+
+Fuer mandantenfaehige Custom-Domains rendert der Infra-Stack zusaetzlich einen internen Edge-Sync:
+
+- `EEP_INFRA_SYNC_TOKEN` schuetzt die internen Export-/Refresh-Endpunkte fuer Domain-Bindings.
+- `scripts/eep-domain-bindings-sync.sh <domain>` liest die freigegebenen Domain-Bindings aus EEP und schreibt daraus eine Traefik-File-Config.
+- Ein systemd-Timer `eep-domain-bindings-sync@<domain>.timer` haelt Routing, Zertifikatsbereitstellung und Status-Refresh automatisch nach.
 
 ## Docker Compose Beispiel
 

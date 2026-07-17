@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
@@ -213,6 +214,11 @@ func TestAdminTenantDomainBindingsLifecycle(t *testing.T) {
 	if listPayload["dns_target_host"] == "" {
 		t.Fatalf("expected dns_target_host in payload")
 	}
+	items := listPayload["items"].([]any)
+	firstItem := items[0].(map[string]any)
+	if firstItem["verification_record_name"] == "" || firstItem["verification_record_value"] == "" {
+		t.Fatalf("expected verification record metadata in payload")
+	}
 
 	updateBody, _ := json.Marshal(map[string]any{
 		"status":     "active",
@@ -263,5 +269,93 @@ func TestAdminTenantDomainBindingsLifecycle(t *testing.T) {
 	lockedError := lockedPayload["error"].(map[string]any)
 	if lockedError["code"] != "TENANT_PUBLIC_BASE_URL_MANAGED_BY_DOMAIN_BINDING" {
 		t.Fatalf("expected TENANT_PUBLIC_BASE_URL_MANAGED_BY_DOMAIN_BINDING, got %v", lockedError["code"])
+	}
+}
+
+func TestAdminTenantDomainRefreshCheckAndRotateToken(t *testing.T) {
+	app, sender, _ := setupAuthApp(t)
+	sessionCookie := authenticateAdminSession(t, app, sender, "localhost:8080")
+
+	createBody, _ := json.Marshal(map[string]any{
+		"domain":    "events.customer-domain.example",
+		"base_path": "/",
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenant/domains", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d", createRec.Code)
+	}
+	bindingItem := decodeBody[map[string]any](t, createRec)["item"].(map[string]any)
+	bindingID := bindingItem["id"].(string)
+	oldToken := bindingItem["verification_record_value"].(string)
+
+	oldTXT := tenantDomainLookupTXT
+	oldCNAME := tenantDomainLookupCNAME
+	oldHost := tenantDomainLookupHost
+	oldTLS := tenantDomainTLSProbe
+	t.Cleanup(func() {
+		tenantDomainLookupTXT = oldTXT
+		tenantDomainLookupCNAME = oldCNAME
+		tenantDomainLookupHost = oldHost
+		tenantDomainTLSProbe = oldTLS
+	})
+
+	tenantDomainLookupTXT = func(_ context.Context, name string) ([]string, error) {
+		if name != "_eep-domain-verification.events.customer-domain.example" {
+			t.Fatalf("unexpected TXT name %q", name)
+		}
+		return []string{oldToken}, nil
+	}
+	tenantDomainLookupCNAME = func(_ context.Context, host string) (string, error) {
+		return "localhost", nil
+	}
+	tenantDomainLookupHost = func(_ context.Context, host string) ([]string, error) {
+		switch host {
+		case "events.customer-domain.example", "localhost":
+			return []string{"127.0.0.1"}, nil
+		default:
+			return []string{"127.0.0.2"}, nil
+		}
+	}
+	tenantDomainTLSProbe = func(_ context.Context, host string) (domainTLSProbeResult, error) {
+		expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour)
+		return domainTLSProbeResult{
+			Status:    tenant.DomainBindingSSLStatusValid,
+			Issuer:    "Local Test CA",
+			ExpiresAt: &expiresAt,
+		}, nil
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenant/domains/"+bindingID+"/refresh-check", nil)
+	refreshReq.AddCookie(sessionCookie)
+	refreshRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(refreshRec, refreshReq)
+	if refreshRec.Code != http.StatusOK {
+		t.Fatalf("expected refresh status 200, got %d", refreshRec.Code)
+	}
+	refreshedItem := decodeBody[map[string]any](t, refreshRec)["item"].(map[string]any)
+	if refreshedItem["status"] != tenant.DomainBindingStatusActive {
+		t.Fatalf("expected active status after successful checks, got %v", refreshedItem["status"])
+	}
+	if refreshedItem["ssl_status"] != tenant.DomainBindingSSLStatusValid {
+		t.Fatalf("expected ssl_status valid, got %v", refreshedItem["ssl_status"])
+	}
+
+	rotateReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenant/domains/"+bindingID+"/rotate-verification-token", nil)
+	rotateReq.AddCookie(sessionCookie)
+	rotateRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rotateRec, rotateReq)
+	if rotateRec.Code != http.StatusOK {
+		t.Fatalf("expected rotate status 200, got %d", rotateRec.Code)
+	}
+	rotatedItem := decodeBody[map[string]any](t, rotateRec)["item"].(map[string]any)
+	if rotatedItem["verification_record_value"] == oldToken {
+		t.Fatalf("expected rotated verification token")
+	}
+	if rotatedItem["status"] != tenant.DomainBindingStatusPendingDNS {
+		t.Fatalf("expected pending_dns after token rotation, got %v", rotatedItem["status"])
 	}
 }
