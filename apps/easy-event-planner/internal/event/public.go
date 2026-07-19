@@ -49,6 +49,12 @@ func (r *Repository) ListPublicEvents(ctx context.Context, tenantID string, filt
       e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
       e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), COALESCE(e.public_visible_from, ''),
       COALESCE(e.registration_opens_at, ''), COALESCE(e.registration_closes_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
+      COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), ''),
+      COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 0),
+      COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+      COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 0),
+      (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1),
+      (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1),
       COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
       COALESCE(s.slug, ''), COALESCE(s.title, '')
     FROM events e
@@ -129,6 +135,12 @@ func (r *Repository) GetPublicEventBySlug(ctx context.Context, tenantID, eventSl
           e.starts_at, COALESCE(e.ends_at, ''), e.timezone, COALESCE(e.location_name, ''), COALESCE(e.address, ''), COALESCE(e.online_url, ''),
           e.participation_mode, e.status, e.is_public, COALESCE(e.published_at, ''), COALESCE(e.public_visible_from, ''),
           COALESCE(e.registration_opens_at, ''), COALESCE(e.registration_closes_at, ''), e.registration_enabled, e.waitlist_enabled, e.max_participants,
+          COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), ''),
+          COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 0),
+          COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+          COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1), 0),
+          (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1),
+          (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = e.tenant_id AND t.event_id = e.id ORDER BY t.created_at ASC LIMIT 1),
           COALESCE(e.change_note, ''), COALESCE(e.cancelled_reason, ''), e.created_at, e.updated_at,
           COALESCE(s.slug, ''), COALESCE(s.title, '')
      FROM events e
@@ -283,6 +295,9 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		registrationEnabled     int
 		waitlistEnabled         int
 		maxParticipantsRaw      sql.NullInt64
+		donationEnabledRaw      int
+		donationMinCentsRaw     sql.NullInt64
+		donationSuggestedRaw    sql.NullInt64
 		createdAtRaw            string
 		updatedAtRaw            string
 	)
@@ -311,6 +326,12 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 		&registrationEnabled,
 		&waitlistEnabled,
 		&maxParticipantsRaw,
+		&item.TicketName,
+		&item.PriceCents,
+		&item.Currency,
+		&donationEnabledRaw,
+		&donationMinCentsRaw,
+		&donationSuggestedRaw,
 		&item.ChangeNote,
 		&item.CancelledReason,
 		&createdAtRaw,
@@ -373,9 +394,18 @@ func scanPublicEvent(row rowScanner) (PublicEvent, error) {
 	item.RegistrationClosesAt = registrationClosesAt
 	item.RegistrationEnabled = registrationEnabled == 1
 	item.WaitlistEnabled = waitlistEnabled == 1
+	item.DonationEnabled = donationEnabledRaw == 1
 	if maxParticipantsRaw.Valid {
 		value := int(maxParticipantsRaw.Int64)
 		item.MaxParticipants = &value
+	}
+	if donationMinCentsRaw.Valid {
+		value := int(donationMinCentsRaw.Int64)
+		item.DonationMinCents = &value
+	}
+	if donationSuggestedRaw.Valid {
+		value := int(donationSuggestedRaw.Int64)
+		item.DonationSuggestedCents = &value
 	}
 	item.CreatedAt = createdAt.UTC()
 	item.UpdatedAt = updatedAt.UTC()

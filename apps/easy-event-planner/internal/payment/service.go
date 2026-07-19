@@ -129,10 +129,15 @@ type tenantPayPalSettings struct {
 }
 
 type registrationForPayment struct {
-	ID            string
-	TenantID      string
-	Status        string
-	ReservedUntil string
+	ID                  string
+	TenantID            string
+	Status              string
+	ReservedUntil       string
+	PriceCents          int
+	Currency            string
+	DonationEnabled     bool
+	DonationMinCents    *int
+	DiscountAmountCents int
 }
 
 type paymentLookup struct {
@@ -320,6 +325,31 @@ func (s *Service) CreatePayPalOrder(ctx context.Context, input CreatePayPalOrder
 	if !canCreateOrderForRegistrationStatus(regItem.Status) {
 		_ = tx.Rollback()
 		return CreatePayPalOrderResult{}, ErrRegistrationStateInvalid
+	}
+	finalBaseAmount := regItem.PriceCents - regItem.DiscountAmountCents
+	if finalBaseAmount < 0 {
+		finalBaseAmount = 0
+	}
+	if finalBaseAmount <= 0 {
+		_ = tx.Rollback()
+		return CreatePayPalOrderResult{}, fmt.Errorf("%w: payment is not required for this registration", ErrInvalidCreateOrderInput)
+	}
+	if regItem.DonationMinCents != nil && input.DonationAmountCents > 0 && input.DonationAmountCents < *regItem.DonationMinCents {
+		_ = tx.Rollback()
+		return CreatePayPalOrderResult{}, fmt.Errorf("%w: donation_amount_cents must be >= configured minimum", ErrInvalidCreateOrderInput)
+	}
+	if input.DonationAmountCents > 0 && !regItem.DonationEnabled {
+		_ = tx.Rollback()
+		return CreatePayPalOrderResult{}, fmt.Errorf("%w: donations are not enabled for this registration", ErrInvalidCreateOrderInput)
+	}
+	expectedAmountCents := finalBaseAmount + input.DonationAmountCents
+	if input.AmountCents != expectedAmountCents {
+		_ = tx.Rollback()
+		return CreatePayPalOrderResult{}, fmt.Errorf("%w: amount_cents must equal configured price plus donation", ErrInvalidCreateOrderInput)
+	}
+	if currency != strings.ToUpper(strings.TrimSpace(regItem.Currency)) {
+		_ = tx.Rollback()
+		return CreatePayPalOrderResult{}, fmt.Errorf("%w: currency does not match event configuration", ErrInvalidCreateOrderInput)
 	}
 
 	rawProviderResponse := strings.TrimSpace(providerResult.RawResponse)
@@ -856,19 +886,36 @@ type registrationConfirmationContext struct {
 func (s *Service) lookupRegistrationForPaymentTx(ctx context.Context, tx *sql.Tx, tenantID, registrationID string) (registrationForPayment, error) {
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, status, COALESCE(reserved_until, '')
-     FROM registrations
-     WHERE tenant_id = ? AND id = ?
+		`SELECT r.id, r.tenant_id, r.status, COALESCE(r.reserved_until, ''),
+            COALESCE(t.price_cents, 0), COALESCE(t.currency, 'EUR'), COALESCE(t.donation_enabled, 0), t.donation_min_cents,
+            COALESCE((SELECT SUM(discount_amount_cents) FROM discount_redemptions d WHERE d.tenant_id = r.tenant_id AND d.registration_id = r.id), 0)
+     FROM registrations r
+     JOIN events e ON e.id = r.event_id AND e.tenant_id = r.tenant_id
+     LEFT JOIN event_tickets t ON t.id = (
+       SELECT et.id
+       FROM event_tickets et
+       WHERE et.tenant_id = e.tenant_id AND et.event_id = e.id
+       ORDER BY et.created_at ASC
+       LIMIT 1
+     )
+     WHERE r.tenant_id = ? AND r.id = ?
      LIMIT 1`,
 		tenantID,
 		registrationID,
 	)
 	var item registrationForPayment
-	if err := row.Scan(&item.ID, &item.TenantID, &item.Status, &item.ReservedUntil); err != nil {
+	var donationEnabledInt int
+	var donationMinRaw sql.NullInt64
+	if err := row.Scan(&item.ID, &item.TenantID, &item.Status, &item.ReservedUntil, &item.PriceCents, &item.Currency, &donationEnabledInt, &donationMinRaw, &item.DiscountAmountCents); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return registrationForPayment{}, ErrRegistrationNotFound
 		}
 		return registrationForPayment{}, fmt.Errorf("query registration for payment: %w", err)
+	}
+	item.DonationEnabled = donationEnabledInt == 1
+	if donationMinRaw.Valid {
+		value := int(donationMinRaw.Int64)
+		item.DonationMinCents = &value
 	}
 	return item, nil
 }

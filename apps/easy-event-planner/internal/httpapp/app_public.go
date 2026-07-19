@@ -396,13 +396,19 @@ func (a *App) handlePublicRegistrationStart(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"ok":                true,
-		"registration_id":   result.RegistrationID,
-		"participant_id":    result.ParticipantID,
-		"event_id":          result.EventID,
-		"status":            result.Status,
-		"verify_expires_at": result.VerifyExpires.UTC().Format(time.RFC3339),
-		"message":           "Bitte bestaetige die Anmeldung ueber den Link in der E-Mail.",
+		"ok":                       true,
+		"registration_id":          result.RegistrationID,
+		"participant_id":           result.ParticipantID,
+		"event_id":                 result.EventID,
+		"status":                   result.Status,
+		"verify_expires_at":        result.VerifyExpires.UTC().Format(time.RFC3339),
+		"message":                  "Bitte bestaetige die Anmeldung ueber den Link in der E-Mail.",
+		"payment_required":         result.PaymentRequired,
+		"currency":                 result.Currency,
+		"final_amount_cents":       result.FinalAmountCents,
+		"donation_enabled":         result.DonationEnabled,
+		"donation_min_cents":       emptyIntToNil(result.DonationMinCents),
+		"donation_suggested_cents": emptyIntToNil(result.DonationSuggestedCents),
 		"invite": map[string]any{
 			"id":                    emptyToNil(result.InviteID),
 			"code":                  emptyToNil(result.InviteCode),
@@ -461,6 +467,15 @@ func (a *App) publicRegistrationVerifyPayload(tenantItem tenant.Tenant, result r
 	if result.ConfirmedAt != nil {
 		payload["confirmed_at"] = result.ConfirmedAt.UTC().Format(time.RFC3339)
 	}
+	if result.ReservedUntil != nil {
+		payload["reserved_until"] = result.ReservedUntil.UTC().Format(time.RFC3339)
+	}
+	payload["payment_required"] = result.PaymentRequired
+	payload["amount_cents"] = result.AmountCents
+	payload["currency"] = result.Currency
+	payload["donation_enabled"] = result.DonationEnabled
+	payload["donation_min_cents"] = emptyIntToNil(result.DonationMinCents)
+	payload["donation_suggested_cents"] = emptyIntToNil(result.DonationSuggestedCents)
 	if strings.TrimSpace(result.WaitlistID) != "" {
 		payload["waitlist"] = map[string]any{
 			"id":       result.WaitlistID,
@@ -747,6 +762,14 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 	if item.MaxParticipants != nil {
 		maxParticipants = *item.MaxParticipants
 	}
+	var donationMinCents any
+	if item.DonationMinCents != nil {
+		donationMinCents = *item.DonationMinCents
+	}
+	var donationSuggestedCents any
+	if item.DonationSuggestedCents != nil {
+		donationSuggestedCents = *item.DonationSuggestedCents
+	}
 	var series any
 	if strings.TrimSpace(item.SeriesSlug) != "" {
 		series = map[string]any{
@@ -782,9 +805,25 @@ func publicEventPayload(item event.PublicEvent) map[string]any {
 		"registration_opens_at":   registrationOpensAt,
 		"registration_closes_at":  registrationClosesAt,
 		"is_registration_open":    item.IsRegistrationOpenAt(now),
-		"waitlist_enabled":        item.WaitlistEnabled,
-		"max_participants":        maxParticipants,
-		"change_note":             item.ChangeNote,
-		"cancelled_reason":        item.CancelledReason,
+		"payment_required":        item.RequiresPayment(),
+		"ticket": map[string]any{
+			"name":                     emptyToNil(item.TicketName),
+			"price_cents":              item.PriceCents,
+			"currency":                 item.Currency,
+			"donation_enabled":         item.DonationEnabled,
+			"donation_min_cents":       donationMinCents,
+			"donation_suggested_cents": donationSuggestedCents,
+		},
+		"waitlist_enabled": item.WaitlistEnabled,
+		"max_participants": maxParticipants,
+		"change_note":      item.ChangeNote,
+		"cancelled_reason": item.CancelledReason,
 	}
+}
+
+func emptyIntToNil(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }

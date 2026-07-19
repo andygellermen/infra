@@ -249,6 +249,37 @@
                   </div>
                 </section>
 
+                <section class="form-section span-2">
+                  <div class="section-head">
+                    <h3>Zahlung und Spende</h3>
+                    <p class="muted compact">Ein einfaches Standard-Ticket pro Event mit optionaler Zusatzspende.</p>
+                  </div>
+                  <div class="section-grid">
+                    <label>
+                      Ticketname (bei Bezahl-Event)
+                      <input name="ticket_name" type="text" placeholder="Standard-Ticket">
+                    </label>
+                    <label>
+                      Preis in Cent
+                      <input name="price_cents" type="number" min="0" step="1" placeholder="4900">
+                    </label>
+                    <label>
+                      Waehrung
+                      <input name="currency" type="text" value="EUR" maxlength="3" placeholder="EUR">
+                    </label>
+                    <label class="checkline"><input name="donation_enabled" type="checkbox"> Zusatzspende erlauben</label>
+                    <label>
+                      Mindestspende in Cent (optional)
+                      <input name="donation_min_cents" type="number" min="0" step="1" placeholder="300">
+                    </label>
+                    <label>
+                      Vorschlagsspende in Cent (optional)
+                      <input name="donation_suggested_cents" type="number" min="0" step="1" placeholder="700">
+                    </label>
+                    <p class="muted compact span-2">Bezahl-Events werden nach der E-Mail-Verifizierung zunaechst reserviert und erst nach erfolgreicher Zahlung verbindlich bestaetigt.</p>
+                  </div>
+                </section>
+
                 <div class="form-actions span-2">
                   <button id="eventSubmitBtn" class="btn primary" type="submit">Event speichern</button>
                 </div>

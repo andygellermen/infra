@@ -13,7 +13,7 @@ import (
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
-func createConfirmedRegistrationForPaymentHTTPTest(t *testing.T, app *App, tenantSlug, eventID, email string) string {
+func createRegistrationForPaymentHTTPTest(t *testing.T, app *App, tenantSlug, eventID, email, expectedStatus string) string {
 	t.Helper()
 	tenantID := tenantIDBySlug(t, app, tenantSlug)
 
@@ -49,10 +49,20 @@ func createConfirmedRegistrationForPaymentHTTPTest(t *testing.T, app *App, tenan
 		t.Fatalf("expected registration verify status 200, got %d", verifyRec.Code)
 	}
 	verifyResult := decodeBody[map[string]any](t, verifyRec)
-	if verifyResult["status"] != "confirmed" {
-		t.Fatalf("expected confirmed registration, got %v", verifyResult["status"])
+	if verifyResult["status"] != expectedStatus {
+		t.Fatalf("expected %s registration, got %v", expectedStatus, verifyResult["status"])
 	}
 	return registrationID
+}
+
+func createConfirmedRegistrationForPaymentHTTPTest(t *testing.T, app *App, tenantSlug, eventID, email string) string {
+	t.Helper()
+	return createRegistrationForPaymentHTTPTest(t, app, tenantSlug, eventID, email, "confirmed")
+}
+
+func createReservedRegistrationForPaymentHTTPTest(t *testing.T, app *App, tenantSlug, eventID, email string) string {
+	t.Helper()
+	return createRegistrationForPaymentHTTPTest(t, app, tenantSlug, eventID, email, "reserved")
 }
 
 func TestPublicPayPalCreateOrderAndWebhookFlow(t *testing.T) {
@@ -73,11 +83,16 @@ func TestPublicPayPalCreateOrderAndWebhookFlow(t *testing.T) {
 	}
 
 	published := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
-		Slug:     "paypal-public-event",
-		Title:    "PayPal Public Event",
-		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		Slug:             "paypal-public-event",
+		Title:            "PayPal Public Event",
+		StartsAt:         time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		TicketName:       "Standard",
+		PriceCents:       intPtr(4600),
+		Currency:         "EUR",
+		DonationEnabled:  boolPtr(true),
+		DonationMinCents: intPtr(200),
 	})
-	registrationID := createConfirmedRegistrationForPaymentHTTPTest(
+	registrationID := createReservedRegistrationForPaymentHTTPTest(
 		t,
 		app,
 		tenantSlug,
@@ -182,11 +197,14 @@ func TestPublicPayPalCreateOrderDisabled(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantID := tenantIDBySlug(t, app, tenantSlug)
 	published := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
-		Slug:     "paypal-disabled-event",
-		Title:    "PayPal Disabled Event",
-		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		Slug:       "paypal-disabled-event",
+		Title:      "PayPal Disabled Event",
+		StartsAt:   time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		TicketName: "Standard",
+		PriceCents: intPtr(1990),
+		Currency:   "EUR",
 	})
-	registrationID := createConfirmedRegistrationForPaymentHTTPTest(
+	registrationID := createReservedRegistrationForPaymentHTTPTest(
 		t,
 		app,
 		tenantSlug,
@@ -211,4 +229,8 @@ func TestPublicPayPalCreateOrderDisabled(t *testing.T) {
 	if errorPayload["code"] != "PAYMENT_REQUIRED" {
 		t.Fatalf("expected PAYMENT_REQUIRED, got %v", errorPayload["code"])
 	}
+}
+
+func intPtr(value int) *int {
+	return &value
 }

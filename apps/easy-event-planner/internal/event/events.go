@@ -35,82 +35,102 @@ var (
 var eventSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Event struct {
-	ID                    string
-	TenantID              string
-	SeriesID              string
-	Slug                  string
-	Title                 string
-	Subtitle              string
-	Description           string
-	StartsAt              time.Time
-	EndsAt                *time.Time
-	Timezone              string
-	LocationName          string
-	Address               string
-	OnlineURL             string
-	ParticipationMode     string
-	Status                string
-	IsPublic              bool
-	PublishedAt           *time.Time
-	PublicVisibleFrom     *time.Time
-	RegistrationOpensAt   *time.Time
-	RegistrationClosesAt  *time.Time
-	RegistrationEnabled   bool
-	WaitlistEnabled       bool
-	MaxParticipants       *int
-	ConfirmedParticipants int
-	WaitlistEntries       int
-	ChangeNote            string
-	CancelledReason       string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	ID                     string
+	TenantID               string
+	SeriesID               string
+	Slug                   string
+	Title                  string
+	Subtitle               string
+	Description            string
+	StartsAt               time.Time
+	EndsAt                 *time.Time
+	Timezone               string
+	LocationName           string
+	Address                string
+	OnlineURL              string
+	ParticipationMode      string
+	Status                 string
+	IsPublic               bool
+	PublishedAt            *time.Time
+	PublicVisibleFrom      *time.Time
+	RegistrationOpensAt    *time.Time
+	RegistrationClosesAt   *time.Time
+	RegistrationEnabled    bool
+	WaitlistEnabled        bool
+	MaxParticipants        *int
+	ConfirmedParticipants  int
+	WaitlistEntries        int
+	TicketName             string
+	PriceCents             int
+	Currency               string
+	DonationEnabled        bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
+	ChangeNote             string
+	CancelledReason        string
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type CreateEventParams struct {
-	SeriesID             string
-	Slug                 string
-	Title                string
-	Subtitle             string
-	Description          string
-	StartsAt             string
-	EndsAt               string
-	Timezone             string
-	LocationName         string
-	Address              string
-	OnlineURL            string
-	ParticipationMode    string
-	IsPublic             *bool
-	PublicVisibleFrom    string
-	RegistrationOpensAt  string
-	RegistrationClosesAt string
-	RegistrationEnabled  *bool
-	WaitlistEnabled      *bool
-	MaxParticipants      *int
+	SeriesID               string
+	Slug                   string
+	Title                  string
+	Subtitle               string
+	Description            string
+	StartsAt               string
+	EndsAt                 string
+	Timezone               string
+	LocationName           string
+	Address                string
+	OnlineURL              string
+	ParticipationMode      string
+	IsPublic               *bool
+	PublicVisibleFrom      string
+	RegistrationOpensAt    string
+	RegistrationClosesAt   string
+	RegistrationEnabled    *bool
+	WaitlistEnabled        *bool
+	MaxParticipants        *int
+	TicketName             string
+	PriceCents             *int
+	Currency               string
+	DonationEnabled        *bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
 }
 
 type UpdateEventParams struct {
-	SeriesID             *string
-	Slug                 *string
-	Title                *string
-	Subtitle             *string
-	Description          *string
-	StartsAt             *string
-	EndsAt               *string
-	Timezone             *string
-	LocationName         *string
-	Address              *string
-	OnlineURL            *string
-	ParticipationMode    *string
-	IsPublic             *bool
-	PublicVisibleFrom    *string
-	RegistrationOpensAt  *string
-	RegistrationClosesAt *string
-	RegistrationEnabled  *bool
-	WaitlistEnabled      *bool
-	MaxParticipants      *int
-	ClearMaxParticipants bool
-	ChangeNote           *string
-	CancelledReason      *string
+	SeriesID                    *string
+	Slug                        *string
+	Title                       *string
+	Subtitle                    *string
+	Description                 *string
+	StartsAt                    *string
+	EndsAt                      *string
+	Timezone                    *string
+	LocationName                *string
+	Address                     *string
+	OnlineURL                   *string
+	ParticipationMode           *string
+	IsPublic                    *bool
+	PublicVisibleFrom           *string
+	RegistrationOpensAt         *string
+	RegistrationClosesAt        *string
+	RegistrationEnabled         *bool
+	WaitlistEnabled             *bool
+	MaxParticipants             *int
+	ClearMaxParticipants        bool
+	TicketName                  *string
+	PriceCents                  *int
+	Currency                    *string
+	DonationEnabled             *bool
+	DonationMinCents            *int
+	ClearDonationMinCents       bool
+	DonationSuggestedCents      *int
+	ClearDonationSuggestedCents bool
+	ChangeNote                  *string
+	CancelledReason             *string
 }
 
 func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, error) {
@@ -139,6 +159,12 @@ func (r *Repository) ListEvents(ctx context.Context, tenantID string) ([]Event, 
              WHERE w.tenant_id = events.tenant_id
                AND w.event_id = events.id
                AND w.status IN ('waiting', 'offered')) AS waitlist_count,
+            COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), ''),
+            COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+            COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
+            (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
             COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
      FROM events
      WHERE tenant_id = ?
@@ -186,7 +212,11 @@ func (r *Repository) CreateEvent(ctx context.Context, tenantID string, params Cr
 
 	now := r.nowFn().UTC().Format(time.RFC3339)
 	eventID := r.idFn("evt")
-	_, err = r.db.ExecContext(
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Event{}, fmt.Errorf("begin event create transaction: %w", err)
+	}
+	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO events (
       id, tenant_id, series_id, slug, title, subtitle, description, starts_at, ends_at, timezone,
@@ -223,10 +253,18 @@ func (r *Repository) CreateEvent(ctx context.Context, tenantID string, params Cr
 		now,
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		if isEventSlugConstraintError(err) {
 			return Event{}, ErrEventSlugExists
 		}
 		return Event{}, fmt.Errorf("insert event: %w", err)
+	}
+	if err := r.syncDefaultEventTicketTx(ctx, tx, tenant, eventID, normalized); err != nil {
+		_ = tx.Rollback()
+		return Event{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Event{}, fmt.Errorf("commit event create transaction: %w", err)
 	}
 
 	return r.GetEventByID(ctx, tenant, eventID)
@@ -262,6 +300,12 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID, eventID string)
              WHERE w.tenant_id = events.tenant_id
                AND w.event_id = events.id
                AND w.status IN ('waiting', 'offered')) AS waitlist_count,
+            COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), ''),
+            COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+            COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
+            (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
             COALESCE(change_note, ''), COALESCE(cancelled_reason, ''), created_at, updated_at
      FROM events
      WHERE tenant_id = ? AND id = ?
@@ -307,7 +351,11 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 	}
 
 	now := r.nowFn().UTC().Format(time.RFC3339)
-	result, err := r.db.ExecContext(
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Event{}, fmt.Errorf("begin event update transaction: %w", err)
+	}
+	result, err := tx.ExecContext(
 		ctx,
 		`UPDATE events
      SET series_id = ?, slug = ?, title = ?, subtitle = ?, description = ?, starts_at = ?, ends_at = ?, timezone = ?,
@@ -343,6 +391,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 		id,
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		if isEventSlugConstraintError(err) {
 			return Event{}, ErrEventSlugExists
 		}
@@ -350,10 +399,19 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID, eventID string, 
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		_ = tx.Rollback()
 		return Event{}, fmt.Errorf("event update rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
+		_ = tx.Rollback()
 		return Event{}, ErrEventNotFound
+	}
+	if err := r.syncDefaultEventTicketFromEventTx(ctx, tx, updated); err != nil {
+		_ = tx.Rollback()
+		return Event{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Event{}, fmt.Errorf("commit event update transaction: %w", err)
 	}
 
 	return r.GetEventByID(ctx, tenant, id)
@@ -869,6 +927,64 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		hasChange = true
 		contentChanged = true
 	}
+	if params.TicketName != nil {
+		updated.TicketName = strings.TrimSpace(*params.TicketName)
+		hasChange = true
+		contentChanged = true
+	}
+	if params.PriceCents != nil {
+		if *params.PriceCents < 0 {
+			return Event{}, false, fmt.Errorf("event price_cents must be >= 0")
+		}
+		updated.PriceCents = *params.PriceCents
+		hasChange = true
+		contentChanged = true
+	}
+	if params.Currency != nil {
+		currency := strings.ToUpper(strings.TrimSpace(*params.Currency))
+		if currency == "" {
+			currency = "EUR"
+		}
+		if len(currency) != 3 {
+			return Event{}, false, fmt.Errorf("event currency must be a 3-letter code")
+		}
+		updated.Currency = currency
+		hasChange = true
+		contentChanged = true
+	}
+	if params.DonationEnabled != nil {
+		updated.DonationEnabled = *params.DonationEnabled
+		hasChange = true
+		contentChanged = true
+	}
+	if params.ClearDonationMinCents {
+		updated.DonationMinCents = nil
+		hasChange = true
+		contentChanged = true
+	}
+	if params.DonationMinCents != nil {
+		if *params.DonationMinCents < 0 {
+			return Event{}, false, fmt.Errorf("event donation_min_cents must be >= 0")
+		}
+		value := *params.DonationMinCents
+		updated.DonationMinCents = &value
+		hasChange = true
+		contentChanged = true
+	}
+	if params.ClearDonationSuggestedCents {
+		updated.DonationSuggestedCents = nil
+		hasChange = true
+		contentChanged = true
+	}
+	if params.DonationSuggestedCents != nil {
+		if *params.DonationSuggestedCents < 0 {
+			return Event{}, false, fmt.Errorf("event donation_suggested_cents must be >= 0")
+		}
+		value := *params.DonationSuggestedCents
+		updated.DonationSuggestedCents = &value
+		hasChange = true
+		contentChanged = true
+	}
 	if params.ChangeNote != nil {
 		updated.ChangeNote = strings.TrimSpace(*params.ChangeNote)
 		hasChange = true
@@ -878,6 +994,9 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 		hasChange = true
 	}
 	if err := validateEventReleaseSchedule(updated.PublicVisibleFrom, updated.RegistrationOpensAt, updated.RegistrationClosesAt); err != nil {
+		return Event{}, false, err
+	}
+	if err := validateEventTicketConfig(updated.TicketName, updated.PriceCents, updated.Currency, updated.DonationEnabled, updated.DonationMinCents, updated.DonationSuggestedCents); err != nil {
 		return Event{}, false, err
 	}
 
@@ -892,25 +1011,31 @@ func (r *Repository) applyEventUpdate(ctx context.Context, tenantID string, curr
 }
 
 type normalizedCreateEvent struct {
-	SeriesID             string
-	Slug                 string
-	Title                string
-	Subtitle             string
-	Description          string
-	StartsAt             time.Time
-	EndsAt               *time.Time
-	Timezone             string
-	LocationName         string
-	Address              string
-	OnlineURL            string
-	ParticipationMode    string
-	IsPublic             bool
-	PublicVisibleFrom    *time.Time
-	RegistrationOpensAt  *time.Time
-	RegistrationClosesAt *time.Time
-	RegistrationEnabled  bool
-	WaitlistEnabled      bool
-	MaxParticipants      *int
+	SeriesID               string
+	Slug                   string
+	Title                  string
+	Subtitle               string
+	Description            string
+	StartsAt               time.Time
+	EndsAt                 *time.Time
+	Timezone               string
+	LocationName           string
+	Address                string
+	OnlineURL              string
+	ParticipationMode      string
+	IsPublic               bool
+	PublicVisibleFrom      *time.Time
+	RegistrationOpensAt    *time.Time
+	RegistrationClosesAt   *time.Time
+	RegistrationEnabled    bool
+	WaitlistEnabled        bool
+	MaxParticipants        *int
+	TicketName             string
+	PriceCents             int
+	Currency               string
+	DonationEnabled        bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
 }
 
 func normalizeCreateEventParams(params CreateEventParams) (normalizedCreateEvent, error) {
@@ -984,30 +1109,62 @@ func normalizeCreateEventParams(params CreateEventParams) (normalizedCreateEvent
 		}
 		maxParticipants = &value
 	}
+	ticketName := strings.TrimSpace(params.TicketName)
+	priceCents := 0
+	if params.PriceCents != nil {
+		priceCents = *params.PriceCents
+	}
+	currency := strings.ToUpper(strings.TrimSpace(params.Currency))
+	if currency == "" {
+		currency = "EUR"
+	}
+	donationEnabled := false
+	if params.DonationEnabled != nil {
+		donationEnabled = *params.DonationEnabled
+	}
+	var donationMinCents *int
+	if params.DonationMinCents != nil {
+		value := *params.DonationMinCents
+		donationMinCents = &value
+	}
+	var donationSuggestedCents *int
+	if params.DonationSuggestedCents != nil {
+		value := *params.DonationSuggestedCents
+		donationSuggestedCents = &value
+	}
 	if err := validateEventReleaseSchedule(publicVisibleFrom, registrationOpensAt, registrationClosesAt); err != nil {
+		return normalizedCreateEvent{}, err
+	}
+	if err := validateEventTicketConfig(ticketName, priceCents, currency, donationEnabled, donationMinCents, donationSuggestedCents); err != nil {
 		return normalizedCreateEvent{}, err
 	}
 
 	return normalizedCreateEvent{
-		SeriesID:             strings.TrimSpace(params.SeriesID),
-		Slug:                 slug,
-		Title:                title,
-		Subtitle:             strings.TrimSpace(params.Subtitle),
-		Description:          strings.TrimSpace(params.Description),
-		StartsAt:             startsAt,
-		EndsAt:               endsAt,
-		Timezone:             timezone,
-		LocationName:         strings.TrimSpace(params.LocationName),
-		Address:              strings.TrimSpace(params.Address),
-		OnlineURL:            onlineURL,
-		ParticipationMode:    mode,
-		IsPublic:             isPublic,
-		PublicVisibleFrom:    publicVisibleFrom,
-		RegistrationOpensAt:  registrationOpensAt,
-		RegistrationClosesAt: registrationClosesAt,
-		RegistrationEnabled:  registrationEnabled,
-		WaitlistEnabled:      waitlistEnabled,
-		MaxParticipants:      maxParticipants,
+		SeriesID:               strings.TrimSpace(params.SeriesID),
+		Slug:                   slug,
+		Title:                  title,
+		Subtitle:               strings.TrimSpace(params.Subtitle),
+		Description:            strings.TrimSpace(params.Description),
+		StartsAt:               startsAt,
+		EndsAt:                 endsAt,
+		Timezone:               timezone,
+		LocationName:           strings.TrimSpace(params.LocationName),
+		Address:                strings.TrimSpace(params.Address),
+		OnlineURL:              onlineURL,
+		ParticipationMode:      mode,
+		IsPublic:               isPublic,
+		PublicVisibleFrom:      publicVisibleFrom,
+		RegistrationOpensAt:    registrationOpensAt,
+		RegistrationClosesAt:   registrationClosesAt,
+		RegistrationEnabled:    registrationEnabled,
+		WaitlistEnabled:        waitlistEnabled,
+		MaxParticipants:        maxParticipants,
+		TicketName:             ticketName,
+		PriceCents:             priceCents,
+		Currency:               currency,
+		DonationEnabled:        donationEnabled,
+		DonationMinCents:       donationMinCents,
+		DonationSuggestedCents: donationSuggestedCents,
 	}, nil
 }
 
@@ -1133,6 +1290,9 @@ func scanEvent(row rowScanner) (Event, error) {
 		registrationEnabled     int
 		waitlistEnabled         int
 		maxParticipantsRaw      sql.NullInt64
+		donationEnabledRaw      int
+		donationMinCentsRaw     sql.NullInt64
+		donationSuggestedRaw    sql.NullInt64
 		createdAtRaw            string
 		updatedAtRaw            string
 	)
@@ -1163,6 +1323,12 @@ func scanEvent(row rowScanner) (Event, error) {
 		&maxParticipantsRaw,
 		&item.ConfirmedParticipants,
 		&item.WaitlistEntries,
+		&item.TicketName,
+		&item.PriceCents,
+		&item.Currency,
+		&donationEnabledRaw,
+		&donationMinCentsRaw,
+		&donationSuggestedRaw,
 		&item.ChangeNote,
 		&item.CancelledReason,
 		&createdAtRaw,
@@ -1223,13 +1389,128 @@ func scanEvent(row rowScanner) (Event, error) {
 	item.RegistrationClosesAt = registrationClosesAt
 	item.RegistrationEnabled = registrationEnabled == 1
 	item.WaitlistEnabled = waitlistEnabled == 1
+	item.DonationEnabled = donationEnabledRaw == 1
 	if maxParticipantsRaw.Valid {
 		value := int(maxParticipantsRaw.Int64)
 		item.MaxParticipants = &value
 	}
+	if donationMinCentsRaw.Valid {
+		value := int(donationMinCentsRaw.Int64)
+		item.DonationMinCents = &value
+	}
+	if donationSuggestedRaw.Valid {
+		value := int(donationSuggestedRaw.Int64)
+		item.DonationSuggestedCents = &value
+	}
 	item.CreatedAt = createdAt.UTC()
 	item.UpdatedAt = updatedAt.UTC()
 	return item, nil
+}
+
+func (e Event) RequiresPayment() bool {
+	return e.PriceCents > 0
+}
+
+func validateEventTicketConfig(ticketName string, priceCents int, currency string, donationEnabled bool, donationMinCents, donationSuggestedCents *int) error {
+	normalizedCurrency := strings.ToUpper(strings.TrimSpace(currency))
+	if normalizedCurrency == "" {
+		normalizedCurrency = "EUR"
+	}
+	if priceCents < 0 {
+		return fmt.Errorf("event price_cents must be >= 0")
+	}
+	if len(normalizedCurrency) != 3 {
+		return fmt.Errorf("event currency must be a 3-letter code")
+	}
+	if donationEnabled && priceCents <= 0 {
+		return fmt.Errorf("event donation_enabled currently requires price_cents > 0")
+	}
+	if donationMinCents != nil && *donationMinCents < 0 {
+		return fmt.Errorf("event donation_min_cents must be >= 0")
+	}
+	if donationSuggestedCents != nil && *donationSuggestedCents < 0 {
+		return fmt.Errorf("event donation_suggested_cents must be >= 0")
+	}
+	if donationMinCents != nil && donationSuggestedCents != nil && *donationSuggestedCents < *donationMinCents {
+		return fmt.Errorf("event donation_suggested_cents must be >= donation_min_cents")
+	}
+	if priceCents > 0 && strings.TrimSpace(ticketName) == "" {
+		return fmt.Errorf("event ticket_name must not be empty when price_cents > 0")
+	}
+	return nil
+}
+
+func (r *Repository) syncDefaultEventTicketTx(ctx context.Context, tx *sql.Tx, tenantID, eventID string, config normalizedCreateEvent) error {
+	return r.syncDefaultEventTicketRecordTx(ctx, tx, tenantID, eventID, config.TicketName, config.PriceCents, config.Currency, config.DonationEnabled, config.DonationMinCents, config.DonationSuggestedCents)
+}
+
+func (r *Repository) syncDefaultEventTicketFromEventTx(ctx context.Context, tx *sql.Tx, item Event) error {
+	return r.syncDefaultEventTicketRecordTx(ctx, tx, item.TenantID, item.ID, item.TicketName, item.PriceCents, item.Currency, item.DonationEnabled, item.DonationMinCents, item.DonationSuggestedCents)
+}
+
+func (r *Repository) syncDefaultEventTicketRecordTx(ctx context.Context, tx *sql.Tx, tenantID, eventID, ticketName string, priceCents int, currency string, donationEnabled bool, donationMinCents, donationSuggestedCents *int) error {
+	if tx == nil {
+		return fmt.Errorf("transaction must not be nil")
+	}
+	if priceCents <= 0 && !donationEnabled {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM event_tickets WHERE tenant_id = ? AND event_id = ?`, tenantID, eventID); err != nil {
+			return fmt.Errorf("delete event ticket: %w", err)
+		}
+		return nil
+	}
+
+	row := tx.QueryRowContext(ctx, `SELECT id FROM event_tickets WHERE tenant_id = ? AND event_id = ? ORDER BY created_at ASC LIMIT 1`, tenantID, eventID)
+	var ticketID string
+	err := row.Scan(&ticketID)
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("lookup event ticket: %w", err)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO event_tickets (
+        id, tenant_id, event_id, name, ticket_type, price_cents, currency, max_quantity,
+        donation_enabled, donation_min_cents, donation_suggested_cents, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, 'standard', ?, ?, NULL, ?, ?, ?, ?, ?)`,
+			r.idFn("tkt"),
+			tenantID,
+			eventID,
+			ticketName,
+			priceCents,
+			strings.ToUpper(strings.TrimSpace(currency)),
+			boolToInt(donationEnabled),
+			nullableInt(donationMinCents),
+			nullableInt(donationSuggestedCents),
+			now,
+			now,
+		); err != nil {
+			return fmt.Errorf("insert event ticket: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE event_tickets
+     SET name = ?, price_cents = ?, currency = ?, donation_enabled = ?, donation_min_cents = ?, donation_suggested_cents = ?, updated_at = ?
+     WHERE id = ? AND tenant_id = ?`,
+		ticketName,
+		priceCents,
+		strings.ToUpper(strings.TrimSpace(currency)),
+		boolToInt(donationEnabled),
+		nullableInt(donationMinCents),
+		nullableInt(donationSuggestedCents),
+		now,
+		ticketID,
+		tenantID,
+	); err != nil {
+		return fmt.Errorf("update event ticket: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM event_tickets WHERE tenant_id = ? AND event_id = ? AND id <> ?`, tenantID, eventID, ticketID); err != nil {
+		return fmt.Errorf("cleanup event tickets: %w", err)
+	}
+	return nil
 }
 
 func canEventBePublic(status string) bool {

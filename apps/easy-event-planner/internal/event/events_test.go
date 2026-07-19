@@ -252,6 +252,69 @@ func TestUpdateEventClearsPublishedAtWhenPublicVisibilityIsRemoved(t *testing.T)
 	}
 }
 
+func TestUpdateEventPaymentConfigurationCanBeCleared(t *testing.T) {
+	repo, tenantID, _ := setupEventRepository(t)
+
+	priceCents := 4900
+	donationEnabled := true
+	donationMin := 300
+	donationSuggested := 700
+	created, err := repo.CreateEvent(context.Background(), tenantID, CreateEventParams{
+		Slug:                   "paid-event",
+		Title:                  "Paid Event",
+		StartsAt:               "2026-09-01T18:00:00Z",
+		TicketName:             "Standard-Ticket",
+		PriceCents:             &priceCents,
+		Currency:               "EUR",
+		DonationEnabled:        &donationEnabled,
+		DonationMinCents:       &donationMin,
+		DonationSuggestedCents: &donationSuggested,
+	})
+	if err != nil {
+		t.Fatalf("create paid event: %v", err)
+	}
+	if !created.RequiresPayment() {
+		t.Fatalf("expected paid event to require payment")
+	}
+
+	updated, err := repo.UpdateEvent(context.Background(), tenantID, created.ID, UpdateEventParams{
+		DonationMinCents:            nil,
+		ClearDonationMinCents:       true,
+		DonationSuggestedCents:      nil,
+		ClearDonationSuggestedCents: true,
+	})
+	if err != nil {
+		t.Fatalf("clear donation config: %v", err)
+	}
+	if updated.DonationMinCents != nil {
+		t.Fatalf("expected donation min to be cleared, got %v", *updated.DonationMinCents)
+	}
+	if updated.DonationSuggestedCents != nil {
+		t.Fatalf("expected donation suggested to be cleared, got %v", *updated.DonationSuggestedCents)
+	}
+
+	freePrice := 0
+	disableDonation := false
+	emptyTicketName := ""
+	updated, err = repo.UpdateEvent(context.Background(), tenantID, created.ID, UpdateEventParams{
+		TicketName:      &emptyTicketName,
+		PriceCents:      &freePrice,
+		DonationEnabled: &disableDonation,
+	})
+	if err != nil {
+		t.Fatalf("clear payment requirement: %v", err)
+	}
+	if updated.RequiresPayment() {
+		t.Fatalf("expected event to no longer require payment")
+	}
+	if updated.TicketName != "" {
+		t.Fatalf("expected ticket name to be cleared, got %q", updated.TicketName)
+	}
+	if updated.DonationEnabled {
+		t.Fatalf("expected donation mode to be disabled")
+	}
+}
+
 func TestEventVisibilityAndRegistrationWindows(t *testing.T) {
 	repo, tenantID, _ := setupEventRepository(t)
 

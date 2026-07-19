@@ -959,6 +959,10 @@ func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.
 			data.Title = "Warteliste erfolgreich"
 			data.Message = "Du stehst jetzt auf der Warteliste. Sobald ein Platz frei wird, geht es von dort fuer dich weiter."
 			data.StatusLabel = "Warteliste"
+		case registration.StatusReserved:
+			data.Title = "Zahlung jetzt abschliessen"
+			data.Message = "Dein Platz ist jetzt vorlaeufig reserviert. Bitte schliesse als Naechstes die Zahlung ab, damit die Teilnahme verbindlich bestaetigt wird."
+			data.StatusLabel = "Zahlung ausstehend"
 		case registration.StatusConfirmed:
 			data.StatusLabel = "Teilnahme bestaetigt"
 		default:

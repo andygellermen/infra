@@ -96,17 +96,22 @@ type StartInput struct {
 }
 
 type StartResult struct {
-	RegistrationID      string
-	ParticipantID       string
-	EventID             string
-	Status              string
-	VerifyExpires       time.Time
-	InviteID            string
-	InviteCode          string
-	DiscountAmountCents int
-	CreditAmountCents   int
-	FinalAmountCents    int
-	Sponsored           bool
+	RegistrationID         string
+	ParticipantID          string
+	EventID                string
+	Status                 string
+	VerifyExpires          time.Time
+	InviteID               string
+	InviteCode             string
+	DiscountAmountCents    int
+	CreditAmountCents      int
+	FinalAmountCents       int
+	Sponsored              bool
+	Currency               string
+	PaymentRequired        bool
+	DonationEnabled        bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
 }
 
 type VerifyInput struct {
@@ -117,33 +122,46 @@ type VerifyInput struct {
 }
 
 type VerifyResult struct {
-	RegistrationID string
-	ParticipantID  string
-	EventID        string
-	Status         string
-	ConfirmedAt    *time.Time
-	WaitlistID     string
-	WaitlistPos    int
+	RegistrationID         string
+	ParticipantID          string
+	EventID                string
+	Status                 string
+	ConfirmedAt            *time.Time
+	WaitlistID             string
+	WaitlistPos            int
+	ReservedUntil          *time.Time
+	AmountCents            int
+	Currency               string
+	PaymentRequired        bool
+	DonationEnabled        bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
 }
 
 type eventRecord struct {
-	ID                   string
-	TenantID             string
-	Title                string
-	Slug                 string
-	StartsAt             time.Time
-	Timezone             string
-	LocationName         string
-	OnlineURL            string
-	Status               string
-	IsPublic             bool
-	PublishedAt          *time.Time
-	PublicVisibleFrom    *time.Time
-	RegistrationOpensAt  *time.Time
-	RegistrationClosesAt *time.Time
-	RegistrationEnabled  bool
-	WaitlistEnabled      bool
-	MaxParticipants      sql.NullInt64
+	ID                     string
+	TenantID               string
+	Title                  string
+	Slug                   string
+	StartsAt               time.Time
+	Timezone               string
+	LocationName           string
+	OnlineURL              string
+	Status                 string
+	IsPublic               bool
+	PublishedAt            *time.Time
+	PublicVisibleFrom      *time.Time
+	RegistrationOpensAt    *time.Time
+	RegistrationClosesAt   *time.Time
+	RegistrationEnabled    bool
+	WaitlistEnabled        bool
+	MaxParticipants        sql.NullInt64
+	TicketName             string
+	PriceCents             int
+	Currency               string
+	DonationEnabled        bool
+	DonationMinCents       *int
+	DonationSuggestedCents *int
 }
 
 type registrationRecord struct {
@@ -252,6 +270,10 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 	if !eventItem.IsRegistrationOpenAt(now) {
 		return StartResult{}, ErrRegistrationClosed
 	}
+	baseAmountCents := eventItem.PriceCents
+	if baseAmountCents <= 0 {
+		baseAmountCents = input.InviteAmountCents
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return StartResult{}, fmt.Errorf("begin registration transaction: %w", err)
@@ -285,11 +307,17 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 				return StartResult{}, fmt.Errorf("commit registration start transaction: %w", err)
 			}
 			return StartResult{
-				RegistrationID: activeReg.ID,
-				ParticipantID:  participantID,
-				EventID:        eventID,
-				Status:         StatusVerificationPending,
-				VerifyExpires:  expiresAt,
+				RegistrationID:         activeReg.ID,
+				ParticipantID:          participantID,
+				EventID:                eventID,
+				Status:                 StatusVerificationPending,
+				VerifyExpires:          expiresAt,
+				FinalAmountCents:       baseAmountCents,
+				Currency:               eventItem.Currency,
+				PaymentRequired:        eventItem.PriceCents > 0,
+				DonationEnabled:        eventItem.DonationEnabled,
+				DonationMinCents:       eventItem.DonationMinCents,
+				DonationSuggestedCents: eventItem.DonationSuggestedCents,
 			}, nil
 		case StatusConfirmed, StatusReserved, StatusPaymentPending:
 			_ = tx.Rollback()
@@ -330,7 +358,7 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 			RegistrationID:   registrationID,
 			ParticipantEmail: normalizedEmail,
 			Code:             inviteCode,
-			BaseAmountCents:  input.InviteAmountCents,
+			BaseAmountCents:  baseAmountCents,
 		})
 		if err != nil {
 			_ = tx.Rollback()
@@ -354,17 +382,22 @@ func (s *Service) Start(ctx context.Context, input StartInput) (StartResult, err
 	}
 
 	return StartResult{
-		RegistrationID:      registrationID,
-		ParticipantID:       participantID,
-		EventID:             eventID,
-		Status:              StatusVerificationPending,
-		VerifyExpires:       expiresAt,
-		InviteID:            inviteResult.Link.ID,
-		InviteCode:          inviteResult.Link.Code,
-		DiscountAmountCents: inviteResult.DiscountAmountCents,
-		CreditAmountCents:   inviteResult.CreditAmountCents,
-		FinalAmountCents:    inviteResult.FinalAmountCents,
-		Sponsored:           inviteResult.Sponsored,
+		RegistrationID:         registrationID,
+		ParticipantID:          participantID,
+		EventID:                eventID,
+		Status:                 StatusVerificationPending,
+		VerifyExpires:          expiresAt,
+		InviteID:               inviteResult.Link.ID,
+		InviteCode:             inviteResult.Link.Code,
+		DiscountAmountCents:    inviteResult.DiscountAmountCents,
+		CreditAmountCents:      inviteResult.CreditAmountCents,
+		FinalAmountCents:       maxRegistrationAmount(inviteResult.FinalAmountCents, baseAmountCents, inviteCode),
+		Sponsored:              inviteResult.Sponsored,
+		Currency:               eventItem.Currency,
+		PaymentRequired:        eventItem.PriceCents > 0,
+		DonationEnabled:        eventItem.DonationEnabled,
+		DonationMinCents:       eventItem.DonationMinCents,
+		DonationSuggestedCents: eventItem.DonationSuggestedCents,
 	}, nil
 }
 
@@ -497,6 +530,48 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (VerifyResult, 
 		return VerifyResult{}, ErrEventFull
 	}
 
+	discountAmountCents, err := s.lookupRegistrationDiscountAmountTx(ctx, tx, tenantID, registrationItem.ID)
+	if err != nil {
+		_ = tx.Rollback()
+		return VerifyResult{}, err
+	}
+	finalAmountCents := eventItem.PriceCents - discountAmountCents
+	if finalAmountCents < 0 {
+		finalAmountCents = 0
+	}
+	if finalAmountCents > 0 {
+		reservedUntil := now.Add(s.cfg.RegistrationTTL).UTC()
+		if _, err := tx.ExecContext(
+			ctx,
+			`UPDATE registrations
+     SET status = ?, reserved_until = ?, confirmed_at = NULL, updated_at = ?
+     WHERE id = ?`,
+			StatusReserved,
+			reservedUntil.Format(time.RFC3339),
+			now.Format(time.RFC3339),
+			registrationItem.ID,
+		); err != nil {
+			_ = tx.Rollback()
+			return VerifyResult{}, fmt.Errorf("reserve paid registration: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return VerifyResult{}, fmt.Errorf("commit paid registration verification: %w", err)
+		}
+		return VerifyResult{
+			RegistrationID:         registrationItem.ID,
+			ParticipantID:          registrationItem.ParticipantID,
+			EventID:                registrationItem.EventID,
+			Status:                 StatusReserved,
+			ReservedUntil:          &reservedUntil,
+			AmountCents:            finalAmountCents,
+			Currency:               eventItem.Currency,
+			PaymentRequired:        true,
+			DonationEnabled:        eventItem.DonationEnabled,
+			DonationMinCents:       eventItem.DonationMinCents,
+			DonationSuggestedCents: eventItem.DonationSuggestedCents,
+		}, nil
+	}
+
 	confirmedAtRaw := now.Format(time.RFC3339)
 	if _, err := tx.ExecContext(
 		ctx,
@@ -550,7 +625,13 @@ func (s *Service) lookupEvent(ctx context.Context, tenantID, eventID string) (ev
 		ctx,
 		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status,
             is_public, COALESCE(published_at, ''), COALESCE(public_visible_from, ''), COALESCE(registration_opens_at, ''), COALESCE(registration_closes_at, ''),
-            registration_enabled, waitlist_enabled, max_participants
+            registration_enabled, waitlist_enabled, max_participants,
+            COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), ''),
+            COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+            COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
+            (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1)
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -565,7 +646,13 @@ func (s *Service) lookupEventTx(ctx context.Context, tx *sql.Tx, tenantID, event
 		ctx,
 		`SELECT id, tenant_id, title, slug, starts_at, COALESCE(timezone, ''), COALESCE(location_name, ''), COALESCE(online_url, ''), status,
             is_public, COALESCE(published_at, ''), COALESCE(public_visible_from, ''), COALESCE(registration_opens_at, ''), COALESCE(registration_closes_at, ''),
-            registration_enabled, waitlist_enabled, max_participants
+            registration_enabled, waitlist_enabled, max_participants,
+            COALESCE((SELECT name FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), ''),
+            COALESCE((SELECT price_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            COALESCE((SELECT currency FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 'EUR'),
+            COALESCE((SELECT donation_enabled FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1), 0),
+            (SELECT donation_min_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1),
+            (SELECT donation_suggested_cents FROM event_tickets t WHERE t.tenant_id = events.tenant_id AND t.event_id = events.id ORDER BY t.created_at ASC LIMIT 1)
      FROM events
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
@@ -586,6 +673,9 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 		registrationClosesAtRaw string
 		registrationInt         int
 		waitlistEnabledInt      int
+		donationEnabledInt      int
+		donationMinCentsRaw     sql.NullInt64
+		donationSuggestedRaw    sql.NullInt64
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -605,6 +695,12 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 		&registrationInt,
 		&waitlistEnabledInt,
 		&item.MaxParticipants,
+		&item.TicketName,
+		&item.PriceCents,
+		&item.Currency,
+		&donationEnabledInt,
+		&donationMinCentsRaw,
+		&donationSuggestedRaw,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return eventRecord{}, ErrEventNotFound
@@ -639,7 +735,20 @@ func scanEvent(row interface{ Scan(dest ...any) error }) (eventRecord, error) {
 	item.RegistrationClosesAt = registrationClosesAt
 	item.RegistrationEnabled = registrationInt == 1
 	item.WaitlistEnabled = waitlistEnabledInt == 1
+	item.DonationEnabled = donationEnabledInt == 1
+	if donationMinCentsRaw.Valid {
+		value := int(donationMinCentsRaw.Int64)
+		item.DonationMinCents = &value
+	}
+	if donationSuggestedRaw.Valid {
+		value := int(donationSuggestedRaw.Int64)
+		item.DonationSuggestedCents = &value
+	}
 	return item, nil
+}
+
+func (e eventRecord) RequiresPayment() bool {
+	return e.PriceCents > 0
 }
 
 func (e eventRecord) IsPublished() bool {
@@ -1074,6 +1183,38 @@ func canRegisterForEventStatus(status string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *Service) lookupRegistrationDiscountAmountTx(ctx context.Context, tx *sql.Tx, tenantID, registrationID string) (int, error) {
+	row := tx.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(SUM(discount_amount_cents), 0)
+     FROM discount_redemptions
+     WHERE tenant_id = ? AND registration_id = ?`,
+		tenantID,
+		registrationID,
+	)
+	var amount int
+	if err := row.Scan(&amount); err != nil {
+		return 0, fmt.Errorf("query registration discount amount: %w", err)
+	}
+	if amount < 0 {
+		return 0, nil
+	}
+	return amount, nil
+}
+
+func maxRegistrationAmount(invitedAmount, baseAmount int, inviteCode string) int {
+	if strings.TrimSpace(inviteCode) == "" {
+		if baseAmount < 0 {
+			return 0
+		}
+		return baseAmount
+	}
+	if invitedAmount < 0 {
+		return 0
+	}
+	return invitedAmount
 }
 
 func normalizeEmail(raw string) (string, error) {

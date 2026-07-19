@@ -66,9 +66,14 @@ func setupPaymentService(t *testing.T, paypalMode string) (*Service, *sql.DB, te
 
 	eventRepo := event.NewRepository(sqlDB)
 	createdEvent, err := eventRepo.CreateEvent(context.Background(), tenantItem.ID, event.CreateEventParams{
-		Slug:     "paid-workshop",
-		Title:    "Paid Workshop",
-		StartsAt: time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		Slug:             "paid-workshop",
+		Title:            "Paid Workshop",
+		StartsAt:         time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
+		TicketName:       "Standard",
+		PriceCents:       intPtr(2500),
+		Currency:         "EUR",
+		DonationEnabled:  boolPtr(true),
+		DonationMinCents: intPtr(100),
 	})
 	if err != nil {
 		t.Fatalf("create event: %v", err)
@@ -126,7 +131,7 @@ func TestCreatePayPalOrderAndWebhookFlow(t *testing.T) {
 	createResult, err := service.CreatePayPalOrder(context.Background(), CreatePayPalOrderInput{
 		TenantID:            tenantItem.ID,
 		RegistrationID:      registrationID,
-		AmountCents:         3900,
+		AmountCents:         2900,
 		Currency:            "eur",
 		DonationAmountCents: 400,
 	})
@@ -375,7 +380,7 @@ func TestProcessPayPalWebhookRejectsInvalidSignatureInRealMode(t *testing.T) {
 	createResult, err := service.CreatePayPalOrder(context.Background(), CreatePayPalOrderInput{
 		TenantID:       tenantItem.ID,
 		RegistrationID: registrationID,
-		AmountCents:    1200,
+		AmountCents:    2500,
 		Currency:       "EUR",
 	})
 	if err != nil {
@@ -457,4 +462,12 @@ func deepString(payload map[string]any, path ...string) string {
 	}
 	text, _ := current.(string)
 	return strings.TrimSpace(text)
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

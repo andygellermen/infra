@@ -1067,6 +1067,7 @@
     const visibilityClass = item.is_published ? "ok" : "light";
     const visibilityAction = item.is_published ? "unpublish" : "publish";
     const seriesTitle = resolveSeriesTitle(item.series_id);
+    const paymentChip = renderEventPaymentChip(item);
 
     return `
       <article class="event-card${isActive ? " is-active" : ""}" data-event-card="${escapeAttr(item.id)}" data-event-context="${escapeAttr(context)}">
@@ -1080,6 +1081,7 @@
           ${statusPill(item.status)}
           <span class="series-chip">${escapeHTML(publicationMeta.label)}</span>
           ${seriesTitle ? `<span class="series-chip">${escapeHTML(seriesTitle)}</span>` : ""}
+          ${paymentChip}
         </div>
         <div class="event-card-foot">
           <span class="muted">${escapeHTML(`${counts} · ${publicationMeta.detail}`)}</span>
@@ -1312,6 +1314,29 @@
     if (registrationOpensAt && registrationClosesAt && new Date(registrationClosesAt).getTime() < new Date(registrationOpensAt).getTime()) {
       throw new Error("Registrierung moeglich bis muss nach Registrierung moeglich ab liegen.");
     }
+    const ticketNameRaw = String(formData.get("ticket_name") || "").trim();
+    const priceCentsRaw = String(formData.get("price_cents") || "").trim();
+    const currency = String(formData.get("currency") || "").trim().toUpperCase() || "EUR";
+    const donationEnabled = isChecked(ui.eventForm, "donation_enabled");
+    const donationMinCentsRaw = String(formData.get("donation_min_cents") || "").trim();
+    const donationSuggestedCentsRaw = String(formData.get("donation_suggested_cents") || "").trim();
+    const priceCents = parseOptionalNonNegativeInteger(priceCentsRaw, "Preis in Cent");
+    const normalizedPriceCents = priceCents === null ? 0 : priceCents;
+    const donationMinCents = parseOptionalNonNegativeInteger(donationMinCentsRaw, "Mindestspende in Cent");
+    const donationSuggestedCents = parseOptionalNonNegativeInteger(donationSuggestedCentsRaw, "Vorschlagsspende in Cent");
+
+    if (currency.length !== 3) {
+      throw new Error("Waehrung muss ein 3-stelliger Code wie EUR sein.");
+    }
+    if (donationEnabled && normalizedPriceCents <= 0) {
+      throw new Error("Zusatzspenden koennen aktuell nur bei Bezahl-Events aktiviert werden.");
+    }
+    if (donationMinCents !== null && donationSuggestedCents !== null && donationSuggestedCents < donationMinCents) {
+      throw new Error("Vorschlagsspende muss groesser oder gleich Mindestspende sein.");
+    }
+    if (normalizedPriceCents > 0 && !ticketNameRaw) {
+      throw new Error("Bitte fuer ein Bezahl-Event einen Ticketnamen vergeben.");
+    }
 
     const body = {
       series_id: String(formData.get("series_id") || "").trim(),
@@ -1333,12 +1358,20 @@
       registration_enabled: isChecked(ui.eventForm, "registration_enabled"),
       waitlist_enabled: isChecked(ui.eventForm, "waitlist_enabled"),
       max_participants: maxParticipants,
+      ticket_name: normalizedPriceCents > 0 ? ticketNameRaw : "",
+      price_cents: normalizedPriceCents,
+      currency,
+      donation_enabled: donationEnabled,
+      donation_min_cents: donationMinCents,
+      donation_suggested_cents: donationSuggestedCents,
       change_note: String(formData.get("change_note") || "").trim(),
     };
 
     if (isEdit) {
       const hadMaxParticipants = current && current.max_participants !== null && current.max_participants !== undefined;
       body.clear_max_participants = !maxParticipantsRaw && hadMaxParticipants;
+      body.clear_donation_min_cents = !donationMinCentsRaw && !!(current && current.donation_min_cents !== null && current.donation_min_cents !== undefined);
+      body.clear_donation_suggested_cents = !donationSuggestedCentsRaw && !!(current && current.donation_suggested_cents !== null && current.donation_suggested_cents !== undefined);
     }
 
     return body;
@@ -1477,6 +1510,12 @@
     setFieldValue(ui.eventForm, "online_url", item.online_url || "");
     setFieldValue(ui.eventForm, "participation_mode", item.participation_mode || "onsite");
     setFieldValue(ui.eventForm, "max_participants", item.max_participants === null || item.max_participants === undefined ? "" : item.max_participants);
+    setFieldValue(ui.eventForm, "ticket_name", item.ticket_name || "");
+    setFieldValue(ui.eventForm, "price_cents", item.price_cents === null || item.price_cents === undefined || Number(item.price_cents) <= 0 ? "" : item.price_cents);
+    setFieldValue(ui.eventForm, "currency", item.currency || "EUR");
+    setCheckboxValue(ui.eventForm, "donation_enabled", !!item.donation_enabled);
+    setFieldValue(ui.eventForm, "donation_min_cents", item.donation_min_cents === null || item.donation_min_cents === undefined ? "" : item.donation_min_cents);
+    setFieldValue(ui.eventForm, "donation_suggested_cents", item.donation_suggested_cents === null || item.donation_suggested_cents === undefined ? "" : item.donation_suggested_cents);
     setFieldValue(ui.eventForm, "change_note", item.change_note || "");
     setFieldValue(ui.eventForm, "public_visible_from", toLocalDateTimeInputValue(item.public_visible_from));
     setFieldValue(ui.eventForm, "registration_opens_at", toLocalDateTimeInputValue(item.registration_opens_at));
@@ -1551,9 +1590,15 @@
     setCheckboxValue(ui.eventForm, "is_public", true);
     setCheckboxValue(ui.eventForm, "registration_enabled", true);
     setCheckboxValue(ui.eventForm, "waitlist_enabled", true);
+    setCheckboxValue(ui.eventForm, "donation_enabled", false);
     setFieldValue(ui.eventForm, "public_visible_from", "");
     setFieldValue(ui.eventForm, "registration_opens_at", "");
     setFieldValue(ui.eventForm, "registration_closes_at", "");
+    setFieldValue(ui.eventForm, "ticket_name", "");
+    setFieldValue(ui.eventForm, "price_cents", "");
+    setFieldValue(ui.eventForm, "currency", "EUR");
+    setFieldValue(ui.eventForm, "donation_min_cents", "");
+    setFieldValue(ui.eventForm, "donation_suggested_cents", "");
     setFieldValue(ui.eventForm, "change_note", "");
     setFieldValue(ui.eventForm, "starts_at_time", getDefaultStartTime());
     setFieldValue(ui.eventForm, "ends_at_time", "");
@@ -2373,6 +2418,14 @@
     return `<div class="empty-stack">${escapeHTML(message)}</div>`;
   }
 
+  function renderEventPaymentChip(item) {
+    const meta = getEventPaymentMeta(item);
+    if (!meta) {
+      return "";
+    }
+    return `<span class="series-chip">${escapeHTML(meta)}</span>`;
+  }
+
   function renderSeriesCard(item) {
     const isActive = state.editingSeriesId === item.id;
     const defaults = [
@@ -2799,6 +2852,33 @@
     }).format(date);
   }
 
+  function formatMoney(amountCents, currency) {
+    const normalizedAmount = Number(amountCents || 0);
+    const normalizedCurrency = String(currency || "EUR").trim().toUpperCase() || "EUR";
+    try {
+      return new Intl.NumberFormat("de-DE", {
+        style: "currency",
+        currency: normalizedCurrency,
+      }).format(normalizedAmount / 100);
+    } catch (err) {
+      return `${(normalizedAmount / 100).toFixed(2)} ${normalizedCurrency}`;
+    }
+  }
+
+  function getEventPaymentMeta(item) {
+    const priceCents = Number(item && item.price_cents || 0);
+    const donationEnabled = !!(item && item.donation_enabled);
+    if (priceCents > 0) {
+      const label = item && item.ticket_name ? item.ticket_name : "Standard-Ticket";
+      const amount = formatMoney(priceCents, item && item.currency || "EUR");
+      return donationEnabled ? `${label} · ${amount} + Spende` : `${label} · ${amount}`;
+    }
+    if (donationEnabled) {
+      return "Spenden-Event";
+    }
+    return "";
+  }
+
   function toISO(localDateTimeValue) {
     if (!localDateTimeValue) {
       return "";
@@ -2941,6 +3021,18 @@
       throw new Error(`${label} ist ungueltig.`);
     }
     return iso;
+  }
+
+  function parseOptionalNonNegativeInteger(rawValue, label) {
+    const raw = String(rawValue || "").trim();
+    if (!raw) {
+      return null;
+    }
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new Error(`${label} muss eine ganze Zahl >= 0 sein.`);
+    }
+    return parsed;
   }
 
   function applySteppedDateTimeInputConfig() {

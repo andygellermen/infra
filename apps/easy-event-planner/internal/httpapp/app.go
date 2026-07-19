@@ -740,25 +740,31 @@ func (a *App) handleAdminEventsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request struct {
-		SeriesID             string `json:"series_id"`
-		Slug                 string `json:"slug"`
-		Title                string `json:"title"`
-		Subtitle             string `json:"subtitle"`
-		Description          string `json:"description"`
-		StartsAt             string `json:"starts_at"`
-		EndsAt               string `json:"ends_at"`
-		Timezone             string `json:"timezone"`
-		LocationName         string `json:"location_name"`
-		Address              string `json:"address"`
-		OnlineURL            string `json:"online_url"`
-		ParticipationMode    string `json:"participation_mode"`
-		IsPublic             *bool  `json:"is_public"`
-		PublicVisibleFrom    string `json:"public_visible_from"`
-		RegistrationOpensAt  string `json:"registration_opens_at"`
-		RegistrationClosesAt string `json:"registration_closes_at"`
-		RegistrationEnabled  *bool  `json:"registration_enabled"`
-		WaitlistEnabled      *bool  `json:"waitlist_enabled"`
-		MaxParticipants      *int   `json:"max_participants"`
+		SeriesID               string `json:"series_id"`
+		Slug                   string `json:"slug"`
+		Title                  string `json:"title"`
+		Subtitle               string `json:"subtitle"`
+		Description            string `json:"description"`
+		StartsAt               string `json:"starts_at"`
+		EndsAt                 string `json:"ends_at"`
+		Timezone               string `json:"timezone"`
+		LocationName           string `json:"location_name"`
+		Address                string `json:"address"`
+		OnlineURL              string `json:"online_url"`
+		ParticipationMode      string `json:"participation_mode"`
+		IsPublic               *bool  `json:"is_public"`
+		PublicVisibleFrom      string `json:"public_visible_from"`
+		RegistrationOpensAt    string `json:"registration_opens_at"`
+		RegistrationClosesAt   string `json:"registration_closes_at"`
+		RegistrationEnabled    *bool  `json:"registration_enabled"`
+		WaitlistEnabled        *bool  `json:"waitlist_enabled"`
+		MaxParticipants        *int   `json:"max_participants"`
+		TicketName             string `json:"ticket_name"`
+		PriceCents             *int   `json:"price_cents"`
+		Currency               string `json:"currency"`
+		DonationEnabled        *bool  `json:"donation_enabled"`
+		DonationMinCents       *int   `json:"donation_min_cents"`
+		DonationSuggestedCents *int   `json:"donation_suggested_cents"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -766,25 +772,31 @@ func (a *App) handleAdminEventsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	created, err := a.eventRepo.CreateEvent(r.Context(), principal.TenantID, event.CreateEventParams{
-		SeriesID:             request.SeriesID,
-		Slug:                 request.Slug,
-		Title:                request.Title,
-		Subtitle:             request.Subtitle,
-		Description:          request.Description,
-		StartsAt:             request.StartsAt,
-		EndsAt:               request.EndsAt,
-		Timezone:             request.Timezone,
-		LocationName:         request.LocationName,
-		Address:              request.Address,
-		OnlineURL:            request.OnlineURL,
-		ParticipationMode:    request.ParticipationMode,
-		IsPublic:             request.IsPublic,
-		PublicVisibleFrom:    request.PublicVisibleFrom,
-		RegistrationOpensAt:  request.RegistrationOpensAt,
-		RegistrationClosesAt: request.RegistrationClosesAt,
-		RegistrationEnabled:  request.RegistrationEnabled,
-		WaitlistEnabled:      request.WaitlistEnabled,
-		MaxParticipants:      request.MaxParticipants,
+		SeriesID:               request.SeriesID,
+		Slug:                   request.Slug,
+		Title:                  request.Title,
+		Subtitle:               request.Subtitle,
+		Description:            request.Description,
+		StartsAt:               request.StartsAt,
+		EndsAt:                 request.EndsAt,
+		Timezone:               request.Timezone,
+		LocationName:           request.LocationName,
+		Address:                request.Address,
+		OnlineURL:              request.OnlineURL,
+		ParticipationMode:      request.ParticipationMode,
+		IsPublic:               request.IsPublic,
+		PublicVisibleFrom:      request.PublicVisibleFrom,
+		RegistrationOpensAt:    request.RegistrationOpensAt,
+		RegistrationClosesAt:   request.RegistrationClosesAt,
+		RegistrationEnabled:    request.RegistrationEnabled,
+		WaitlistEnabled:        request.WaitlistEnabled,
+		MaxParticipants:        request.MaxParticipants,
+		TicketName:             request.TicketName,
+		PriceCents:             request.PriceCents,
+		Currency:               request.Currency,
+		DonationEnabled:        request.DonationEnabled,
+		DonationMinCents:       request.DonationMinCents,
+		DonationSuggestedCents: request.DonationSuggestedCents,
 	})
 	if err != nil {
 		a.writeEventError(w, err)
@@ -820,28 +832,36 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 	}
 
 	var request struct {
-		SeriesID             *string `json:"series_id"`
-		Slug                 *string `json:"slug"`
-		Title                *string `json:"title"`
-		Subtitle             *string `json:"subtitle"`
-		Description          *string `json:"description"`
-		StartsAt             *string `json:"starts_at"`
-		EndsAt               *string `json:"ends_at"`
-		Timezone             *string `json:"timezone"`
-		LocationName         *string `json:"location_name"`
-		Address              *string `json:"address"`
-		OnlineURL            *string `json:"online_url"`
-		ParticipationMode    *string `json:"participation_mode"`
-		IsPublic             *bool   `json:"is_public"`
-		PublicVisibleFrom    *string `json:"public_visible_from"`
-		RegistrationOpensAt  *string `json:"registration_opens_at"`
-		RegistrationClosesAt *string `json:"registration_closes_at"`
-		RegistrationEnabled  *bool   `json:"registration_enabled"`
-		WaitlistEnabled      *bool   `json:"waitlist_enabled"`
-		MaxParticipants      *int    `json:"max_participants"`
-		ClearMaxParticipants bool    `json:"clear_max_participants"`
-		ChangeNote           *string `json:"change_note"`
-		CancelledReason      *string `json:"cancelled_reason"`
+		SeriesID                    *string `json:"series_id"`
+		Slug                        *string `json:"slug"`
+		Title                       *string `json:"title"`
+		Subtitle                    *string `json:"subtitle"`
+		Description                 *string `json:"description"`
+		StartsAt                    *string `json:"starts_at"`
+		EndsAt                      *string `json:"ends_at"`
+		Timezone                    *string `json:"timezone"`
+		LocationName                *string `json:"location_name"`
+		Address                     *string `json:"address"`
+		OnlineURL                   *string `json:"online_url"`
+		ParticipationMode           *string `json:"participation_mode"`
+		IsPublic                    *bool   `json:"is_public"`
+		PublicVisibleFrom           *string `json:"public_visible_from"`
+		RegistrationOpensAt         *string `json:"registration_opens_at"`
+		RegistrationClosesAt        *string `json:"registration_closes_at"`
+		RegistrationEnabled         *bool   `json:"registration_enabled"`
+		WaitlistEnabled             *bool   `json:"waitlist_enabled"`
+		MaxParticipants             *int    `json:"max_participants"`
+		ClearMaxParticipants        bool    `json:"clear_max_participants"`
+		TicketName                  *string `json:"ticket_name"`
+		PriceCents                  *int    `json:"price_cents"`
+		Currency                    *string `json:"currency"`
+		DonationEnabled             *bool   `json:"donation_enabled"`
+		DonationMinCents            *int    `json:"donation_min_cents"`
+		ClearDonationMinCents       bool    `json:"clear_donation_min_cents"`
+		DonationSuggestedCents      *int    `json:"donation_suggested_cents"`
+		ClearDonationSuggestedCents bool    `json:"clear_donation_suggested_cents"`
+		ChangeNote                  *string `json:"change_note"`
+		CancelledReason             *string `json:"cancelled_reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -849,28 +869,36 @@ func (a *App) handleAdminEventPatch(w http.ResponseWriter, r *http.Request, even
 	}
 
 	updated, err := a.eventRepo.UpdateEvent(r.Context(), principal.TenantID, eventID, event.UpdateEventParams{
-		SeriesID:             request.SeriesID,
-		Slug:                 request.Slug,
-		Title:                request.Title,
-		Subtitle:             request.Subtitle,
-		Description:          request.Description,
-		StartsAt:             request.StartsAt,
-		EndsAt:               request.EndsAt,
-		Timezone:             request.Timezone,
-		LocationName:         request.LocationName,
-		Address:              request.Address,
-		OnlineURL:            request.OnlineURL,
-		ParticipationMode:    request.ParticipationMode,
-		IsPublic:             request.IsPublic,
-		PublicVisibleFrom:    request.PublicVisibleFrom,
-		RegistrationOpensAt:  request.RegistrationOpensAt,
-		RegistrationClosesAt: request.RegistrationClosesAt,
-		RegistrationEnabled:  request.RegistrationEnabled,
-		WaitlistEnabled:      request.WaitlistEnabled,
-		MaxParticipants:      request.MaxParticipants,
-		ClearMaxParticipants: request.ClearMaxParticipants,
-		ChangeNote:           request.ChangeNote,
-		CancelledReason:      request.CancelledReason,
+		SeriesID:                    request.SeriesID,
+		Slug:                        request.Slug,
+		Title:                       request.Title,
+		Subtitle:                    request.Subtitle,
+		Description:                 request.Description,
+		StartsAt:                    request.StartsAt,
+		EndsAt:                      request.EndsAt,
+		Timezone:                    request.Timezone,
+		LocationName:                request.LocationName,
+		Address:                     request.Address,
+		OnlineURL:                   request.OnlineURL,
+		ParticipationMode:           request.ParticipationMode,
+		IsPublic:                    request.IsPublic,
+		PublicVisibleFrom:           request.PublicVisibleFrom,
+		RegistrationOpensAt:         request.RegistrationOpensAt,
+		RegistrationClosesAt:        request.RegistrationClosesAt,
+		RegistrationEnabled:         request.RegistrationEnabled,
+		WaitlistEnabled:             request.WaitlistEnabled,
+		MaxParticipants:             request.MaxParticipants,
+		ClearMaxParticipants:        request.ClearMaxParticipants,
+		TicketName:                  request.TicketName,
+		PriceCents:                  request.PriceCents,
+		Currency:                    request.Currency,
+		DonationEnabled:             request.DonationEnabled,
+		DonationMinCents:            request.DonationMinCents,
+		ClearDonationMinCents:       request.ClearDonationMinCents,
+		DonationSuggestedCents:      request.DonationSuggestedCents,
+		ClearDonationSuggestedCents: request.ClearDonationSuggestedCents,
+		ChangeNote:                  request.ChangeNote,
+		CancelledReason:             request.CancelledReason,
 	})
 	if err != nil {
 		a.writeEventError(w, err)
@@ -1167,41 +1195,56 @@ func eventPayload(item event.Event) map[string]any {
 	if item.MaxParticipants != nil {
 		maxParticipants = *item.MaxParticipants
 	}
+	var donationMinCents any
+	if item.DonationMinCents != nil {
+		donationMinCents = *item.DonationMinCents
+	}
+	var donationSuggestedCents any
+	if item.DonationSuggestedCents != nil {
+		donationSuggestedCents = *item.DonationSuggestedCents
+	}
 
 	return map[string]any{
-		"id":                     item.ID,
-		"tenant_id":              item.TenantID,
-		"series_id":              seriesID,
-		"slug":                   item.Slug,
-		"title":                  item.Title,
-		"subtitle":               item.Subtitle,
-		"description":            item.Description,
-		"starts_at":              item.StartsAt.UTC().Format(time.RFC3339),
-		"ends_at":                endsAt,
-		"timezone":               item.Timezone,
-		"location_name":          item.LocationName,
-		"address":                item.Address,
-		"online_url":             item.OnlineURL,
-		"participation_mode":     item.ParticipationMode,
-		"status":                 item.Status,
-		"is_public":              item.IsPublic,
-		"is_published":           item.IsPublished(),
-		"is_visible_now":         item.IsVisible(),
-		"publication_state":      item.PublicationState(),
-		"published_at":           publishedAt,
-		"public_visible_from":    publicVisibleFrom,
-		"registration_opens_at":  registrationOpensAt,
-		"registration_closes_at": registrationClosesAt,
-		"registration_enabled":   item.RegistrationEnabled,
-		"is_registration_open":   item.IsRegistrationOpen(),
-		"waitlist_enabled":       item.WaitlistEnabled,
-		"max_participants":       maxParticipants,
-		"confirmed_participants": item.ConfirmedParticipants,
-		"waitlist_entries":       item.WaitlistEntries,
-		"change_note":            item.ChangeNote,
-		"cancelled_reason":       item.CancelledReason,
-		"created_at":             item.CreatedAt.UTC().Format(time.RFC3339),
-		"updated_at":             item.UpdatedAt.UTC().Format(time.RFC3339),
+		"id":                       item.ID,
+		"tenant_id":                item.TenantID,
+		"series_id":                seriesID,
+		"slug":                     item.Slug,
+		"title":                    item.Title,
+		"subtitle":                 item.Subtitle,
+		"description":              item.Description,
+		"starts_at":                item.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":                  endsAt,
+		"timezone":                 item.Timezone,
+		"location_name":            item.LocationName,
+		"address":                  item.Address,
+		"online_url":               item.OnlineURL,
+		"participation_mode":       item.ParticipationMode,
+		"status":                   item.Status,
+		"is_public":                item.IsPublic,
+		"is_published":             item.IsPublished(),
+		"is_visible_now":           item.IsVisible(),
+		"publication_state":        item.PublicationState(),
+		"published_at":             publishedAt,
+		"public_visible_from":      publicVisibleFrom,
+		"registration_opens_at":    registrationOpensAt,
+		"registration_closes_at":   registrationClosesAt,
+		"registration_enabled":     item.RegistrationEnabled,
+		"is_registration_open":     item.IsRegistrationOpen(),
+		"waitlist_enabled":         item.WaitlistEnabled,
+		"max_participants":         maxParticipants,
+		"payment_required":         item.RequiresPayment(),
+		"ticket_name":              emptyToNil(item.TicketName),
+		"price_cents":              item.PriceCents,
+		"currency":                 item.Currency,
+		"donation_enabled":         item.DonationEnabled,
+		"donation_min_cents":       donationMinCents,
+		"donation_suggested_cents": donationSuggestedCents,
+		"confirmed_participants":   item.ConfirmedParticipants,
+		"waitlist_entries":         item.WaitlistEntries,
+		"change_note":              item.ChangeNote,
+		"cancelled_reason":         item.CancelledReason,
+		"created_at":               item.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":               item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
