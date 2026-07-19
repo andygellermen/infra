@@ -164,6 +164,15 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "public_visible_from") || !strings.Contains(shellBody, "registration_opens_at") || !strings.Contains(shellBody, "registration_closes_at") {
 		t.Fatalf("expected publication and registration window fields in admin shell")
 	}
+	if !strings.Contains(shellBody, "form-subtab-close") || !strings.Contains(shellBody, "title=\"Bearbeitung abbrechen\"") {
+		t.Fatalf("expected compact event edit cancel action in event form tabs")
+	}
+	if !strings.Contains(shellBody, "form id=\"eventForm\" class=\"form-grid\" novalidate") {
+		t.Fatalf("expected event form to disable native browser validation")
+	}
+	if !strings.Contains(shellBody, "Preis in EUR") || !strings.Contains(shellBody, "placeholder=\"49,00\"") {
+		t.Fatalf("expected event payment inputs to use euro amounts")
+	}
 
 	jsReq := httptest.NewRequest(http.MethodGet, "/admin-ui.js", nil)
 	jsRec := httptest.NewRecorder()
@@ -213,5 +222,8 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "Moechtest du fortfahren?") {
 		t.Fatalf("expected confirmation copy in admin js")
+	}
+	if !strings.Contains(jsBody, "parseOptionalEuroAmountToCents") || !strings.Contains(jsBody, "Bitte keinen Punkt verwenden") {
+		t.Fatalf("expected euro amount parsing and validation helpers in admin js")
 	}
 }

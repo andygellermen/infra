@@ -95,15 +95,15 @@
                   <h2 id="eventFormHeading">Event anlegen</h2>
                   <p id="eventFormHint" class="muted compact">Neue Einzeltermine, Serien-Termine oder wiederkehrende Termine anlegen.</p>
                 </div>
-                <button id="eventCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
               </div>
               <div id="eventFormTabs" class="form-subtabs" role="tablist" aria-label="Event-Bereiche">
                 <button class="form-subtab is-active" data-event-form-tab="basics" type="button">Profil</button>
                 <button class="form-subtab" data-event-form-tab="schedule" type="button">Termin</button>
                 <button class="form-subtab" data-event-form-tab="publishing" type="button">Freigabe</button>
                 <button class="form-subtab" data-event-form-tab="payment" type="button">Zahlung</button>
+                <button id="eventCancelEditBtn" class="form-subtab form-subtab-close" type="button" title="Bearbeitung abbrechen" aria-label="Bearbeitung abbrechen" hidden>X</button>
               </div>
-              <form id="eventForm" class="form-grid">
+              <form id="eventForm" class="form-grid" novalidate>
                 <section class="form-section span-2" data-event-panel="basics">
                   <div class="section-head">
                     <h3>Grunddaten</h3>
@@ -266,8 +266,8 @@
                       <input name="ticket_name" type="text" placeholder="Standard-Ticket">
                     </label>
                     <label>
-                      Preis in Cent
-                      <input name="price_cents" type="number" min="0" step="1" placeholder="4900">
+                      Preis in EUR
+                      <input name="price_cents" type="text" inputmode="decimal" placeholder="49,00">
                     </label>
                     <label>
                       Waehrung
@@ -275,12 +275,12 @@
                     </label>
                     <label class="checkline"><input name="donation_enabled" type="checkbox"> Zusatzspende erlauben</label>
                     <label>
-                      Mindestspende in Cent (optional)
-                      <input name="donation_min_cents" type="number" min="0" step="1" placeholder="300">
+                      Mindestspende in EUR (optional)
+                      <input name="donation_min_cents" type="text" inputmode="decimal" placeholder="3,00">
                     </label>
                     <label>
-                      Vorschlagsspende in Cent (optional)
-                      <input name="donation_suggested_cents" type="number" min="0" step="1" placeholder="700">
+                      Vorschlagsspende in EUR (optional)
+                      <input name="donation_suggested_cents" type="text" inputmode="decimal" placeholder="7,00">
                     </label>
                     <p class="muted compact span-2">Bezahl-Events werden nach der E-Mail-Verifizierung zunaechst reserviert und erst nach erfolgreicher Zahlung verbindlich bestaetigt.</p>
                   </div>

@@ -126,6 +126,9 @@
       ui.eventForm.addEventListener("invalid", onEventFormInvalid, true);
       bindDateTimeFieldValidation("starts_at", "Startzeit");
       bindDateTimeFieldValidation("ends_at", "Endzeit", true);
+      bindMoneyFieldValidation("price_cents", "Preis in EUR");
+      bindMoneyFieldValidation("donation_min_cents", "Mindestspende in EUR");
+      bindMoneyFieldValidation("donation_suggested_cents", "Vorschlagsspende in EUR");
       const eventPublicField = ui.eventForm.querySelector("input[name='is_public']");
       if (eventPublicField) {
         eventPublicField.addEventListener("change", () => {
@@ -1329,10 +1332,10 @@
     const donationEnabled = isChecked(ui.eventForm, "donation_enabled");
     const donationMinCentsRaw = String(formData.get("donation_min_cents") || "").trim();
     const donationSuggestedCentsRaw = String(formData.get("donation_suggested_cents") || "").trim();
-    const priceCents = parseOptionalNonNegativeInteger(priceCentsRaw, "Preis in Cent");
+    const priceCents = parseOptionalEuroAmountToCents(priceCentsRaw, "Preis in EUR");
     const normalizedPriceCents = priceCents === null ? 0 : priceCents;
-    const donationMinCents = parseOptionalNonNegativeInteger(donationMinCentsRaw, "Mindestspende in Cent");
-    const donationSuggestedCents = parseOptionalNonNegativeInteger(donationSuggestedCentsRaw, "Vorschlagsspende in Cent");
+    const donationMinCents = parseOptionalEuroAmountToCents(donationMinCentsRaw, "Mindestspende in EUR");
+    const donationSuggestedCents = parseOptionalEuroAmountToCents(donationSuggestedCentsRaw, "Vorschlagsspende in EUR");
 
     if (currency.length !== 3) {
       throw new Error("Waehrung muss ein 3-stelliger Code wie EUR sein.");
@@ -1498,6 +1501,7 @@
     activateEventFormTab("basics");
     syncRecurrenceFields();
     validateEventScheduleFields();
+    validateEventMoneyFields();
     updateEventPublicationHint(null);
   }
 
@@ -1522,11 +1526,11 @@
     setFieldValue(ui.eventForm, "participation_mode", item.participation_mode || "onsite");
     setFieldValue(ui.eventForm, "max_participants", item.max_participants === null || item.max_participants === undefined ? "" : item.max_participants);
     setFieldValue(ui.eventForm, "ticket_name", item.ticket_name || "");
-    setFieldValue(ui.eventForm, "price_cents", item.price_cents === null || item.price_cents === undefined || Number(item.price_cents) <= 0 ? "" : item.price_cents);
+    setFieldValue(ui.eventForm, "price_cents", item.price_cents === null || item.price_cents === undefined || Number(item.price_cents) <= 0 ? "" : formatCentsForEuroInput(item.price_cents));
     setFieldValue(ui.eventForm, "currency", item.currency || "EUR");
     setCheckboxValue(ui.eventForm, "donation_enabled", !!item.donation_enabled);
-    setFieldValue(ui.eventForm, "donation_min_cents", item.donation_min_cents === null || item.donation_min_cents === undefined ? "" : item.donation_min_cents);
-    setFieldValue(ui.eventForm, "donation_suggested_cents", item.donation_suggested_cents === null || item.donation_suggested_cents === undefined ? "" : item.donation_suggested_cents);
+    setFieldValue(ui.eventForm, "donation_min_cents", item.donation_min_cents === null || item.donation_min_cents === undefined ? "" : formatCentsForEuroInput(item.donation_min_cents));
+    setFieldValue(ui.eventForm, "donation_suggested_cents", item.donation_suggested_cents === null || item.donation_suggested_cents === undefined ? "" : formatCentsForEuroInput(item.donation_suggested_cents));
     setFieldValue(ui.eventForm, "change_note", item.change_note || "");
     setFieldValue(ui.eventForm, "public_visible_from", toLocalDateTimeInputValue(item.public_visible_from));
     setFieldValue(ui.eventForm, "registration_opens_at", toLocalDateTimeInputValue(item.registration_opens_at));
@@ -1560,6 +1564,7 @@
     applyEventSlugMode();
     syncRecurrenceFields();
     validateEventScheduleFields();
+    validateEventMoneyFields();
     updateEventPublicationHint(item);
   }
 
@@ -1618,6 +1623,7 @@
     setFieldValue(ui.eventForm, "ends_at_time", "");
     applyEventSlugMode();
     validateEventScheduleFields();
+    validateEventMoneyFields();
     updateEventPublicationHint(currentEditingEvent());
   }
 
@@ -3048,6 +3054,71 @@
       throw new Error(`${label} muss eine ganze Zahl >= 0 sein.`);
     }
     return parsed;
+  }
+
+  function parseOptionalEuroAmountToCents(rawValue, label) {
+    const raw = String(rawValue || "").trim();
+    const message = getEuroAmountValidationMessage(raw, label);
+    if (message) {
+      throw new Error(message);
+    }
+    if (!raw) {
+      return null;
+    }
+    const parsed = Number(raw.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error(`${label} muss als Euro-Betrag wie 49,90 eingegeben werden.`);
+    }
+    return Math.round(parsed * 100);
+  }
+
+  function formatCentsForEuroInput(amountCents) {
+    const parsed = Number(amountCents || 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return "";
+    }
+    return (parsed / 100).toFixed(2).replace(".", ",");
+  }
+
+  function getEuroAmountValidationMessage(rawValue, label) {
+    const raw = String(rawValue || "").trim();
+    if (!raw) {
+      return "";
+    }
+    if (raw.includes(".")) {
+      return `${label}: Bitte keinen Punkt verwenden. Gib den Betrag z. B. als 49,90 ein.`;
+    }
+    if (!/^\d+(,\d{1,2})?$/.test(raw)) {
+      return `${label} muss als Euro-Betrag wie 49,90 eingegeben werden.`;
+    }
+    return "";
+  }
+
+  function bindMoneyFieldValidation(fieldName, label) {
+    const field = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}']`) : null;
+    if (!field) {
+      return;
+    }
+    const handler = () => {
+      applyMoneyFieldValidation(fieldName, label);
+    };
+    field.addEventListener("input", handler);
+    field.addEventListener("change", handler);
+    handler();
+  }
+
+  function applyMoneyFieldValidation(fieldName, label) {
+    const field = ui.eventForm ? ui.eventForm.querySelector(`[name='${fieldName}']`) : null;
+    if (!field) {
+      return;
+    }
+    field.setCustomValidity(getEuroAmountValidationMessage(field.value, label));
+  }
+
+  function validateEventMoneyFields() {
+    applyMoneyFieldValidation("price_cents", "Preis in EUR");
+    applyMoneyFieldValidation("donation_min_cents", "Mindestspende in EUR");
+    applyMoneyFieldValidation("donation_suggested_cents", "Vorschlagsspende in EUR");
   }
 
   function applySteppedDateTimeInputConfig() {
