@@ -90,17 +90,23 @@
             </div>
 
             <div class="card">
-              <div class="card-head">
-                <div>
+              <div class="event-editor-hero">
+                <div class="event-editor-copy">
+                  <p id="eventModeBadge" class="eyebrow compact">Neues Event</p>
                   <h2 id="eventFormHeading">Event anlegen</h2>
                   <p id="eventFormHint" class="muted compact">Neue Einzeltermine, Serien-Termine oder wiederkehrende Termine anlegen.</p>
                 </div>
+                <label class="event-title-field">
+                  Eventtitel
+                  <input id="eventTitleInput" name="title" type="text" placeholder="Smoke Event" required>
+                </label>
               </div>
               <div id="eventFormTabs" class="form-subtabs" role="tablist" aria-label="Event-Bereiche">
                 <button class="form-subtab is-active" data-event-form-tab="basics" type="button">Profil</button>
                 <button class="form-subtab" data-event-form-tab="schedule" type="button">Termin</button>
                 <button class="form-subtab" data-event-form-tab="publishing" type="button">Freigabe</button>
                 <button class="form-subtab" data-event-form-tab="payment" type="button">Zahlung</button>
+                <button id="eventResetChangesBtn" class="form-subtab form-subtab-secondary" type="button">Aenderungen zuruecksetzen</button>
                 <button id="eventCancelEditBtn" class="form-subtab form-subtab-close" type="button" title="Bearbeitung abbrechen" aria-label="Bearbeitung abbrechen" hidden>X</button>
               </div>
               <form id="eventForm" class="form-grid" novalidate>
@@ -115,10 +121,6 @@
                       <select id="eventSeriesSelect" name="series_id">
                         <option value="">Keine Serie</option>
                       </select>
-                    </label>
-                    <label>
-                      Titel
-                      <input name="title" type="text" placeholder="Smoke Event" required>
                     </label>
                     <label>
                       Slug (optional)

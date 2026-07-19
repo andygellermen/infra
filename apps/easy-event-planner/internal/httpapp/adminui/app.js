@@ -37,11 +37,14 @@
     refreshDashboardBtn: document.querySelector("#refreshDashboardBtn"),
     nextEventsTableBody: document.querySelector("#nextEventsTableBody"),
     eventForm: document.querySelector("#eventForm"),
+    eventModeBadge: document.querySelector("#eventModeBadge"),
     eventFormHeading: document.querySelector("#eventFormHeading"),
     eventFormHint: document.querySelector("#eventFormHint"),
+    eventTitleInput: document.querySelector("#eventTitleInput"),
     eventPublicationHint: document.querySelector("#eventPublicationHint"),
     eventFormTabs: Array.from(document.querySelectorAll("[data-event-form-tab]")),
     eventFormPanels: Array.from(document.querySelectorAll("[data-event-panel]")),
+    eventResetChangesBtn: document.querySelector("#eventResetChangesBtn"),
     eventCancelEditBtn: document.querySelector("#eventCancelEditBtn"),
     eventSeriesSelect: document.querySelector("#eventSeriesSelect"),
     eventRecurrenceMode: document.querySelector("#eventRecurrenceMode"),
@@ -129,6 +132,9 @@
       bindMoneyFieldValidation("price_cents", "Preis in EUR");
       bindMoneyFieldValidation("donation_min_cents", "Mindestspende in EUR");
       bindMoneyFieldValidation("donation_suggested_cents", "Vorschlagsspende in EUR");
+      if (ui.eventTitleInput) {
+        ui.eventTitleInput.addEventListener("input", updateEventEditorChrome);
+      }
       const eventPublicField = ui.eventForm.querySelector("input[name='is_public']");
       if (eventPublicField) {
         eventPublicField.addEventListener("change", () => {
@@ -158,6 +164,9 @@
         resetEventForm();
         setFlash("Event-Bearbeitung abgebrochen.");
       });
+    }
+    if (ui.eventResetChangesBtn) {
+      ui.eventResetChangesBtn.addEventListener("click", resetEventEditorChanges);
     }
     if (ui.refreshSeriesBtn) {
       ui.refreshSeriesBtn.addEventListener("click", () => loadSeries(true));
@@ -1246,6 +1255,8 @@
       : "/api/v1/admin/events";
     const method = isEdit ? "PATCH" : "POST";
     const successMessage = isEdit ? "Event wurde aktualisiert." : "Event wurde angelegt.";
+    const preservedEventID = state.editingEventId;
+    const createdEventIDs = [];
 
     setButtonBusy(ui.eventSubmitBtn, true, "Speichere...");
     try {
@@ -1256,17 +1267,36 @@
         });
       } else {
         for (const eventBody of recurrencePlan) {
-          await apiRequest("/api/v1/admin/events", {
+          const payload = await apiRequest("/api/v1/admin/events", {
             method: "POST",
             body: JSON.stringify(eventBody),
           });
+          const createdItem = payload && payload.item ? payload.item : null;
+          if (createdItem && createdItem.id) {
+            createdEventIDs.push(String(createdItem.id));
+          }
         }
       }
-      resetEventForm();
       await Promise.all([loadEvents(false), loadDashboard(false)]);
       if (isEdit) {
+        const refreshed = preservedEventID ? findEventByID(preservedEventID) : null;
+        if (refreshed) {
+          populateEventFormForEdit(refreshed);
+          renderEvents(state.events);
+        }
         setFlash(successMessage);
       } else {
+        if (createdEventIDs.length === 1) {
+          const createdItem = findEventByID(createdEventIDs[0]);
+          if (createdItem) {
+            populateEventFormForEdit(createdItem);
+            renderEvents(state.events);
+          } else {
+            resetEventForm();
+          }
+        } else {
+          resetEventForm();
+        }
         setFlash(recurrencePlan.length > 1 ? `${recurrencePlan.length} Events wurden angelegt.` : successMessage);
       }
       activateTab("events");
@@ -1464,6 +1494,7 @@
     const config = options || {};
     const prefill = config.prefill || null;
 
+    clearFlash();
     state.editingEventId = "";
     if (ui.eventForm) {
       ui.eventForm.reset();
@@ -1502,10 +1533,12 @@
     syncRecurrenceFields();
     validateEventScheduleFields();
     validateEventMoneyFields();
+    updateEventEditorChrome();
     updateEventPublicationHint(null);
   }
 
   function populateEventFormForEdit(item) {
+    clearFlash();
     state.editingEventId = item.id;
     if (ui.eventForm) {
       ui.eventForm.reset();
@@ -1565,6 +1598,7 @@
     syncRecurrenceFields();
     validateEventScheduleFields();
     validateEventMoneyFields();
+    updateEventEditorChrome();
     updateEventPublicationHint(item);
   }
 
@@ -1624,7 +1658,20 @@
     applyEventSlugMode();
     validateEventScheduleFields();
     validateEventMoneyFields();
+    updateEventEditorChrome();
     updateEventPublicationHint(currentEditingEvent());
+  }
+
+  function resetEventEditorChanges() {
+    const current = currentEditingEvent();
+    if (current) {
+      populateEventFormForEdit(current);
+      renderEvents(state.events);
+      setFlash("Aenderungen wurden auf den zuletzt gespeicherten Stand zurueckgesetzt.");
+      return;
+    }
+    resetEventForm();
+    setFlash("Das neue Event-Formular wurde zurueckgesetzt.");
   }
 
   function applyRegistrationActivationShortcut() {
@@ -3119,6 +3166,30 @@
     applyMoneyFieldValidation("price_cents", "Preis in EUR");
     applyMoneyFieldValidation("donation_min_cents", "Mindestspende in EUR");
     applyMoneyFieldValidation("donation_suggested_cents", "Vorschlagsspende in EUR");
+  }
+
+  function updateEventEditorChrome() {
+    const rawTitle = String(ui.eventTitleInput && ui.eventTitleInput.value ? ui.eventTitleInput.value : "").trim();
+    const displayTitle = rawTitle ? truncateEditorTitle(rawTitle) : "";
+    const isEdit = !!state.editingEventId;
+    if (ui.eventModeBadge) {
+      ui.eventModeBadge.textContent = isEdit ? "Bestehendes Event" : "Neues Event";
+    }
+    if (ui.eventFormHeading) {
+      if (isEdit) {
+        ui.eventFormHeading.textContent = displayTitle ? `Event ${displayTitle} bearbeiten` : "Event bearbeiten";
+      } else {
+        ui.eventFormHeading.textContent = displayTitle ? `Event ${displayTitle} anlegen` : "Event anlegen";
+      }
+    }
+  }
+
+  function truncateEditorTitle(value) {
+    const normalized = String(value || "").trim();
+    if (normalized.length <= 56) {
+      return normalized;
+    }
+    return `${normalized.slice(0, 55).trim()}...`;
   }
 
   function applySteppedDateTimeInputConfig() {

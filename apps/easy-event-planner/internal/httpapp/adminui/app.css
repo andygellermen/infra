@@ -230,6 +230,37 @@ h2 {
   gap: 10px;
 }
 
+.event-editor-hero {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #d7e4e5;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fffdf9, #f7fbfb);
+}
+
+.event-editor-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.event-title-field {
+  display: grid;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.event-title-field input {
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
 .form-subtabs {
   display: flex;
   flex-wrap: wrap;
@@ -264,8 +295,13 @@ h2 {
   color: #fff;
 }
 
-.form-subtab-close {
+.form-subtab-secondary {
   margin-left: auto;
+  background: #eef6f5;
+  color: var(--ink);
+}
+
+.form-subtab-close {
   min-width: 40px;
   padding-left: 0;
   padding-right: 0;
@@ -880,6 +916,10 @@ tr {
   .card-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .event-title-field input {
+    font-size: 1rem;
   }
 
   .event-card-actions {

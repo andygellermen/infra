@@ -167,11 +167,17 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	if !strings.Contains(shellBody, "form-subtab-close") || !strings.Contains(shellBody, "title=\"Bearbeitung abbrechen\"") {
 		t.Fatalf("expected compact event edit cancel action in event form tabs")
 	}
+	if !strings.Contains(shellBody, "eventResetChangesBtn") || !strings.Contains(shellBody, "Aenderungen zuruecksetzen") {
+		t.Fatalf("expected reset action in event form tabs")
+	}
 	if !strings.Contains(shellBody, "form id=\"eventForm\" class=\"form-grid\" novalidate") {
 		t.Fatalf("expected event form to disable native browser validation")
 	}
 	if !strings.Contains(shellBody, "Preis in EUR") || !strings.Contains(shellBody, "placeholder=\"49,00\"") {
 		t.Fatalf("expected event payment inputs to use euro amounts")
+	}
+	if !strings.Contains(shellBody, "eventTitleInput") || !strings.Contains(shellBody, "Eventtitel") {
+		t.Fatalf("expected prominent event title field in editor header")
 	}
 
 	jsReq := httptest.NewRequest(http.MethodGet, "/admin-ui.js", nil)
@@ -225,5 +231,8 @@ func TestAdminUIContainsSnippetEditAndDailyRecurrence(t *testing.T) {
 	}
 	if !strings.Contains(jsBody, "parseOptionalEuroAmountToCents") || !strings.Contains(jsBody, "Bitte keinen Punkt verwenden") {
 		t.Fatalf("expected euro amount parsing and validation helpers in admin js")
+	}
+	if !strings.Contains(jsBody, "updateEventEditorChrome") || !strings.Contains(jsBody, "resetEventEditorChanges") {
+		t.Fatalf("expected persistent editor chrome helpers in admin js")
 	}
 }
