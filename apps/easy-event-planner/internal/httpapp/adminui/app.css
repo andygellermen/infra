@@ -230,6 +230,40 @@ h2 {
   gap: 10px;
 }
 
+.form-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  margin: 0 0 12px;
+  border: 1px solid #d7e4e5;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fcfc, #f2f8f8);
+}
+
+.form-subtab {
+  border: 1px solid #c9dddc;
+  background: #ffffff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.form-subtab:hover {
+  transform: translateY(-1px);
+  border-color: #9ecbc6;
+}
+
+.form-subtab.is-active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
 .form-section {
   display: grid;
   gap: 12px;
@@ -237,6 +271,10 @@ h2 {
   border: 1px solid #d6e2e4;
   border-radius: 16px;
   background: linear-gradient(180deg, #ffffff, #f8fbfb);
+}
+
+.form-section[hidden] {
+  display: none !important;
 }
 
 .section-head {

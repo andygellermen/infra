@@ -40,6 +40,8 @@
     eventFormHeading: document.querySelector("#eventFormHeading"),
     eventFormHint: document.querySelector("#eventFormHint"),
     eventPublicationHint: document.querySelector("#eventPublicationHint"),
+    eventFormTabs: Array.from(document.querySelectorAll("[data-event-form-tab]")),
+    eventFormPanels: Array.from(document.querySelectorAll("[data-event-panel]")),
     eventCancelEditBtn: document.querySelector("#eventCancelEditBtn"),
     eventSeriesSelect: document.querySelector("#eventSeriesSelect"),
     eventRecurrenceMode: document.querySelector("#eventRecurrenceMode"),
@@ -121,6 +123,7 @@
     }
     if (ui.eventForm) {
       ui.eventForm.addEventListener("submit", onEventSubmit);
+      ui.eventForm.addEventListener("invalid", onEventFormInvalid, true);
       bindDateTimeFieldValidation("starts_at", "Startzeit");
       bindDateTimeFieldValidation("ends_at", "Endzeit", true);
       const eventPublicField = ui.eventForm.querySelector("input[name='is_public']");
@@ -136,6 +139,11 @@
         });
       }
     }
+    ui.eventFormTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        activateEventFormTab(String(tab.dataset.eventFormTab || "basics"));
+      });
+    });
     if (ui.eventRecurrenceMode) {
       ui.eventRecurrenceMode.addEventListener("change", syncRecurrenceFields);
     }
@@ -1225,6 +1233,7 @@
       body = buildEventRequestBody(isEdit, current);
       recurrencePlan = buildRecurrencePlan(isEdit, body);
     } catch (err) {
+      activateEventFormTabForError(errorMessage(err));
       setFlash(errorMessage(err), "error");
       return;
     }
@@ -1486,7 +1495,9 @@
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.hidden = true;
     }
+    activateEventFormTab("basics");
     syncRecurrenceFields();
+    validateEventScheduleFields();
     updateEventPublicationHint(null);
   }
 
@@ -1545,8 +1556,10 @@
     if (ui.eventCancelEditBtn) {
       ui.eventCancelEditBtn.hidden = false;
     }
+    activateEventFormTab("basics");
     applyEventSlugMode();
     syncRecurrenceFields();
+    validateEventScheduleFields();
     updateEventPublicationHint(item);
   }
 
@@ -1572,6 +1585,7 @@
       },
     });
     activateTab("events");
+    activateEventFormTab("schedule");
     const startsAtField = ui.eventForm ? ui.eventForm.querySelector("input[name='starts_at_date']") : null;
     if (startsAtField) {
       startsAtField.focus();
@@ -1603,6 +1617,7 @@
     setFieldValue(ui.eventForm, "starts_at_time", getDefaultStartTime());
     setFieldValue(ui.eventForm, "ends_at_time", "");
     applyEventSlugMode();
+    validateEventScheduleFields();
     updateEventPublicationHint(currentEditingEvent());
   }
 
@@ -3337,6 +3352,13 @@
     if (!dateField || !timeField) {
       return;
     }
+    const rawDate = String(dateField.value || "").trim();
+    const rawTime = String(timeField.value || "").trim();
+    if (!allowEmpty && (!rawDate || !rawTime)) {
+      dateField.setCustomValidity("");
+      timeField.setCustomValidity("");
+      return;
+    }
     const formData = new FormData(ui.eventForm);
     const composedValue = composeLocalDateTimeValue(formData, fieldName);
     const message = getScheduleValidationMessage(composedValue, label, !!allowEmpty);
@@ -3347,6 +3369,51 @@
   function validateEventScheduleFields() {
     applyDateTimeFieldValidation("starts_at", "Startzeit", false);
     applyDateTimeFieldValidation("ends_at", "Endzeit", true);
+  }
+
+  function activateEventFormTab(tabName) {
+    const nextTab = String(tabName || "basics").trim() || "basics";
+    ui.eventFormTabs.forEach((button) => {
+      button.classList.toggle("is-active", String(button.dataset.eventFormTab || "") === nextTab);
+    });
+    ui.eventFormPanels.forEach((panel) => {
+      panel.hidden = String(panel.dataset.eventPanel || "") !== nextTab;
+    });
+  }
+
+  function activateEventFormTabForField(field) {
+    if (!field || typeof field.closest !== "function") {
+      return;
+    }
+    const panel = field.closest("[data-event-panel]");
+    if (!panel) {
+      return;
+    }
+    activateEventFormTab(String(panel.dataset.eventPanel || "basics"));
+  }
+
+  function onEventFormInvalid(event) {
+    activateEventFormTabForField(event.target);
+  }
+
+  function activateEventFormTabForError(message) {
+    const needle = String(message || "").toLowerCase();
+    if (!needle) {
+      return;
+    }
+    if (needle.includes("ticket") || needle.includes("preis") || needle.includes("spende") || needle.includes("waehrung")) {
+      activateEventFormTab("payment");
+      return;
+    }
+    if (needle.includes("registrierung") || needle.includes("oeffentlich sichtbar") || needle.includes("teilnehmer")) {
+      activateEventFormTab("publishing");
+      return;
+    }
+    if (needle.includes("startzeit") || needle.includes("endzeit") || needle.includes("datum") || needle.includes("wiederholung") || needle.includes("zeitzone")) {
+      activateEventFormTab("schedule");
+      return;
+    }
+    activateEventFormTab("basics");
   }
 
   function applyEventSlugMode() {

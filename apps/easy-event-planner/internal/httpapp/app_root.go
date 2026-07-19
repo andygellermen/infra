@@ -2,6 +2,7 @@ package httpapp
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -569,6 +570,53 @@ var publicRegistrationVerifyTemplate = template.Must(template.New("eep-public-re
         background: #eef5f8;
         color: #244657;
       }
+      .payment-box {
+        margin-top: 20px;
+        padding: 18px;
+        border: 1px solid #d9e7ea;
+        border-radius: 18px;
+        background: #f8fbfb;
+      }
+      .payment-box h2 {
+        margin: 0 0 10px;
+        font-size: 1.12rem;
+      }
+      .payment-form {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .payment-field {
+        display: grid;
+        gap: 6px;
+      }
+      .payment-field span {
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+      .payment-field small {
+        color: #587180;
+      }
+      .payment-field input {
+        min-height: 46px;
+        border: 1px solid #cdd9de;
+        border-radius: 14px;
+        padding: 0 12px;
+        font: inherit;
+        color: inherit;
+        background: #fff;
+      }
+      .payment-feedback {
+        min-height: 20px;
+        margin: 0;
+        color: #587180;
+      }
+      .payment-feedback.is-error {
+        color: #8c2f25;
+      }
+      .payment-feedback.is-success {
+        color: #0f6a48;
+      }
     </style>
   </head>
   <body>
@@ -582,7 +630,112 @@ var publicRegistrationVerifyTemplate = template.Must(template.New("eep-public-re
           <div class="meta">
             <span>{{.StatusLabel}}</span>
             {{if .ConfirmedAt}}<span>{{.ConfirmedAt}}</span>{{end}}
+            {{if .PaymentAmountLabel}}<span>{{.PaymentAmountLabel}}</span>{{end}}
+            {{if .ReservedUntil}}<span>Reserviert bis {{.ReservedUntil}}</span>{{end}}
           </div>
+        {{end}}
+        {{if .PaymentRequired}}
+          <section class="payment-box">
+            <h2>Zahlung abschliessen</h2>
+            <p>Der offene Betrag fuer dieses Ticket liegt bei <strong>{{.PaymentAmountLabel}}</strong>.{{if .ReservedUntil}} Bitte schliesse die Zahlung moeglichst vor <strong>{{.ReservedUntil}}</strong> ab.{{end}}</p>
+            <form id="eep-payment-form" class="payment-form">
+              {{if .DonationEnabled}}
+                <label class="payment-field">
+                  <span>Zusatzspende (optional, {{.Currency}})</span>
+                  <input id="eep-donation-amount" type="number" inputmode="decimal" min="{{.DonationMinInput}}" step="0.01" value="{{.DonationSuggestedInput}}" placeholder="0.00">
+                  {{if .DonationMinLabel}}
+                    <small>Mindestens {{.DonationMinLabel}}. Leer lassen, wenn du keine Zusatzspende geben moechtest.</small>
+                  {{else}}
+                    <small>Leer lassen, wenn du keine Zusatzspende geben moechtest.</small>
+                  {{end}}
+                </label>
+              {{end}}
+              <button id="eep-payment-submit" class="button button-primary" type="submit">Mit PayPal bezahlen</button>
+              <p id="eep-payment-feedback" class="payment-feedback" aria-live="polite"></p>
+            </form>
+          </section>
+          <script>
+            (() => {
+              const form = document.getElementById("eep-payment-form");
+              if (!form) {
+                return;
+              }
+              const submitButton = document.getElementById("eep-payment-submit");
+              const feedback = document.getElementById("eep-payment-feedback");
+              const donationField = document.getElementById("eep-donation-amount");
+              const registrationID = {{printf "%q" .RegistrationID}};
+              const currency = {{printf "%q" .Currency}};
+              const baseAmountCents = {{.AmountCents}};
+              const endpoint = {{printf "%q" .PaymentAPIPath}};
+
+              form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                setFeedback("", "");
+
+                let donationAmountCents = 0;
+                if (donationField && String(donationField.value || "").trim() !== "") {
+                  const normalized = String(donationField.value || "").trim().replace(",", ".");
+                  const parsed = Math.round(Number(normalized) * 100);
+                  if (!Number.isFinite(parsed) || parsed < 0) {
+                    setFeedback("Bitte eine gueltige Zusatzspende eingeben.", "error");
+                    return;
+                  }
+                  donationAmountCents = parsed;
+                }
+
+                if (submitButton) {
+                  submitButton.disabled = true;
+                  submitButton.textContent = "Weiter zu PayPal ...";
+                }
+
+                try {
+                  const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                      registration_id: registrationID,
+                      amount_cents: baseAmountCents + donationAmountCents,
+                      currency,
+                      donation_amount_cents: donationAmountCents
+                    })
+                  });
+                  const payload = await response.json().catch(() => null);
+                  if (!response.ok) {
+                    const message = payload && payload.error && payload.error.message
+                      ? payload.error.message
+                      : "Die PayPal-Zahlung konnte nicht gestartet werden.";
+                    throw new Error(message);
+                  }
+                  const approveURL = payload && payload.payment && payload.payment.approve_url
+                    ? String(payload.payment.approve_url).trim()
+                    : "";
+                  if (!approveURL) {
+                    throw new Error("PayPal-Freigabelink fehlt in der Antwort.");
+                  }
+                  setFeedback("Weiterleitung zu PayPal ...", "success");
+                  window.location.href = approveURL;
+                } catch (error) {
+                  setFeedback(error && error.message ? error.message : "Die PayPal-Zahlung konnte nicht gestartet werden.", "error");
+                } finally {
+                  if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = "Mit PayPal bezahlen";
+                  }
+                }
+              });
+
+              function setFeedback(message, tone) {
+                if (!feedback) {
+                  return;
+                }
+                feedback.className = "payment-feedback" + (tone ? " is-" + tone : "");
+                feedback.textContent = String(message || "").trim();
+              }
+            })();
+          </script>
         {{end}}
         <div class="actions">
           {{if .CalendarURL}}<a class="button button-primary" href="{{.CalendarURL}}">Kalendereintrag laden</a>{{end}}
@@ -935,14 +1088,25 @@ func publicEventPageMode(value string) string {
 
 func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant, result registration.VerifyResult, verifyErr error) {
 	data := struct {
-		TenantName  string
-		Title       string
-		Message     string
-		EventTitle  string
-		StatusLabel string
-		ConfirmedAt string
-		CalendarURL string
-		EventURL    string
+		TenantName             string
+		Title                  string
+		Message                string
+		EventTitle             string
+		StatusLabel            string
+		ConfirmedAt            string
+		CalendarURL            string
+		EventURL               string
+		RegistrationID         string
+		PaymentRequired        bool
+		PaymentAPIPath         string
+		AmountCents            int
+		PaymentAmountLabel     string
+		Currency               string
+		ReservedUntil          string
+		DonationEnabled        bool
+		DonationMinLabel       string
+		DonationMinInput       string
+		DonationSuggestedInput string
 	}{
 		TenantName: strings.TrimSpace(tenantItem.Name),
 	}
@@ -971,6 +1135,9 @@ func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.
 		if result.ConfirmedAt != nil {
 			data.ConfirmedAt = result.ConfirmedAt.UTC().Format("02.01.2006 · 15:04 UTC")
 		}
+		if result.ReservedUntil != nil {
+			data.ReservedUntil = result.ReservedUntil.UTC().Format("02.01.2006 · 15:04 UTC")
+		}
 		if a.eventRepo != nil && strings.TrimSpace(result.EventID) != "" {
 			if item, err := a.eventRepo.GetEventByID(r.Context(), tenantItem.ID, result.EventID); err == nil {
 				data.EventTitle = strings.TrimSpace(item.Title)
@@ -979,6 +1146,24 @@ func (a *App) renderPublicRegistrationVerifyPage(w http.ResponseWriter, r *http.
 		}
 		if a.calendarService != nil && strings.TrimSpace(result.RegistrationID) != "" && strings.TrimSpace(result.ParticipantID) != "" {
 			data.CalendarURL = a.calendarService.ParticipantCalendarURL(tenantItem.Slug, tenantItem.ID, result.RegistrationID, result.ParticipantID)
+		}
+		data.RegistrationID = strings.TrimSpace(result.RegistrationID)
+		data.PaymentRequired = result.PaymentRequired && result.AmountCents > 0 && data.RegistrationID != "" && strings.TrimSpace(result.Status) == registration.StatusReserved
+		data.AmountCents = result.AmountCents
+		data.Currency = strings.TrimSpace(result.Currency)
+		if result.AmountCents > 0 {
+			data.PaymentAmountLabel = formatMoneyCents(result.AmountCents, result.Currency)
+		}
+		if data.PaymentRequired {
+			data.PaymentAPIPath = "/api/v1/public/" + url.PathEscape(strings.TrimSpace(tenantItem.Slug)) + "/payments/paypal/create-order"
+			data.DonationEnabled = result.DonationEnabled
+			if result.DonationMinCents != nil {
+				data.DonationMinLabel = formatMoneyCents(*result.DonationMinCents, result.Currency)
+				data.DonationMinInput = moneyInputValue(*result.DonationMinCents)
+			}
+			if result.DonationSuggestedCents != nil {
+				data.DonationSuggestedInput = moneyInputValue(*result.DonationSuggestedCents)
+			}
 		}
 	}
 
@@ -1004,4 +1189,17 @@ func publicRegistrationVerifyErrorCopy(err error) (title, message string) {
 
 func buildPublicEventPageURL(baseURL, tenantSlug, eventSlug string) string {
 	return buildPublicEventURL(baseURL, "", tenantSlug, "", eventSlug)
+}
+
+func formatMoneyCents(amountCents int, currency string) string {
+	normalizedCurrency := strings.ToUpper(strings.TrimSpace(currency))
+	if normalizedCurrency == "" {
+		normalizedCurrency = "EUR"
+	}
+	major := float64(amountCents) / 100.0
+	return fmt.Sprintf("%.2f %s", major, normalizedCurrency)
+}
+
+func moneyInputValue(amountCents int) string {
+	return fmt.Sprintf("%.2f", float64(amountCents)/100.0)
 }

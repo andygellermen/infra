@@ -203,6 +203,60 @@ func TestPublicRegistrationVerifyGETInvalidTokenReturnsFriendlyHTML(t *testing.T
 	}
 }
 
+func TestPublicRegistrationVerifyGETShowsPayPalCTAForReservedPaidRegistration(t *testing.T) {
+	app, _, tenantSlug := setupAuthApp(t)
+	tenantID := tenantIDBySlug(t, app, tenantSlug)
+	priceCents := 4900
+	donationEnabled := true
+	donationMinCents := 300
+	eventItem := createPublishedEventForRegistrationHTTP(t, app, tenantID, event.CreateEventParams{
+		Slug:             "paid-verification-page",
+		Title:            "Paid Verification Page",
+		StartsAt:         time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339),
+		TicketName:       "Standard-Ticket",
+		PriceCents:       &priceCents,
+		Currency:         "EUR",
+		DonationEnabled:  &donationEnabled,
+		DonationMinCents: &donationMinCents,
+	})
+
+	startPayload := map[string]any{
+		"event_id":           eventItem.ID,
+		"name":               "Tina Test",
+		"email":              "tina@example.com",
+		"participation_type": "onsite",
+		"privacy_accepted":   true,
+	}
+	startBody, _ := json.Marshal(startPayload)
+	startReq := httptest.NewRequest(http.MethodPost, "/api/v1/public/"+tenantSlug+"/registrations/start", bytes.NewReader(startBody))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(startRec, startReq)
+	if startRec.Code != http.StatusAccepted {
+		t.Fatalf("expected start status 202, got %d", startRec.Code)
+	}
+	startResult := decodeBody[map[string]any](t, startRec)
+	registrationID, _ := startResult["registration_id"].(string)
+	token := extractVerifyTokenFromJobInHTTPTest(t, app, tenantID, registrationID)
+
+	verifyReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/registrations/verify?token="+url.QueryEscape(token), nil)
+	verifyRec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(verifyRec, verifyReq)
+	if verifyRec.Code != http.StatusOK {
+		t.Fatalf("expected verify status 200, got %d", verifyRec.Code)
+	}
+	body := verifyRec.Body.String()
+	if !strings.Contains(body, "Zahlung jetzt abschliessen") {
+		t.Fatalf("expected reserved payment page title, got %q", body)
+	}
+	if !strings.Contains(body, "Mit PayPal bezahlen") {
+		t.Fatalf("expected PayPal CTA in verification page, got %q", body)
+	}
+	if !strings.Contains(body, "/api/v1/public/"+tenantSlug+"/payments/paypal/create-order") {
+		t.Fatalf("expected verification page to reference public PayPal endpoint")
+	}
+}
+
 func TestPublicRegistrationVerifyReturnsEventFull(t *testing.T) {
 	app, _, tenantSlug := setupAuthApp(t)
 	tenantID := tenantIDBySlug(t, app, tenantSlug)

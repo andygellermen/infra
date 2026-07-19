@@ -240,6 +240,9 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	if !strings.Contains(registerBody, "Magic Link anfordern") {
 		t.Fatalf("expected register.js payload to contain form submit label")
 	}
+	if !strings.Contains(registerBody, "Bezahl-Event") {
+		t.Fatalf("expected register.js payload to contain payment notice copy")
+	}
 	if !strings.Contains(registerBody, "data-css") {
 		t.Fatalf("expected register.js payload to support css overrides")
 	}

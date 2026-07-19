@@ -97,8 +97,14 @@
                 </div>
                 <button id="eventCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
               </div>
+              <div id="eventFormTabs" class="form-subtabs" role="tablist" aria-label="Event-Bereiche">
+                <button class="form-subtab is-active" data-event-form-tab="basics" type="button">Profil</button>
+                <button class="form-subtab" data-event-form-tab="schedule" type="button">Termin</button>
+                <button class="form-subtab" data-event-form-tab="publishing" type="button">Freigabe</button>
+                <button class="form-subtab" data-event-form-tab="payment" type="button">Zahlung</button>
+              </div>
               <form id="eventForm" class="form-grid">
-                <section class="form-section span-2">
+                <section class="form-section span-2" data-event-panel="basics">
                   <div class="section-head">
                     <h3>Grunddaten</h3>
                     <p class="muted compact">Erst den inhaltlichen Kern setzen, dann in Ruhe Termin- und Freigabedetails ergaenzen.</p>
@@ -129,7 +135,7 @@
                   </div>
                 </section>
 
-                <section class="form-section span-2">
+                <section class="form-section span-2" data-event-panel="schedule">
                   <div class="section-head">
                     <h3>Serie und Wiederholung</h3>
                     <p class="muted compact">Wiederholungen und Serien bewusst getrennt, damit Einzeltermine schneller angelegt werden koennen.</p>
@@ -166,7 +172,7 @@
                   </div>
                 </section>
 
-                <section class="form-section span-2">
+                <section class="form-section span-2" data-event-panel="schedule">
                   <div class="section-head">
                     <h3>Termin und Ort</h3>
                     <p class="muted compact">Zeit, Zeitzone und Teilnahmeformat kompakt zusammengefasst.</p>
@@ -215,7 +221,7 @@
                   </div>
                 </section>
 
-                <section class="form-section span-2">
+                <section class="form-section span-2" data-event-panel="publishing">
                   <div class="section-head">
                     <h3>Freigabe und Registrierung</h3>
                     <p class="muted compact">Sichtbarkeit, Registrierungsfenster und Kapazitaet gemeinsam steuern.</p>
@@ -249,7 +255,7 @@
                   </div>
                 </section>
 
-                <section class="form-section span-2">
+                <section class="form-section span-2" data-event-panel="payment">
                   <div class="section-head">
                     <h3>Zahlung und Spende</h3>
                     <p class="muted compact">Ein einfaches Standard-Ticket pro Event mit optionaler Zusatzspende.</p>

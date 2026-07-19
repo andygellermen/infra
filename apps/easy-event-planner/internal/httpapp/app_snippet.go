@@ -1054,6 +1054,7 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
     const description = eventItem.description
       ? "<p class=\"eep-description\">" + escapeHTML(truncateText(eventItem.description, 240)) + "</p>"
       : "";
+    const paymentNote = renderPaymentNotice(eventItem);
     const title = escapeHTML(eventItem.title || "Event");
     const subtitle = eventItem.subtitle ? "<p class=\"eep-subtitle\">" + escapeHTML(eventItem.subtitle) + "</p>" : "";
     const intro = tenant && tenant.name ? "<div class=\"eep-intro-subtitle\">" + escapeHTML(tenant.name) + "</div>" : "";
@@ -1080,6 +1081,7 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
       subtitle +
       (summary ? "<p class=\"eep-date\">" + escapeHTML(summary) + "</p>" : "") +
       description +
+      paymentNote +
       disabledNote +
       form +
     "</section>";
@@ -1210,6 +1212,43 @@ func buildRegistrationEmbedJS(tenantSlug string) string {
         return "Vor Ort";
       default:
         return "";
+    }
+  }
+
+  function renderPaymentNotice(eventItem) {
+    const ticket = eventItem && eventItem.ticket ? eventItem.ticket : null;
+    const paymentRequired = !!(eventItem && eventItem.payment_required);
+    if (!paymentRequired || !ticket) {
+      return "";
+    }
+    const price = formatMoney(ticket.price_cents, ticket.currency || "EUR");
+    const ticketName = ticket.name ? escapeHTML(ticket.name) : "Standard-Ticket";
+    let note = "<div class=\"eep-payment-note\"><strong>Bezahl-Event</strong><span>" + ticketName + " · " + escapeHTML(price) + "</span>";
+    if (ticket.donation_enabled) {
+      note += "<small>Nach der E-Mail-Bestaetigung kannst du die Anmeldung per PayPal abschliessen";
+      if (ticket.donation_min_cents !== null && ticket.donation_min_cents !== undefined) {
+        note += " und optional ab " + escapeHTML(formatMoney(ticket.donation_min_cents, ticket.currency || "EUR")) + " zusaetzlich spenden";
+      } else {
+        note += " und optional eine Zusatzspende geben";
+      }
+      note += ".</small>";
+    } else {
+      note += "<small>Nach der E-Mail-Bestaetigung leitest du direkt zur PayPal-Zahlung weiter.</small>";
+    }
+    note += "</div>";
+    return note;
+  }
+
+  function formatMoney(amountCents, currency) {
+    const normalizedAmount = Number(amountCents || 0);
+    const normalizedCurrency = String(currency || "EUR").trim().toUpperCase() || "EUR";
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: normalizedCurrency
+      }).format(normalizedAmount / 100);
+    } catch (err) {
+      return (normalizedAmount / 100).toFixed(2) + " " + normalizedCurrency;
     }
   }
 
@@ -1399,6 +1438,25 @@ const snippetCSS = `.eep-widget {
 
 .eep-description {
   line-height: 1.45;
+}
+
+.eep-payment-note {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #d8e6e7;
+  border-radius: 14px;
+  background: #f4faf9;
+}
+
+.eep-payment-note strong {
+  font-size: 0.9rem;
+}
+
+.eep-payment-note span,
+.eep-payment-note small {
+  color: #4b5b6c;
 }
 
 .eep-link {
