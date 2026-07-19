@@ -7,11 +7,15 @@ import (
 	"time"
 
 	"github.com/andygellermann/infra/apps/easy-event-planner/internal/registration"
+	"github.com/andygellermann/infra/apps/easy-event-planner/internal/tenant"
 )
 
 func (a *App) handleAdminEventWaitlistList(w http.ResponseWriter, r *http.Request, eventID string) {
 	principal, ok := a.requireAdminPrincipal(w, r, false)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureWaitlist, "FEATURE_DISABLED", "Die Warteliste ist fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 
@@ -58,6 +62,9 @@ func (a *App) handleAdminWaitlistOffer(w http.ResponseWriter, r *http.Request, w
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureWaitlist, "FEATURE_DISABLED", "Die Warteliste ist fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 
 	item, err := a.regService.OfferWaitlistEntry(
 		r.Context(),
@@ -79,6 +86,9 @@ func (a *App) handleAdminWaitlistOffer(w http.ResponseWriter, r *http.Request, w
 func (a *App) handleAdminWaitlistPromote(w http.ResponseWriter, r *http.Request, waitlistEntryID string) {
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureWaitlist, "FEATURE_DISABLED", "Die Warteliste ist fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 

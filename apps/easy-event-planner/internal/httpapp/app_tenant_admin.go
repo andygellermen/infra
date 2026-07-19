@@ -28,6 +28,8 @@ type adminTenantAppSettings struct {
 	AllowedEmbedOrigins            []string `json:"allowed_embed_origins"`
 	EventDetailBaseURL             string   `json:"event_detail_base_url"`
 	ParticipantCancelDeadlineHours int      `json:"participant_cancel_deadline_hours"`
+	CustomerStatus                 string   `json:"customer_status"`
+	EnabledFeatures                []string `json:"enabled_features"`
 }
 
 func (a *App) handleAdminTenantItem(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +276,8 @@ func (a *App) writeTenantError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusConflict, "TENANT_PUBLIC_BASE_URL_CONFLICT", "Diese Public-Base-URL ist bereits einem anderen Mandanten zugeordnet.")
 	case errors.Is(err, tenant.ErrTenantDomainBindingNotFound):
 		writeAPIError(w, http.StatusNotFound, "TENANT_DOMAIN_BINDING_NOT_FOUND", "Domain-Binding nicht gefunden.")
+	case errors.Is(err, tenant.ErrTenantUserNotFound):
+		writeAPIError(w, http.StatusNotFound, "TENANT_USER_NOT_FOUND", "Benutzer nicht gefunden.")
 	case errors.Is(err, tenant.ErrTenantDomainBindingConflict):
 		writeAPIError(w, http.StatusConflict, "TENANT_DOMAIN_BINDING_CONFLICT", "Diese Domain oder dieser Pfad ist bereits einem anderen Public-Auftritt zugeordnet.")
 	case errors.Is(err, tenant.ErrTenantPrimaryDomainBindingLocked):
@@ -301,6 +305,8 @@ func parseAdminTenantAppSettings(raw string) (adminTenantAppSettings, map[string
 		AllowedEmbedOrigins:            []string{},
 		EventDetailBaseURL:             "",
 		ParticipantCancelDeadlineHours: tenant.DefaultParticipantCancelDeadlineHours,
+		CustomerStatus:                 tenant.CustomerStatusActive,
+		EnabledFeatures:                tenant.EnabledFeaturesFromSettingsJSON(""),
 	}
 	if value, ok := data["event_time_start"].(string); ok && strings.TrimSpace(value) != "" {
 		settings.EventTimeStart = strings.TrimSpace(value)
@@ -325,6 +331,17 @@ func parseAdminTenantAppSettings(raw string) (adminTenantAppSettings, map[string
 		for _, entry := range rawOrigins {
 			if value, ok := entry.(string); ok && strings.TrimSpace(value) != "" {
 				settings.AllowedEmbedOrigins = append(settings.AllowedEmbedOrigins, strings.TrimSpace(value))
+			}
+		}
+	}
+	if value, ok := data["customer_status"].(string); ok && strings.TrimSpace(value) != "" {
+		settings.CustomerStatus = strings.TrimSpace(value)
+	}
+	if rawFeatures, ok := data["enabled_features"].([]any); ok {
+		settings.EnabledFeatures = make([]string, 0, len(rawFeatures))
+		for _, entry := range rawFeatures {
+			if value, ok := entry.(string); ok && strings.TrimSpace(value) != "" {
+				settings.EnabledFeatures = append(settings.EnabledFeatures, strings.TrimSpace(value))
 			}
 		}
 	}
@@ -359,6 +376,12 @@ func mergeAdminTenantAppSettings(current, update adminTenantAppSettings) adminTe
 	if update.ParticipantCancelDeadlineHours >= 0 {
 		next.ParticipantCancelDeadlineHours = update.ParticipantCancelDeadlineHours
 	}
+	if strings.TrimSpace(update.CustomerStatus) != "" {
+		next.CustomerStatus = strings.TrimSpace(update.CustomerStatus)
+	}
+	if update.EnabledFeatures != nil {
+		next.EnabledFeatures = update.EnabledFeatures
+	}
 	return next
 }
 
@@ -379,6 +402,8 @@ func marshalAdminTenantAppSettings(existing map[string]any, settings adminTenant
 	payload["allowed_embed_origins"] = normalized.AllowedEmbedOrigins
 	payload["event_detail_base_url"] = normalized.EventDetailBaseURL
 	payload["participant_cancel_deadline_hours"] = normalized.ParticipantCancelDeadlineHours
+	payload["customer_status"] = normalized.CustomerStatus
+	payload["enabled_features"] = normalized.EnabledFeatures
 
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -434,6 +459,11 @@ func normalizeAdminTenantAppSettings(settings adminTenantAppSettings) (adminTena
 	if cancelDeadlineHours < 0 {
 		return adminTenantAppSettings{}, fmt.Errorf("participant_cancel_deadline_hours muss >= 0 sein")
 	}
+	customerStatus := tenant.NormalizeCustomerStatus(settings.CustomerStatus)
+	enabledFeatures := tenant.NormalizeEnabledFeatures(settings.EnabledFeatures)
+	if len(enabledFeatures) == 0 {
+		enabledFeatures = tenant.EnabledFeaturesFromSettingsJSON("")
+	}
 
 	return adminTenantAppSettings{
 		EventTimeStart:                 start,
@@ -443,6 +473,8 @@ func normalizeAdminTenantAppSettings(settings adminTenantAppSettings) (adminTena
 		AllowedEmbedOrigins:            origins,
 		EventDetailBaseURL:             detailBaseURL,
 		ParticipantCancelDeadlineHours: cancelDeadlineHours,
+		CustomerStatus:                 customerStatus,
+		EnabledFeatures:                enabledFeatures,
 	}, nil
 }
 

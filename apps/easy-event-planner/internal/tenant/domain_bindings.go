@@ -18,7 +18,8 @@ func (r *Repository) ListDomainBindings(ctx context.Context, tenantID string) ([
 
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, overview_enabled, event_detail_enabled,
+            registration_embed_enabled, organizer_calendar_enabled, verification_token,
             COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
             COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
             COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
@@ -49,7 +50,8 @@ func (r *Repository) ListDomainBindings(ctx context.Context, tenantID string) ([
 func (r *Repository) ListAllDomainBindings(ctx context.Context) ([]TenantDomainBinding, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, overview_enabled, event_detail_enabled,
+            registration_embed_enabled, organizer_calendar_enabled, verification_token,
             COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
             COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
             COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
@@ -87,7 +89,8 @@ func (r *Repository) GetDomainBindingByID(ctx context.Context, tenantID, binding
 
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, overview_enabled, event_detail_enabled,
+            registration_embed_enabled, organizer_calendar_enabled, verification_token,
             COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
             COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
             COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
@@ -114,7 +117,8 @@ func (r *Repository) GetPrimaryDomainBinding(ctx context.Context, tenantID strin
 
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
+		`SELECT id, tenant_id, domain_host, base_path, status, is_primary, overview_enabled, event_detail_enabled,
+            registration_embed_enabled, organizer_calendar_enabled, verification_token,
             COALESCE(dns_verified_at, ''), COALESCE(routing_verified_at, ''), COALESCE(last_dns_check_at, ''), COALESCE(last_dns_error, ''),
             COALESCE(last_routing_check_at, ''), COALESCE(last_routing_error, ''), ssl_status, COALESCE(ssl_certificate_issuer, ''),
             COALESCE(ssl_certificate_expires_at, ''), COALESCE(last_ssl_check_at, ''), COALESCE(last_ssl_error, ''), created_at, updated_at
@@ -162,6 +166,10 @@ func (r *Repository) CreateDomainBinding(ctx context.Context, params CreateTenan
 
 	itemID := r.idFn("tdb")
 	verificationToken := newDomainBindingVerificationToken(r)
+	overviewEnabled := domainBindingAccessOrDefault(params.OverviewEnabled)
+	eventDetailEnabled := domainBindingAccessOrDefault(params.EventDetailEnabled)
+	registrationEmbedEnabled := domainBindingAccessOrDefault(params.RegistrationEmbedEnabled)
+	organizerCalendarEnabled := domainBindingAccessOrDefault(params.OrganizerCalendarEnabled)
 	now := r.nowFn().UTC().Format(time.RFC3339)
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -171,15 +179,19 @@ func (r *Repository) CreateDomainBinding(ctx context.Context, params CreateTenan
 	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO tenant_domain_bindings (
-      id, tenant_id, domain_host, base_path, status, is_primary, verification_token,
-      ssl_status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, tenant_id, domain_host, base_path, status, is_primary, overview_enabled, event_detail_enabled,
+      registration_embed_enabled, organizer_calendar_enabled, verification_token, ssl_status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		itemID,
 		tenantID,
 		domain,
 		basePath,
 		status,
 		boolToInt(params.IsPrimary),
+		boolToInt(overviewEnabled),
+		boolToInt(eventDetailEnabled),
+		boolToInt(registrationEmbedEnabled),
+		boolToInt(organizerCalendarEnabled),
 		verificationToken,
 		initialSSLStatusForDomainBinding(status),
 		now,
@@ -258,6 +270,22 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 	if params.IsPrimary != nil {
 		isPrimary = *params.IsPrimary
 	}
+	overviewEnabled := current.OverviewEnabled
+	if params.OverviewEnabled != nil {
+		overviewEnabled = *params.OverviewEnabled
+	}
+	eventDetailEnabled := current.EventDetailEnabled
+	if params.EventDetailEnabled != nil {
+		eventDetailEnabled = *params.EventDetailEnabled
+	}
+	registrationEmbedEnabled := current.RegistrationEmbedEnabled
+	if params.RegistrationEmbedEnabled != nil {
+		registrationEmbedEnabled = *params.RegistrationEmbedEnabled
+	}
+	organizerCalendarEnabled := current.OrganizerCalendarEnabled
+	if params.OrganizerCalendarEnabled != nil {
+		organizerCalendarEnabled = *params.OrganizerCalendarEnabled
+	}
 	if isPrimary && status != DomainBindingStatusActive {
 		return TenantDomainBinding{}, fmt.Errorf("primaere Domain-Bindings muessen aktiv sein")
 	}
@@ -312,7 +340,8 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 	if _, err := tx.ExecContext(
 		ctx,
 		`UPDATE tenant_domain_bindings
-     SET domain_host = ?, base_path = ?, status = ?, is_primary = ?, verification_token = ?,
+     SET domain_host = ?, base_path = ?, status = ?, is_primary = ?, overview_enabled = ?, event_detail_enabled = ?,
+         registration_embed_enabled = ?, organizer_calendar_enabled = ?, verification_token = ?,
          dns_verified_at = ?, routing_verified_at = ?, last_dns_check_at = ?, last_dns_error = ?,
          last_routing_check_at = ?, last_routing_error = ?, ssl_status = ?, ssl_certificate_issuer = ?,
          ssl_certificate_expires_at = ?, last_ssl_check_at = ?, last_ssl_error = ?, updated_at = ?
@@ -321,6 +350,10 @@ func (r *Repository) UpdateDomainBinding(ctx context.Context, tenantID, bindingI
 		basePath,
 		status,
 		boolToInt(isPrimary),
+		boolToInt(overviewEnabled),
+		boolToInt(eventDetailEnabled),
+		boolToInt(registrationEmbedEnabled),
+		boolToInt(organizerCalendarEnabled),
 		verificationToken,
 		formatOptionalRFC3339(dnsVerifiedAt),
 		formatOptionalRFC3339(routingVerifiedAt),
@@ -498,7 +531,8 @@ func (r *Repository) LookupPublicRoute(ctx context.Context, rawURL string) (Publ
 
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT b.domain_host, b.base_path, t.id, t.slug, t.name, t.public_base_url, t.default_timezone, t.default_locale, t.status, t.created_at, t.updated_at
+		`SELECT b.domain_host, b.base_path, b.overview_enabled, b.event_detail_enabled, b.registration_embed_enabled, b.organizer_calendar_enabled,
+            t.id, t.slug, t.name, t.public_base_url, t.default_timezone, t.default_locale, t.status, t.created_at, t.updated_at
      FROM tenant_domain_bindings b
      INNER JOIN tenants t ON t.id = b.tenant_id
      WHERE b.status = ?`,
@@ -511,14 +545,22 @@ func (r *Repository) LookupPublicRoute(ctx context.Context, rawURL string) (Publ
 
 	for rows.Next() {
 		var (
-			domainHost string
-			basePath   string
+			domainHost             string
+			basePath               string
+			overviewEnabledRaw     int
+			eventDetailEnabledRaw  int
+			registrationEnabledRaw int
+			organizerCalendarRaw   int
 		)
 		item, scanErr := scanTenant(scanTenantRowAdapter{
 			row: rows,
 			prefixDestinations: []any{
 				&domainHost,
 				&basePath,
+				&overviewEnabledRaw,
+				&eventDetailEnabledRaw,
+				&registrationEnabledRaw,
+				&organizerCalendarRaw,
 			},
 		})
 		if scanErr != nil {
@@ -532,10 +574,14 @@ func (r *Repository) LookupPublicRoute(ctx context.Context, rawURL string) (Publ
 			continue
 		}
 		consider(PublicRouteMatch{
-			Tenant:   item,
-			BaseURL:  buildDomainBindingPublicBaseURL(domainHost, normalizedBasePath),
-			BasePath: normalizedBasePath,
-			Source:   "domain_binding",
+			Tenant:                   item,
+			BaseURL:                  buildDomainBindingPublicBaseURL(domainHost, normalizedBasePath),
+			BasePath:                 normalizedBasePath,
+			Source:                   "domain_binding",
+			OverviewEnabled:          overviewEnabledRaw != 0,
+			EventDetailEnabled:       eventDetailEnabledRaw != 0,
+			RegistrationEmbedEnabled: registrationEnabledRaw != 0,
+			OrganizerCalendarEnabled: organizerCalendarRaw != 0,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -568,10 +614,14 @@ func (r *Repository) LookupPublicRoute(ctx context.Context, rawURL string) (Publ
 			continue
 		}
 		consider(PublicRouteMatch{
-			Tenant:   item,
-			BaseURL:  item.PublicBaseURL,
-			BasePath: candidate.path,
-			Source:   "tenant_public_base_url",
+			Tenant:                   item,
+			BaseURL:                  item.PublicBaseURL,
+			BasePath:                 candidate.path,
+			Source:                   "tenant_public_base_url",
+			OverviewEnabled:          true,
+			EventDetailEnabled:       true,
+			RegistrationEmbedEnabled: true,
+			OrganizerCalendarEnabled: true,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -821,10 +871,21 @@ func boolToInt(value bool) int {
 	return 0
 }
 
+func domainBindingAccessOrDefault(value *bool) bool {
+	if value == nil {
+		return true
+	}
+	return *value
+}
+
 func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 	var (
 		item                    TenantDomainBinding
 		isPrimaryRaw            int
+		overviewEnabledRaw      int
+		eventDetailEnabledRaw   int
+		registrationEnabledRaw  int
+		organizerCalendarRaw    int
 		dnsVerifiedAtRaw        string
 		routingVerifiedAtRaw    string
 		lastDNSCheckAtRaw       string
@@ -841,6 +902,10 @@ func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 		&item.BasePath,
 		&item.Status,
 		&isPrimaryRaw,
+		&overviewEnabledRaw,
+		&eventDetailEnabledRaw,
+		&registrationEnabledRaw,
+		&organizerCalendarRaw,
 		&item.VerificationToken,
 		&dnsVerifiedAtRaw,
 		&routingVerifiedAtRaw,
@@ -859,6 +924,10 @@ func scanTenantDomainBinding(row rowScanner) (TenantDomainBinding, error) {
 		return TenantDomainBinding{}, err
 	}
 
+	item.OverviewEnabled = overviewEnabledRaw != 0
+	item.EventDetailEnabled = eventDetailEnabledRaw != 0
+	item.RegistrationEmbedEnabled = registrationEnabledRaw != 0
+	item.OrganizerCalendarEnabled = organizerCalendarRaw != 0
 	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
 	if err != nil {
 		return TenantDomainBinding{}, fmt.Errorf("parse tenant domain binding created_at: %w", err)

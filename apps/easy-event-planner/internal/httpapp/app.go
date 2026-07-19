@@ -124,6 +124,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/tenant/domains", a.handleAdminTenantDomainsCollection)
 	a.mux.HandleFunc("/api/v1/admin/tenant/domains/", a.handleAdminTenantDomainsItem)
 	a.mux.HandleFunc("/api/v1/admin/tenant/settings", a.handleAdminTenantSettingsItem)
+	a.mux.HandleFunc("/api/v1/admin/users", a.handleAdminUsersCollection)
+	a.mux.HandleFunc("/api/v1/admin/users/", a.handleAdminUsersItem)
 	a.mux.HandleFunc("/api/v1/admin/events", a.handleAdminEventsCollection)
 	a.mux.HandleFunc("/api/v1/admin/events/", a.handleAdminEventsItem)
 	a.mux.HandleFunc("/api/v1/admin/calendar/feed", a.handleAdminCalendarFeed)
@@ -142,6 +144,9 @@ func (a *App) routes() {
 	a.mux.HandleFunc("/api/v1/admin/waitlist/", a.handleAdminWaitlistItem)
 	a.mux.HandleFunc("/api/v1/internal/infra/domain-bindings/export", a.handleInfraDomainBindingsExport)
 	a.mux.HandleFunc("/api/v1/internal/infra/domain-bindings/refresh", a.handleInfraDomainBindingsRefresh)
+	a.mux.HandleFunc("/api/v1/internal/superadmin/me", a.handleSuperadminMe)
+	a.mux.HandleFunc("/api/v1/internal/superadmin/tenants", a.handleSuperadminTenantsCollection)
+	a.mux.HandleFunc("/api/v1/internal/superadmin/tenants/", a.handleSuperadminTenantsItem)
 
 	a.mux.HandleFunc("/api/v1/public/", a.handlePublicRoutes)
 	a.mux.HandleFunc("/api/v1/webhooks/paypal", a.handlePayPalWebhook)
@@ -355,6 +360,14 @@ func (a *App) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleAdminEventSeriesCollection(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, r.Method != http.MethodGet)
+	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureSeries, "FEATURE_DISABLED", "Event-Serien sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		a.handleAdminEventSeriesList(w, r)
@@ -366,6 +379,14 @@ func (a *App) handleAdminEventSeriesCollection(w http.ResponseWriter, r *http.Re
 }
 
 func (a *App) handleAdminEventSeriesItem(w http.ResponseWriter, r *http.Request) {
+	principal, ok := a.requireAdminPrincipal(w, r, r.Method != http.MethodGet)
+	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureSeries, "FEATURE_DISABLED", "Event-Serien sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
+
 	seriesID, ok := parseEventSeriesIDFromPath(r.URL.Path)
 	if !ok {
 		writeAPIError(w, http.StatusNotFound, "EVENT_SERIES_NOT_FOUND", "Event-Serie nicht gefunden.")

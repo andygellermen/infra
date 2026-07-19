@@ -24,6 +24,7 @@ var (
 	ErrTenantDomainBindingConflict               = errors.New("tenant domain binding conflicts with another public route")
 	ErrTenantPrimaryDomainBindingLocked          = errors.New("primary tenant domain binding must remain active until another primary domain is selected")
 	ErrTenantPublicBaseURLManagedByDomainBinding = errors.New("tenant public base url is managed by the primary domain binding")
+	ErrTenantUserNotFound                        = errors.New("tenant user not found")
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -135,6 +136,32 @@ func (r *Repository) CreateTenant(ctx context.Context, params CreateTenantParams
 	}
 
 	return r.GetByID(ctx, tenant.ID)
+}
+
+func (r *Repository) ListTenants(ctx context.Context) ([]Tenant, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, slug, name, public_base_url, default_timezone, default_locale, status, created_at, updated_at
+     FROM tenants
+     ORDER BY name ASC, slug ASC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query tenants: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]Tenant, 0)
+	for rows.Next() {
+		item, scanErr := scanTenant(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan tenant list: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tenant list: %w", err)
+	}
+	return items, nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, tenantID string) (Tenant, error) {
@@ -494,6 +521,165 @@ func (r *Repository) upsertSeedAdminUser(ctx context.Context, tenantID string, i
 	return nil
 }
 
+func (r *Repository) ListUsers(ctx context.Context, tenantID string) ([]TenantUser, error) {
+	id := strings.TrimSpace(tenantID)
+	if id == "" {
+		return nil, fmt.Errorf("tenant id must not be empty")
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, email, name, role, status, created_at, updated_at
+     FROM tenant_users
+     WHERE tenant_id = ?
+     ORDER BY email ASC`,
+		id,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query tenant users: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]TenantUser, 0)
+	for rows.Next() {
+		item, scanErr := scanTenantUser(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan tenant user: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tenant users: %w", err)
+	}
+	return items, nil
+}
+
+func (r *Repository) GetUserByID(ctx context.Context, tenantID, userID string) (TenantUser, error) {
+	normalizedTenantID := strings.TrimSpace(tenantID)
+	normalizedUserID := strings.TrimSpace(userID)
+	if normalizedTenantID == "" {
+		return TenantUser{}, fmt.Errorf("tenant id must not be empty")
+	}
+	if normalizedUserID == "" {
+		return TenantUser{}, fmt.Errorf("user id must not be empty")
+	}
+
+	row := r.db.QueryRowContext(
+		ctx,
+		`SELECT id, tenant_id, email, name, role, status, created_at, updated_at
+     FROM tenant_users
+     WHERE tenant_id = ? AND id = ?`,
+		normalizedTenantID,
+		normalizedUserID,
+	)
+	item, err := scanTenantUser(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TenantUser{}, ErrTenantUserNotFound
+		}
+		return TenantUser{}, fmt.Errorf("query tenant user: %w", err)
+	}
+	return item, nil
+}
+
+func (r *Repository) CreateUser(ctx context.Context, tenantID string, params CreateTenantUserParams) (TenantUser, error) {
+	normalizedTenantID := strings.TrimSpace(tenantID)
+	if normalizedTenantID == "" {
+		return TenantUser{}, fmt.Errorf("tenant id must not be empty")
+	}
+
+	email, name, role, status, err := normalizeTenantUserInput(params.Email, params.Name, params.Role, params.Status)
+	if err != nil {
+		return TenantUser{}, err
+	}
+
+	now := r.nowFn().UTC().Format(time.RFC3339)
+	userID := r.idFn("usr")
+	if _, err := r.db.ExecContext(
+		ctx,
+		`INSERT INTO tenant_users (
+      id, tenant_id, email, name, role, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID,
+		normalizedTenantID,
+		email,
+		name,
+		role,
+		status,
+		now,
+		now,
+	); err != nil {
+		return TenantUser{}, fmt.Errorf("insert tenant user: %w", err)
+	}
+
+	return r.GetUserByID(ctx, normalizedTenantID, userID)
+}
+
+func (r *Repository) UpdateUser(ctx context.Context, tenantID, userID string, params UpdateTenantUserParams) (TenantUser, error) {
+	current, err := r.GetUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return TenantUser{}, err
+	}
+
+	email := current.Email
+	name := current.Name
+	role := current.Role
+	status := current.Status
+	if params.Email != nil {
+		email = *params.Email
+	}
+	if params.Name != nil {
+		name = *params.Name
+	}
+	if params.Role != nil {
+		role = *params.Role
+	}
+	if params.Status != nil {
+		status = *params.Status
+	}
+
+	email, name, role, status, err = normalizeTenantUserInput(email, name, role, status)
+	if err != nil {
+		return TenantUser{}, err
+	}
+
+	if _, err := r.db.ExecContext(
+		ctx,
+		`UPDATE tenant_users
+     SET email = ?, name = ?, role = ?, status = ?, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+		email,
+		name,
+		role,
+		status,
+		r.nowFn().UTC().Format(time.RFC3339),
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(userID),
+	); err != nil {
+		return TenantUser{}, fmt.Errorf("update tenant user: %w", err)
+	}
+
+	return r.GetUserByID(ctx, tenantID, userID)
+}
+
+func (r *Repository) DeleteUser(ctx context.Context, tenantID, userID string) (bool, error) {
+	result, err := r.db.ExecContext(
+		ctx,
+		`DELETE FROM tenant_users
+     WHERE tenant_id = ? AND id = ?`,
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(userID),
+	)
+	if err != nil {
+		return false, fmt.Errorf("delete tenant user: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("tenant user delete rows affected: %w", err)
+	}
+	return rowsAffected > 0, nil
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }
@@ -575,6 +761,85 @@ func scanTenantSettings(row rowScanner) (TenantSettings, error) {
 	settings.CreatedAt = createdAt
 	settings.UpdatedAt = updatedAt
 	return settings, nil
+}
+
+func scanTenantUser(row rowScanner) (TenantUser, error) {
+	var (
+		item         TenantUser
+		createdAtRaw string
+		updatedAtRaw string
+	)
+
+	if err := row.Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.Email,
+		&item.Name,
+		&item.Role,
+		&item.Status,
+		&createdAtRaw,
+		&updatedAtRaw,
+	); err != nil {
+		return TenantUser{}, err
+	}
+
+	createdAt, err := time.Parse(time.RFC3339, createdAtRaw)
+	if err != nil {
+		return TenantUser{}, fmt.Errorf("parse tenant user created_at: %w", err)
+	}
+	updatedAt, err := time.Parse(time.RFC3339, updatedAtRaw)
+	if err != nil {
+		return TenantUser{}, fmt.Errorf("parse tenant user updated_at: %w", err)
+	}
+
+	item.Email = strings.ToLower(strings.TrimSpace(item.Email))
+	item.Name = strings.TrimSpace(item.Name)
+	item.Role = normalizeTenantUserRole(item.Role)
+	item.Status = normalizeTenantUserStatus(item.Status)
+	item.CreatedAt = createdAt
+	item.UpdatedAt = updatedAt
+	return item, nil
+}
+
+func normalizeTenantUserInput(rawEmail, rawName, rawRole, rawStatus string) (string, string, string, string, error) {
+	email := strings.ToLower(strings.TrimSpace(rawEmail))
+	if email == "" {
+		return "", "", "", "", fmt.Errorf("user email must not be empty")
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", "", "", "", fmt.Errorf("parse user email: %w", err)
+	}
+
+	name := strings.TrimSpace(rawName)
+	if name == "" {
+		name = email
+	}
+
+	role := normalizeTenantUserRole(rawRole)
+	status := normalizeTenantUserStatus(rawStatus)
+	return email, name, role, status, nil
+}
+
+func normalizeTenantUserRole(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "owner", "admin", "readonly":
+		return strings.ToLower(strings.TrimSpace(raw))
+	case "", "event_manager":
+		return "event_manager"
+	default:
+		return "event_manager"
+	}
+}
+
+func normalizeTenantUserStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "active":
+		return "active"
+	case "invited", "disabled":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "active"
+	}
 }
 
 func normalizeSlug(raw string) (string, error) {

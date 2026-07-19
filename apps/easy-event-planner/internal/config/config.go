@@ -53,6 +53,7 @@ type Config struct {
 	MailFromEmail           string
 	MailFromName            string
 	InfraSyncToken          string
+	SuperadminToken         string
 	PayPalUseRealAPI        bool
 	PayPalClientID          string
 	PayPalClientSecret      string
@@ -100,6 +101,7 @@ func Load(buildVersion string) (Config, error) {
 		MailFromEmail:           strings.TrimSpace(getenv("EEP_MAIL_FROM", defaultMailFromEmail)),
 		MailFromName:            strings.TrimSpace(getenv("EEP_MAIL_FROM_NAME", defaultMailFromName)),
 		InfraSyncToken:          strings.TrimSpace(getenv("EEP_INFRA_SYNC_TOKEN", "")),
+		SuperadminToken:         strings.TrimSpace(getenv("EEP_SUPERADMIN_TOKEN", "")),
 		PayPalUseRealAPI:        getenvBool("EEP_PAYPAL_USE_REAL_API", false),
 		PayPalClientID:          strings.TrimSpace(getenv("EEP_PAYPAL_CLIENT_ID", "")),
 		PayPalClientSecret:      strings.TrimSpace(getenv("EEP_PAYPAL_CLIENT_SECRET", "")),

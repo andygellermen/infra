@@ -230,6 +230,43 @@ h2 {
   gap: 10px;
 }
 
+.form-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d6e2e4;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fbfb);
+}
+
+.section-head {
+  display: grid;
+  gap: 4px;
+}
+
+.section-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.section-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.section-inline-grid {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #d6e2e4;
+  border-radius: 14px;
+  background: #f8fbfb;
+}
+
+.section-inline-grid strong {
+  color: var(--ink);
+}
+
 label {
   display: grid;
   gap: 5px;
@@ -517,6 +554,11 @@ textarea:focus {
 
 .span-2 {
   grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .table-toolbar {

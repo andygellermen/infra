@@ -43,6 +43,29 @@ func (a *App) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch routeType {
+	case "series_list", "series_events":
+		if !a.requireTenantFeatureByTenantID(w, r, tenantItem.ID, tenant.FeatureSeries, "FEATURE_DISABLED", "Event-Serien sind fuer diesen Mandanten nicht freigeschaltet.") {
+			return
+		}
+	case "snippet_events":
+		if !a.requireTenantFeatureByTenantID(w, r, tenantItem.ID, tenant.FeatureSnippets, "FEATURE_DISABLED", "Snippets sind fuer diesen Mandanten nicht freigeschaltet.") {
+			return
+		}
+	case "participants_portal_request", "participants_portal_verify", "participants_portal_me", "participants_portal_logout", "participants_portal_registrations", "participants_portal_registration_cancel":
+		if !a.requireTenantFeatureByTenantID(w, r, tenantItem.ID, tenant.FeatureParticipantPortal, "FEATURE_DISABLED", "Das Teilnehmer-Portal ist fuer diesen Mandanten nicht freigeschaltet.") {
+			return
+		}
+	case "participants_portal_certificates", "participants_portal_certificate", "participants_portal_certificate_download", "certificates_verify_public":
+		if !a.requireTenantFeatureByTenantID(w, r, tenantItem.ID, tenant.FeatureCertificates, "FEATURE_DISABLED", "Zertifikate sind fuer diesen Mandanten nicht freigeschaltet.") {
+			return
+		}
+	case "payments_paypal_create_order":
+		if !a.requireTenantFeatureByTenantID(w, r, tenantItem.ID, tenant.FeaturePayments, "FEATURE_DISABLED", "Zahlungen sind fuer diesen Mandanten nicht freigeschaltet.") {
+			return
+		}
+	}
+
+	switch routeType {
 	case "events_list":
 		if r.Method != http.MethodGet {
 			writeAPIError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Methode nicht erlaubt.")

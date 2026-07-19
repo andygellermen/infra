@@ -31,6 +31,14 @@ func (a *App) handleAdminSnippetsCollection(w http.ResponseWriter, r *http.Reque
 }
 
 func (a *App) handleAdminSnippetsItem(w http.ResponseWriter, r *http.Request) {
+	principal, allowed := a.requireAdminPrincipal(w, r, r.Method != http.MethodGet)
+	if !allowed {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureSnippets, "FEATURE_DISABLED", "Snippets sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
+
 	snippetID, action, ok := parseAdminSnippetPath(r.URL.Path)
 	if !ok {
 		writeAPIError(w, http.StatusNotFound, "SNIPPET_NOT_FOUND", "Snippet-Konfiguration nicht gefunden.")
@@ -67,6 +75,9 @@ func (a *App) handleAdminSnippetList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureSnippets, "FEATURE_DISABLED", "Snippets sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 	if a.snippetRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Snippet-Service ist nicht verfuegbar.")
 		return
@@ -92,6 +103,9 @@ func (a *App) handleAdminSnippetList(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleAdminSnippetCreate(w http.ResponseWriter, r *http.Request) {
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureSnippets, "FEATURE_DISABLED", "Snippets sind fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 	if a.snippetRepo == nil {
@@ -488,7 +502,7 @@ func (a *App) resolveTenantPublicRouteByBaseURL(r *http.Request, requestPath str
 	if !ok {
 		return resolvedTenantPublicRoute{}, false
 	}
-	return classifyTenantPublicRelativePath(match.Tenant, relativePath)
+	return classifyTenantPublicRelativePath(match, relativePath)
 }
 
 func (a *App) resolveTenantPublicRouteLegacy(r *http.Request, requestPath string) (resolvedTenantPublicRoute, bool) {
@@ -508,13 +522,25 @@ func (a *App) resolveTenantPublicRouteLegacy(r *http.Request, requestPath string
 	if len(parts) > 1 {
 		relativePath = "/" + strings.Join(parts[1:], "/")
 	}
-	return classifyTenantPublicRelativePath(tenantItem, relativePath)
+	return classifyTenantPublicRelativePath(tenant.PublicRouteMatch{
+		Tenant:                   tenantItem,
+		BaseURL:                  tenantItem.PublicBaseURL,
+		BasePath:                 "/",
+		Source:                   "tenant_slug_legacy",
+		OverviewEnabled:          true,
+		EventDetailEnabled:       true,
+		RegistrationEmbedEnabled: true,
+		OrganizerCalendarEnabled: true,
+	}, relativePath)
 }
 
-func classifyTenantPublicRelativePath(tenantItem tenant.Tenant, relativePath string) (resolvedTenantPublicRoute, bool) {
+func classifyTenantPublicRelativePath(match tenant.PublicRouteMatch, relativePath string) (resolvedTenantPublicRoute, bool) {
 	normalized := normalizePublicPath(relativePath)
 	if normalized == "/" {
-		return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "events_overview"}, true
+		if !match.OverviewEnabled {
+			return resolvedTenantPublicRoute{}, false
+		}
+		return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "events_overview"}, true
 	}
 	parts := strings.Split(strings.Trim(normalized, "/"), "/")
 	if len(parts) == 0 {
@@ -525,20 +551,35 @@ func classifyTenantPublicRelativePath(tenantItem tenant.Tenant, relativePath str
 	case 1:
 		switch strings.TrimSpace(parts[0]) {
 		case "include.js":
-			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "include_js"}, true
+			if !match.RegistrationEmbedEnabled {
+				return resolvedTenantPublicRoute{}, false
+			}
+			return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "include_js"}, true
 		case "register.js":
-			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "register_js"}, true
+			if !match.RegistrationEmbedEnabled {
+				return resolvedTenantPublicRoute{}, false
+			}
+			return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "register_js"}, true
 		case "snippet.css":
-			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "snippet_css"}, true
+			if !match.RegistrationEmbedEnabled {
+				return resolvedTenantPublicRoute{}, false
+			}
+			return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "snippet_css"}, true
 		default:
 			return resolvedTenantPublicRoute{}, false
 		}
 	case 2:
 		if strings.TrimSpace(parts[0]) == "events" && strings.TrimSpace(parts[1]) != "" {
-			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "event_page", eventSlug: strings.TrimSpace(parts[1])}, true
+			if !match.EventDetailEnabled {
+				return resolvedTenantPublicRoute{}, false
+			}
+			return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "event_page", eventSlug: strings.TrimSpace(parts[1])}, true
 		}
 		if strings.TrimSpace(parts[0]) == "calendar" && strings.TrimSpace(parts[1]) == "admin.ics" {
-			return resolvedTenantPublicRoute{tenant: tenantItem, routeType: "organizer_calendar"}, true
+			if !match.OrganizerCalendarEnabled {
+				return resolvedTenantPublicRoute{}, false
+			}
+			return resolvedTenantPublicRoute{tenant: match.Tenant, routeType: "organizer_calendar"}, true
 		}
 		return resolvedTenantPublicRoute{}, false
 	default:

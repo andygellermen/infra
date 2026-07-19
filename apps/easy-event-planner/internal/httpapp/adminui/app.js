@@ -399,11 +399,16 @@
     setFieldValue(ui.settingsRulesForm, "event_time_step_minutes", String(appSettings.event_time_step_minutes));
     setFieldValue(ui.settingsRulesForm, "event_slug_mode", appSettings.event_slug_mode);
     setFieldValue(ui.settingsRulesForm, "event_detail_base_url", appSettings.event_detail_base_url || "");
+    setFieldValue(ui.settingsRulesForm, "customer_status", appSettings.customer_status || "active");
     setFieldValue(ui.settingsRulesForm, "participant_cancel_deadline_hours", String(appSettings.participant_cancel_deadline_hours));
     setFieldValue(ui.settingsRulesForm, "sender_email", settingsItem.sender_email || "");
     setFieldValue(ui.settingsRulesForm, "sender_name", settingsItem.sender_name || "");
     setFieldValue(ui.settingsRulesForm, "default_retention_days", settingsItem.default_retention_days || 30);
+    setFieldValue(ui.settingsRulesForm, "paypal_mode", settingsItem.paypal_mode || "disabled");
+    setFieldValue(ui.settingsRulesForm, "paypal_client_id", settingsItem.paypal_client_id || "");
+    setFieldValue(ui.settingsRulesForm, "paypal_merchant_id", settingsItem.paypal_merchant_id || "");
     setFieldValue(ui.settingsRulesForm, "allowed_embed_origins", (appSettings.allowed_embed_origins || []).join("\n"));
+    setCheckboxGroupValues(ui.settingsRulesForm, "enabled_features", appSettings.enabled_features || []);
 
     updateEventDetailBaseURLHint();
     updateTenantProfileHint();
@@ -459,8 +464,10 @@
       event_time_step_minutes: Number(String(formData.get("event_time_step_minutes") || "15").trim() || "15"),
       event_slug_mode: String(formData.get("event_slug_mode") || "optional").trim(),
       event_detail_base_url: String(formData.get("event_detail_base_url") || "").trim(),
+      customer_status: String(formData.get("customer_status") || "active").trim(),
       participant_cancel_deadline_hours: cancelDeadlineHours,
       allowed_embed_origins: parseOriginsTextarea(String(formData.get("allowed_embed_origins") || "")),
+      enabled_features: getCheckboxGroupValues(ui.settingsRulesForm, "enabled_features"),
     };
 
     try {
@@ -485,6 +492,9 @@
         body: JSON.stringify({
           sender_email: String(formData.get("sender_email") || "").trim(),
           sender_name: String(formData.get("sender_name") || "").trim(),
+          paypal_mode: String(formData.get("paypal_mode") || "disabled").trim(),
+          paypal_client_id: String(formData.get("paypal_client_id") || "").trim(),
+          paypal_merchant_id: String(formData.get("paypal_merchant_id") || "").trim(),
           default_retention_days: retention,
           app_settings: appSettings,
         }),
@@ -650,6 +660,7 @@
     const sslMeta = item.ssl_certificate_expires_at
       ? `Zertifikat gueltig bis ${escapeHTML(formatDateTime(item.ssl_certificate_expires_at))}${item.ssl_certificate_issuer ? ` · Issuer: ${escapeHTML(item.ssl_certificate_issuer)}` : ""}`
       : escapeHTML(String(item.last_ssl_error || "TLS-Livecheck noch offen."));
+    const enabledAreas = describeTenantDomainAreas(item);
     return `
       <article class="event-card participant-booking-card ${isActive ? "is-active" : ""}">
         <div class="event-card-meta-row">
@@ -659,6 +670,7 @@
         <div class="event-card-title">${escapeHTML(item.domain || "")}</div>
         <div class="event-card-subline"><code>${escapeHTML(item.public_base_url || "")}</code></div>
         <div class="meta-stack">Pfad-Basis: <code>${escapeHTML(pathLabel)}</code></div>
+        <div class="meta-stack">Frontend-Bereiche: ${escapeHTML(enabledAreas)}</div>
         <div class="meta-stack">DNS: <code>${escapeHTML(item.domain || "")}</code> als CNAME auf <code>${escapeHTML(dnsTarget)}</code></div>
         <div class="meta-stack">TXT: <code>${escapeHTML(verificationRecordName)}</code> = <code>${escapeHTML(verificationRecordValue)}</code></div>
         <div class="meta-stack">${dnsMeta}</div>
@@ -683,7 +695,7 @@
       ? String(state.tenantDomainMeta.dns_target_host)
       : "events.example.com";
     const primary = findPrimaryTenantDomain();
-    let message = `Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. DNS-Ziel aktuell: <code>${escapeHTML(targetHost)}</code>. Eigentumsnachweis erfolgt ueber einen TXT-Record auf <code>_eep-domain-verification.&lt;deine-domain&gt;</code>.`;
+    let message = `Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. DNS-Ziel aktuell: <code>${escapeHTML(targetHost)}</code>. Eigentumsnachweis erfolgt ueber einen TXT-Record auf <code>_eep-domain-verification.&lt;deine-domain&gt;</code>. Pro Kundendomain kannst du zusaetzlich getrennt festlegen, ob Uebersicht, Detailseiten, Register-Snippets und Kalender erreichbar sein sollen.`;
     if (primary) {
       message += ` Die primaere Domain <code>${escapeHTML(primary.public_base_url || "")}</code> setzt zugleich die kanonische Public Base URL.`;
     } else {
@@ -698,6 +710,10 @@
     setFieldValue(ui.tenantDomainForm, "base_path", item && item.base_path ? item.base_path : "/");
     setFieldValue(ui.tenantDomainForm, "status", item && item.status ? item.status : "pending_dns");
     setCheckboxValue(ui.tenantDomainForm, "is_primary", !!(item && item.is_primary));
+    setCheckboxValue(ui.tenantDomainForm, "overview_enabled", !item || item.overview_enabled !== false);
+    setCheckboxValue(ui.tenantDomainForm, "event_detail_enabled", !item || item.event_detail_enabled !== false);
+    setCheckboxValue(ui.tenantDomainForm, "registration_embed_enabled", !item || item.registration_embed_enabled !== false);
+    setCheckboxValue(ui.tenantDomainForm, "organizer_calendar_enabled", !item || item.organizer_calendar_enabled !== false);
     if (ui.tenantDomainSubmitBtn) {
       ui.tenantDomainSubmitBtn.textContent = "Domain aktualisieren";
       ui.tenantDomainSubmitBtn.dataset.idleLabel = "Domain aktualisieren";
@@ -714,6 +730,10 @@
     setFieldValue(ui.tenantDomainForm, "base_path", "/");
     setFieldValue(ui.tenantDomainForm, "status", "pending_dns");
     setCheckboxValue(ui.tenantDomainForm, "is_primary", false);
+    setCheckboxValue(ui.tenantDomainForm, "overview_enabled", true);
+    setCheckboxValue(ui.tenantDomainForm, "event_detail_enabled", true);
+    setCheckboxValue(ui.tenantDomainForm, "registration_embed_enabled", true);
+    setCheckboxValue(ui.tenantDomainForm, "organizer_calendar_enabled", true);
     if (ui.tenantDomainSubmitBtn) {
       ui.tenantDomainSubmitBtn.textContent = "Domain speichern";
       ui.tenantDomainSubmitBtn.dataset.idleLabel = "Domain speichern";
@@ -734,6 +754,10 @@
       base_path: normalizeTenantDomainBasePath(String(formData.get("base_path") || "").trim()),
       status: String(formData.get("status") || "pending_dns").trim(),
       is_primary: !!formData.get("is_primary"),
+      overview_enabled: !!formData.get("overview_enabled"),
+      event_detail_enabled: !!formData.get("event_detail_enabled"),
+      registration_embed_enabled: !!formData.get("registration_embed_enabled"),
+      organizer_calendar_enabled: !!formData.get("organizer_calendar_enabled"),
     };
 
     if (!body.domain) {
@@ -3067,7 +3091,55 @@
       participant_cancel_deadline_hours: Number.isInteger(Number(source.participant_cancel_deadline_hours)) && Number(source.participant_cancel_deadline_hours) >= 0
         ? Number(source.participant_cancel_deadline_hours)
         : 24,
+      customer_status: String(source.customer_status || "active").trim() || "active",
+      enabled_features: Array.isArray(source.enabled_features) ? source.enabled_features : [
+        "calendar",
+        "certificates",
+        "custom_domains",
+        "donations",
+        "participant_portal",
+        "payments",
+        "series",
+        "snippets",
+        "waitlist",
+      ],
     };
+  }
+
+  function getCheckboxGroupValues(form, fieldName) {
+    if (!form) {
+      return [];
+    }
+    return Array.from(form.querySelectorAll(`input[name='${fieldName}']:checked`))
+      .map((field) => String(field.value || "").trim())
+      .filter(Boolean);
+  }
+
+  function setCheckboxGroupValues(form, fieldName, values) {
+    if (!form) {
+      return;
+    }
+    const selected = new Set((Array.isArray(values) ? values : []).map((item) => String(item || "").trim()));
+    form.querySelectorAll(`input[name='${fieldName}']`).forEach((field) => {
+      field.checked = selected.has(String(field.value || "").trim());
+    });
+  }
+
+  function describeTenantDomainAreas(item) {
+    const labels = [];
+    if (item && item.overview_enabled !== false) {
+      labels.push("Uebersicht");
+    }
+    if (item && item.event_detail_enabled !== false) {
+      labels.push("Detailseiten");
+    }
+    if (item && item.registration_embed_enabled !== false) {
+      labels.push("Register-Snippets");
+    }
+    if (item && item.organizer_calendar_enabled !== false) {
+      labels.push("Kalender");
+    }
+    return labels.length ? labels.join(", ") : "keine";
   }
 
   function updateEventDetailBaseURLHint() {

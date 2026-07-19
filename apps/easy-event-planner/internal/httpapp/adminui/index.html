@@ -98,124 +98,160 @@
                 <button id="eventCancelEditBtn" class="btn ghost" type="button" hidden>Bearbeitung abbrechen</button>
               </div>
               <form id="eventForm" class="form-grid">
-                <label>
-                  Event-Serie (optional)
-                  <select id="eventSeriesSelect" name="series_id">
-                    <option value="">Keine Serie</option>
-                  </select>
-                </label>
-                <label>
-                  Titel
-                  <input name="title" type="text" placeholder="Smoke Event" required>
-                </label>
-                <label>
-                  Slug (optional)
-                  <input name="slug" type="text" placeholder="smoke-event">
-                </label>
-                <label>
-                  Untertitel (optional)
-                  <input name="subtitle" type="text" placeholder="Intensivwoche, Block A, Abendtermin ...">
-                </label>
-                <label>
-                  Wiederholung
-                  <select id="eventRecurrenceMode" name="recurrence_mode">
-                    <option value="none">Keine Wiederholung</option>
-                    <option value="daily">Taeglich</option>
-                    <option value="weekly">Woechentlich</option>
-                    <option value="monthly">Monatlich</option>
-                  </select>
-                </label>
-                <label>
-                  Intervall
-                  <input name="recurrence_interval" type="number" min="1" step="1" value="1">
-                </label>
-                <label>
-                  Wiederholung endet
-                  <select id="eventRecurrenceEndMode" name="recurrence_end_mode">
-                    <option value="count">Nach Anzahl Terminen</option>
-                    <option value="until">Bis Datum</option>
-                  </select>
-                </label>
-                <label>
-                  Anzahl Termine
-                  <input name="recurrence_count" type="number" min="2" step="1" value="4">
-                </label>
-                <label>
-                  Wiederholen bis
-                  <input name="recurrence_until" type="date">
-                </label>
-                <label class="span-2">
-                  Beschreibung (optional)
-                  <textarea name="description" rows="5" placeholder="Kurzbeschreibung, Ablauf, Hinweise, Paketinhalte ..."></textarea>
-                </label>
-                <label>
-                  Startdatum
-                  <input name="starts_at_date" type="date" required>
-                </label>
-                <label>
-                  Startzeit
-                  <select name="starts_at_time" required></select>
-                </label>
-                <label>
-                  Enddatum (optional)
-                  <input name="ends_at_date" type="date">
-                </label>
-                <label>
-                  Endzeit
-                  <select name="ends_at_time"></select>
-                </label>
-                <label>
-                  Zeitzone
-                  <input name="timezone" type="text" value="Europe/Berlin" required>
-                </label>
-                <label>
-                  Teilnahmeart
-                  <select name="participation_mode">
-                    <option value="onsite">Onsite</option>
-                    <option value="online">Online</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </label>
-                <label>
-                  Ort
-                  <input name="location_name" type="text" placeholder="Haus am See">
-                </label>
-                <label>
-                  Adresse (optional)
-                  <input name="address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
-                </label>
-                <label>
-                  Online URL
-                  <input name="online_url" type="url" placeholder="https://meet.example.com/room">
-                </label>
-                <label>
-                  Max. Teilnehmer (optional)
-                  <input name="max_participants" type="number" min="1" step="1" placeholder="80">
-                </label>
-                <label class="span-2">
-                  Aenderungshinweis (optional)
-                  <input name="change_note" type="text" placeholder="Wird z. B. in Kalendern und Updates sichtbar">
-                </label>
+                <section class="form-section span-2">
+                  <div class="section-head">
+                    <h3>Grunddaten</h3>
+                    <p class="muted compact">Erst den inhaltlichen Kern setzen, dann in Ruhe Termin- und Freigabedetails ergaenzen.</p>
+                  </div>
+                  <div class="section-grid">
+                    <label>
+                      Event-Serie (optional)
+                      <select id="eventSeriesSelect" name="series_id">
+                        <option value="">Keine Serie</option>
+                      </select>
+                    </label>
+                    <label>
+                      Titel
+                      <input name="title" type="text" placeholder="Smoke Event" required>
+                    </label>
+                    <label>
+                      Slug (optional)
+                      <input name="slug" type="text" placeholder="smoke-event">
+                    </label>
+                    <label>
+                      Untertitel (optional)
+                      <input name="subtitle" type="text" placeholder="Intensivwoche, Block A, Abendtermin ...">
+                    </label>
+                    <label class="span-2">
+                      Beschreibung (optional)
+                      <textarea name="description" rows="5" placeholder="Kurzbeschreibung, Ablauf, Hinweise, Paketinhalte ..."></textarea>
+                    </label>
+                  </div>
+                </section>
 
-                <label class="checkline"><input name="is_public" type="checkbox" checked> Nach Freigabe in oeffentlicher Uebersicht anzeigen</label>
-                <p id="eventPublicationHint" class="muted compact">Mit Haken ist das Event fuer die oeffentliche Uebersicht vorbereitet. Live geht es erst ueber den Button "Freigeben".</p>
-                <label>
-                  Oeffentlich sichtbar ab (optional)
-                  <input name="public_visible_from" type="datetime-local">
-                </label>
-                <label>
-                  Registrierung moeglich ab (optional)
-                  <input name="registration_opens_at" type="datetime-local">
-                </label>
-                <label>
-                  Registrierung moeglich bis (optional)
-                  <input name="registration_closes_at" type="datetime-local">
-                </label>
-                <p class="muted compact span-2">Diese drei Zeitpunkte nutzen dieselbe Schrittweite wie deine Eventzeiten, ignorieren aber bewusst das globale Event-Zeitfenster.</p>
-                <label class="checkline"><input name="registration_enabled" type="checkbox" checked> Anmeldung aktiv</label>
-                <label class="checkline"><input name="waitlist_enabled" type="checkbox" checked> Warteliste aktiv</label>
+                <section class="form-section span-2">
+                  <div class="section-head">
+                    <h3>Serie und Wiederholung</h3>
+                    <p class="muted compact">Wiederholungen und Serien bewusst getrennt, damit Einzeltermine schneller angelegt werden koennen.</p>
+                  </div>
+                  <div class="section-grid">
+                    <label>
+                      Wiederholung
+                      <select id="eventRecurrenceMode" name="recurrence_mode">
+                        <option value="none">Keine Wiederholung</option>
+                        <option value="daily">Taeglich</option>
+                        <option value="weekly">Woechentlich</option>
+                        <option value="monthly">Monatlich</option>
+                      </select>
+                    </label>
+                    <label>
+                      Intervall
+                      <input name="recurrence_interval" type="number" min="1" step="1" value="1">
+                    </label>
+                    <label>
+                      Wiederholung endet
+                      <select id="eventRecurrenceEndMode" name="recurrence_end_mode">
+                        <option value="count">Nach Anzahl Terminen</option>
+                        <option value="until">Bis Datum</option>
+                      </select>
+                    </label>
+                    <label>
+                      Anzahl Termine
+                      <input name="recurrence_count" type="number" min="2" step="1" value="4">
+                    </label>
+                    <label>
+                      Wiederholen bis
+                      <input name="recurrence_until" type="date">
+                    </label>
+                  </div>
+                </section>
 
-                <button id="eventSubmitBtn" class="btn primary" type="submit">Event speichern</button>
+                <section class="form-section span-2">
+                  <div class="section-head">
+                    <h3>Termin und Ort</h3>
+                    <p class="muted compact">Zeit, Zeitzone und Teilnahmeformat kompakt zusammengefasst.</p>
+                  </div>
+                  <div class="section-grid">
+                    <label>
+                      Startdatum
+                      <input name="starts_at_date" type="date" required>
+                    </label>
+                    <label>
+                      Startzeit
+                      <select name="starts_at_time" required></select>
+                    </label>
+                    <label>
+                      Enddatum (optional)
+                      <input name="ends_at_date" type="date">
+                    </label>
+                    <label>
+                      Endzeit
+                      <select name="ends_at_time"></select>
+                    </label>
+                    <label>
+                      Zeitzone
+                      <input name="timezone" type="text" value="Europe/Berlin" required>
+                    </label>
+                    <label>
+                      Teilnahmeart
+                      <select name="participation_mode">
+                        <option value="onsite">Onsite</option>
+                        <option value="online">Online</option>
+                        <option value="hybrid">Hybrid</option>
+                      </select>
+                    </label>
+                    <label>
+                      Ort
+                      <input name="location_name" type="text" placeholder="Haus am See">
+                    </label>
+                    <label>
+                      Adresse (optional)
+                      <input name="address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
+                    </label>
+                    <label class="span-2">
+                      Online URL
+                      <input name="online_url" type="url" placeholder="https://meet.example.com/room">
+                    </label>
+                  </div>
+                </section>
+
+                <section class="form-section span-2">
+                  <div class="section-head">
+                    <h3>Freigabe und Registrierung</h3>
+                    <p class="muted compact">Sichtbarkeit, Registrierungsfenster und Kapazitaet gemeinsam steuern.</p>
+                  </div>
+                  <div class="section-grid">
+                    <label class="checkline span-2"><input name="is_public" type="checkbox" checked> Nach Freigabe in oeffentlicher Uebersicht anzeigen</label>
+                    <p id="eventPublicationHint" class="muted compact span-2">Mit Haken ist das Event fuer die oeffentliche Uebersicht vorbereitet. Live geht es erst ueber den Button "Freigeben".</p>
+                    <label>
+                      Oeffentlich sichtbar ab (optional)
+                      <input name="public_visible_from" type="datetime-local">
+                    </label>
+                    <label>
+                      Registrierung moeglich ab (optional)
+                      <input name="registration_opens_at" type="datetime-local">
+                    </label>
+                    <label>
+                      Registrierung moeglich bis (optional)
+                      <input name="registration_closes_at" type="datetime-local">
+                    </label>
+                    <label>
+                      Max. Teilnehmer (optional)
+                      <input name="max_participants" type="number" min="1" step="1" placeholder="80">
+                    </label>
+                    <p class="muted compact span-2">Diese drei Zeitpunkte nutzen dieselbe Schrittweite wie deine Eventzeiten, ignorieren aber bewusst das globale Event-Zeitfenster.</p>
+                    <label class="checkline"><input name="registration_enabled" type="checkbox" checked> Anmeldung aktiv</label>
+                    <label class="checkline"><input name="waitlist_enabled" type="checkbox" checked> Warteliste aktiv</label>
+                    <label class="span-2">
+                      Aenderungshinweis (optional)
+                      <input name="change_note" type="text" placeholder="Wird z. B. in Kalendern und Updates sichtbar">
+                    </label>
+                  </div>
+                </section>
+
+                <div class="form-actions span-2">
+                  <button id="eventSubmitBtn" class="btn primary" type="submit">Event speichern</button>
+                </div>
               </form>
             </div>
           </div>
@@ -251,33 +287,51 @@
                 </div>
                 <div id="seriesEventTabs" class="inline-tabs" aria-live="polite"></div>
                 <form id="seriesForm" class="form-grid">
-                  <label>
-                    Titel
-                    <input name="title" type="text" placeholder="Workshop-Reihe Sommer" required>
-                  </label>
-                  <label>
-                    Slug (optional)
-                    <input name="slug" type="text" placeholder="workshop-reihe-sommer">
-                  </label>
-                  <label class="span-2">
-                    Beschreibung (optional)
-                    <textarea name="description" rows="5" placeholder="Grundidee, Zielgruppe, Pakete, Uebernachtung, Hinweise ..."></textarea>
-                  </label>
-                  <label>
-                    Standard-Ort
-                    <input name="default_location_name" type="text" placeholder="Seminarhaus am See">
-                  </label>
-                  <label>
-                    Standard-Adresse
-                    <input name="default_address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
-                  </label>
-                  <label class="span-2">
-                    Standard-Online-URL
-                    <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
-                  </label>
-                  <label class="checkline"><input name="is_public" type="checkbox" checked> Serie oeffentlich anzeigen</label>
+                  <section class="form-section span-2">
+                    <div class="section-head">
+                      <h3>Serienprofil</h3>
+                      <p class="muted compact">Die Serie dient als Orientierung und Vorlage fuer spaetere Einzeltermine.</p>
+                    </div>
+                    <div class="section-grid">
+                      <label>
+                        Titel
+                        <input name="title" type="text" placeholder="Workshop-Reihe Sommer" required>
+                      </label>
+                      <label>
+                        Slug (optional)
+                        <input name="slug" type="text" placeholder="workshop-reihe-sommer">
+                      </label>
+                      <label class="span-2">
+                        Beschreibung (optional)
+                        <textarea name="description" rows="5" placeholder="Grundidee, Zielgruppe, Pakete, Uebernachtung, Hinweise ..."></textarea>
+                      </label>
+                    </div>
+                  </section>
+                  <section class="form-section span-2">
+                    <div class="section-head">
+                      <h3>Standardwerte fuer Termine</h3>
+                      <p class="muted compact">Neue Termine aus der Serie starten sofort mit diesen Voreinstellungen.</p>
+                    </div>
+                    <div class="section-grid">
+                      <label>
+                        Standard-Ort
+                        <input name="default_location_name" type="text" placeholder="Seminarhaus am See">
+                      </label>
+                      <label>
+                        Standard-Adresse
+                        <input name="default_address" type="text" placeholder="Musterstrasse 1, 12345 Musterstadt">
+                      </label>
+                      <label class="span-2">
+                        Standard-Online-URL
+                        <input name="default_online_url" type="url" placeholder="https://meet.example.com/reihe">
+                      </label>
+                      <label class="checkline span-2"><input name="is_public" type="checkbox" checked> Serie oeffentlich anzeigen</label>
+                    </div>
+                  </section>
 
-                  <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
+                  <div class="form-actions span-2">
+                    <button id="seriesSubmitBtn" class="btn primary" type="submit">Serie speichern</button>
+                  </div>
                 </form>
               </div>
 
@@ -540,6 +594,13 @@
                     <input name="is_primary" type="checkbox">
                     Als primaere Public-Domain verwenden und Public Base URL darauf setzen
                   </label>
+                  <div class="span-2 section-inline-grid">
+                    <strong>Erreichbare Frontend-Bereiche</strong>
+                    <label class="checkline"><input name="overview_enabled" type="checkbox" checked> Veranstaltungs-Übersicht</label>
+                    <label class="checkline"><input name="event_detail_enabled" type="checkbox" checked> Event-Detailseiten</label>
+                    <label class="checkline"><input name="registration_embed_enabled" type="checkbox" checked> Registrierungs-Snippets / Register.js</label>
+                    <label class="checkline"><input name="organizer_calendar_enabled" type="checkbox" checked> Organizer-Kalenderfeed</label>
+                  </div>
                   <p id="tenantDomainHint" class="muted compact span-2">Empfohlen ist eine Subdomain wie <code>events.deinedomain.tld</code>. Lege zuerst TXT und CNAME an, pruefe danach DNS und TLS direkt in EEP und setze die Domain erst im aktiven Zustand als primaer.</p>
                   <div class="toolbar-actions span-2">
                     <button id="tenantDomainSubmitBtn" class="btn primary" type="submit">Domain speichern</button>
@@ -591,6 +652,16 @@
                 </label>
                 <p id="eventDetailBaseUrlHint" class="muted compact span-2">Nur setzen, wenn Snippets auf redaktionelle Detailseiten ausserhalb von EEP verlinken sollen. Leer lassen, wenn EEP die Standard-Detailseiten unter <code>.../events/{event_slug}</code> selbst ausliefern soll.</p>
                 <label>
+                  Kundenstatus
+                  <select name="customer_status">
+                    <option value="trial">Trial</option>
+                    <option value="active">Aktiv</option>
+                    <option value="grace">Grace / Nachlauf</option>
+                    <option value="paused">Pausiert</option>
+                    <option value="closed">Geschlossen</option>
+                  </select>
+                </label>
+                <label>
                   Abmeldefrist in Stunden
                   <input name="participant_cancel_deadline_hours" type="number" min="0" step="1" placeholder="24">
                 </label>
@@ -606,6 +677,34 @@
                   Aufbewahrungstage
                   <input name="default_retention_days" type="number" min="1" step="1" placeholder="30">
                 </label>
+                <label>
+                  PayPal-Modus
+                  <select name="paypal_mode">
+                    <option value="disabled">Deaktiviert</option>
+                    <option value="sandbox">Sandbox</option>
+                    <option value="live">Live</option>
+                  </select>
+                </label>
+                <label>
+                  PayPal Client-ID
+                  <input name="paypal_client_id" type="text" placeholder="PayPal Client ID">
+                </label>
+                <label>
+                  PayPal Merchant-ID
+                  <input name="paypal_merchant_id" type="text" placeholder="PayPal Merchant ID">
+                </label>
+                <div class="span-2 section-inline-grid">
+                  <strong>Freigeschaltete Funktionen</strong>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="custom_domains" checked> Custom Domains</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="payments" checked> Zahlungen</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="donations" checked> Spenden</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="series" checked> Serien</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="participant_portal" checked> Teilnehmer-Portal</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="snippets" checked> Snippets</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="calendar" checked> Kalender</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="certificates" checked> Zertifikate</label>
+                  <label class="checkline"><input name="enabled_features" type="checkbox" value="waitlist" checked> Warteliste</label>
+                </div>
                 <label class="span-2">
                   Erlaubte Embed Origins
                   <textarea name="allowed_embed_origins" rows="4" placeholder="https://www.geller.men&#10;https://ghost.geller.men"></textarea>

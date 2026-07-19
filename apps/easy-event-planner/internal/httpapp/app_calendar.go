@@ -24,6 +24,9 @@ func (a *App) handleAdminCalendarFeed(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCalendar, "FEATURE_DISABLED", "Kalender sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 
 	feed, err := a.calendarService.GetOrCreateOrganizerFeed(r.Context(), principal.TenantID)
 	if err != nil {
@@ -49,6 +52,9 @@ func (a *App) handleAdminCalendarFeedRotateToken(w http.ResponseWriter, r *http.
 
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCalendar, "FEATURE_DISABLED", "Kalender sind fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 
@@ -78,6 +84,9 @@ func (a *App) handleAdminCalendarFeedEmbedURL(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCalendar, "FEATURE_DISABLED", "Kalender sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 
 	feed, err := a.calendarService.GetOrCreateOrganizerFeed(r.Context(), principal.TenantID)
 	if err != nil {
@@ -95,6 +104,11 @@ func (a *App) handleAdminCalendarFeedEmbedURL(w http.ResponseWriter, r *http.Req
 func (a *App) handleTenantOrganizerCalendarICS(w http.ResponseWriter, r *http.Request, tenantItem tenant.Tenant) {
 	if a.calendarService == nil {
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	enabled, err := a.tenantFeatureEnabled(r.Context(), tenantItem.ID, tenant.FeatureCalendar)
+	if err != nil || !enabled {
+		http.NotFound(w, r)
 		return
 	}
 

@@ -73,6 +73,9 @@ func (a *App) handleAdminTenantDomainsList(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 	if a.tenantRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Tenant-Service ist nicht verfuegbar.")
 		return
@@ -103,16 +106,23 @@ func (a *App) handleAdminTenantDomainsCreate(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 	if a.tenantRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Tenant-Service ist nicht verfuegbar.")
 		return
 	}
 
 	var request struct {
-		Domain    string `json:"domain"`
-		BasePath  string `json:"base_path"`
-		Status    string `json:"status"`
-		IsPrimary bool   `json:"is_primary"`
+		Domain                   string `json:"domain"`
+		BasePath                 string `json:"base_path"`
+		Status                   string `json:"status"`
+		IsPrimary                bool   `json:"is_primary"`
+		OverviewEnabled          *bool  `json:"overview_enabled"`
+		EventDetailEnabled       *bool  `json:"event_detail_enabled"`
+		RegistrationEmbedEnabled *bool  `json:"registration_embed_enabled"`
+		OrganizerCalendarEnabled *bool  `json:"organizer_calendar_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -120,11 +130,15 @@ func (a *App) handleAdminTenantDomainsCreate(w http.ResponseWriter, r *http.Requ
 	}
 
 	item, err := a.tenantRepo.CreateDomainBinding(r.Context(), tenant.CreateTenantDomainBindingParams{
-		TenantID:  principal.TenantID,
-		Domain:    request.Domain,
-		BasePath:  request.BasePath,
-		Status:    request.Status,
-		IsPrimary: request.IsPrimary,
+		TenantID:                 principal.TenantID,
+		Domain:                   request.Domain,
+		BasePath:                 request.BasePath,
+		Status:                   request.Status,
+		IsPrimary:                request.IsPrimary,
+		OverviewEnabled:          request.OverviewEnabled,
+		EventDetailEnabled:       request.EventDetailEnabled,
+		RegistrationEmbedEnabled: request.RegistrationEmbedEnabled,
+		OrganizerCalendarEnabled: request.OrganizerCalendarEnabled,
 	})
 	if err != nil {
 		a.writeTenantError(w, err)
@@ -142,16 +156,23 @@ func (a *App) handleAdminTenantDomainsUpdate(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 	if a.tenantRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Tenant-Service ist nicht verfuegbar.")
 		return
 	}
 
 	var request struct {
-		Domain    *string `json:"domain"`
-		BasePath  *string `json:"base_path"`
-		Status    *string `json:"status"`
-		IsPrimary *bool   `json:"is_primary"`
+		Domain                   *string `json:"domain"`
+		BasePath                 *string `json:"base_path"`
+		Status                   *string `json:"status"`
+		IsPrimary                *bool   `json:"is_primary"`
+		OverviewEnabled          *bool   `json:"overview_enabled"`
+		EventDetailEnabled       *bool   `json:"event_detail_enabled"`
+		RegistrationEmbedEnabled *bool   `json:"registration_embed_enabled"`
+		OrganizerCalendarEnabled *bool   `json:"organizer_calendar_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ungueltige Anfrage.")
@@ -159,10 +180,14 @@ func (a *App) handleAdminTenantDomainsUpdate(w http.ResponseWriter, r *http.Requ
 	}
 
 	item, err := a.tenantRepo.UpdateDomainBinding(r.Context(), principal.TenantID, bindingID, tenant.UpdateTenantDomainBindingParams{
-		Domain:    request.Domain,
-		BasePath:  request.BasePath,
-		Status:    request.Status,
-		IsPrimary: request.IsPrimary,
+		Domain:                   request.Domain,
+		BasePath:                 request.BasePath,
+		Status:                   request.Status,
+		IsPrimary:                request.IsPrimary,
+		OverviewEnabled:          request.OverviewEnabled,
+		EventDetailEnabled:       request.EventDetailEnabled,
+		RegistrationEmbedEnabled: request.RegistrationEmbedEnabled,
+		OrganizerCalendarEnabled: request.OrganizerCalendarEnabled,
 	})
 	if err != nil {
 		a.writeTenantError(w, err)
@@ -180,6 +205,9 @@ func (a *App) handleAdminTenantDomainsDelete(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
+		return
+	}
 	if a.tenantRepo == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Tenant-Service ist nicht verfuegbar.")
 		return
@@ -195,6 +223,9 @@ func (a *App) handleAdminTenantDomainsDelete(w http.ResponseWriter, r *http.Requ
 func (a *App) handleAdminTenantDomainsRotateVerificationToken(w http.ResponseWriter, r *http.Request, bindingID string) {
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 	if a.tenantRepo == nil {
@@ -216,6 +247,9 @@ func (a *App) handleAdminTenantDomainsRotateVerificationToken(w http.ResponseWri
 func (a *App) handleAdminTenantDomainsRefreshCheck(w http.ResponseWriter, r *http.Request, bindingID string) {
 	principal, ok := a.requireAdminPrincipal(w, r, true)
 	if !ok {
+		return
+	}
+	if !a.requireTenantFeatureForPrincipal(w, r, principal.TenantID, tenant.FeatureCustomDomains, "FEATURE_DISABLED", "Custom Domains sind fuer diesen Mandanten nicht freigeschaltet.") {
 		return
 	}
 	if a.tenantRepo == nil {
@@ -332,6 +366,10 @@ func tenantDomainBindingPayload(item tenant.TenantDomainBinding, dnsTargetHost s
 		"base_path":                  item.BasePath,
 		"status":                     item.Status,
 		"is_primary":                 item.IsPrimary,
+		"overview_enabled":           item.OverviewEnabled,
+		"event_detail_enabled":       item.EventDetailEnabled,
+		"registration_embed_enabled": item.RegistrationEmbedEnabled,
+		"organizer_calendar_enabled": item.OrganizerCalendarEnabled,
 		"public_base_url":            buildTenantDomainPublicBaseURL(item.Domain, item.BasePath),
 		"verification_record_name":   tenantVerificationRecordName(item.Domain),
 		"verification_record_value":  tenantVerificationRecordValue(item.VerificationToken),
