@@ -1309,7 +1309,7 @@
 
   function buildEventRequestBody(isEdit, current) {
     const formData = new FormData(ui.eventForm);
-    const title = String(formData.get("title") || "").trim();
+    const title = getEventTitleValue();
     const startsAtLocal = composeLocalDateTimeValue(formData, "starts_at");
 
     if (!title || !startsAtLocal) {
@@ -3169,7 +3169,7 @@
   }
 
   function updateEventEditorChrome() {
-    const rawTitle = String(ui.eventTitleInput && ui.eventTitleInput.value ? ui.eventTitleInput.value : "").trim();
+    const rawTitle = getEventTitleValue();
     const displayTitle = rawTitle ? truncateEditorTitle(rawTitle) : "";
     const isEdit = !!state.editingEventId;
     if (ui.eventModeBadge) {
@@ -3192,6 +3192,10 @@
     return `${normalized.slice(0, 55).trim()}...`;
   }
 
+  function getEventTitleValue() {
+    return String(ui.eventTitleInput && ui.eventTitleInput.value ? ui.eventTitleInput.value : "").trim();
+  }
+
   function applySteppedDateTimeInputConfig() {
     if (!ui.eventForm) {
       return;
@@ -3207,6 +3211,10 @@
   }
 
   function setFieldValue(form, fieldName, value) {
+    if (fieldName === "title" && ui.eventTitleInput) {
+      ui.eventTitleInput.value = value === null || value === undefined ? "" : value;
+      return;
+    }
     const field = form ? form.querySelector(`[name='${fieldName}']`) : null;
     if (field) {
       field.value = value === null || value === undefined ? "" : value;
