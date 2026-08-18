@@ -259,6 +259,15 @@ func TestPublicSnippetEndpoints(t *testing.T) {
 	if !strings.Contains(cssRec.Body.String(), ".eep-cards") {
 		t.Fatalf("expected snippet.css to contain eep card styles")
 	}
+	if !strings.Contains(cssRec.Body.String(), "font-family: inherit") {
+		t.Fatalf("expected snippet.css to inherit the host page font family")
+	}
+	for _, line := range strings.Split(cssRec.Body.String(), "\n") {
+		declaration := strings.TrimSpace(line)
+		if strings.HasPrefix(declaration, "font-size:") && declaration != "font-size: inherit;" {
+			t.Fatalf("expected snippet.css not to override host page font sizes, got %q", declaration)
+		}
+	}
 
 	eventsReq := httptest.NewRequest(http.MethodGet, "/api/v1/public/"+tenantSlug+"/snippet/events?config=public-snippet", nil)
 	eventsReq.Header.Set("Origin", "https://erweckedeinekraft.de")

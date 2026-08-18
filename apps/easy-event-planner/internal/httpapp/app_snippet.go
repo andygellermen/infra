@@ -1311,7 +1311,8 @@ func validateSnippetConfigOnlyQuery(values url.Values) error {
 }
 
 const snippetCSS = `.eep-widget {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: inherit;
+  font-size: inherit;
   color: #17212b;
   line-height: 1.5;
 }
@@ -1383,14 +1384,14 @@ const snippetCSS = `.eep-widget {
 }
 
 .eep-intro-title {
-  font-size: 1.05rem;
+  font-size: inherit;
   font-weight: 700;
   margin-bottom: 2px;
 }
 
 .eep-intro-subtitle {
   color: #4b5b6c;
-  font-size: 0.92rem;
+  font-size: inherit;
 }
 
 .eep-card-top {
@@ -1411,7 +1412,7 @@ const snippetCSS = `.eep-widget {
   border-radius: 999px;
   background: #edf5ff;
   color: #27537a;
-  font-size: 0.75rem;
+  font-size: inherit;
   font-weight: 700;
 }
 
@@ -1422,7 +1423,7 @@ const snippetCSS = `.eep-widget {
 
 .eep-title {
   margin: 0 0 6px 0;
-  font-size: 1.04rem;
+  font-size: inherit;
   line-height: 1.28;
 }
 
@@ -1433,7 +1434,7 @@ const snippetCSS = `.eep-widget {
 .eep-description {
   margin: 0 0 6px 0;
   color: #4b5b6c;
-  font-size: 0.92rem;
+  font-size: inherit;
 }
 
 .eep-description {
@@ -1451,7 +1452,7 @@ const snippetCSS = `.eep-widget {
 }
 
 .eep-payment-note strong {
-  font-size: 0.9rem;
+  font-size: inherit;
 }
 
 .eep-payment-note span,
@@ -1507,7 +1508,7 @@ const snippetCSS = `.eep-widget {
 
 .eep-list-date {
   color: #4b5b6c;
-  font-size: 0.9rem;
+  font-size: inherit;
 }
 
 .eep-list-link {
@@ -1533,7 +1534,7 @@ const snippetCSS = `.eep-widget {
   padding: 10px 8px;
   border-bottom: 1px solid #e4e9ef;
   text-align: left;
-  font-size: 0.92rem;
+  font-size: inherit;
 }
 
 .eep-minimal {
@@ -1553,7 +1554,7 @@ const snippetCSS = `.eep-widget {
 .eep-minimal-link span,
 .eep-minimal-link em {
   color: #4b5b6c;
-  font-size: 0.9rem;
+  font-size: inherit;
   font-style: normal;
 }
 
@@ -1606,7 +1607,7 @@ const snippetCSS = `.eep-widget {
 .eep-field {
   display: grid;
   gap: 6px;
-  font-size: 0.92rem;
+  font-size: inherit;
 }
 
 .eep-field span {
@@ -1650,7 +1651,7 @@ const snippetCSS = `.eep-widget {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: inherit;
 }
 
 .eep-submit {
@@ -1672,7 +1673,7 @@ const snippetCSS = `.eep-widget {
 
 .eep-form-feedback {
   min-height: 20px;
-  font-size: 0.9rem;
+  font-size: inherit;
   color: #4b5b6c;
 }
 
