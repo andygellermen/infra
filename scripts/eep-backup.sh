@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="${EEP_BACKUP_DIR:-$ROOT_DIR/backups/eep}"
@@ -11,6 +12,17 @@ info(){ echo "ℹ️  $*"; }
 ok(){ echo "✅ $*"; }
 warn(){ echo "⚠️  $*"; }
 require_cmd(){ command -v "$1" >/dev/null 2>&1 || die "Tool fehlt: $1"; }
+
+extract_hostvar() {
+  local key="$1"
+  local file="$2"
+  awk -F': ' -v k="$key" '$1==k {value=$2; gsub(/^"|"$/, "", value); print value; exit}' "$file"
+}
+
+container_running() {
+  local name="$1"
+  docker ps --format '{{.Names}}' | grep -qx "$name"
+}
 
 usage() {
   cat <<'USAGE'
@@ -45,8 +57,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+[[ ! -e "$OUTPUT_FILE" ]] || die "Backup-Zieldatei existiert bereits: $OUTPUT_FILE"
+
 require_cmd docker
 require_cmd tar
+require_cmd awk
+require_cmd grep
 
 HOSTVARS_FILE="$HOSTVARS_DIR/${DOMAIN}.yml"
 SITE_DIR="$SITE_ROOT/${DOMAIN}"
@@ -59,7 +75,50 @@ HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 
 WORKDIR="$(mktemp -d /tmp/eep-backup-${DOMAIN}.XXXXXX)"
-trap 'rm -rf "$WORKDIR"' EXIT
+APP_CONTAINER="$(extract_hostvar eep_container_name "$HOSTVARS_FILE")"
+WORKER_CONTAINER="$(extract_hostvar eep_worker_container_name "$HOSTVARS_FILE")"
+[[ -n "$APP_CONTAINER" ]] || APP_CONTAINER="easy-event-planner-${DOMAIN//./-}"
+[[ -n "$WORKER_CONTAINER" ]] || WORKER_CONTAINER="easy-event-planner-worker-${DOMAIN//./-}"
+APP_WAS_RUNNING=0
+WORKER_WAS_RUNNING=0
+
+cleanup() {
+  local rc="$?"
+  local restart_failed=0
+  trap - EXIT
+  if [[ "$APP_WAS_RUNNING" -eq 1 ]]; then
+    info "Starte EEP-App nach Backup: $APP_CONTAINER"
+    docker start "$APP_CONTAINER" >/dev/null || {
+      warn "EEP-App konnte nicht neu gestartet werden: $APP_CONTAINER"
+      restart_failed=1
+    }
+  fi
+  if [[ "$WORKER_WAS_RUNNING" -eq 1 ]]; then
+    info "Starte EEP-Worker nach Backup: $WORKER_CONTAINER"
+    docker start "$WORKER_CONTAINER" >/dev/null || {
+      warn "EEP-Worker konnte nicht neu gestartet werden: $WORKER_CONTAINER"
+      restart_failed=1
+    }
+  fi
+  rm -rf "$WORKDIR"
+  if [[ "$rc" -eq 0 && "$restart_failed" -ne 0 ]]; then
+    rc=1
+  fi
+  exit "$rc"
+}
+trap cleanup EXIT
+
+if container_running "$WORKER_CONTAINER"; then
+  WORKER_WAS_RUNNING=1
+  info "Stoppe EEP-Worker fuer konsistente SQLite-Sicherung: $WORKER_CONTAINER"
+  docker stop --time 30 "$WORKER_CONTAINER" >/dev/null
+fi
+if container_running "$APP_CONTAINER"; then
+  APP_WAS_RUNNING=1
+  info "Stoppe EEP-App fuer konsistente SQLite-Sicherung: $APP_CONTAINER"
+  docker stop --time 30 "$APP_CONTAINER" >/dev/null
+fi
+
 EXPORT_ROOT="$WORKDIR/export-root"
 mkdir -p "$EXPORT_ROOT/_infra"
 
@@ -82,4 +141,5 @@ cp -a "$HOSTVARS_FILE" "$EXPORT_ROOT/_infra/hostvars.yml"
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 tar czf "$OUTPUT_FILE" -C "$EXPORT_ROOT" .
+tar tzf "$OUTPUT_FILE" >/dev/null
 ok "EEP-Backup erstellt: $OUTPUT_FILE"

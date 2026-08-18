@@ -248,6 +248,7 @@ Aktuell angebunden sind:
 - `scripts/monthly-security-report.sh`
 - `scripts/crowdsec-event-report.sh`
 - `scripts/ghost-upgrade-all.sh`
+- `scripts/eep-log-monitor.sh` (interne Skriptfehler; EEP-Betriebsalarme und Entwarnungen versendet der Monitor selbst)
 - `scripts/wildcard-distribute.sh`
 
 ## Domain Health Monitor

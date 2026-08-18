@@ -217,6 +217,8 @@ Wichtige Zertifikats-Variablen:
 - [codex-task-plan.md](docs/codex-task-plan.md)
 - [pre-live-roadmap.md](docs/pre-live-roadmap.md)
 
+Das konkrete Runbook fuer neue Beta-Instanzen, Backup/Restore und das stuendliche Log-Monitoring steht in [infra-deployment.md](docs/infra-deployment.md).
+
 ## Naechster technischer Schritt
 
 Praktischer End-to-End-Testlauf (Admin -> Public -> Teilnehmerportal -> Zertifikatsverifikation) mit produktionsnahen Tenant-Settings.

@@ -94,6 +94,115 @@ roles/easy_event_planner/
 
 Verzeichnisse erstellen, `.env` aus Secrets generieren, Compose rendern, Image pullen, Container starten, Healthcheck prüfen, Migrationen ausführen, Smoke-Test.
 
+## Betriebs-Runbook fuer eine neue Beta-Instanz
+
+Eine neue Instanz besitzt eine eigene Domain, eigene Container und eine eigene SQLite-Datei. Sie wird mit genau einem ersten Mandanten angelegt; weitere Mandanten innerhalb derselben Instanz sind davon zu unterscheiden.
+
+Vom Infra-Repository auf dem Docker-Host aus:
+
+```bash
+cd /home/andy/infra
+
+./scripts/eep-add.sh beta-events.example.org \
+  --tenant-slug=kundin \
+  --tenant-name="Name der Kundin" \
+  --mail-provider=ses \
+  --mail-from=events@example.org \
+  --mail-from-name="Easy Event Planner" \
+  --admin-email=kundin@example.org \
+  --admin-name="Name der Kundin"
+```
+
+Voraussetzung ist, dass die Domain bereits auf den Host zeigt. Nur fuer eine bewusst vor DNS vorbereitete Konfiguration darf `--skip-dns-check` verwendet werden.
+
+Danach `ansible/hostvars/beta-events.example.org.yml` pruefen. Wichtig sind insbesondere:
+
+- `eep_base_url`, Absender und erster Admin
+- ein eigener, vom Skript erzeugter `eep_token_pepper`
+- `eep_seed_settings_json` mit den erlaubten Embed-Urspruengen
+- `eep_paypal_use_real_api: false` fuer den ersten Beta-Test
+
+Die SES-Zugangsdaten liegen gemeinsam und verschluesselt in `ansible/secrets/secrets.yml`:
+
+```yaml
+ses_smtp_host: "email-smtp.eu-central-1.amazonaws.com"
+ses_smtp_port: 587
+ses_smtp_user: "..."
+ses_smtp_password: "..."
+ses_from: "EEP <events@example.org>"
+```
+
+Die Absenderdomain beziehungsweise Absenderadresse muss in Amazon SES verifiziert sein. Befindet sich SES noch in der Sandbox, muessen auch Empfaengeradressen verifiziert sein.
+
+Deployment und direkte Kontrolle:
+
+```bash
+./scripts/eep-redeploy.sh beta-events.example.org
+./scripts/eep-smoke-check.sh beta-events.example.org
+docker ps --filter name=easy-event-planner-beta-events-example-org
+docker logs --tail 100 easy-event-planner-beta-events-example-org
+docker logs --tail 100 easy-event-planner-worker-beta-events-example-org
+```
+
+Das Seed-Kommando ist wiederholbar, sollte nach erfolgreicher Erstanlage aber mit `eep_seed_enabled: false` in den Hostvars abgeschaltet werden, damit spaetere Deployments nicht unbemerkt Seed-Daten nachpflegen.
+
+## Backup und Restore testen
+
+Das Backup stoppt Worker und App kurz kontrolliert, kopiert danach SQLite samt den uebrigen Instanzdateien und startet zuvor laufende Container wieder. Dadurch entsteht eine konsistente Sicherung; waehrenddessen gibt es ein kurzes Wartungsfenster.
+
+Das Archiv enthaelt personenbezogene Veranstaltungsdaten und die gerenderte Env-Datei. Es wird daher mit restriktiven Dateirechten erzeugt und muss bei externer Aufbewahrung zusaetzlich verschluesselt werden.
+
+```bash
+cd /home/andy/infra
+./scripts/eep-backup.sh --create beta-events.example.org
+ls -lh ./backups/eep/beta-events.example.org/
+tar tzf ./backups/eep/beta-events.example.org/eep-backup-beta-events.example.org-YYYYMMDD-HHMMSS.tar.gz | head
+```
+
+Ein echter Restore-Test ueberschreibt die aktuelle Instanz. Deshalb zuerst mit einer leeren beziehungsweise entbehrlichen Beta-Instanz und in einem angekuendigten Wartungsfenster testen. Das Restore-Skript erzeugt vorab automatisch ein zusaetzliches Safety-Backup und fuehrt anschliessend den Smoke-Test aus:
+
+```bash
+./scripts/eep-restore.sh beta-events.example.org \
+  ./backups/eep/beta-events.example.org/eep-backup-beta-events.example.org-YYYYMMDD-HHMMSS.tar.gz \
+  --yes --redeploy
+```
+
+Danach mindestens Admin-Login, ein Testevent, Registrierung, E-Mail-Zustellung, Snippet und Teilnehmerportal praktisch pruefen. Ein erfolgreich entpacktes Archiv allein ist noch kein bestandener Restore-Test.
+
+## Stuendliches Log- und Verfuegbarkeitsmonitoring
+
+`scripts/eep-log-monitor.sh` prueft App und Worker, Container-Restarts, `/healthz`, `/readyz`, `/version` sowie nur die seit dem letzten Lauf neu hinzugekommenen ERROR-/WARN-Logzeilen. Tokens, Zugangsdaten und E-Mail-Adressen werden aus Mail-Logauszuegen entfernt. Zustandsaenderungen und Entwarnungen werden gemeldet; unveraenderte Probleme und alte Logzeilen erzeugen keine identischen Mails.
+
+Optionale dedizierte Mailwerte in `ansible/secrets/secrets.yml` (sonst werden `infra_error_notify_*` und die gemeinsamen `ses_*`-Werte verwendet):
+
+```yaml
+eep_log_monitor_to: "betrieb@example.org"
+eep_log_monitor_from: "EEP Monitor <events@example.org>"
+eep_log_monitor_subject_prefix: "[EEP Beta]"
+```
+
+Einrichtung testen:
+
+```bash
+./scripts/eep-log-monitor.sh --domain beta-events.example.org --dry-run
+./scripts/eep-log-monitor.sh --domain beta-events.example.org --test-mail
+```
+
+Cronjob fuer alle EEP-Instanzen jeweils sieben Minuten nach der vollen Stunde (als Benutzer mit Docker-Zugriff und Leserecht auf die Secrets):
+
+```cron
+7 * * * * /bin/sh -lc 'umask 077; mkdir -p /home/andy/infra/data/eep-log-monitor && cd /home/andy/infra && ./scripts/eep-log-monitor.sh --all >> /home/andy/infra/data/eep-log-monitor/cron.log 2>&1'
+```
+
+Installation beispielsweise mit `crontab -e`, danach pruefen:
+
+```bash
+crontab -l
+tail -n 100 /home/andy/infra/data/eep-log-monitor/cron.log
+```
+
+Mit `--no-warnings` werden nur Fehler erfasst. `--dry-run` verschickt keine Mail und veraendert den gespeicherten Cursor nicht; `--no-mail` arbeitet dagegen bewusst zustandsbehaftet. Der Monitor verwaltet Cursor und Zustandsvergleich unter `data/eep-log-monitor/state.json`; diese Laufzeitdaten gehoeren nicht ins Git-Repository.
+
 ## Sicherheit
 
 Secrets per Ansible Vault, HTTPS-only, Secure Cookies, Webhook-Verifikation, keine Tokens im Log, Admin-Routen geschützt, Backups verschlüsseln.
