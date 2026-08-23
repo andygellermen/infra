@@ -20,6 +20,7 @@ ansible/redirects/*.yml
 *.log
 *.tmp
 *.bak
+.DS_Store
 
 # Docker volumes (falls lokal)
 data/
@@ -48,3 +49,7 @@ apps/static-inline-editor/.gomodcache/
 # Go specific temp files
 .gocache/
 .gomodcache/
+
+# Sprach-A-Lyzer canonical, versioned data artifacts
+!apps/sprach-a-lyzer/data/
+!apps/sprach-a-lyzer/data/**

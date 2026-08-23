@@ -1,0 +1,3620 @@
+{
+  "G01": {
+    "text": "Ich muss das heute unbedingt noch schaffen.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich muss das heute unbedingt noch schaffen.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": true,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "müssen": [
+        [
+          "INTERNAL_PRESSURE",
+          0.785,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 1,
+            "context_fit": 0.9
+          }
+        ],
+        [
+          "EXTERNAL_NECESSITY",
+          0.655,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "EPISTEMIC_INFERENCE",
+          0.605,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SAFETY_NECESSITY",
+          0.5650000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.3,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.3
+          }
+        ],
+        [
+          "FORMAL_OBLIGATION",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.4,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.4
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "müssen": {
+        "sense": "INTERNAL_PRESSURE",
+        "score": 0.785,
+        "gap": 0.13,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "SELF_OR_INTERNALIZED",
+    "patterns": [
+      "INTERNAL_PRESSURE",
+      "URGENCY"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.46
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "WEAK",
+        "score": 57.7,
+        "confidence": 0.64,
+        "assessability": 0.5
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 34.4,
+        "confidence": 0.98,
+        "assessability": 0.78
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 42.0,
+        "confidence": 0.98,
+        "assessability": 0.67
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G02": {
+    "text": "Ich bin gesetzlich verpflichtet, die Unterlagen bis Freitag einzureichen.",
+    "context": "LEGAL_ADMINISTRATIVE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich bin gesetzlich verpflichtet, die Unterlagen bis Freitag einzureichen.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": true,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "LAW",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "WEAK",
+        "score": 57.7,
+        "confidence": 0.64,
+        "assessability": 0.5
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G03": {
+    "text": "Du musst sofort das Gebäude verlassen!",
+    "context": "SAFETY",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du musst sofort das Gebäude verlassen!",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": true,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "müssen": [
+        [
+          "SAFETY_NECESSITY",
+          0.79,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.6,
+            "domain_fit": 1,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 1
+          }
+        ],
+        [
+          "EXTERNAL_NECESSITY",
+          0.655,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "EPISTEMIC_INFERENCE",
+          0.605,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNAL_PRESSURE",
+          0.5950000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "FORMAL_OBLIGATION",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.4,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.4
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "müssen": {
+        "sense": "SAFETY_NECESSITY",
+        "score": 0.79,
+        "gap": 0.135,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "SAFETY_DIRECTIVE",
+      "URGENCY"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "ASSESSABLE",
+        "score": 59.6,
+        "confidence": 0.86,
+        "assessability": 0.54
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "STRONG",
+        "score": 72.3,
+        "confidence": 0.97,
+        "assessability": 0.87
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.47
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.47
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G04": {
+    "text": "Ich bin einfach ein Versager.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich bin einfach ein Versager.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "SELF",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "PREDICATIVE_LABELING",
+      "SELF_DEVALUATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "ASSESSABLE",
+        "score": 37.4,
+        "confidence": 0.86,
+        "assessability": 0.59
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 32.5,
+        "confidence": 0.86,
+        "assessability": 0.67
+      },
+      "Klarheit": {
+        "state": "WEAK",
+        "score": 56.8,
+        "confidence": 0.64,
+        "assessability": 0.6
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 41.5,
+        "confidence": 0.86,
+        "assessability": 0.53
+      }
+    },
+    "wing_score": 37.1,
+    "notes": []
+  },
+  "G05": {
+    "text": "Die Vereinbarung wurde heute nicht eingehalten.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Die Vereinbarung wurde heute nicht eingehalten.",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "BEHAVIOR",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "PERSON_BEHAVIOR_SEPARATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.47
+      },
+      "Wertschätzung": {
+        "state": "WEAK",
+        "score": 61.6,
+        "confidence": 0.64,
+        "assessability": 0.57
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 61.2,
+        "confidence": 0.97,
+        "assessability": 0.67
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.45
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G06": {
+    "text": "Auf dich ist nie Verlass.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Auf dich ist nie Verlass.",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "GENERALIZATION",
+      "PERSON_DEVALUATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "WEAK",
+        "score": 41.5,
+        "confidence": 0.64,
+        "assessability": 0.53
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 34.4,
+        "confidence": 0.86,
+        "assessability": 0.64
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 32.5,
+        "confidence": 0.86,
+        "assessability": 0.67
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.35
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 35.4,
+        "confidence": 0.98,
+        "assessability": 0.77
+      }
+    },
+    "wing_score": 34.2,
+    "notes": []
+  },
+  "G07": {
+    "text": "Nein. Ich möchte das nicht.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Nein.",
+          "features": {
+            "actor": null,
+            "predicate": false,
+            "target": false,
+            "time": false,
+            "boundary": true,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 1,
+          "text": "Ich möchte das nicht.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": true,
+            "decision": true,
+            "negation": true
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "CHOICE_LANGUAGE",
+      "CLEAR_BOUNDARY"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "STRONG",
+        "score": 70.7,
+        "confidence": 0.98,
+        "assessability": 0.87
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.44
+      },
+      "Klarheit": {
+        "state": "STRONG",
+        "score": 74.0,
+        "confidence": 1.0,
+        "assessability": 0.91
+      },
+      "Freier Wille": {
+        "state": "STRONG",
+        "score": 75.8,
+        "confidence": 0.98,
+        "assessability": 0.89
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.47
+      }
+    },
+    "wing_score": 73.5,
+    "notes": []
+  },
+  "G08": {
+    "text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich verstehe, dass dir das wichtig ist.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 1,
+          "text": "Für mich kommt diese Lösung",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P2",
+          "sentence_index": 1,
+          "text": "nicht infrage.",
+          "features": {
+            "actor": null,
+            "predicate": false,
+            "target": false,
+            "time": false,
+            "boundary": true,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "P1",
+          "target": "P2",
+          "marker": "trotzdem",
+          "relation": "CONCESSION"
+        }
+      ]
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "ACKNOWLEDGEMENT",
+      "CLEAR_BOUNDARY",
+      "RESPECTFUL_BOUNDARY"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "ASSESSABLE",
+        "score": 56.7,
+        "confidence": 0.9,
+        "assessability": 0.51
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 65.8,
+        "confidence": 0.9,
+        "assessability": 0.64
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 64.7,
+        "confidence": 0.9,
+        "assessability": 0.63
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 67.3,
+        "confidence": 0.97,
+        "assessability": 0.76
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 64.2,
+        "confidence": 0.9,
+        "assessability": 0.62
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 53.9,
+        "confidence": 0.9,
+        "assessability": 0.47
+      }
+    },
+    "wing_score": 62.2,
+    "notes": []
+  },
+  "G09": {
+    "text": "Ja, aber das funktioniert doch sowieso nie.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ja",
+          "features": {
+            "actor": null,
+            "predicate": false,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 0,
+          "text": "das funktioniert doch sowieso nie.",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "P0",
+          "target": "P1",
+          "marker": "aber",
+          "relation": "CONTRAST"
+        }
+      ]
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "DISCOUNTING",
+      "GENERALIZATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "WEAK",
+        "score": 41.5,
+        "confidence": 0.64,
+        "assessability": 0.53
+      },
+      "Verbindung": {
+        "state": "WEAK",
+        "score": 42.5,
+        "confidence": 0.64,
+        "assessability": 0.51
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.36
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 34.4,
+        "confidence": 0.98,
+        "assessability": 0.78
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G10": {
+    "text": "Ja, aber wir sollten zwischen den beiden Situationen unterscheiden.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ja",
+          "features": {
+            "actor": null,
+            "predicate": false,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 0,
+          "text": "wir sollten zwischen den beiden Situationen unterscheiden.",
+          "features": {
+            "actor": "GROUP_SELF",
+            "predicate": false,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "P0",
+          "target": "P1",
+          "marker": "aber",
+          "relation": "CONTRAST"
+        }
+      ]
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "CONSTRUCTIVE_DIFFERENTIATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.44
+      },
+      "Verbindung": {
+        "state": "WEAK",
+        "score": 55.9,
+        "confidence": 0.64,
+        "assessability": 0.49
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.46
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 59.0,
+        "confidence": 0.95,
+        "assessability": 0.69
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.42
+      },
+      "Offenheit": {
+        "state": "WEAK",
+        "score": 60.6,
+        "confidence": 0.64,
+        "assessability": 0.56
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G11": {
+    "text": "Ich sollte längst weiter sein.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich sollte längst weiter sein.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "sollen": [
+        [
+          "INTERNALIZED_EXPECTATION",
+          0.785,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 1,
+            "context_fit": 0.9
+          }
+        ],
+        [
+          "ADVICE",
+          0.65,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "REPORTED_CLAIM",
+          0.63,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.9,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "CONDITIONAL_OPENING",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.9,
+            "collocation_fit": 0.3,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SOCIAL_NORM",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.7,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "sollen": {
+        "sense": "INTERNALIZED_EXPECTATION",
+        "score": 0.785,
+        "gap": 0.135,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "INTERNALIZED",
+    "patterns": [
+      "INTERNALIZED_EXPECTATION",
+      "SELF_PRESSURE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "WEAK",
+        "score": 44.6,
+        "confidence": 0.64,
+        "assessability": 0.48
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "WEAK",
+        "score": 43.6,
+        "confidence": 0.64,
+        "assessability": 0.5
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.42
+      },
+      "Freier Wille": {
+        "state": "WEAK",
+        "score": 39.4,
+        "confidence": 0.64,
+        "assessability": 0.56
+      },
+      "Offenheit": {
+        "state": "WEAK",
+        "score": 44.6,
+        "confidence": 0.64,
+        "assessability": 0.48
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G12": {
+    "text": "Du solltest heute etwas früher schlafen gehen.",
+    "context": "FAMILY",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du solltest heute etwas früher schlafen gehen.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": false,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "sollen": [
+        [
+          "ADVICE",
+          0.66,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.7
+          }
+        ],
+        [
+          "REPORTED_CLAIM",
+          0.63,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.9,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "CONDITIONAL_OPENING",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.9,
+            "collocation_fit": 0.3,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNALIZED_EXPECTATION",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SOCIAL_NORM",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.7,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "sollen": {
+        "sense": "ADVICE",
+        "score": 0.66,
+        "gap": 0.030000000000000027,
+        "state": "AMBIGUOUS"
+      }
+    },
+    "ambiguities": [
+      {
+        "item": "sollen",
+        "type": "SEMANTIC",
+        "top": "ADVICE",
+        "second": "REPORTED_CLAIM",
+        "gap": 0.030000000000000027
+      }
+    ],
+    "target_type": "UNKNOWN",
+    "expectation_source": "OTHER_PERSON",
+    "patterns": [
+      "NORMATIVE_ADVICE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.32
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.36
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G13": {
+    "text": "Solltest du Fragen haben, melde dich jederzeit.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Solltest du Fragen haben, melde dich jederzeit.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": true,
+            "time": true,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "sollen": [
+        [
+          "CONDITIONAL_OPENING",
+          0.805,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.9,
+            "collocation_fit": 1,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "ADVICE",
+          0.65,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "REPORTED_CLAIM",
+          0.63,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.9,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNALIZED_EXPECTATION",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SOCIAL_NORM",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.7,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "sollen": {
+        "sense": "CONDITIONAL_OPENING",
+        "score": 0.805,
+        "gap": 0.15500000000000003,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "CONDITIONAL_OPENING"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.44
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 61.1,
+        "confidence": 0.86,
+        "assessability": 0.57
+      },
+      "Wertschätzung": {
+        "state": "WEAK",
+        "score": 57.5,
+        "confidence": 0.64,
+        "assessability": 0.51
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 63.4,
+        "confidence": 0.97,
+        "assessability": 0.73
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 60.1,
+        "confidence": 0.86,
+        "assessability": 0.55
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 63.6,
+        "confidence": 0.86,
+        "assessability": 0.61
+      }
+    },
+    "wing_score": 62.1,
+    "notes": []
+  },
+  "G14": {
+    "text": "Du darfst dir Zeit für die Entscheidung nehmen.",
+    "context": "COACHING",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du darfst dir Zeit für die Entscheidung nehmen.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": true,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "dürfen": [
+        [
+          "PERMISSION",
+          0.69,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.7
+          }
+        ],
+        [
+          "PROHIBITION",
+          0.605,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.9,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "POLITE_REQUEST",
+          0.595,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "PROBABILITY",
+          0.595,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "dürfen": {
+        "sense": "PERMISSION",
+        "score": 0.69,
+        "gap": 0.08499999999999996,
+        "state": "MEDIUM"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "CONSENT_LANGUAGE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.44
+      },
+      "Verbindung": {
+        "state": "WEAK",
+        "score": 58.0,
+        "confidence": 0.64,
+        "assessability": 0.52
+      },
+      "Wertschätzung": {
+        "state": "WEAK",
+        "score": 58.0,
+        "confidence": 0.64,
+        "assessability": 0.52
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 64.4,
+        "confidence": 0.98,
+        "assessability": 0.76
+      },
+      "Freier Wille": {
+        "state": "WEAK",
+        "score": 63.6,
+        "confidence": 0.64,
+        "assessability": 0.61
+      },
+      "Offenheit": {
+        "state": "WEAK",
+        "score": 58.0,
+        "confidence": 0.64,
+        "assessability": 0.52
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G15": {
+    "text": "Du darfst das nicht.",
+    "context": "UNKNOWN",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du darfst das nicht.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "dürfen": [
+        [
+          "PROHIBITION",
+          0.765,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.9,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "PERMISSION",
+          0.69,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.7
+          }
+        ],
+        [
+          "POLITE_REQUEST",
+          0.595,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "PROBABILITY",
+          0.595,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "dürfen": {
+        "sense": "PROHIBITION",
+        "score": 0.765,
+        "gap": 0.07500000000000007,
+        "state": "MEDIUM"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "PROHIBITION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 64.5,
+        "confidence": 0.97,
+        "assessability": 0.74
+      },
+      "Freier Wille": {
+        "state": "WEAK",
+        "score": 37.4,
+        "confidence": 0.64,
+        "assessability": 0.59
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G16": {
+    "text": "Ich kann nicht alles beeinflussen, aber ich kann meinen nächsten Schritt wählen.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich kann nicht alles beeinflussen",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 0,
+          "text": "ich kann meinen nächsten Schritt wählen.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "P0",
+          "target": "P1",
+          "marker": "aber",
+          "relation": "CONTRAST"
+        }
+      ]
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "AGENCY_RECOVERY",
+      "CHOICE_LANGUAGE",
+      "REALISTIC_LIMIT"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "ASSESSABLE",
+        "score": 68.7,
+        "confidence": 0.9,
+        "assessability": 0.69
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 52.8,
+        "confidence": 0.9,
+        "assessability": 0.45
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 53.9,
+        "confidence": 0.9,
+        "assessability": 0.47
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 62.0,
+        "confidence": 0.98,
+        "assessability": 0.69
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 65.2,
+        "confidence": 0.9,
+        "assessability": 0.64
+      },
+      "Offenheit": {
+        "state": "ASSESSABLE",
+        "score": 64.2,
+        "confidence": 0.9,
+        "assessability": 0.62
+      }
+    },
+    "wing_score": 61.1,
+    "notes": []
+  },
+  "G17": {
+    "text": "Ich kann sowieso nichts ändern.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich kann sowieso nichts ändern.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "GENERALIZATION"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "WEAK",
+        "score": 41.5,
+        "confidence": 0.64,
+        "assessability": 0.53
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.37
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "WEAK",
+        "score": 40.4,
+        "confidence": 0.64,
+        "assessability": 0.54
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G18": {
+    "text": "Das hat bisher nicht funktioniert. Was könnten wir beim nächsten Versuch verändern?",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Das hat bisher nicht funktioniert.",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": true
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 1,
+          "text": "Was könnten wir beim nächsten Versuch verändern?",
+          "features": {
+            "actor": "GROUP_SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "LEARNING_FRAME",
+      "LEARNING_RECOVERY",
+      "OPENING_LANGUAGE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "STRONG",
+        "score": 68.4,
+        "confidence": 0.99,
+        "assessability": 0.83
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 61.3,
+        "confidence": 0.99,
+        "assessability": 0.72
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 57.7,
+        "confidence": 0.99,
+        "assessability": 0.67
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 61.3,
+        "confidence": 1.0,
+        "assessability": 0.72
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.46
+      },
+      "Offenheit": {
+        "state": "STRONG",
+        "score": 75.8,
+        "confidence": 0.99,
+        "assessability": 0.89
+      }
+    },
+    "wing_score": 64.9,
+    "notes": []
+  },
+  "G19": {
+    "text": "Wir haben ein technisches Problem mit der Schnittstelle.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Wir haben ein technisches Problem mit der Schnittstelle.",
+          "features": {
+            "actor": "GROUP_SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "Problem": [
+        [
+          "TECHNICAL_ISSUE",
+          0.875,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.9,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 1,
+            "context_fit": 0.9
+          }
+        ],
+        [
+          "ISSUE",
+          0.74,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.7,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "PERSON_LABEL",
+          0.545,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.1,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.1,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "Problem": {
+        "sense": "TECHNICAL_ISSUE",
+        "score": 0.875,
+        "gap": 0.135,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "PROCESS",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "TECHNICAL_ISSUE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 63.5,
+        "confidence": 0.97,
+        "assessability": 0.72
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G20": {
+    "text": "Du bist das Problem.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du bist das Problem.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "Problem": [
+        [
+          "PERSON_LABEL",
+          0.8150000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 1,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "ISSUE",
+          0.74,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.7,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "TECHNICAL_ISSUE",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.6,
+            "collocation_fit": 0.2,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "Problem": {
+        "sense": "PERSON_LABEL",
+        "score": 0.8150000000000001,
+        "gap": 0.07500000000000007,
+        "state": "MEDIUM"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "PERSON",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "PERSON_DEVALUATION",
+      "PREDICATIVE_LABELING"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 33.7,
+        "confidence": 0.9,
+        "assessability": 0.65
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 31.8,
+        "confidence": 0.9,
+        "assessability": 0.68
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 60.4,
+        "confidence": 0.97,
+        "assessability": 0.67
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "WEAK",
+        "score": 44.6,
+        "confidence": 0.64,
+        "assessability": 0.48
+      }
+    },
+    "wing_score": 42.4,
+    "notes": []
+  },
+  "G21": {
+    "text": "Der Fehler zeigt uns, was wir beim nächsten Versuch verändern können.",
+    "context": "WORKPLACE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Der Fehler zeigt uns, was wir beim nächsten Versuch verändern können.",
+          "features": {
+            "actor": "GROUP_SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "Fehler": [
+        [
+          "LEARNING_EVENT",
+          0.84,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.7,
+            "collocation_fit": 1,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "ERROR",
+          0.75,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.7,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "TECHNICAL_ERROR",
+          0.6,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.2,
+            "context_fit": 0.6
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "Fehler": {
+        "sense": "LEARNING_EVENT",
+        "score": 0.84,
+        "gap": 0.08999999999999997,
+        "state": "MEDIUM"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "EVENT",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "LEARNING_FRAME",
+      "LEARNING_RECOVERY",
+      "OPENING_LANGUAGE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "STRONG",
+        "score": 68.4,
+        "confidence": 0.99,
+        "assessability": 0.83
+      },
+      "Verbindung": {
+        "state": "ASSESSABLE",
+        "score": 61.3,
+        "confidence": 0.99,
+        "assessability": 0.72
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 57.7,
+        "confidence": 0.99,
+        "assessability": 0.67
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 65.2,
+        "confidence": 1.0,
+        "assessability": 0.8
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.46
+      },
+      "Offenheit": {
+        "state": "STRONG",
+        "score": 75.8,
+        "confidence": 0.99,
+        "assessability": 0.89
+      }
+    },
+    "wing_score": 65.7,
+    "notes": []
+  },
+  "G22": {
+    "text": "Hast du Geld?",
+    "context": "MODERATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Hast du Geld?",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": false,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.35
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": [
+      "Homophonie `hast ↔ hasst` erkannt; HINT_ONLY im Standard."
+    ]
+  },
+  "G23": {
+    "text": "Hast du genug Zeit für dich?",
+    "context": "WEBSITE",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Hast du genug Zeit für dich?",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": false,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.35
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": [
+      "Homophonie `hast ↔ hasst` erkannt; HINT_ONLY im Standard."
+    ]
+  },
+  "G24": {
+    "text": "Wir müssen das Hindernis umfahren.",
+    "context": "UNKNOWN",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Wir müssen das Hindernis umfahren.",
+          "features": {
+            "actor": "GROUP_SELF",
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "müssen": [
+        [
+          "EXTERNAL_NECESSITY",
+          0.655,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "EPISTEMIC_INFERENCE",
+          0.605,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNAL_PRESSURE",
+          0.5950000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SAFETY_NECESSITY",
+          0.5650000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.3,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.3
+          }
+        ],
+        [
+          "FORMAL_OBLIGATION",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.4,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.4
+          }
+        ]
+      ],
+      "umfahren": [
+        [
+          "DRIVE_AROUND",
+          0.7825,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.95,
+            "syntax_fit": 0.75,
+            "domain_fit": 0.6,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.95,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "KNOCK_DOWN_BY_DRIVING",
+          0.5425,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.15,
+            "syntax_fit": 0.75,
+            "domain_fit": 0.6,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.15,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "müssen": {
+        "sense": "EXTERNAL_NECESSITY",
+        "score": 0.655,
+        "gap": 0.050000000000000044,
+        "state": "AMBIGUOUS"
+      },
+      "umfahren": {
+        "sense": "DRIVE_AROUND",
+        "score": 0.7825,
+        "gap": 0.24,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [
+      {
+        "item": "müssen",
+        "type": "SEMANTIC",
+        "top": "EXTERNAL_NECESSITY",
+        "second": "EPISTEMIC_INFERENCE",
+        "gap": 0.050000000000000044
+      }
+    ],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.34
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": [
+      "`umfahren` kontextuell als DRIVE_AROUND bevorzugt."
+    ]
+  },
+  "G25": {
+    "text": "Der Eintritt ist frei.",
+    "context": "PUBLIC_INFORMATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Der Eintritt ist frei.",
+          "features": {
+            "actor": null,
+            "predicate": true,
+            "target": true,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "frei": [
+        [
+          "FREE_OF_CHARGE",
+          0.8,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.5,
+            "collocation_fit": 1,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "LIBERTY",
+          0.71,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.7,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.7,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "AVAILABLE",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.2,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "FREE_FROM",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.6,
+            "register_fit": 0.6,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.2,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "frei": {
+        "sense": "FREE_OF_CHARGE",
+        "score": 0.8,
+        "gap": 0.09000000000000008,
+        "state": "MEDIUM"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.35
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": [
+      "`frei` = kostenlos; kein Freier-Wille-Beitrag."
+    ]
+  },
+  "G26": {
+    "text": "Er soll sehr erfolgreich sein.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Er soll sehr erfolgreich sein.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "sollen": [
+        [
+          "REPORTED_CLAIM",
+          0.79,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 1,
+            "syntax_fit": 0.9,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "ADVICE",
+          0.65,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "CONDITIONAL_OPENING",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.9,
+            "collocation_fit": 0.3,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNALIZED_EXPECTATION",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SOCIAL_NORM",
+          0.5750000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.7,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "sollen": {
+        "sense": "REPORTED_CLAIM",
+        "score": 0.79,
+        "gap": 0.14,
+        "state": "HIGH"
+      }
+    },
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "REPORTED_CLAIM"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.37
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": [
+      "`sollen` = Hörensagen; kein Normativitätsmalus."
+    ]
+  },
+  "G27": {
+    "text": "Wenn du möchtest, können wir gemeinsam eine andere Möglichkeit prüfen.",
+    "context": "COACHING",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Wenn du möchtest, können wir gemeinsam eine andere Möglichkeit prüfen.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "COLLABORATIVE_LANGUAGE",
+      "OPENING_LANGUAGE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "ASSESSABLE",
+        "score": 63.1,
+        "confidence": 0.98,
+        "assessability": 0.74
+      },
+      "Verbindung": {
+        "state": "STRONG",
+        "score": 67.0,
+        "confidence": 0.98,
+        "assessability": 0.81
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 56.9,
+        "confidence": 0.98,
+        "assessability": 0.65
+      },
+      "Klarheit": {
+        "state": "ASSESSABLE",
+        "score": 59.9,
+        "confidence": 0.99,
+        "assessability": 0.7
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 56.9,
+        "confidence": 0.98,
+        "assessability": 0.65
+      },
+      "Offenheit": {
+        "state": "STRONG",
+        "score": 72.9,
+        "confidence": 0.98,
+        "assessability": 0.89
+      }
+    },
+    "wing_score": 62.8,
+    "notes": []
+  },
+  "G28": {
+    "text": "Du musst einfach positiv denken.",
+    "context": "COACHING",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Du musst einfach positiv denken.",
+          "features": {
+            "actor": "OTHER_PERSON",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {
+      "müssen": [
+        [
+          "EXTERNAL_NECESSITY",
+          0.655,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.6,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "EPISTEMIC_INFERENCE",
+          0.605,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.2,
+            "syntax_fit": 0.8,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.7,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "INTERNAL_PRESSURE",
+          0.5950000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.5,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.5
+          }
+        ],
+        [
+          "SAFETY_NECESSITY",
+          0.5650000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.4,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.3,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.3
+          }
+        ],
+        [
+          "FORMAL_OBLIGATION",
+          0.56,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.6,
+            "domain_fit": 0.4,
+            "register_fit": 0.5,
+            "discourse_fit": 0.5,
+            "collocation_fit": 0.5,
+            "context_fit": 0.4
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "müssen": {
+        "sense": "EXTERNAL_NECESSITY",
+        "score": 0.655,
+        "gap": 0.050000000000000044,
+        "state": "AMBIGUOUS"
+      }
+    },
+    "ambiguities": [
+      {
+        "item": "müssen",
+        "type": "SEMANTIC",
+        "top": "EXTERNAL_NECESSITY",
+        "second": "EPISTEMIC_INFERENCE",
+        "gap": 0.050000000000000044
+      }
+    ],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.29
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  },
+  "G29": {
+    "text": "Ich habe große Angst und möchte herausfinden, was mir jetzt helfen kann.",
+    "context": "SELF_TALK",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Ich habe große Angst und möchte herausfinden, was mir jetzt helfen kann.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": true,
+            "boundary": false,
+            "decision": true,
+            "negation": false
+          }
+        }
+      ],
+      "edges": []
+    },
+    "sense_candidates": {},
+    "resolved_senses": {},
+    "ambiguities": [],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [
+      "EMOTION_ACKNOWLEDGEMENT",
+      "EMOTION_PLUS_AGENCY",
+      "OPENING_LANGUAGE"
+    ],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "STRONG",
+        "score": 67.5,
+        "confidence": 0.99,
+        "assessability": 0.82
+      },
+      "Verbindung": {
+        "state": "WEAK",
+        "score": 55.9,
+        "confidence": 0.64,
+        "assessability": 0.49
+      },
+      "Wertschätzung": {
+        "state": "ASSESSABLE",
+        "score": 56.1,
+        "confidence": 0.99,
+        "assessability": 0.64
+      },
+      "Klarheit": {
+        "state": "STRONG",
+        "score": 68.5,
+        "confidence": 1.0,
+        "assessability": 0.87
+      },
+      "Freier Wille": {
+        "state": "ASSESSABLE",
+        "score": 58.2,
+        "confidence": 0.99,
+        "assessability": 0.67
+      },
+      "Offenheit": {
+        "state": "STRONG",
+        "score": 75.4,
+        "confidence": 0.99,
+        "assessability": 0.89
+      }
+    },
+    "wing_score": 65.1,
+    "notes": [
+      "Emotion wird nicht automatisch negativ gescort."
+    ]
+  },
+  "G30": {
+    "text": "Eigentlich wollte ich absagen, aber ich bin noch unsicher.",
+    "context": "PRIVATE_CONVERSATION",
+    "input_mode": "TEXT",
+    "proposition_graph": {
+      "nodes": [
+        {
+          "id": "P0",
+          "sentence_index": 0,
+          "text": "Eigentlich wollte ich absagen",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        },
+        {
+          "id": "P1",
+          "sentence_index": 0,
+          "text": "ich bin noch unsicher.",
+          "features": {
+            "actor": "SELF",
+            "predicate": true,
+            "target": false,
+            "time": false,
+            "boundary": false,
+            "decision": false,
+            "negation": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "P0",
+          "target": "P1",
+          "marker": "aber",
+          "relation": "CONTRAST"
+        }
+      ]
+    },
+    "sense_candidates": {
+      "eigentlich": [
+        [
+          "ORIGINAL_INTENTION",
+          0.765,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.9,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.6,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "HEDGE",
+          0.7450000000000001,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.8,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.6,
+            "context_fit": 0.6
+          }
+        ],
+        [
+          "POLITENESS_SOFTENER",
+          0.645,
+          {
+            "lexical_match": 1,
+            "phrase_fit": 0.3,
+            "syntax_fit": 0.7,
+            "domain_fit": 0.5,
+            "register_fit": 0.6,
+            "discourse_fit": 0.8,
+            "collocation_fit": 0.6,
+            "context_fit": 0.6
+          }
+        ]
+      ]
+    },
+    "resolved_senses": {
+      "eigentlich": {
+        "sense": "ORIGINAL_INTENTION",
+        "score": 0.765,
+        "gap": 0.019999999999999907,
+        "state": "AMBIGUOUS"
+      }
+    },
+    "ambiguities": [
+      {
+        "item": "eigentlich",
+        "type": "SEMANTIC",
+        "top": "ORIGINAL_INTENTION",
+        "second": "HEDGE",
+        "gap": 0.019999999999999907
+      }
+    ],
+    "target_type": "UNKNOWN",
+    "expectation_source": "UNSPECIFIED",
+    "patterns": [],
+    "spoken_features": {
+      "mode": "TEXT",
+      "repetition_factor": 1.0,
+      "filler_count": 0,
+      "self_correction_count": 0
+    },
+    "dimensions": {
+      "Wirksamkeit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Verbindung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Wertschätzung": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Klarheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0.29
+      },
+      "Freier Wille": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      },
+      "Offenheit": {
+        "state": "NOT_ASSESSABLE",
+        "score": null,
+        "confidence": 0,
+        "assessability": 0
+      }
+    },
+    "wing_score": null,
+    "notes": []
+  }
+}

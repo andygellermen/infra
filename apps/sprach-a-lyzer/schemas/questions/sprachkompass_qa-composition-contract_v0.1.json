@@ -1,0 +1,18 @@
+{
+  "version": "0.1",
+  "causal_levels": {
+    "C0": "OBSERVATIONAL",
+    "C1": "QUESTION_CONDITIONED_RELEVANCE",
+    "C2": "ELICITATION_ASSOCIATION",
+    "C3": "WITHIN_SESSION_TEMPORAL_ASSOCIATION",
+    "C4": "CAUSAL_EFFECT_REQUIRES_RESEARCH_DESIGN"
+  },
+  "hard_rules": {
+    "question_score_bias": 0.0,
+    "max_relative_context_gain": 0.15,
+    "off_topic_threshold": 0.35,
+    "question_alone_makes_assessable": false,
+    "base_contribution_value_changed_by_question": false
+  },
+  "context_gain_formula": "min(0.15, 0.15 * answer_relevance * construct_fit * specificity * (1-leadingness) * response_independence)"
+}

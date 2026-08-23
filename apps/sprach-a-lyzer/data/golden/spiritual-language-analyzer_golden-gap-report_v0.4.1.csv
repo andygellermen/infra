@@ -1,0 +1,95 @@
+﻿case,dimension,target,target_range,actual,confidence,status
+G01,Wirksamkeit,mid,40–70,,0,MISSING
+G01,Klarheit,high,70–100,57.7,0.64,TOO_LOW
+G01,Freier Wille,low,0–40,34.4,0.98,PASS
+G01,Offenheit,low_mid,25–55,42.0,0.98,PASS
+G01,Verbindung,na,,,0,PASS
+G01,Wertschätzung,na,,,0,PASS
+G02,Klarheit,high,70–100,57.7,0.64,TOO_LOW
+G02,Freier Wille,mid,40–70,,0,MISSING
+G02,Wirksamkeit,mid_high,55–85,,0,MISSING
+G02,Offenheit,mid,40–70,,0,MISSING
+G03,Klarheit,very_high,85–100,72.3,0.97,TOO_LOW
+G03,Wirksamkeit,high,70–100,59.6,0.86,TOO_LOW
+G03,Freier Wille,high_neutral,50–100,,0,MISSING
+G04,Wertschätzung,very_low,0–25,32.5,0.86,TOO_HIGH
+G04,Wirksamkeit,low,0–40,37.4,0.86,PASS
+G04,Offenheit,low,0–40,41.5,0.86,TOO_HIGH
+G04,Klarheit,high,70–100,56.8,0.64,TOO_LOW
+G05,Klarheit,high,70–100,61.2,0.97,TOO_LOW
+G05,Wertschätzung,neutral_high,45–80,61.6,0.64,PASS
+G06,Wertschätzung,low,0–40,32.5,0.86,PASS
+G06,Verbindung,low,0–40,34.4,0.86,PASS
+G06,Offenheit,low,0–40,35.4,0.98,PASS
+G06,Klarheit,mid,40–70,,0,MISSING
+G07,Wirksamkeit,high,70–100,70.7,0.98,PASS
+G07,Klarheit,very_high,85–100,74.0,1.0,TOO_LOW
+G07,Freier Wille,high,70–100,75.8,0.98,PASS
+G07,Wertschätzung,neutral,45–55,,0,MISSING
+G08,Verbindung,high,70–100,70.8,0.9,PASS
+G08,Wertschätzung,high,70–100,70.7,0.9,PASS
+G08,Klarheit,high,70–100,70.8,0.97,PASS
+G08,Freier Wille,high,70–100,70.2,0.9,PASS
+G08,Offenheit,mid,40–70,53.9,0.9,PASS
+G09,Offenheit,low,0–40,34.4,0.98,PASS
+G09,Verbindung,low_mid,25–55,42.5,0.64,PASS
+G09,Wirksamkeit,low,0–40,41.5,0.64,TOO_HIGH
+G09,Klarheit,mid,40–70,,0,MISSING
+G10,Klarheit,high,70–100,59.0,0.95,TOO_LOW
+G10,Offenheit,high,70–100,60.6,0.64,TOO_LOW
+G10,Verbindung,mid_high,55–85,55.9,0.64,PASS
+G11,Freier Wille,low,0–40,39.4,0.64,PASS
+G11,Wertschätzung,low_mid,25–55,43.6,0.64,PASS
+G11,Wirksamkeit,low_mid,25–55,44.6,0.64,PASS
+G11,Offenheit,low,0–40,44.6,0.64,TOO_HIGH
+G12,Freier Wille,mid,40–70,,0,MISSING
+G12,Klarheit,high,70–100,,0,MISSING
+G13,Verbindung,high,70–100,61.1,0.86,TOO_LOW
+G13,Offenheit,high,70–100,63.6,0.86,TOO_LOW
+G13,Freier Wille,high_neutral,50–100,60.1,0.86,PASS
+G13,Klarheit,high,70–100,63.4,0.97,TOO_LOW
+G14,Freier Wille,high,70–100,63.6,0.64,TOO_LOW
+G14,Offenheit,high,70–100,58.0,0.64,TOO_LOW
+G14,Verbindung,high,70–100,58.0,0.64,TOO_LOW
+G14,Wertschätzung,high,70–100,58.0,0.64,TOO_LOW
+G15,Freier Wille,low,0–40,37.4,0.64,PASS
+G15,Klarheit,high,70–100,64.5,0.97,TOO_LOW
+G15,Verbindung,na,,,0,PASS
+G15,Wertschätzung,na,,,0,PASS
+G16,Wirksamkeit,high,70–100,71.2,0.9,PASS
+G16,Freier Wille,high,70–100,70.2,0.9,PASS
+G16,Offenheit,high,70–100,64.2,0.9,TOO_LOW
+G16,Klarheit,high,70–100,70.5,0.98,PASS
+G17,Wirksamkeit,very_low,0–25,41.5,0.64,TOO_HIGH
+G17,Freier Wille,low,0–40,,0,MISSING
+G17,Offenheit,low,0–40,40.4,0.64,TOO_HIGH
+G18,Offenheit,high,70–100,75.8,0.99,PASS
+G18,Wirksamkeit,high,70–100,70.9,0.99,PASS
+G18,Verbindung,high,70–100,61.3,0.99,TOO_LOW
+G18,Klarheit,high,70–100,70.3,1.0,PASS
+G19,Klarheit,high,70–100,63.5,0.97,TOO_LOW
+G19,Wertschätzung,neutral,45–55,,0,MISSING
+G19,Offenheit,neutral,45–55,,0,MISSING
+G20,Wertschätzung,very_low,0–25,31.8,0.9,TOO_HIGH
+G20,Verbindung,very_low,0–25,33.7,0.9,TOO_HIGH
+G20,Klarheit,high,70–100,60.4,0.97,TOO_LOW
+G21,Offenheit,high,70–100,75.8,0.99,PASS
+G21,Wirksamkeit,high,70–100,70.9,0.99,PASS
+G21,Verbindung,mid_high,55–85,61.3,0.99,PASS
+G21,Klarheit,high,70–100,74.2,1.0,PASS
+G25,Freier Wille,neutral,45–55,,0,MISSING
+G26,Freier Wille,na,,,0,PASS
+G27,Freier Wille,high,70–100,56.9,0.98,TOO_LOW
+G27,Offenheit,very_high,85–100,72.9,0.98,TOO_LOW
+G27,Verbindung,high,70–100,67.0,0.98,TOO_LOW
+G27,Wertschätzung,high,70–100,56.9,0.98,TOO_LOW
+G28,Freier Wille,low,0–40,,0,MISSING
+G28,Verbindung,low_mid,25–55,,0,MISSING
+G28,Wertschätzung,low_mid,25–55,,0,MISSING
+G28,Klarheit,high,70–100,,0,MISSING
+G29,Wirksamkeit,high,70–100,67.5,0.99,TOO_LOW
+G29,Offenheit,high,70–100,75.4,0.99,PASS
+G29,Klarheit,high,70–100,68.5,1.0,TOO_LOW
+G30,Klarheit,mid,40–70,,0,MISSING
+G30,Freier Wille,mid,40–70,,0,MISSING
+G30,Offenheit,mid_high,55–85,,0,MISSING

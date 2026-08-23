@@ -1,0 +1,1169 @@
+{
+  "G01": {
+    "text": "Ich muss das heute unbedingt noch schaffen.",
+    "context": "SELF_TALK",
+    "patterns": [
+      "INTERNAL_PRESSURE",
+      "URGENCY"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 53.4,
+        "confidence": 0.68,
+        "mass": 5.44,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          }
+        ]
+      },
+      "Freier Wille": {
+        "score": 35.9,
+        "confidence": 0.97,
+        "mass": -23.2,
+        "trace": [
+          {
+            "value": -20,
+            "confidence": 0.84,
+            "rule": "must_default",
+            "span": "müssen"
+          },
+          {
+            "value": -8,
+            "confidence": 0.8,
+            "rule": "must_unbedingt",
+            "span": "unbedingt"
+          }
+        ]
+      },
+      "Offenheit": {
+        "score": 46.3,
+        "confidence": 0.75,
+        "mass": -6.0,
+        "trace": [
+          {
+            "value": -8,
+            "confidence": 0.75,
+            "rule": "must_unbedingt_open",
+            "span": "unbedingt"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G02": {
+    "text": "Ich bin gesetzlich verpflichtet, die Unterlagen bis Freitag einzureichen.",
+    "context": "LEGAL_ADMINISTRATIVE",
+    "patterns": [],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 53.4,
+        "confidence": 0.68,
+        "mass": 5.44,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G03": {
+    "text": "Du musst sofort das Gebäude verlassen!",
+    "context": "SAFETY",
+    "patterns": [
+      "SAFETY_DIRECTIVE",
+      "URGENCY"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 58.1,
+        "confidence": 0.82,
+        "mass": 13.12,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.82,
+            "rule": "safety_action",
+            "span": "müssen"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 68.9,
+        "confidence": 0.98,
+        "mass": 31.76,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          },
+          {
+            "value": 28,
+            "confidence": 0.94,
+            "rule": "safety_must",
+            "span": "müssen"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G04": {
+    "text": "Ich bin einfach ein Versager.",
+    "context": "SELF_TALK",
+    "patterns": [
+      "PREDICATIVE_LABELING",
+      "SELF_DEVALUATION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 37.9,
+        "confidence": 0.9,
+        "mass": -19.8,
+        "trace": [
+          {
+            "value": -22,
+            "confidence": 0.9,
+            "rule": "self_devaluation",
+            "span": "Versager"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": {
+        "score": 30.8,
+        "confidence": 0.95,
+        "mass": -32.3,
+        "trace": [
+          {
+            "value": -34,
+            "confidence": 0.95,
+            "rule": "self_devaluation",
+            "span": "Versager"
+          }
+        ]
+      },
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 42.9,
+        "confidence": 0.82,
+        "mass": -11.48,
+        "trace": [
+          {
+            "value": -14,
+            "confidence": 0.82,
+            "rule": "self_devaluation",
+            "span": "Versager"
+          }
+        ]
+      }
+    },
+    "wing_score": 36.9
+  },
+  "G05": {
+    "text": "Die Vereinbarung wurde heute nicht eingehalten.",
+    "context": "WORKPLACE",
+    "patterns": [],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 53.4,
+        "confidence": 0.68,
+        "mass": 5.44,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G06": {
+    "text": "Auf dich ist nie Verlass.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [
+      "GENERALIZATION",
+      "PERSON_DEVALUATION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 42.7,
+        "confidence": 0.84,
+        "mass": -11.76,
+        "trace": [
+          {
+            "value": -14,
+            "confidence": 0.84,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      },
+      "Verbindung": {
+        "score": 38.1,
+        "confidence": 0.88,
+        "mass": -19.36,
+        "trace": [
+          {
+            "value": -22,
+            "confidence": 0.88,
+            "rule": "person_devaluation",
+            "span": "auf dich ist ... Verlass"
+          }
+        ]
+      },
+      "Wertschätzung": {
+        "score": 36.8,
+        "confidence": 0.9,
+        "mass": -21.6,
+        "trace": [
+          {
+            "value": -24,
+            "confidence": 0.9,
+            "rule": "person_devaluation",
+            "span": "auf dich ist ... Verlass"
+          }
+        ]
+      },
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 41.5,
+        "confidence": 0.86,
+        "mass": -13.76,
+        "trace": [
+          {
+            "value": -16,
+            "confidence": 0.86,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      }
+    },
+    "wing_score": 39.7
+  },
+  "G07": {
+    "text": "Nein. Ich möchte das nicht.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [
+      "CHOICE_LANGUAGE",
+      "CLEAR_BOUNDARY"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 67.3,
+        "confidence": 0.98,
+        "mass": 28.92,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.84,
+            "rule": "choice_self",
+            "span": "ich ..."
+          },
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "clear_boundary",
+            "span": "Nein...möchte nicht"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 65.9,
+        "confidence": 0.94,
+        "mass": 26.32,
+        "trace": [
+          {
+            "value": 28,
+            "confidence": 0.94,
+            "rule": "clear_boundary",
+            "span": "Nein...möchte nicht"
+          }
+        ]
+      },
+      "Freier Wille": {
+        "score": 74.9,
+        "confidence": 0.99,
+        "mass": 43.68,
+        "trace": [
+          {
+            "value": 24,
+            "confidence": 0.9,
+            "rule": "choice_self",
+            "span": "ich ..."
+          },
+          {
+            "value": 24,
+            "confidence": 0.92,
+            "rule": "clear_boundary",
+            "span": "Nein...möchte nicht"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": 69.4
+  },
+  "G08": {
+    "text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [
+      "CLEAR_BOUNDARY"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": {
+        "score": 56.1,
+        "confidence": 0.82,
+        "mass": 9.84,
+        "trace": [
+          {
+            "value": 12,
+            "confidence": 0.82,
+            "rule": "connection_ack",
+            "span": "Anerkennung"
+          }
+        ]
+      },
+      "Wertschätzung": {
+        "score": 59.6,
+        "confidence": 0.86,
+        "mass": 15.48,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "appreciation",
+            "span": "Anerkennung"
+          }
+        ]
+      },
+      "Klarheit": {
+        "score": 64.0,
+        "confidence": 0.96,
+        "mass": 23.04,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          },
+          {
+            "value": 20,
+            "confidence": 0.88,
+            "rule": "clear_boundary",
+            "span": "nicht infrage"
+          }
+        ]
+      },
+      "Freier Wille": {
+        "score": 58.1,
+        "confidence": 0.82,
+        "mass": 13.12,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.82,
+            "rule": "clear_boundary",
+            "span": "nicht infrage"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": 59.6
+  },
+  "G09": {
+    "text": "Ja, aber das funktioniert doch sowieso nie.",
+    "context": "WORKPLACE",
+    "patterns": [
+      "DEFENSIVE_OBJECTION",
+      "DISCOUNTING",
+      "GENERALIZATION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 42.7,
+        "confidence": 0.84,
+        "mass": -11.76,
+        "trace": [
+          {
+            "value": -14,
+            "confidence": 0.84,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      },
+      "Verbindung": {
+        "score": 43.9,
+        "confidence": 0.82,
+        "mass": -9.84,
+        "trace": [
+          {
+            "value": -12,
+            "confidence": 0.82,
+            "rule": "ja_aber_discount",
+            "span": "ja, aber"
+          }
+        ]
+      },
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 36.6,
+        "confidence": 0.97,
+        "mass": -21.96,
+        "trace": [
+          {
+            "value": -10,
+            "confidence": 0.82,
+            "rule": "ja_aber_discount",
+            "span": "ja, aber"
+          },
+          {
+            "value": -16,
+            "confidence": 0.86,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      }
+    },
+    "wing_score": 40.8
+  },
+  "G10": {
+    "text": "Ja, aber wir sollten zwischen den beiden Situationen unterscheiden.",
+    "context": "WORKPLACE",
+    "patterns": [
+      "CONSTRUCTIVE_DIFFERENTIATION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 54.9,
+        "confidence": 0.78,
+        "mass": 7.8,
+        "trace": [
+          {
+            "value": 10,
+            "confidence": 0.78,
+            "rule": "ja_aber_diff",
+            "span": "ja, aber"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 53.6,
+        "confidence": 0.72,
+        "mass": 5.76,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.72,
+            "rule": "ja_aber_diff",
+            "span": "ja, aber"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G11": {
+    "text": "Ich sollte längst weiter sein.",
+    "context": "SELF_TALK",
+    "patterns": [
+      "INTERNALIZED_EXPECTATION",
+      "SELF_PRESSURE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 46.2,
+        "confidence": 0.76,
+        "mass": -6.08,
+        "trace": [
+          {
+            "value": -8,
+            "confidence": 0.76,
+            "rule": "internalized_should",
+            "span": "ich sollte"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": {
+        "score": 45.1,
+        "confidence": 0.78,
+        "mass": -7.8,
+        "trace": [
+          {
+            "value": -10,
+            "confidence": 0.78,
+            "rule": "self_pressure_should",
+            "span": "längst/endlich"
+          }
+        ]
+      },
+      "Klarheit": null,
+      "Freier Wille": {
+        "score": 40.7,
+        "confidence": 0.84,
+        "mass": -15.12,
+        "trace": [
+          {
+            "value": -18,
+            "confidence": 0.84,
+            "rule": "internalized_should",
+            "span": "ich sollte"
+          }
+        ]
+      },
+      "Offenheit": {
+        "score": 46.3,
+        "confidence": 0.74,
+        "mass": -5.92,
+        "trace": [
+          {
+            "value": -8,
+            "confidence": 0.74,
+            "rule": "self_pressure_should",
+            "span": "längst/endlich"
+          }
+        ]
+      }
+    },
+    "wing_score": 43.9
+  },
+  "G12": {
+    "text": "Du solltest heute etwas früher schlafen gehen.",
+    "context": "FAMILY",
+    "patterns": [
+      "NORMATIVE_ADVICE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 53.4,
+        "confidence": 0.68,
+        "mass": 5.44,
+        "trace": [
+          {
+            "value": 8,
+            "confidence": 0.68,
+            "rule": "specificity",
+            "span": "konkrete Aussage"
+          }
+        ]
+      },
+      "Freier Wille": {
+        "score": 46.5,
+        "confidence": 0.7,
+        "mass": -5.6,
+        "trace": [
+          {
+            "value": -8,
+            "confidence": 0.7,
+            "rule": "should_advice",
+            "span": "sollen"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G13": {
+    "text": "Solltest du Fragen haben, melde dich jederzeit.",
+    "context": "WORKPLACE",
+    "patterns": [
+      "CONDITIONAL_OPENING"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": {
+        "score": 56.0,
+        "confidence": 0.8,
+        "mass": 9.6,
+        "trace": [
+          {
+            "value": 12,
+            "confidence": 0.8,
+            "rule": "conditional_sollen",
+            "span": "solltest du"
+          }
+        ]
+      },
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 58.3,
+        "confidence": 0.84,
+        "mass": 13.44,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.84,
+            "rule": "conditional_sollen",
+            "span": "solltest du"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G14": {
+    "text": "Du darfst dir Zeit für die Entscheidung nehmen.",
+    "context": "COACHING",
+    "patterns": [],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": {
+        "score": 57.7,
+        "confidence": 0.78,
+        "mass": 12.48,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.78,
+            "rule": "permission",
+            "span": "dürfen"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G15": {
+    "text": "Du darfst das nicht.",
+    "context": "UNKNOWN",
+    "patterns": [
+      "PROHIBITION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 58.5,
+        "confidence": 0.86,
+        "mass": 13.76,
+        "trace": [
+          {
+            "value": 16,
+            "confidence": 0.86,
+            "rule": "prohibition_clear",
+            "span": "darf...nicht"
+          }
+        ]
+      },
+      "Freier Wille": {
+        "score": 37.9,
+        "confidence": 0.9,
+        "mass": -19.8,
+        "trace": [
+          {
+            "value": -22,
+            "confidence": 0.9,
+            "rule": "prohibition",
+            "span": "darf...nicht"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G16": {
+    "text": "Ich kann nicht alles beeinflussen, aber ich kann meinen nächsten Schritt wählen.",
+    "context": "SELF_TALK",
+    "patterns": [],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 59.6,
+        "confidence": 0.86,
+        "mass": 15.48,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "ability",
+            "span": "kann/können"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G17": {
+    "text": "Ich kann sowieso nichts ändern.",
+    "context": "SELF_TALK",
+    "patterns": [
+      "GENERALIZATION"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": {
+        "score": 52.3,
+        "confidence": 0.98,
+        "mass": 3.72,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "ability",
+            "span": "kann/können"
+          },
+          {
+            "value": -14,
+            "confidence": 0.84,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      },
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 41.5,
+        "confidence": 0.86,
+        "mass": -13.76,
+        "trace": [
+          {
+            "value": -16,
+            "confidence": 0.86,
+            "rule": "absolutization",
+            "span": "Generalisierung"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G18": {
+    "text": "Das hat bisher nicht funktioniert. Was könnten wir beim nächsten Versuch verändern?",
+    "context": "WORKPLACE",
+    "patterns": [
+      "OPENING_LANGUAGE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 59.3,
+        "confidence": 0.84,
+        "mass": 15.12,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.84,
+            "rule": "opening",
+            "span": "Öffnung"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G19": {
+    "text": "Wir haben ein technisches Problem mit der Schnittstelle.",
+    "context": "WORKPLACE",
+    "patterns": [],
+    "notes": [
+      "Sachlicher Problembegriff: kein pauschaler Negativscore"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": {
+        "score": 56.0,
+        "confidence": 0.8,
+        "mass": 9.6,
+        "trace": [
+          {
+            "value": 12,
+            "confidence": 0.8,
+            "rule": "technical_issue",
+            "span": "technisches Problem"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G20": {
+    "text": "Du bist das Problem.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [
+      "PERSON_DEVALUATION",
+      "PREDICATIVE_LABELING"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": {
+        "score": 33.4,
+        "confidence": 0.92,
+        "mass": -27.6,
+        "trace": [
+          {
+            "value": -30,
+            "confidence": 0.92,
+            "rule": "person_label",
+            "span": "du bist das Problem"
+          }
+        ]
+      },
+      "Wertschätzung": {
+        "score": 30.3,
+        "confidence": 0.95,
+        "mass": -33.25,
+        "trace": [
+          {
+            "value": -35,
+            "confidence": 0.95,
+            "rule": "person_label",
+            "span": "du bist das Problem"
+          }
+        ]
+      },
+      "Klarheit": {
+        "score": 59.6,
+        "confidence": 0.86,
+        "mass": 15.48,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "person_label_clear",
+            "span": "du bist das Problem"
+          }
+        ]
+      },
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": 40.6
+  },
+  "G21": {
+    "text": "Der Fehler zeigt uns, was wir beim nächsten Versuch verändern können.",
+    "context": "WORKPLACE",
+    "patterns": [
+      "OPENING_LANGUAGE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 59.3,
+        "confidence": 0.84,
+        "mass": 15.12,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.84,
+            "rule": "opening",
+            "span": "Öffnung"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G22": {
+    "text": "Hast du Geld?",
+    "context": "MODERATION",
+    "patterns": [],
+    "notes": [
+      "Homophonie-Link hast↔hasst erkannt"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G23": {
+    "text": "Hast du genug Zeit für dich?",
+    "context": "WEBSITE",
+    "patterns": [],
+    "notes": [
+      "Homophonie-Link hast↔hasst erkannt"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G24": {
+    "text": "Wir müssen das Hindernis umfahren.",
+    "context": "UNKNOWN",
+    "patterns": [
+      "INTERNAL_PRESSURE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": {
+        "score": 39.7,
+        "confidence": 0.84,
+        "mass": -16.8,
+        "trace": [
+          {
+            "value": -20,
+            "confidence": 0.84,
+            "rule": "must_default",
+            "span": "müssen"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G25": {
+    "text": "Der Eintritt ist frei.",
+    "context": "PUBLIC_INFORMATION",
+    "patterns": [],
+    "notes": [
+      "frei als kostenlos erkannt; kein Beitrag zu Freier Wille"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G26": {
+    "text": "Er soll sehr erfolgreich sein.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [
+      "REPORTED_CLAIM"
+    ],
+    "notes": [
+      "sollen als Hörensagen erkannt; kein Normativitätsmalus"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G27": {
+    "text": "Wenn du möchtest, können wir gemeinsam eine andere Möglichkeit prüfen.",
+    "context": "COACHING",
+    "patterns": [
+      "OPENING_LANGUAGE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": {
+        "score": 59.6,
+        "confidence": 0.86,
+        "mass": 15.48,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.86,
+            "rule": "connection",
+            "span": "gemeinsam/miteinander"
+          }
+        ]
+      },
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 59.3,
+        "confidence": 0.84,
+        "mass": 15.12,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.84,
+            "rule": "opening",
+            "span": "Öffnung"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G28": {
+    "text": "Du musst einfach positiv denken.",
+    "context": "COACHING",
+    "patterns": [
+      "INTERNAL_PRESSURE"
+    ],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": {
+        "score": 39.7,
+        "confidence": 0.84,
+        "mass": -16.8,
+        "trace": [
+          {
+            "value": -20,
+            "confidence": 0.84,
+            "rule": "must_default",
+            "span": "müssen"
+          }
+        ]
+      },
+      "Offenheit": null
+    },
+    "wing_score": null
+  },
+  "G29": {
+    "text": "Ich habe große Angst und möchte herausfinden, was mir jetzt helfen kann.",
+    "context": "SELF_TALK",
+    "patterns": [
+      "OPENING_LANGUAGE"
+    ],
+    "notes": [
+      "Angst wird als Emotionsbenennung nicht automatisch negativ gescort"
+    ],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": {
+        "score": 59.3,
+        "confidence": 0.84,
+        "mass": 15.12,
+        "trace": [
+          {
+            "value": 18,
+            "confidence": 0.84,
+            "rule": "opening",
+            "span": "Öffnung"
+          }
+        ]
+      }
+    },
+    "wing_score": null
+  },
+  "G30": {
+    "text": "Eigentlich wollte ich absagen, aber ich bin noch unsicher.",
+    "context": "PRIVATE_CONVERSATION",
+    "patterns": [],
+    "notes": [],
+    "dimensions": {
+      "Wirksamkeit": null,
+      "Verbindung": null,
+      "Wertschätzung": null,
+      "Klarheit": null,
+      "Freier Wille": null,
+      "Offenheit": null
+    },
+    "wing_score": null
+  }
+}

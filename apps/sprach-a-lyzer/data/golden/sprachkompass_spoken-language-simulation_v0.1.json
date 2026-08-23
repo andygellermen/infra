@@ -1,0 +1,1733 @@
+[
+  {
+    "id": "S01",
+    "topic": "Arbeitsdruck",
+    "written": {
+      "features": {
+        "token_count": 7,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 58.7,
+          "confidence": 0.88,
+          "mass": 14.08,
+          "trace": [
+            {
+              "value": 16.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 14,
+        "filler_count": 2,
+        "generalizer_count": 1,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "das": 2
+        },
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 0.95,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "INTERNAL_PRESSURE",
+          "dims": {
+            "Freier Wille": -20,
+            "Wirksamkeit": -7,
+            "Offenheit": -7
+          },
+          "confidence": 0.86,
+          "source": "ich muss"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -12,
+            "Wirksamkeit": -9
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "URGENCY",
+          "dims": {
+            "Freier Wille": -8,
+            "Offenheit": -6
+          },
+          "confidence": 0.8,
+          "source": "urgency"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 41.5,
+          "confidence": 0.96,
+          "mass": -13.8,
+          "trace": [
+            {
+              "value": -7.49,
+              "confidence": 0.82,
+              "pattern": "INTERNAL_PRESSURE",
+              "source": "ich muss"
+            },
+            {
+              "value": -9.63,
+              "confidence": 0.8,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 35.7,
+          "confidence": 0.96,
+          "mass": -23.56,
+          "trace": [
+            {
+              "value": -21.4,
+              "confidence": 0.82,
+              "pattern": "INTERNAL_PRESSURE",
+              "source": "ich muss"
+            },
+            {
+              "value": -8,
+              "confidence": 0.76,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 37.2,
+          "confidence": 0.99,
+          "mass": -20.93,
+          "trace": [
+            {
+              "value": -7.49,
+              "confidence": 0.82,
+              "pattern": "INTERNAL_PRESSURE",
+              "source": "ich muss"
+            },
+            {
+              "value": -12.84,
+              "confidence": 0.8,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            },
+            {
+              "value": -6,
+              "confidence": 0.76,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S02",
+    "topic": "Meeting-Widerspruch",
+    "written": {
+      "features": {
+        "token_count": 10,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [],
+      "dimensions": {
+        "Wirksamkeit": null,
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 17,
+        "filler_count": 1,
+        "generalizer_count": 3,
+        "modal_count": 0,
+        "repeated_tokens": {
+          "das": 2,
+          "doch": 2
+        },
+        "self_corrections": 0,
+        "fragments": 2
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -20,
+            "Wirksamkeit": -15
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 41.9,
+          "confidence": 0.82,
+          "mass": -13.14,
+          "trace": [
+            {
+              "value": -16.05,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 39.2,
+          "confidence": 0.82,
+          "mass": -17.53,
+          "trace": [
+            {
+              "value": -21.4,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S03",
+    "topic": "Selbstbewertung",
+    "written": {
+      "features": {
+        "token_count": 8,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [],
+      "dimensions": {
+        "Wirksamkeit": null,
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 16,
+        "filler_count": 1,
+        "generalizer_count": 1,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "ich": 2
+        },
+        "self_corrections": 0,
+        "fragments": 1
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "INTERNALIZED_EXPECTATION",
+          "dims": {
+            "Freier Wille": -18,
+            "Wirksamkeit": -9,
+            "Wertschätzung": -6
+          },
+          "confidence": 0.84,
+          "source": "ich sollte"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -12,
+            "Wirksamkeit": -9
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 40.3,
+          "confidence": 0.97,
+          "mass": -15.77,
+          "trace": [
+            {
+              "value": -9.63,
+              "confidence": 0.82,
+              "pattern": "INTERNALIZED_EXPECTATION",
+              "source": "ich sollte"
+            },
+            {
+              "value": -9.63,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": {
+          "score": 46.7,
+          "confidence": 0.82,
+          "mass": -5.26,
+          "trace": [
+            {
+              "value": -6.42,
+              "confidence": 0.82,
+              "pattern": "INTERNALIZED_EXPECTATION",
+              "source": "ich sollte"
+            }
+          ]
+        },
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 40.3,
+          "confidence": 0.82,
+          "mass": -15.77,
+          "trace": [
+            {
+              "value": -19.26,
+              "confidence": 0.82,
+              "pattern": "INTERNALIZED_EXPECTATION",
+              "source": "ich sollte"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 43.5,
+          "confidence": 0.82,
+          "mass": -10.52,
+          "trace": [
+            {
+              "value": -12.84,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S04",
+    "topic": "Grenze setzen",
+    "written": {
+      "features": {
+        "token_count": 6,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 58.7,
+          "confidence": 0.88,
+          "mass": 14.08,
+          "trace": [
+            {
+              "value": 16.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 16,
+        "filler_count": 4,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "ich": 3,
+          "nicht": 3
+        },
+        "self_corrections": 0,
+        "fragments": 2
+      },
+      "filler_confidence_factor": 0.9,
+      "repetition_factor": 1.14,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        },
+        {
+          "pattern": "PERCEIVED_LIMIT",
+          "dims": {
+            "Wirksamkeit": -18,
+            "Offenheit": -10
+          },
+          "confidence": 0.82,
+          "source": "perceived limit"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 50.7,
+          "confidence": 0.95,
+          "mass": 1.16,
+          "trace": [
+            {
+              "value": 18.24,
+              "confidence": 0.79,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            },
+            {
+              "value": -18,
+              "confidence": 0.74,
+              "pattern": "PERCEIVED_LIMIT",
+              "source": "perceived limit"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 61.1,
+          "confidence": 0.79,
+          "mass": 18.06,
+          "trace": [
+            {
+              "value": 22.8,
+              "confidence": 0.79,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 45.4,
+          "confidence": 0.74,
+          "mass": -7.38,
+          "trace": [
+            {
+              "value": -10,
+              "confidence": 0.74,
+              "pattern": "PERCEIVED_LIMIT",
+              "source": "perceived limit"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S05",
+    "topic": "Fehler im Team",
+    "written": {
+      "features": {
+        "token_count": 12,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "COLLABORATIVE_LANGUAGE",
+          "dims": {
+            "Verbindung": 18,
+            "Offenheit": 15,
+            "Wirksamkeit": 10
+          },
+          "confidence": 0.88,
+          "source": "lass uns"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 55.5,
+          "confidence": 0.88,
+          "mass": 8.8,
+          "trace": [
+            {
+              "value": 10,
+              "confidence": 0.88,
+              "pattern": "COLLABORATIVE_LANGUAGE",
+              "source": "lass uns"
+            }
+          ]
+        },
+        "Verbindung": {
+          "score": 59.8,
+          "confidence": 0.88,
+          "mass": 15.84,
+          "trace": [
+            {
+              "value": 18,
+              "confidence": 0.88,
+              "pattern": "COLLABORATIVE_LANGUAGE",
+              "source": "lass uns"
+            }
+          ]
+        },
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 58.2,
+          "confidence": 0.88,
+          "mass": 13.2,
+          "trace": [
+            {
+              "value": 15,
+              "confidence": 0.88,
+              "pattern": "COLLABORATIVE_LANGUAGE",
+              "source": "lass uns"
+            }
+          ]
+        }
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 20,
+        "filler_count": 1,
+        "generalizer_count": 1,
+        "modal_count": 1,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -12,
+            "Wirksamkeit": -9
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "URGENCY",
+          "dims": {
+            "Freier Wille": -8,
+            "Offenheit": -6
+          },
+          "confidence": 0.8,
+          "source": "urgency"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 45.4,
+          "confidence": 0.82,
+          "mass": -7.37,
+          "trace": [
+            {
+              "value": -9.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 46.1,
+          "confidence": 0.78,
+          "mass": -6.24,
+          "trace": [
+            {
+              "value": -8,
+              "confidence": 0.78,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 41.0,
+          "confidence": 0.96,
+          "mass": -14.51,
+          "trace": [
+            {
+              "value": -12.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            },
+            {
+              "value": -6,
+              "confidence": 0.78,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S06",
+    "topic": "Veränderung/KI",
+    "written": {
+      "features": {
+        "token_count": 12,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {
+          "ich": 2
+        },
+        "self_corrections": 0,
+        "fragments": 1
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 59.3,
+          "confidence": 0.88,
+          "mass": 15.07,
+          "trace": [
+            {
+              "value": 17.12,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 61.6,
+          "confidence": 0.88,
+          "mass": 18.83,
+          "trace": [
+            {
+              "value": 21.4,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 21,
+        "filler_count": 1,
+        "generalizer_count": 2,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 1
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "NO_CHOICE",
+          "dims": {
+            "Freier Wille": -24,
+            "Wirksamkeit": -8,
+            "Offenheit": -12
+          },
+          "confidence": 0.9,
+          "source": "keine wahl"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -16,
+            "Wirksamkeit": -12
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "EMOTION_ACKNOWLEDGEMENT",
+          "dims": {
+            "Klarheit": 5
+          },
+          "confidence": 0.7,
+          "source": "Angst"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 39.6,
+          "confidence": 0.98,
+          "mass": -16.85,
+          "trace": [
+            {
+              "value": -8,
+              "confidence": 0.88,
+              "pattern": "NO_CHOICE",
+              "source": "keine wahl"
+            },
+            {
+              "value": -12.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": {
+          "score": 52.1,
+          "confidence": 0.68,
+          "mass": 3.41,
+          "trace": [
+            {
+              "value": 5,
+              "confidence": 0.68,
+              "pattern": "EMOTION_ACKNOWLEDGEMENT",
+              "source": "Angst"
+            }
+          ]
+        },
+        "Freier Wille": {
+          "score": 37.1,
+          "confidence": 0.88,
+          "mass": -21.06,
+          "trace": [
+            {
+              "value": -24,
+              "confidence": 0.88,
+              "pattern": "NO_CHOICE",
+              "source": "keine wahl"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 35.6,
+          "confidence": 0.98,
+          "mass": -23.63,
+          "trace": [
+            {
+              "value": -12,
+              "confidence": 0.88,
+              "pattern": "NO_CHOICE",
+              "source": "keine wahl"
+            },
+            {
+              "value": -16.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S07",
+    "topic": "Ressourcen",
+    "written": {
+      "features": {
+        "token_count": 10,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [],
+      "dimensions": {
+        "Wirksamkeit": null,
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 19,
+        "filler_count": 0,
+        "generalizer_count": 4,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "wir": 2
+        },
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -22,
+            "Wirksamkeit": -16
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "PERCEIVED_LIMIT",
+          "dims": {
+            "Wirksamkeit": -18,
+            "Offenheit": -10
+          },
+          "confidence": 0.82,
+          "source": "perceived limit"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 32.6,
+          "confidence": 0.97,
+          "mass": -29.14,
+          "trace": [
+            {
+              "value": -17.12,
+              "confidence": 0.84,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            },
+            {
+              "value": -18,
+              "confidence": 0.82,
+              "pattern": "PERCEIVED_LIMIT",
+              "source": "perceived limit"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 33.2,
+          "confidence": 0.97,
+          "mass": -27.97,
+          "trace": [
+            {
+              "value": -23.54,
+              "confidence": 0.84,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            },
+            {
+              "value": -10,
+              "confidence": 0.82,
+              "pattern": "PERCEIVED_LIMIT",
+              "source": "perceived limit"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S08",
+    "topic": "Feedback",
+    "written": {
+      "features": {
+        "token_count": 8,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [],
+      "dimensions": {
+        "Wirksamkeit": null,
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 12,
+        "filler_count": 0,
+        "generalizer_count": 1,
+        "modal_count": 1,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "PERSON_DEVALUATION",
+          "dims": {
+            "Verbindung": -28,
+            "Wertschätzung": -32,
+            "Offenheit": -8
+          },
+          "confidence": 0.9,
+          "source": "auf dich ist ja nie verlass"
+        },
+        {
+          "pattern": "EXTERNAL_DIRECTIVE",
+          "dims": {
+            "Freier Wille": -22,
+            "Verbindung": -10,
+            "Wertschätzung": -6
+          },
+          "confidence": 0.86,
+          "source": "du musst"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -12,
+            "Wirksamkeit": -9
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "URGENCY",
+          "dims": {
+            "Freier Wille": -8,
+            "Offenheit": -6
+          },
+          "confidence": 0.8,
+          "source": "urgency"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 45.3,
+          "confidence": 0.84,
+          "mass": -7.56,
+          "trace": [
+            {
+              "value": -9.0,
+              "confidence": 0.84,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": {
+          "score": 30.0,
+          "confidence": 0.99,
+          "mass": -33.8,
+          "trace": [
+            {
+              "value": -28,
+              "confidence": 0.9,
+              "pattern": "PERSON_DEVALUATION",
+              "source": "auf dich ist ja nie verlass"
+            },
+            {
+              "value": -10.0,
+              "confidence": 0.86,
+              "pattern": "EXTERNAL_DIRECTIVE",
+              "source": "du musst"
+            }
+          ]
+        },
+        "Wertschätzung": {
+          "score": 30.0,
+          "confidence": 0.99,
+          "mass": -33.96,
+          "trace": [
+            {
+              "value": -32,
+              "confidence": 0.9,
+              "pattern": "PERSON_DEVALUATION",
+              "source": "auf dich ist ja nie verlass"
+            },
+            {
+              "value": -6.0,
+              "confidence": 0.86,
+              "pattern": "EXTERNAL_DIRECTIVE",
+              "source": "du musst"
+            }
+          ]
+        },
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 34.7,
+          "confidence": 0.97,
+          "mass": -25.32,
+          "trace": [
+            {
+              "value": -22.0,
+              "confidence": 0.86,
+              "pattern": "EXTERNAL_DIRECTIVE",
+              "source": "du musst"
+            },
+            {
+              "value": -8,
+              "confidence": 0.8,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        },
+        "Offenheit": {
+          "score": 36.5,
+          "confidence": 1.0,
+          "mass": -22.08,
+          "trace": [
+            {
+              "value": -8,
+              "confidence": 0.9,
+              "pattern": "PERSON_DEVALUATION",
+              "source": "auf dich ist ja nie verlass"
+            },
+            {
+              "value": -12.0,
+              "confidence": 0.84,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            },
+            {
+              "value": -6,
+              "confidence": 0.8,
+              "pattern": "URGENCY",
+              "source": "urgency"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S09",
+    "topic": "Entscheidung",
+    "written": {
+      "features": {
+        "token_count": 8,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 58.7,
+          "confidence": 0.88,
+          "mass": 14.08,
+          "trace": [
+            {
+              "value": 16.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 17,
+        "filler_count": 2,
+        "generalizer_count": 1,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "ich": 2
+        },
+        "self_corrections": 1,
+        "fragments": 1
+      },
+      "filler_confidence_factor": 0.95,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "HOPELESSNESS",
+          "dims": {
+            "Wirksamkeit": -18,
+            "Offenheit": -16
+          },
+          "confidence": 0.9,
+          "source": "bringt das eh nichts"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -12,
+            "Wirksamkeit": -9
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 36.0,
+          "confidence": 0.97,
+          "mass": -23.07,
+          "trace": [
+            {
+              "value": -18,
+              "confidence": 0.85,
+              "pattern": "HOPELESSNESS",
+              "source": "bringt das eh nichts"
+            },
+            {
+              "value": -9.63,
+              "confidence": 0.8,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 35.5,
+          "confidence": 0.97,
+          "mass": -23.93,
+          "trace": [
+            {
+              "value": -16,
+              "confidence": 0.85,
+              "pattern": "HOPELESSNESS",
+              "source": "bringt das eh nichts"
+            },
+            {
+              "value": -12.84,
+              "confidence": 0.8,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S10",
+    "topic": "Lernhaltung",
+    "written": {
+      "features": {
+        "token_count": 11,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [],
+      "dimensions": {
+        "Wirksamkeit": null,
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 18,
+        "filler_count": 2,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "ich": 2
+        },
+        "self_corrections": 1,
+        "fragments": 3
+      },
+      "filler_confidence_factor": 0.95,
+      "repetition_factor": 1.07,
+      "hits": [
+        {
+          "pattern": "LEARNING_FRAME",
+          "dims": {
+            "Wirksamkeit": 20,
+            "Offenheit": 24,
+            "Klarheit": 10
+          },
+          "confidence": 0.88,
+          "source": "beim nächsten mal anders machen"
+        },
+        {
+          "pattern": "LEARNING_FRAME",
+          "dims": {
+            "Wirksamkeit": 22,
+            "Offenheit": 26,
+            "Klarheit": 10
+          },
+          "confidence": 0.88,
+          "source": "was ich beim nächsten mal anders machen kann"
+        },
+        {
+          "pattern": "LEARNING_RECOVERY",
+          "dims": {
+            "Wirksamkeit": 18,
+            "Offenheit": 22,
+            "Klarheit": 8
+          },
+          "confidence": 0.86,
+          "source": "aber gut ... nächsten Mal"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 79.1,
+          "confidence": 1.0,
+          "mass": 53.31,
+          "trace": [
+            {
+              "value": 21.4,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "beim nächsten mal anders machen"
+            },
+            {
+              "value": 23.54,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "was ich beim nächsten mal anders machen kann"
+            },
+            {
+              "value": 19.26,
+              "confidence": 0.82,
+              "pattern": "LEARNING_RECOVERY",
+              "source": "aber gut ... nächsten Mal"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": {
+          "score": 65.1,
+          "confidence": 1.0,
+          "mass": 24.88,
+          "trace": [
+            {
+              "value": 10.7,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "beim nächsten mal anders machen"
+            },
+            {
+              "value": 10.7,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "was ich beim nächsten mal anders machen kann"
+            },
+            {
+              "value": 8.56,
+              "confidence": 0.82,
+              "pattern": "LEARNING_RECOVERY",
+              "source": "aber gut ... nächsten Mal"
+            }
+          ]
+        },
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 83.2,
+          "confidence": 1.0,
+          "mass": 63.96,
+          "trace": [
+            {
+              "value": 25.68,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "beim nächsten mal anders machen"
+            },
+            {
+              "value": 27.82,
+              "confidence": 0.84,
+              "pattern": "LEARNING_FRAME",
+              "source": "was ich beim nächsten mal anders machen kann"
+            },
+            {
+              "value": 23.54,
+              "confidence": 0.82,
+              "pattern": "LEARNING_RECOVERY",
+              "source": "aber gut ... nächsten Mal"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S11",
+    "topic": "Teamkonflikt",
+    "written": {
+      "features": {
+        "token_count": 11,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "CHOICE_LANGUAGE",
+          "dims": {
+            "Freier Wille": 20,
+            "Wirksamkeit": 16
+          },
+          "confidence": 0.88,
+          "source": "ich möchte"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 58.7,
+          "confidence": 0.88,
+          "mass": 14.08,
+          "trace": [
+            {
+              "value": 16.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20.0,
+              "confidence": 0.88,
+              "pattern": "CHOICE_LANGUAGE",
+              "source": "ich möchte"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 18,
+        "filler_count": 1,
+        "generalizer_count": 3,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "HOPELESSNESS",
+          "dims": {
+            "Wirksamkeit": -18,
+            "Offenheit": -16
+          },
+          "confidence": 0.9,
+          "source": "bringt das alles nichts"
+        },
+        {
+          "pattern": "GENERALIZATION",
+          "dims": {
+            "Offenheit": -20,
+            "Wirksamkeit": -15
+          },
+          "confidence": 0.84,
+          "source": "generalizers"
+        },
+        {
+          "pattern": "RELATIONAL_DISCONNECTION",
+          "dims": {
+            "Verbindung": -22,
+            "Wertschätzung": -10
+          },
+          "confidence": 0.84,
+          "source": "du verstehst mich nicht"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 33.1,
+          "confidence": 0.98,
+          "mass": -28.08,
+          "trace": [
+            {
+              "value": -18,
+              "confidence": 0.88,
+              "pattern": "HOPELESSNESS",
+              "source": "bringt das alles nichts"
+            },
+            {
+              "value": -15.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        },
+        "Verbindung": {
+          "score": 38.9,
+          "confidence": 0.82,
+          "mass": -18.02,
+          "trace": [
+            {
+              "value": -22,
+              "confidence": 0.82,
+              "pattern": "RELATIONAL_DISCONNECTION",
+              "source": "du verstehst mich nicht"
+            }
+          ]
+        },
+        "Wertschätzung": {
+          "score": 44.9,
+          "confidence": 0.82,
+          "mass": -8.19,
+          "trace": [
+            {
+              "value": -10,
+              "confidence": 0.82,
+              "pattern": "RELATIONAL_DISCONNECTION",
+              "source": "du verstehst mich nicht"
+            }
+          ]
+        },
+        "Klarheit": null,
+        "Freier Wille": null,
+        "Offenheit": {
+          "score": 31.9,
+          "confidence": 0.98,
+          "mass": -30.42,
+          "trace": [
+            {
+              "value": -16,
+              "confidence": 0.88,
+              "pattern": "HOPELESSNESS",
+              "source": "bringt das alles nichts"
+            },
+            {
+              "value": -20.0,
+              "confidence": 0.82,
+              "pattern": "GENERALIZATION",
+              "source": "generalizers"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "S12",
+    "topic": "Eigene Entscheidung",
+    "written": {
+      "features": {
+        "token_count": 8,
+        "filler_count": 0,
+        "generalizer_count": 0,
+        "modal_count": 0,
+        "repeated_tokens": {},
+        "self_corrections": 0,
+        "fragments": 0
+      },
+      "filler_confidence_factor": 1.0,
+      "repetition_factor": 1.0,
+      "hits": [
+        {
+          "pattern": "CLEAR_DECISION",
+          "dims": {
+            "Freier Wille": 24,
+            "Wirksamkeit": 20,
+            "Klarheit": 20
+          },
+          "confidence": 0.88,
+          "source": "ich habe entschieden"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20,
+              "confidence": 0.88,
+              "pattern": "CLEAR_DECISION",
+              "source": "ich habe entschieden"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": {
+          "score": 60.8,
+          "confidence": 0.88,
+          "mass": 17.6,
+          "trace": [
+            {
+              "value": 20,
+              "confidence": 0.88,
+              "pattern": "CLEAR_DECISION",
+              "source": "ich habe entschieden"
+            }
+          ]
+        },
+        "Freier Wille": {
+          "score": 62.9,
+          "confidence": 0.88,
+          "mass": 21.12,
+          "trace": [
+            {
+              "value": 24,
+              "confidence": 0.88,
+              "pattern": "CLEAR_DECISION",
+              "source": "ich habe entschieden"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    },
+    "spoken": {
+      "features": {
+        "token_count": 16,
+        "filler_count": 1,
+        "generalizer_count": 0,
+        "modal_count": 1,
+        "repeated_tokens": {
+          "ich": 3
+        },
+        "self_corrections": 0,
+        "fragments": 1
+      },
+      "filler_confidence_factor": 0.97,
+      "repetition_factor": 1.14,
+      "hits": [
+        {
+          "pattern": "EXTERNAL_EXPECTATION",
+          "dims": {
+            "Freier Wille": -15,
+            "Wirksamkeit": -5
+          },
+          "confidence": 0.76,
+          "source": "ich soll"
+        }
+      ],
+      "dimensions": {
+        "Wirksamkeit": {
+          "score": 47.7,
+          "confidence": 0.74,
+          "mass": -3.71,
+          "trace": [
+            {
+              "value": -5,
+              "confidence": 0.74,
+              "pattern": "EXTERNAL_EXPECTATION",
+              "source": "ich soll"
+            }
+          ]
+        },
+        "Verbindung": null,
+        "Wertschätzung": null,
+        "Klarheit": null,
+        "Freier Wille": {
+          "score": 43.1,
+          "confidence": 0.74,
+          "mass": -11.12,
+          "trace": [
+            {
+              "value": -15,
+              "confidence": 0.74,
+              "pattern": "EXTERNAL_EXPECTATION",
+              "source": "ich soll"
+            }
+          ]
+        },
+        "Offenheit": null
+      }
+    }
+  }
+]

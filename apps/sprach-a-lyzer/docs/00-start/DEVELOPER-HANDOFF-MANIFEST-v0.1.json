@@ -1,0 +1,31 @@
+{
+  "project": "Sprachkompass",
+  "handoff_version": "0.1",
+  "reference_engine": "0.4.1",
+  "path_base": "apps/sprach-a-lyzer",
+  "documents": [
+    "docs/00-start/START-HERE.md",
+    "docs/00-start/DEVELOPER-HANDOFF-v0.1.md",
+    "docs/30-engine/spiritual-language-analyzer_reference-engine_v0.4.md",
+    "docs/40-golden/spiritual-language-analyzer_golden-gap-report_v0.4.1.md",
+    "data/golden/spiritual-language-analyzer_reference-simulation_v0.4.1.json",
+    "docs/10-product/sprachkompass_spoken-dictation-mobile-profile_v0.1.md",
+    "docs/40-golden/sprachkompass_spoken-everyday-corpus_v0.1.md",
+    "docs/40-golden/sprachkompass_spoken-language-resolver-simulation_v0.1.md"
+  ],
+  "first_vertical_slice_cases": [
+    "Ich muss das heute unbedingt noch schaffen.",
+    "Du musst sofort das Gebäude verlassen!",
+    "Der Eintritt ist frei.",
+    "Er soll sehr erfolgreich sein.",
+    "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+    "Hast du Geld?"
+  ],
+  "hard_guardrails": [
+    "missing_evidence_is_not_50",
+    "no_semantic_homophone_inheritance",
+    "no_person_diagnosis",
+    "no_employee_ranking",
+    "corporate_ui_never_falls_back_to_canonical_labels"
+  ]
+}

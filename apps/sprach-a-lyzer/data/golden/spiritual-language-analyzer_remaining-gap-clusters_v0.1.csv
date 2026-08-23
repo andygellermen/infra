@@ -1,0 +1,65 @@
+﻿case,dimension,target,target_range,actual,confidence,status,cause,secondary
+G01,Wirksamkeit,mid,40–70,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G01,Klarheit,high,70–100,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G04,Offenheit,low,0–40,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G05,Wertschätzung,neutral_high,45–80,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G06,Klarheit,mid,40–70,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G07,Wertschätzung,neutral,45–55,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G11,Freier Wille,low,0–40,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G11,Wertschätzung,low_mid,25–55,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G11,Wirksamkeit,low_mid,25–55,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G11,Offenheit,low,0–40,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G17,Wirksamkeit,very_low,0–25,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G17,Freier Wille,low,0–40,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G17,Offenheit,low,0–40,,,MISSING,A1 Assessability zu streng / Evidenz zu dünn,Assessability gate
+G02,Klarheit,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G02,Freier Wille,mid,40–70,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G02,Wirksamkeit,mid_high,55–85,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G02,Offenheit,mid,40–70,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G12,Freier Wille,mid,40–70,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G12,Klarheit,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G13,Verbindung,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G13,Freier Wille,high_neutral,50–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G14,Offenheit,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G14,Verbindung,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G14,Wertschätzung,high,70–100,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G19,Wertschätzung,neutral,45–55,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G19,Offenheit,neutral,45–55,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G25,Freier Wille,neutral,45–55,,,MISSING,R3 Sense-/Pragmatik-Resolver zu flach,"Sense selection, Pragmatic function"
+G03,Klarheit,very_high,85–100,74.8,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G04,Klarheit,high,70–100,66.8,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G05,Klarheit,high,70–100,68.6,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G15,Klarheit,high,70–100,68.2,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G19,Klarheit,high,70–100,67.2,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G20,Klarheit,high,70–100,68.2,0.98,TOO_LOW,C2 Klarheitsbeitrag zu schwach,Structured clarity
+G03,Wirksamkeit,high,70–100,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G03,Freier Wille,high_neutral,50–100,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G28,Freier Wille,low,0–40,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G28,Verbindung,low_mid,25–55,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G28,Wertschätzung,low_mid,25–55,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G28,Klarheit,high,70–100,,,MISSING,R4 Kontext-/Target-/Expectation-Auflösung fehlt,"Context, TargetType/ExpectationSource"
+G04,Wertschätzung,very_low,0–25,30.2,0.88,TOO_HIGH,C5 Belastender Contribution zu stark,Negative cap/calibration
+G20,Wertschätzung,very_low,0–25,30.2,0.88,TOO_HIGH,C5 Belastender Contribution zu stark,Negative cap/calibration
+G20,Verbindung,very_low,0–25,32.1,0.88,TOO_HIGH,C5 Belastender Contribution zu stark,Negative cap/calibration
+G07,Wirksamkeit,high,70–100,69.8,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G07,Klarheit,very_high,85–100,79.1,1.0,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G13,Offenheit,high,70–100,61.9,0.88,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G13,Klarheit,high,70–100,65.7,0.98,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G14,Freier Wille,high,70–100,62.9,0.88,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G16,Offenheit,high,70–100,66.4,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G18,Verbindung,high,70–100,64.1,1.0,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G27,Freier Wille,high,70–100,56.6,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G27,Offenheit,very_high,85–100,71.6,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G27,Verbindung,high,70–100,65.9,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G27,Wertschätzung,high,70–100,56.6,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G29,Wirksamkeit,high,70–100,66.3,0.99,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G29,Klarheit,high,70–100,69.8,1.0,TOO_LOW,C1 Positive Contribution zu schwach,Positive Pattern strength
+G09,Verbindung,low_mid,25–55,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G09,Wirksamkeit,low,0–40,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G09,Klarheit,mid,40–70,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G10,Klarheit,high,70–100,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G10,Offenheit,high,70–100,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G10,Verbindung,mid_high,55–85,,,MISSING,R2 Proposition-/Discourse-Komposition fehlt,"Cross-proposition pattern, Discourse relation"
+G30,Klarheit,mid,40–70,,,MISSING,R1 Ambiguitäts-/Sense-Resolver fehlt,"AmbiguityProfile, Sense confidence"
+G30,Freier Wille,mid,40–70,,,MISSING,R1 Ambiguitäts-/Sense-Resolver fehlt,"AmbiguityProfile, Sense confidence"
+G30,Offenheit,mid_high,55–85,,,MISSING,R1 Ambiguitäts-/Sense-Resolver fehlt,"AmbiguityProfile, Sense confidence"

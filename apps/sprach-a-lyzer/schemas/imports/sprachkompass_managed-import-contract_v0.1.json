@@ -1,0 +1,55 @@
+{
+  "spec_version": "0.1",
+  "preset_default_name_pattern": "{OPERATION} · {DD.MM.YYYY} · {HH:mm}",
+  "operation_types": [
+    "IMPORT",
+    "UPDATE",
+    "VALIDATE_ONLY",
+    "SYNC_LATER"
+  ],
+  "batch_statuses": [
+    "UPLOADED",
+    "PARSED",
+    "MAPPED",
+    "MATCHED",
+    "VALIDATED",
+    "READY",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "ROLLED_BACK",
+    "CANCELLED"
+  ],
+  "row_statuses": [
+    "NEW",
+    "UNCHANGED",
+    "CHANGED",
+    "CONFLICT",
+    "INVALID",
+    "SKIPPED",
+    "REFERENCE_MISSING"
+  ],
+  "match_confidence": [
+    "EXACT",
+    "PROBABLE",
+    "AMBIGUOUS",
+    "NONE"
+  ],
+  "required_mvp_features": [
+    "xlsx_upload",
+    "csv_upload",
+    "json_upload",
+    "field_mapping",
+    "mapping_profiles",
+    "natural_key_matching",
+    "diff_preview",
+    "conflict_resolution",
+    "validate_only",
+    "transactional_commit",
+    "import_history",
+    "presets",
+    "preset_versioning",
+    "golden_dry_run",
+    "audit_log"
+  ]
+}

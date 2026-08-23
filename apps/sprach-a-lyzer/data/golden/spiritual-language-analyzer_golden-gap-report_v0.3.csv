@@ -1,0 +1,95 @@
+﻿case,dimension,target,target_range,actual,confidence,status
+G01,Wirksamkeit,mid,40–70,,,MISSING
+G01,Klarheit,high,70–100,,,MISSING
+G01,Freier Wille,low,0–40,34.1,0.99,PASS
+G01,Offenheit,low_mid,25–55,42.4,0.99,PASS
+G01,Verbindung,na,,,,PASS
+G01,Wertschätzung,na,,,,PASS
+G02,Klarheit,high,70–100,,,MISSING
+G02,Freier Wille,mid,40–70,,,MISSING
+G02,Wirksamkeit,mid_high,55–85,,,MISSING
+G02,Offenheit,mid,40–70,,,MISSING
+G03,Klarheit,very_high,85–100,74.8,0.98,TOO_LOW
+G03,Wirksamkeit,high,70–100,,,MISSING
+G03,Freier Wille,high_neutral,50–100,,,MISSING
+G04,Wertschätzung,very_low,0–25,30.2,0.88,TOO_HIGH
+G04,Wirksamkeit,low,0–40,36.1,0.88,PASS
+G04,Offenheit,low,0–40,,,MISSING
+G04,Klarheit,high,70–100,66.8,0.98,TOO_LOW
+G05,Klarheit,high,70–100,68.6,0.98,TOO_LOW
+G05,Wertschätzung,neutral_high,45–80,,,MISSING
+G06,Wertschätzung,low,0–40,30.2,0.88,PASS
+G06,Verbindung,low,0–40,32.1,0.88,PASS
+G06,Offenheit,low,0–40,35.1,0.99,PASS
+G06,Klarheit,mid,40–70,,,MISSING
+G07,Wirksamkeit,high,70–100,69.8,0.99,TOO_LOW
+G07,Klarheit,very_high,85–100,79.1,1.0,TOO_LOW
+G07,Freier Wille,high,70–100,75.0,0.99,PASS
+G07,Wertschätzung,neutral,45–55,,,MISSING
+G08,Verbindung,high,70–100,72.9,0.99,PASS
+G08,Wertschätzung,high,70–100,72.9,1.0,PASS
+G08,Klarheit,high,70–100,85.3,1.0,PASS
+G08,Freier Wille,high,70–100,73.8,0.99,PASS
+G08,Offenheit,mid,40–70,56.7,0.99,PASS
+G09,Offenheit,low,0–40,34.1,0.99,PASS
+G09,Verbindung,low_mid,25–55,,,MISSING
+G09,Wirksamkeit,low,0–40,,,MISSING
+G09,Klarheit,mid,40–70,,,MISSING
+G10,Klarheit,high,70–100,,,MISSING
+G10,Offenheit,high,70–100,,,MISSING
+G10,Verbindung,mid_high,55–85,,,MISSING
+G11,Freier Wille,low,0–40,,,MISSING
+G11,Wertschätzung,low_mid,25–55,,,MISSING
+G11,Wirksamkeit,low_mid,25–55,,,MISSING
+G11,Offenheit,low,0–40,,,MISSING
+G12,Freier Wille,mid,40–70,,,MISSING
+G12,Klarheit,high,70–100,,,MISSING
+G13,Verbindung,high,70–100,,,MISSING
+G13,Offenheit,high,70–100,61.9,0.88,TOO_LOW
+G13,Freier Wille,high_neutral,50–100,,,MISSING
+G13,Klarheit,high,70–100,65.7,0.98,TOO_LOW
+G14,Freier Wille,high,70–100,62.9,0.88,TOO_LOW
+G14,Offenheit,high,70–100,,,MISSING
+G14,Verbindung,high,70–100,,,MISSING
+G14,Wertschätzung,high,70–100,,,MISSING
+G15,Freier Wille,low,0–40,37.1,0.88,PASS
+G15,Klarheit,high,70–100,68.2,0.98,TOO_LOW
+G15,Verbindung,na,,,,PASS
+G15,Wertschätzung,na,,,,PASS
+G16,Wirksamkeit,high,70–100,76.4,0.99,PASS
+G16,Freier Wille,high,70–100,75.5,0.99,PASS
+G16,Offenheit,high,70–100,66.4,0.99,TOO_LOW
+G16,Klarheit,high,70–100,70.6,1.0,PASS
+G17,Wirksamkeit,very_low,0–25,,,MISSING
+G17,Freier Wille,low,0–40,,,MISSING
+G17,Offenheit,low,0–40,,,MISSING
+G18,Offenheit,high,70–100,82.6,1.0,PASS
+G18,Wirksamkeit,high,70–100,75.4,1.0,PASS
+G18,Verbindung,high,70–100,64.1,1.0,TOO_LOW
+G18,Klarheit,high,70–100,72.3,1.0,PASS
+G19,Klarheit,high,70–100,67.2,0.98,TOO_LOW
+G19,Wertschätzung,neutral,45–55,,,MISSING
+G19,Offenheit,neutral,45–55,,,MISSING
+G20,Wertschätzung,very_low,0–25,30.2,0.88,TOO_HIGH
+G20,Verbindung,very_low,0–25,32.1,0.88,TOO_HIGH
+G20,Klarheit,high,70–100,68.2,0.98,TOO_LOW
+G21,Offenheit,high,70–100,82.6,1.0,PASS
+G21,Wirksamkeit,high,70–100,75.4,1.0,PASS
+G21,Verbindung,mid_high,55–85,64.1,1.0,PASS
+G21,Klarheit,high,70–100,72.9,1.0,PASS
+G25,Freier Wille,neutral,45–55,,,MISSING
+G26,Freier Wille,na,,,,PASS
+G27,Freier Wille,high,70–100,56.6,0.99,TOO_LOW
+G27,Offenheit,very_high,85–100,71.6,0.99,TOO_LOW
+G27,Verbindung,high,70–100,65.9,0.99,TOO_LOW
+G27,Wertschätzung,high,70–100,56.6,0.99,TOO_LOW
+G28,Freier Wille,low,0–40,,,MISSING
+G28,Verbindung,low_mid,25–55,,,MISSING
+G28,Wertschätzung,low_mid,25–55,,,MISSING
+G28,Klarheit,high,70–100,,,MISSING
+G29,Wirksamkeit,high,70–100,66.3,0.99,TOO_LOW
+G29,Offenheit,high,70–100,73.7,0.99,PASS
+G29,Klarheit,high,70–100,69.8,1.0,TOO_LOW
+G30,Klarheit,mid,40–70,,,MISSING
+G30,Freier Wille,mid,40–70,,,MISSING
+G30,Offenheit,mid_high,55–85,,,MISSING
