@@ -11,6 +11,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 3. [Developer Handoff](docs/00-start/DEVELOPER-HANDOFF-v0.1.md)
 4. [Roadmap](docs/00-start/ROADMAP.md)
 5. [Documentation Manifest](docs/00-start/DOCUMENTATION-MANIFEST.md)
+6. [Implementation Baseline v0.1](docs/00-start/IMPLEMENTATION-BASELINE-v0.1.md)
 
 ## Repository-Struktur
 
@@ -46,8 +47,25 @@ schemas/
   `schemas/` angelegt.
 - Bestehende Versionen werden nicht überschrieben oder gelöscht.
 
-## Noch vor der fachlichen Implementierung
+## Fachliche Kompatibilität
 
-Die in [CODY-HANDOFF](docs/00-start/CODY-HANDOFF.md) festgehaltenen Starttickets
-bleiben bestehen. Insbesondere wird die fachliche Migration von `FREE_WILL` zu
-`VOLITION` separat und testbar durchgeführt.
+Neue Verträge und der Go-Core verwenden die kanonische Dimension `VOLITION`.
+Ältere, versionierte Fachdaten mit `FREE_WILL` bleiben unverändert und werden
+an Importgrenzen testbar auf `VOLITION` abgebildet.
+
+## Ausführbarer Vertical Slice
+
+Der erste Go-Core implementiert die sechs Acceptance Cases aus `START-HERE`
+mit Sense-Auflösung, Pattern-Erkennung, Assessability und Contribution Trace.
+
+```bash
+go test ./...
+
+go run ./cmd/analyze \
+  -context SELF_TALK \
+  -text 'Ich muss das heute unbedingt noch schaffen.'
+```
+
+Der maschinenlesbare Ergebnisvertrag liegt unter
+`schemas/analysis/sprach-a-lyzer_analysis-result_v0.1.json`, die Golden Suite
+unter `data/golden/sprach-a-lyzer_vertical-slice_v0.1.json`.

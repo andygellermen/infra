@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/analysis-result-v0.1.json",
+  "title": "Sprach-A-Lyzer Analysis Result v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text", "context", "input_mode", "propositions", "resolved_senses",
+    "patterns", "dimensions", "contribution_trace", "reflection_question",
+    "alternatives", "resonance_hints", "notes"
+  ],
+  "properties": {
+    "text": {"type": "string", "minLength": 1},
+    "context": {"type": "string", "minLength": 1},
+    "input_mode": {"const": "TEXT"},
+    "propositions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/proposition"}},
+    "resolved_senses": {"type": "array", "items": {"$ref": "#/$defs/resolvedSense"}},
+    "patterns": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+      "properties": {
+        "AGENCY": {"$ref": "#/$defs/dimensionResult"},
+        "CONNECTION": {"$ref": "#/$defs/dimensionResult"},
+        "APPRECIATION": {"$ref": "#/$defs/dimensionResult"},
+        "CLARITY": {"$ref": "#/$defs/dimensionResult"},
+        "VOLITION": {"$ref": "#/$defs/dimensionResult"},
+        "OPENNESS": {"$ref": "#/$defs/dimensionResult"}
+      }
+    },
+    "contribution_trace": {"type": "array", "items": {"$ref": "#/$defs/contribution"}},
+    "reflection_question": {"type": ["string", "null"]},
+    "alternatives": {"type": "array", "items": {"type": "string"}},
+    "resonance_hints": {"type": "array", "items": {"$ref": "#/$defs/resonanceHint"}},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "dimensionID": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+    "proposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^P[0-9]+$"},
+        "text": {"type": "string", "minLength": 1},
+        "relation": {"type": "string"}
+      }
+    },
+    "resolvedSense": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lexeme", "sense", "confidence", "reason"],
+      "properties": {
+        "lexeme": {"type": "string"},
+        "sense": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "reason": {"type": "string"}
+      }
+    },
+    "dimensionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "score", "confidence", "assessability"],
+      "properties": {
+        "state": {"enum": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE", "STRONG"]},
+        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "assessability": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "evidence", "dimension", "delta", "reason"],
+      "properties": {
+        "rule_id": {"type": "string"},
+        "evidence": {"type": "string"},
+        "dimension": {"$ref": "#/$defs/dimensionID"},
+        "delta": {"type": "number"},
+        "reason": {"type": "string"}
+      }
+    },
+    "resonanceHint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "tokens", "semantic_score", "message"],
+      "properties": {
+        "kind": {"type": "string"},
+        "tokens": {"type": "array", "items": {"type": "string"}},
+        "semantic_score": {"type": "boolean"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

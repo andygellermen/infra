@@ -1,0 +1,33 @@
+name: Sprach-A-Lyzer
+
+on:
+  push:
+    paths:
+      - "apps/sprach-a-lyzer/**"
+      - ".github/workflows/sprach-a-lyzer.yml"
+  pull_request:
+    paths:
+      - "apps/sprach-a-lyzer/**"
+      - ".github/workflows/sprach-a-lyzer.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/sprach-a-lyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/sprach-a-lyzer/go.mod
+          cache: false
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...

@@ -1,0 +1,118 @@
+{
+  "version": "0.1",
+  "canonical_dimension_ids": [
+    "AGENCY",
+    "CONNECTION",
+    "APPRECIATION",
+    "CLARITY",
+    "VOLITION",
+    "OPENNESS"
+  ],
+  "cases": [
+    {
+      "id": "VS01_INTERNAL_PRESSURE",
+      "request": {
+        "text": "Ich muss das heute unbedingt noch schaffen.",
+        "context": "SELF_TALK"
+      },
+      "expected": {
+        "senses": ["INTERNAL_PRESSURE"],
+        "patterns": ["INTERNAL_PRESSURE", "URGENCY"],
+        "scores": {"VOLITION": 34.4, "OPENNESS": 42.0, "CLARITY": 57.7},
+        "unassessable": ["AGENCY", "CONNECTION", "APPRECIATION"],
+        "minimum_trace_entries": 5,
+        "reflection_question": true,
+        "minimum_alternatives": 2
+      }
+    },
+    {
+      "id": "VS02_SAFETY_DIRECTIVE",
+      "request": {
+        "text": "Du musst sofort das Gebäude verlassen!",
+        "context": "SAFETY"
+      },
+      "expected": {
+        "senses": ["SAFETY_NECESSITY"],
+        "patterns": ["SAFETY_DIRECTIVE", "URGENCY"],
+        "scores": {"AGENCY": 59.6, "CLARITY": 72.3},
+        "unassessable": ["CONNECTION", "APPRECIATION", "VOLITION", "OPENNESS"],
+        "minimum_trace_entries": 2,
+        "reflection_question": false,
+        "minimum_alternatives": 0
+      }
+    },
+    {
+      "id": "VS03_FREE_OF_CHARGE",
+      "request": {
+        "text": "Der Eintritt ist frei.",
+        "context": "PUBLIC_INFORMATION"
+      },
+      "expected": {
+        "senses": ["FREE_OF_CHARGE"],
+        "patterns": [],
+        "scores": {},
+        "unassessable": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+        "minimum_trace_entries": 0,
+        "reflection_question": false,
+        "minimum_alternatives": 0
+      }
+    },
+    {
+      "id": "VS04_REPORTED_CLAIM",
+      "request": {
+        "text": "Er soll sehr erfolgreich sein.",
+        "context": "PRIVATE_CONVERSATION"
+      },
+      "expected": {
+        "senses": ["REPORTED_CLAIM"],
+        "patterns": ["REPORTED_CLAIM"],
+        "scores": {},
+        "unassessable": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+        "minimum_trace_entries": 0,
+        "reflection_question": false,
+        "minimum_alternatives": 0
+      }
+    },
+    {
+      "id": "VS05_RESPECTFUL_BOUNDARY",
+      "request": {
+        "text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+        "context": "PRIVATE_CONVERSATION"
+      },
+      "expected": {
+        "senses": [],
+        "patterns": ["ACKNOWLEDGEMENT", "CLEAR_BOUNDARY", "RESPECTFUL_BOUNDARY"],
+        "scores": {
+          "AGENCY": 56.7,
+          "CONNECTION": 70.8,
+          "APPRECIATION": 70.7,
+          "CLARITY": 70.8,
+          "VOLITION": 70.2,
+          "OPENNESS": 53.9
+        },
+        "unassessable": [],
+        "minimum_trace_entries": 6,
+        "reflection_question": true,
+        "minimum_alternatives": 2
+      }
+    },
+    {
+      "id": "VS06_HOMOPHONE_GUARD",
+      "request": {
+        "text": "Hast du Geld?",
+        "context": "MODERATION"
+      },
+      "expected": {
+        "senses": [],
+        "patterns": [],
+        "scores": {},
+        "unassessable": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+        "minimum_trace_entries": 0,
+        "reflection_question": false,
+        "minimum_alternatives": 0,
+        "resonance_hint": "HOMOPHONE",
+        "semantic_score_unchanged": true
+      }
+    }
+  ]
+}
