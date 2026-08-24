@@ -9,14 +9,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/engine"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
 )
 
 const maxTextRunes = 10_000
 
 type Analyzer interface {
-	Analyze(domain.AnalysisRequest) (domain.AnalysisResult, error)
+	Analyze(analysis.Request) (analysis.Result, error)
 }
 
 type Pinger interface {
@@ -61,7 +60,7 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	decoder.DisallowUnknownFields()
 
-	var input domain.AnalysisRequest
+	var input analysis.Request
 	if err := decoder.Decode(&input); err != nil {
 		status := http.StatusBadRequest
 		if strings.Contains(err.Error(), "request body too large") {
@@ -82,7 +81,7 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 
 	result, err := a.analyzer.Analyze(input)
 	if err != nil {
-		if errors.Is(err, engine.ErrEmptyText) {
+		if errors.Is(err, analysis.ErrEmptyText) {
 			writeError(response, http.StatusUnprocessableEntity, "EMPTY_TEXT", "Der Analysetext darf nicht leer sein.")
 			return
 		}
@@ -93,7 +92,7 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 	writeJSON(response, http.StatusOK, result)
 }
 
-func applyRequestDefaults(input *domain.AnalysisRequest) {
+func applyRequestDefaults(input *analysis.Request) {
 	input.Locale = strings.TrimSpace(input.Locale)
 	if input.Locale == "" {
 		input.Locale = "de-DE"
@@ -112,7 +111,7 @@ func applyRequestDefaults(input *domain.AnalysisRequest) {
 	}
 }
 
-func validateRequest(input domain.AnalysisRequest) (string, string) {
+func validateRequest(input analysis.Request) (string, string) {
 	if strings.TrimSpace(input.Text) == "" {
 		return "EMPTY_TEXT", "Der Analysetext darf nicht leer sein."
 	}

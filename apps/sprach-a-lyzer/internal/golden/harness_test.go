@@ -6,32 +6,31 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/engine"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
 )
 
 type suite struct {
-	Version               string               `json:"version"`
-	CanonicalDimensionIDs []domain.DimensionID `json:"canonical_dimension_ids"`
-	Cases                 []goldenCase         `json:"cases"`
+	Version               string                 `json:"version"`
+	CanonicalDimensionIDs []analysis.DimensionID `json:"canonical_dimension_ids"`
+	Cases                 []goldenCase           `json:"cases"`
 }
 
 type goldenCase struct {
-	ID       string                 `json:"id"`
-	Request  domain.AnalysisRequest `json:"request"`
-	Expected expected               `json:"expected"`
+	ID       string           `json:"id"`
+	Request  analysis.Request `json:"request"`
+	Expected expected         `json:"expected"`
 }
 
 type expected struct {
-	Senses                 []string                       `json:"senses"`
-	Patterns               []string                       `json:"patterns"`
-	Scores                 map[domain.DimensionID]float64 `json:"scores"`
-	Unassessable           []domain.DimensionID           `json:"unassessable"`
-	MinimumTraceEntries    int                            `json:"minimum_trace_entries"`
-	ReflectionQuestion     bool                           `json:"reflection_question"`
-	MinimumAlternatives    int                            `json:"minimum_alternatives"`
-	ResonanceHint          string                         `json:"resonance_hint"`
-	SemanticScoreUnchanged bool                           `json:"semantic_score_unchanged"`
+	Senses                 []string                         `json:"senses"`
+	Patterns               []string                         `json:"patterns"`
+	Scores                 map[analysis.DimensionID]float64 `json:"scores"`
+	Unassessable           []analysis.DimensionID           `json:"unassessable"`
+	MinimumTraceEntries    int                              `json:"minimum_trace_entries"`
+	ReflectionQuestion     bool                             `json:"reflection_question"`
+	MinimumAlternatives    int                              `json:"minimum_alternatives"`
+	ResonanceHint          string                           `json:"resonance_hint"`
+	SemanticScoreUnchanged bool                             `json:"semantic_score_unchanged"`
 }
 
 func TestVerticalSlice(t *testing.T) {
@@ -46,14 +45,14 @@ func TestVerticalSlice(t *testing.T) {
 	if err := json.Unmarshal(raw, &testSuite); err != nil {
 		t.Fatalf("decode golden suite: %v", err)
 	}
-	if !slices.Equal(testSuite.CanonicalDimensionIDs, domain.Dimensions) {
-		t.Fatalf("golden dimension IDs %v differ from core IDs %v", testSuite.CanonicalDimensionIDs, domain.Dimensions)
+	if !slices.Equal(testSuite.CanonicalDimensionIDs, analysis.Dimensions) {
+		t.Fatalf("golden dimension IDs %v differ from core IDs %v", testSuite.CanonicalDimensionIDs, analysis.Dimensions)
 	}
 	if len(testSuite.Cases) != 6 {
 		t.Fatalf("golden suite contains %d cases; want 6", len(testSuite.Cases))
 	}
 
-	analyzer := engine.New()
+	analyzer := analysis.NewDefault()
 	for _, testCase := range testSuite.Cases {
 		t.Run(testCase.ID, func(t *testing.T) {
 			result, err := analyzer.Analyze(testCase.Request)
@@ -79,7 +78,7 @@ func TestVerticalSlice(t *testing.T) {
 			}
 			for _, dimension := range testCase.Expected.Unassessable {
 				got := result.Dimensions[dimension]
-				if got.State != domain.NotAssessable || got.Score != nil {
+				if got.State != analysis.NotAssessable || got.Score != nil {
 					t.Errorf("%s = %+v; want NOT_ASSESSABLE with nil score", dimension, got)
 				}
 			}
@@ -104,7 +103,7 @@ func TestVerticalSlice(t *testing.T) {
 	}
 }
 
-func hasSense(result domain.AnalysisResult, want string) bool {
+func hasSense(result analysis.Result, want string) bool {
 	for _, sense := range result.ResolvedSenses {
 		if sense.Sense == want {
 			return true

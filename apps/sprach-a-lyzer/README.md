@@ -13,6 +13,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 5. [Documentation Manifest](docs/00-start/DOCUMENTATION-MANIFEST.md)
 6. [Implementation Baseline v0.1](docs/00-start/IMPLEMENTATION-BASELINE-v0.1.md)
 7. [Foundation v0.0](docs/00-start/FOUNDATION-v0.0.md)
+8. [Modular Monolith](docs/70-architecture/sprach-a-lyzer_modular-monolith_v0.1.md)
 
 ## Repository-Struktur
 
@@ -94,3 +95,20 @@ curl --fail-with-body \
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
 Seed-Daten und Betriebsdetails sind in `docs/00-start/FOUNDATION-v0.0.md`
 dokumentiert.
+
+## Modulstruktur
+
+Der Server bleibt ein gemeinsam deploybarer Go-Prozess. Die fachlichen
+Bereiche sind dennoch durch Fassaden und Repository-Ports getrennt:
+
+```text
+internal/app/           Composition Root
+internal/analysis/      öffentliche Analyse-Fassade
+internal/knowledge/     kanonischer Wissensbestand
+internal/rules/         Rule Sets und Regelkatalog
+internal/presentation/  Profile, Labels und sichere Fallbacks
+internal/httpapp/       HTTP-Adapter
+internal/db/            PostgreSQL-Adapter
+```
+
+Ein automatischer Architekturtest schützt diese Abhängigkeitsrichtung.

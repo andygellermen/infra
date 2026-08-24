@@ -1,4 +1,4 @@
-package db
+package db_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/app"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db/migrations"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/seed"
 )
@@ -17,13 +19,13 @@ func TestPostgresFoundation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	database, err := Open(ctx, databaseURL)
+	database, err := db.Open(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("Open() error: %v", err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
 
-	migrator := NewMigrator(database, migrations.Files, ".")
+	migrator := db.NewMigrator(database, migrations.Files, ".")
 	first, err := migrator.Up(ctx)
 	if err != nil {
 		t.Fatalf("first migration run: %v", err)
@@ -68,8 +70,24 @@ func TestPostgresFoundation(t *testing.T) {
 	if !rawAnalysisTableAbsent {
 		t.Fatal("privacy-default foundation unexpectedly contains analyses table")
 	}
-	if err := NewSchemaPinger(database, RequiredSchemaVersion).PingContext(ctx); err != nil {
+	application := app.New(database)
+	if err := application.Readiness.PingContext(ctx); err != nil {
 		t.Fatalf("schema readiness: %v", err)
+	}
+	knowledgeSnapshot, err := application.Knowledge.Snapshot(ctx)
+	if err != nil || knowledgeSnapshot.Dimensions != 6 {
+		t.Fatalf("knowledge module snapshot = %+v, %v", knowledgeSnapshot, err)
+	}
+	ruleCatalogue, err := application.Rules.Active(ctx)
+	if err != nil || ruleCatalogue.Version != "0.1" || len(ruleCatalogue.Rules) != 6 {
+		t.Fatalf("rules module catalogue = %+v, %v", ruleCatalogue, err)
+	}
+	corporateBundle, err := application.Presentation.Bundle(ctx, "CORPORATE", "de-DE")
+	if err != nil {
+		t.Fatalf("presentation module bundle: %v", err)
+	}
+	if got := corporateBundle.Resolve("METRIC_WING_SCORE"); got != "Wirkungsprofil" {
+		t.Fatalf("corporate metric label = %q; want Wirkungsprofil", got)
 	}
 }
 

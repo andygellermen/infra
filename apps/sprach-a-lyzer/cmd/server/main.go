@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/app"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/config"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db"
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/engine"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/httpapp"
 )
 
@@ -31,10 +31,11 @@ func main() {
 	}
 	defer database.Close()
 
-	app := httpapp.New(engine.New(), db.NewSchemaPinger(database, db.RequiredSchemaVersion), cfg.MaxRequestBytes)
+	application := app.New(database)
+	httpAPI := httpapp.New(application.Analysis, application.Readiness, cfg.MaxRequestBytes)
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
-		Handler:      app.Handler(),
+		Handler:      httpAPI.Handler(),
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  60 * cfg.ReadTimeout,

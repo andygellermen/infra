@@ -7,6 +7,7 @@
 ## Gelieferter Unterbau
 
 - Go-Modul und deterministischer Analyse-Core
+- modularer Monolith mit expliziten Fachmodulen und zentraler Composition Root
 - PostgreSQL-Verbindung über `database/sql` und `pgx`
 - unveränderliche, eingebettete SQL-Migrationen mit SHA-256-Prüfsumme
 - transaktionale Migrationen mit PostgreSQL Advisory Lock

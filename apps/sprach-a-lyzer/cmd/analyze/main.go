@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
-	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/engine"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
 )
 
 func main() {
@@ -15,7 +14,7 @@ func main() {
 	context := flag.String("context", "UNSPECIFIED", "analysis context, for example SELF_TALK or SAFETY")
 	flag.Parse()
 
-	result, err := engine.New().Analyze(domain.AnalysisRequest{Text: *text, Context: *context, InputMode: "TEXT"})
+	result, err := analysis.NewDefault().Analyze(analysis.Request{Text: *text, Context: *context, InputMode: "TEXT"})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
