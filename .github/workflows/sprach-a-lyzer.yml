@@ -16,6 +16,22 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sprachalyzer_test
+          POSTGRES_USER: sprachalyzer
+          POSTGRES_PASSWORD: test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sprachalyzer -d sprachalyzer_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      SAL_TEST_DATABASE_URL: postgres://sprachalyzer:test-only@localhost:5432/sprachalyzer_test?sslmode=disable
     defaults:
       run:
         working-directory: apps/sprach-a-lyzer
@@ -24,7 +40,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/sprach-a-lyzer/go.mod
-          cache: false
+          cache-dependency-path: apps/sprach-a-lyzer/go.sum
       - name: Format check
         run: test -z "$(gofmt -l .)"
       - name: Vet

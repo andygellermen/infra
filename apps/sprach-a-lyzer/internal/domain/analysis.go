@@ -44,9 +44,12 @@ const (
 )
 
 type AnalysisRequest struct {
-	Text      string `json:"text"`
-	Context   string `json:"context,omitempty"`
-	InputMode string `json:"input_mode,omitempty"`
+	Text                string `json:"text"`
+	Locale              string `json:"locale,omitempty"`
+	Context             string `json:"context,omitempty"`
+	InputMode           string `json:"input_mode,omitempty"`
+	PresentationProfile string `json:"presentation_profile,omitempty"`
+	AnalysisMode        string `json:"analysis_mode,omitempty"`
 }
 
 type AnalysisResult struct {

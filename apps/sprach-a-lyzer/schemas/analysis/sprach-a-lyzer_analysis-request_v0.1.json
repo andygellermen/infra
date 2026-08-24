@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/analysis-request-v0.1.json",
+  "title": "Sprach-A-Lyzer Analysis Request v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text"],
+  "properties": {
+    "text": {"type": "string", "minLength": 1, "maxLength": 10000},
+    "locale": {"const": "de-DE", "default": "de-DE"},
+    "context": {"type": "string", "minLength": 1, "default": "UNSPECIFIED"},
+    "input_mode": {"const": "TEXT", "default": "TEXT"},
+    "presentation_profile": {"enum": ["PRIVATE", "CORPORATE"], "default": "PRIVATE"},
+    "analysis_mode": {"const": "STANDARD", "default": "STANDARD"}
+  }
+}

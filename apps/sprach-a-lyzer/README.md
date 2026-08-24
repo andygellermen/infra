@@ -12,6 +12,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 4. [Roadmap](docs/00-start/ROADMAP.md)
 5. [Documentation Manifest](docs/00-start/DOCUMENTATION-MANIFEST.md)
 6. [Implementation Baseline v0.1](docs/00-start/IMPLEMENTATION-BASELINE-v0.1.md)
+7. [Foundation v0.0](docs/00-start/FOUNDATION-v0.0.md)
 
 ## Repository-Struktur
 
@@ -69,3 +70,27 @@ go run ./cmd/analyze \
 Der maschinenlesbare Ergebnisvertrag liegt unter
 `schemas/analysis/sprach-a-lyzer_analysis-result_v0.1.json`, die Golden Suite
 unter `data/golden/sprach-a-lyzer_vertical-slice_v0.1.json`.
+
+## PostgreSQL und HTTP-API
+
+Die lokale Entwicklungsumgebung führt PostgreSQL, Migration, Seed und API in
+der korrekten Reihenfolge aus:
+
+```bash
+docker compose up --build
+```
+
+Danach:
+
+```bash
+curl --fail-with-body http://localhost:8080/health/ready
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Ich muss das heute unbedingt noch schaffen.","context":"SELF_TALK"}' \
+  http://localhost:8080/api/v1/analyze
+```
+
+Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
+Seed-Daten und Betriebsdetails sind in `docs/00-start/FOUNDATION-v0.0.md`
+dokumentiert.
