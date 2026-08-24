@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/dimension"
 )
@@ -67,14 +68,17 @@ type PresentationBundle struct {
 
 type goldenSuite struct {
 	Version               string           `json:"version"`
+	AnalysisContract      string           `json:"analysis_contract"`
+	TraceContract         string           `json:"trace_contract"`
 	CanonicalDimensionIDs []dimension.ID   `json:"canonical_dimension_ids"`
 	Cases                 []goldenTestCase `json:"cases"`
 }
 
 type goldenTestCase struct {
-	ID       string          `json:"id"`
-	Request  json.RawMessage `json:"request"`
-	Expected json.RawMessage `json:"expected"`
+	ID             string          `json:"id"`
+	Request        json.RawMessage `json:"request"`
+	Expected       json.RawMessage `json:"expected"`
+	ExpectedResult json.RawMessage `json:"expected_result"`
 }
 
 type Result struct {
@@ -155,6 +159,9 @@ func Apply(ctx context.Context, database *sql.DB, foundationReader, goldenReader
 	if err := decoder.Decode(&golden); err != nil {
 		return Result{}, fmt.Errorf("decode golden seed: %w", err)
 	}
+	if golden.Version == "" || !slices.Equal(golden.CanonicalDimensionIDs, dimension.All()) {
+		return Result{}, fmt.Errorf("golden seed must contain a version and the canonical dimension catalogue")
+	}
 
 	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
@@ -166,6 +173,16 @@ func Apply(ctx context.Context, database *sql.DB, foundationReader, goldenReader
 		return Result{}, err
 	}
 	for _, testCase := range golden.Cases {
+		if len(testCase.Expected) > 0 && len(testCase.ExpectedResult) > 0 {
+			return Result{}, fmt.Errorf("golden case %s contains two expected payloads", testCase.ID)
+		}
+		expectedPayload := testCase.ExpectedResult
+		if len(expectedPayload) == 0 {
+			expectedPayload = testCase.Expected
+		}
+		if testCase.ID == "" || len(testCase.Request) == 0 || len(expectedPayload) == 0 {
+			return Result{}, fmt.Errorf("golden case must contain id, request and expected payload")
+		}
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO golden_test_cases(case_id, suite_version, input_payload, expected_payload)
 VALUES($1, $2, $3::jsonb, $4::jsonb)
@@ -173,7 +190,7 @@ ON CONFLICT (case_id) DO UPDATE SET
   suite_version = EXCLUDED.suite_version,
   input_payload = EXCLUDED.input_payload,
   expected_payload = EXCLUDED.expected_payload,
-  updated_at = now()`, testCase.ID, golden.Version, testCase.Request, testCase.Expected); err != nil {
+  updated_at = now()`, testCase.ID, golden.Version, testCase.Request, expectedPayload); err != nil {
 			return Result{}, fmt.Errorf("upsert golden case %s: %w", testCase.ID, err)
 		}
 	}

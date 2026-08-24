@@ -15,7 +15,9 @@ permissions:
 
 jobs:
   test:
+    name: Quality and Golden Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:17-alpine
@@ -45,5 +47,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
-      - name: Test
-        run: go test ./...
+      - name: Golden vertical-slice release gate
+        run: go test ./internal/golden -run '^TestVerticalSliceGolden$' -count=1
+      - name: Test with race detector
+        run: go test -race ./...

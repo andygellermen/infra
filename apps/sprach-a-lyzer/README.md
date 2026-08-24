@@ -16,6 +16,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 8. [Modular Monolith](docs/70-architecture/sprach-a-lyzer_modular-monolith_v0.1.md)
 9. [Canonical Dimensions](docs/20-domain-model/sprach-a-lyzer_canonical-dimensions_v0.1.md)
 10. [Analyse- und Trace-Verträge](docs/20-domain-model/sprach-a-lyzer_analysis-trace-contracts_v0.1.md)
+11. [Vertical-Slice Golden Gate](docs/40-golden/sprach-a-lyzer_vertical-slice-golden_v0.2.md)
 
 ## Repository-Struktur
 
@@ -77,11 +78,16 @@ go test ./...
 go run ./cmd/analyze \
   -context SELF_TALK \
   -text 'Ich muss das heute unbedingt noch schaffen.'
+
+go run ./cmd/analyze \
+  -trace \
+  -context SELF_TALK \
+  -text 'Ich muss das heute unbedingt noch schaffen.'
 ```
 
 Die maschinenlesbaren Request-, Ergebnis- und Trace-Verträge liegen unter
 `schemas/analysis/`, die Golden Suite unter
-`data/golden/sprach-a-lyzer_vertical-slice_v0.1.json`.
+`data/golden/sprach-a-lyzer_vertical-slice_v0.2.json`.
 
 ## PostgreSQL und HTTP-API
 

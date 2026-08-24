@@ -48,7 +48,7 @@ func TestPostgresFoundation(t *testing.T) {
 		t.Fatalf("open foundation: %v", err)
 	}
 	defer foundation.Close()
-	golden, err := os.Open("../../data/golden/sprach-a-lyzer_vertical-slice_v0.1.json")
+	golden, err := os.Open("../../data/golden/sprach-a-lyzer_vertical-slice_v0.2.json")
 	if err != nil {
 		t.Fatalf("open golden suite: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestPostgresFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read legacy foundation source: %v", err)
 	}
-	legacyGolden, err := os.ReadFile("../../data/golden/sprach-a-lyzer_vertical-slice_v0.1.json")
+	legacyGolden, err := os.ReadFile("../../data/golden/sprach-a-lyzer_vertical-slice_v0.2.json")
 	if err != nil {
 		t.Fatalf("read legacy golden source: %v", err)
 	}
@@ -81,6 +81,8 @@ func TestPostgresFoundation(t *testing.T) {
 	assertCount(t, database, "dimensions", 6)
 	assertCount(t, database, "golden_test_cases", 6)
 	assertCount(t, database, "presentation_bundles", 2)
+	assertScalar(t, database, `SELECT COUNT(*) FROM golden_test_cases WHERE suite_version = '0.2'`, 6)
+	assertScalar(t, database, `SELECT COUNT(*) FROM golden_test_cases WHERE expected_payload ? 'contribution_trace'`, 6)
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'VOLITION'`, 1)
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'FREE_WILL'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE actions::text LIKE '%FREE_WILL%'`, 0)
