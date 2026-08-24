@@ -14,7 +14,9 @@ func main() {
 	context := flag.String("context", "UNSPECIFIED", "analysis context, for example SELF_TALK or SAFETY")
 	flag.Parse()
 
-	result, err := analysis.NewDefault().Analyze(analysis.Request{Text: *text, Context: *context, InputMode: "TEXT"})
+	result, err := analysis.NewDefault().Analyze(analysis.Request{
+		Text: *text, Context: analysis.Context(*context), InputMode: analysis.InputModeText,
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

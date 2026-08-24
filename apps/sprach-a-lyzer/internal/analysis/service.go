@@ -9,13 +9,36 @@ import (
 
 type Request = domain.AnalysisRequest
 type Result = domain.AnalysisResult
+type Trace = domain.AnalysisTrace
 type DimensionID = domain.DimensionID
+type DimensionResult = domain.DimensionResult
+type Proposition = domain.Proposition
+type ResolvedSense = domain.ResolvedSense
+type ContributionTraceEntry = domain.ContributionTraceEntry
+type AssessabilityTraceEntry = domain.AssessabilityTraceEntry
+type ResonanceHint = domain.ResonanceHint
+type Locale = domain.Locale
+type Context = domain.AnalysisContext
+type InputMode = domain.InputMode
+type PresentationProfile = domain.PresentationProfile
+type Mode = domain.AnalysisMode
 
 var (
 	ErrEmptyText = engine.ErrEmptyText
 )
 
 const NotAssessable = domain.NotAssessable
+
+const (
+	LocaleGerman         = domain.LocaleGerman
+	ContextUnspecified   = domain.ContextUnspecified
+	ContextSelfTalk      = domain.ContextSelfTalk
+	ContextSafety        = domain.ContextSafety
+	InputModeText        = domain.InputModeText
+	ProfilePrivate       = domain.ProfilePrivate
+	ProfileCorporate     = domain.ProfileCorporate
+	AnalysisModeStandard = domain.AnalysisModeStandard
+)
 
 func Dimensions() []DimensionID {
 	return domain.CanonicalDimensions()

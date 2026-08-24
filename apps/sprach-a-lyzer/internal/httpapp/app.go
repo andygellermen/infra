@@ -93,21 +93,21 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 }
 
 func applyRequestDefaults(input *analysis.Request) {
-	input.Locale = strings.TrimSpace(input.Locale)
+	input.Locale = analysis.Locale(strings.TrimSpace(string(input.Locale)))
 	if input.Locale == "" {
-		input.Locale = "de-DE"
+		input.Locale = analysis.LocaleGerman
 	}
-	input.InputMode = strings.ToUpper(strings.TrimSpace(input.InputMode))
+	input.InputMode = analysis.InputMode(strings.ToUpper(strings.TrimSpace(string(input.InputMode))))
 	if input.InputMode == "" {
-		input.InputMode = "TEXT"
+		input.InputMode = analysis.InputModeText
 	}
-	input.PresentationProfile = strings.ToUpper(strings.TrimSpace(input.PresentationProfile))
+	input.PresentationProfile = analysis.PresentationProfile(strings.ToUpper(strings.TrimSpace(string(input.PresentationProfile))))
 	if input.PresentationProfile == "" {
-		input.PresentationProfile = "PRIVATE"
+		input.PresentationProfile = analysis.ProfilePrivate
 	}
-	input.AnalysisMode = strings.ToUpper(strings.TrimSpace(input.AnalysisMode))
+	input.AnalysisMode = analysis.Mode(strings.ToUpper(strings.TrimSpace(string(input.AnalysisMode))))
 	if input.AnalysisMode == "" {
-		input.AnalysisMode = "STANDARD"
+		input.AnalysisMode = analysis.AnalysisModeStandard
 	}
 }
 
@@ -118,16 +118,16 @@ func validateRequest(input analysis.Request) (string, string) {
 	if !utf8.ValidString(input.Text) || utf8.RuneCountInString(input.Text) > maxTextRunes {
 		return "TEXT_TOO_LONG", "Der Analysetext darf höchstens 10.000 Zeichen enthalten."
 	}
-	if input.Locale != "de-DE" {
+	if input.Locale != analysis.LocaleGerman {
 		return "UNSUPPORTED_LOCALE", "Der erste Vertical Slice unterstützt ausschließlich de-DE."
 	}
-	if input.InputMode != "TEXT" {
+	if input.InputMode != analysis.InputModeText {
 		return "UNSUPPORTED_INPUT_MODE", "Der erste Vertical Slice unterstützt ausschließlich TEXT."
 	}
-	if input.PresentationProfile != "PRIVATE" && input.PresentationProfile != "CORPORATE" {
+	if input.PresentationProfile != analysis.ProfilePrivate && input.PresentationProfile != analysis.ProfileCorporate {
 		return "UNSUPPORTED_PRESENTATION_PROFILE", "Das Präsentationsprofil muss PRIVATE oder CORPORATE sein."
 	}
-	if input.AnalysisMode != "STANDARD" {
+	if input.AnalysisMode != analysis.AnalysisModeStandard {
 		return "UNSUPPORTED_ANALYSIS_MODE", "Der erste Vertical Slice unterstützt ausschließlich STANDARD."
 	}
 	return "", ""

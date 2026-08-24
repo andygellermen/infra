@@ -15,6 +15,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 7. [Foundation v0.0](docs/00-start/FOUNDATION-v0.0.md)
 8. [Modular Monolith](docs/70-architecture/sprach-a-lyzer_modular-monolith_v0.1.md)
 9. [Canonical Dimensions](docs/20-domain-model/sprach-a-lyzer_canonical-dimensions_v0.1.md)
+10. [Analyse- und Trace-Verträge](docs/20-domain-model/sprach-a-lyzer_analysis-trace-contracts_v0.1.md)
 
 ## Repository-Struktur
 
@@ -35,7 +36,7 @@ data/
   import-examples/   Importvorlagen und Beispiel-Batches
 
 schemas/
-  analysis/          Reserviert für Analyseverträge
+  analysis/          Versionierte Analyse- und Trace-Verträge
   questions/         Q/A-Verträge
   imports/           Importverträge
   rules/             Reserviert für Regelverträge
@@ -78,9 +79,9 @@ go run ./cmd/analyze \
   -text 'Ich muss das heute unbedingt noch schaffen.'
 ```
 
-Der maschinenlesbare Ergebnisvertrag liegt unter
-`schemas/analysis/sprach-a-lyzer_analysis-result_v0.1.json`, die Golden Suite
-unter `data/golden/sprach-a-lyzer_vertical-slice_v0.1.json`.
+Die maschinenlesbaren Request-, Ergebnis- und Trace-Verträge liegen unter
+`schemas/analysis/`, die Golden Suite unter
+`data/golden/sprach-a-lyzer_vertical-slice_v0.1.json`.
 
 ## PostgreSQL und HTTP-API
 

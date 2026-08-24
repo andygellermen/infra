@@ -19,7 +19,7 @@ func New() *Engine {
 }
 
 type evidence struct {
-	contribution domain.Contribution
+	contribution domain.ContributionTraceEntry
 	strength     float64
 }
 
@@ -29,13 +29,13 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 		return domain.AnalysisResult{}, ErrEmptyText
 	}
 
-	context := strings.ToUpper(strings.TrimSpace(request.Context))
+	context := domain.AnalysisContext(strings.ToUpper(strings.TrimSpace(string(request.Context))))
 	if context == "" {
-		context = "UNSPECIFIED"
+		context = domain.ContextUnspecified
 	}
-	inputMode := strings.ToUpper(strings.TrimSpace(request.InputMode))
+	inputMode := domain.InputMode(strings.ToUpper(strings.TrimSpace(string(request.InputMode))))
 	if inputMode == "" {
-		inputMode = "TEXT"
+		inputMode = domain.InputModeText
 	}
 
 	result := domain.AnalysisResult{
@@ -46,7 +46,7 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 		ResolvedSenses:    []domain.ResolvedSense{},
 		Patterns:          []string{},
 		Dimensions:        emptyDimensions(),
-		ContributionTrace: []domain.Contribution{},
+		ContributionTrace: []domain.ContributionTraceEntry{},
 		Alternatives:      []string{},
 		ResonanceHints:    []domain.ResonanceHint{},
 		Notes:             []string{},
@@ -97,7 +97,7 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			"Dein Anliegen ist bei mir angekommen; für mich braucht es dennoch einen anderen Weg.",
 		)
 
-	case containsMust(normalized) && context == "SAFETY":
+	case containsMust(normalized) && context == domain.ContextSafety:
 		result.ResolvedSenses = append(result.ResolvedSenses, domain.ResolvedSense{
 			Lexeme: "müssen", Sense: "SAFETY_NECESSITY", Confidence: 0.79,
 			Reason: "Der explizite Sicherheitskontext schlägt die isolierte Modalverbdeutung.",
@@ -141,7 +141,7 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 
 func item(ruleID, matched string, dimension domain.DimensionID, delta, strength float64, reason string) evidence {
 	return evidence{
-		contribution: domain.Contribution{
+		contribution: domain.ContributionTraceEntry{
 			RuleID: ruleID, Evidence: matched, Dimension: dimension, Delta: delta, Reason: reason,
 		},
 		strength: strength,
