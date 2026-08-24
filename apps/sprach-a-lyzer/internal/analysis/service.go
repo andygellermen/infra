@@ -13,10 +13,13 @@ type DimensionID = domain.DimensionID
 
 var (
 	ErrEmptyText = engine.ErrEmptyText
-	Dimensions   = domain.Dimensions
 )
 
 const NotAssessable = domain.NotAssessable
+
+func Dimensions() []DimensionID {
+	return domain.CanonicalDimensions()
+}
 
 // Core is the module-internal analysis pipeline contract. It keeps the facade
 // independently testable while the deterministic engine evolves behind it.

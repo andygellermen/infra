@@ -14,6 +14,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 6. [Implementation Baseline v0.1](docs/00-start/IMPLEMENTATION-BASELINE-v0.1.md)
 7. [Foundation v0.0](docs/00-start/FOUNDATION-v0.0.md)
 8. [Modular Monolith](docs/70-architecture/sprach-a-lyzer_modular-monolith_v0.1.md)
+9. [Canonical Dimensions](docs/20-domain-model/sprach-a-lyzer_canonical-dimensions_v0.1.md)
 
 ## Repository-Struktur
 
@@ -54,6 +55,15 @@ schemas/
 Neue Verträge und der Go-Core verwenden die kanonische Dimension `VOLITION`.
 Ältere, versionierte Fachdaten mit `FREE_WILL` bleiben unverändert und werden
 an Importgrenzen testbar auf `VOLITION` abgebildet.
+
+JSON- und CSV-Artefakte können ohne Veränderung ihrer Quelldatei geprüft und
+normalisiert werden:
+
+```bash
+go run ./cmd/normalize-dimensions \
+  -input data/seed/sprachkompass_coaching-question-pool_v0.1.json \
+  > /tmp/question-pool-canonical.json
+```
 
 ## Ausführbarer Vertical Slice
 
@@ -107,6 +117,7 @@ internal/analysis/      öffentliche Analyse-Fassade
 internal/knowledge/     kanonischer Wissensbestand
 internal/rules/         Rule Sets und Regelkatalog
 internal/presentation/  Profile, Labels und sichere Fallbacks
+internal/dimension/     kanonischer Shared Kernel und Legacy-Mapping
 internal/httpapp/       HTTP-Adapter
 internal/db/            PostgreSQL-Adapter
 ```

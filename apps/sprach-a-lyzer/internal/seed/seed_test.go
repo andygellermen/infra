@@ -38,14 +38,20 @@ func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	}
 }
 
-func TestDecodeFoundationRejectsLegacyDimensionSet(t *testing.T) {
+func TestDecodeFoundationMapsLegacyDimensionSet(t *testing.T) {
 	t.Parallel()
 
 	input := `{"version":"0.1","dimensions":[
 {"id":"AGENCY"},{"id":"CONNECTION"},{"id":"APPRECIATION"},
 {"id":"CLARITY"},{"id":"FREE_WILL"},{"id":"OPENNESS"}]}`
-	_, err := DecodeFoundation(strings.NewReader(input))
-	if err == nil {
-		t.Fatal("invalid foundation unexpectedly accepted")
+	foundation, report, err := DecodeFoundationWithReport(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("legacy foundation rejected: %v", err)
+	}
+	if foundation.Dimensions[4].ID != "VOLITION" {
+		t.Fatalf("legacy dimension decoded as %q; want VOLITION", foundation.Dimensions[4].ID)
+	}
+	if report.LegacyCount() != 1 {
+		t.Fatalf("legacy mappings = %d; want 1", report.LegacyCount())
 	}
 }

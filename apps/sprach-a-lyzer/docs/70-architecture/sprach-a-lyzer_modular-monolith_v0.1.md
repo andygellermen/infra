@@ -22,6 +22,8 @@ flowchart TD
     APP --> RULES[rules]
     APP --> PRESENTATION[presentation]
     APP --> DB[(PostgreSQL Adapter)]
+    ANALYSIS --> DIMENSION[dimension shared kernel]
+    SEED[seed/import adapter] --> DIMENSION
     ANALYSIS --> CORE[resolver / scoring core]
     KNOWLEDGE --> DB
     RULES --> DB
@@ -61,6 +63,13 @@ Bundle von privaten Begriffen isoliert.
 Server erhält daraus die Analyse-Fassade und die technische Readiness. Neue
 Module werden hier verdrahtet, nicht über globale Variablen oder versteckte
 Service-Locator.
+
+## Shared Kernel `dimension`
+
+Der kleine Shared Kernel definiert ausschließlich die sechs stabilen
+Dimensions-IDs und die Legacy-Kanonisierung `FREE_WILL → VOLITION`. Er enthält
+keine Scoring- oder Produktlogik und erzeugt daher keine fachliche Kopplung
+zwischen den Modulen.
 
 ## Technische Adapter
 

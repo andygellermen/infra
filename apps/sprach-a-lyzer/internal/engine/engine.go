@@ -172,8 +172,9 @@ func applyEvidence(result *domain.AnalysisResult, items []evidence) {
 }
 
 func emptyDimensions() map[domain.DimensionID]domain.DimensionResult {
-	result := make(map[domain.DimensionID]domain.DimensionResult, len(domain.Dimensions))
-	for _, dimension := range domain.Dimensions {
+	dimensions := domain.CanonicalDimensions()
+	result := make(map[domain.DimensionID]domain.DimensionResult, len(dimensions))
+	for _, dimension := range dimensions {
 		result[dimension] = domain.DimensionResult{State: domain.NotAssessable, Score: nil}
 	}
 	return result

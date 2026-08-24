@@ -11,6 +11,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sprach-a-lyzer ./c
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sprach-a-lyzer-migrate ./cmd/migrate
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sprach-a-lyzer-seed ./cmd/seed
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sprach-a-lyzer-analyze ./cmd/analyze
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sprach-a-lyzer-normalize-dimensions ./cmd/normalize-dimensions
 
 FROM alpine:3.22
 

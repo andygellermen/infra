@@ -1,9 +1,11 @@
 package db_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/app"
@@ -58,10 +60,32 @@ func TestPostgresFoundation(t *testing.T) {
 	if result.Dimensions != 6 || result.GoldenCases != 6 || result.PresentationBundles != 2 {
 		t.Fatalf("unexpected seed result: %+v", result)
 	}
+	legacyFoundation, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.1.json")
+	if err != nil {
+		t.Fatalf("read legacy foundation source: %v", err)
+	}
+	legacyGolden, err := os.ReadFile("../../data/golden/sprach-a-lyzer_vertical-slice_v0.1.json")
+	if err != nil {
+		t.Fatalf("read legacy golden source: %v", err)
+	}
+	legacyFoundation = []byte(strings.ReplaceAll(string(legacyFoundation), "VOLITION", "FREE_WILL"))
+	legacyGolden = []byte(strings.ReplaceAll(string(legacyGolden), "VOLITION", "FREE_WILL"))
+	legacyResult, err := seed.Apply(ctx, database, bytes.NewReader(legacyFoundation), bytes.NewReader(legacyGolden))
+	if err != nil {
+		t.Fatalf("seed legacy foundation: %v", err)
+	}
+	if legacyResult.LegacyMappings == 0 {
+		t.Fatal("legacy seed applied without compatibility mappings")
+	}
 
 	assertCount(t, database, "dimensions", 6)
 	assertCount(t, database, "golden_test_cases", 6)
 	assertCount(t, database, "presentation_bundles", 2)
+	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'VOLITION'`, 1)
+	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'FREE_WILL'`, 0)
+	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE actions::text LIKE '%FREE_WILL%'`, 0)
+	assertScalar(t, database, `SELECT COUNT(*) FROM presentation_entries WHERE canonical_key = 'FREE_WILL'`, 0)
+	assertScalar(t, database, `SELECT COUNT(*) FROM audit_events WHERE event_type = 'LEGACY_DIMENSION_MAPPED'`, 1)
 
 	var rawAnalysisTableAbsent bool
 	if err := database.QueryRow(`SELECT to_regclass('public.analyses') IS NULL`).Scan(&rawAnalysisTableAbsent); err != nil {
@@ -88,6 +112,17 @@ func TestPostgresFoundation(t *testing.T) {
 	}
 	if got := corporateBundle.Resolve("METRIC_WING_SCORE"); got != "Wirkungsprofil" {
 		t.Fatalf("corporate metric label = %q; want Wirkungsprofil", got)
+	}
+}
+
+func assertScalar(t *testing.T, database queryRower, query string, want int) {
+	t.Helper()
+	var got int
+	if err := database.QueryRow(query).Scan(&got); err != nil {
+		t.Fatalf("query scalar: %v", err)
+	}
+	if got != want {
+		t.Fatalf("query scalar = %d; want %d (%s)", got, want, query)
 	}
 }
 

@@ -1,6 +1,7 @@
 package golden_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"slices"
@@ -45,8 +46,9 @@ func TestVerticalSlice(t *testing.T) {
 	if err := json.Unmarshal(raw, &testSuite); err != nil {
 		t.Fatalf("decode golden suite: %v", err)
 	}
-	if !slices.Equal(testSuite.CanonicalDimensionIDs, analysis.Dimensions) {
-		t.Fatalf("golden dimension IDs %v differ from core IDs %v", testSuite.CanonicalDimensionIDs, analysis.Dimensions)
+	canonicalDimensions := analysis.Dimensions()
+	if !slices.Equal(testSuite.CanonicalDimensionIDs, canonicalDimensions) {
+		t.Fatalf("golden dimension IDs %v differ from core IDs %v", testSuite.CanonicalDimensionIDs, canonicalDimensions)
 	}
 	if len(testSuite.Cases) != 6 {
 		t.Fatalf("golden suite contains %d cases; want 6", len(testSuite.Cases))
@@ -58,6 +60,13 @@ func TestVerticalSlice(t *testing.T) {
 			result, err := analyzer.Analyze(testCase.Request)
 			if err != nil {
 				t.Fatalf("Analyze() error: %v", err)
+			}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("encode analysis result: %v", err)
+			}
+			if bytes.Contains(encoded, []byte("FREE_WILL")) {
+				t.Fatalf("analysis result leaked legacy dimension ID: %s", encoded)
 			}
 
 			for _, want := range testCase.Expected.Senses {

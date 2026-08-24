@@ -8,6 +8,7 @@
 
 - Go-Modul und deterministischer Analyse-Core
 - modularer Monolith mit expliziten Fachmodulen und zentraler Composition Root
+- kanonischer Sechs-Dimensionen-Vertrag mit auditierbarem Legacy-Mapping
 - PostgreSQL-Verbindung über `database/sql` und `pgx`
 - unveränderliche, eingebettete SQL-Migrationen mit SHA-256-Prüfsumme
 - transaktionale Migrationen mit PostgreSQL Advisory Lock
