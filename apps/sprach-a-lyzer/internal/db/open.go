@@ -11,7 +11,7 @@ import (
 
 const openTimeout = 5 * time.Second
 
-const RequiredSchemaVersion int64 = 1
+const RequiredSchemaVersion int64 = 2
 
 func Open(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	database, err := sql.Open("pgx", databaseURL)

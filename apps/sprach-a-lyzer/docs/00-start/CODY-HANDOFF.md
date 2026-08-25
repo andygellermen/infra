@@ -206,10 +206,12 @@ Abgeschlossen:
 - Versionsvektor und Golden-gesicherter Publish-Ablauf sind festgelegt.
 - Die sechs Foundation-Regeln liegen strikt typisiert als Rule v0.3 vor.
 - Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.3.
+- Server/API beziehen den aktiven Foundation-Regelkatalog zur Laufzeit aus
+  PostgreSQL; CLI und Tests verwenden das eingebettete kanonische Seed-Artefakt.
 
 Weiterhin eigene Folgeschritte:
 
 - NLP Adapter Interface,
 - Vereinheitlichung der historischen Golden Suites,
-- Anbindung der deterministischen Engine an den typisierten Rule-v0.3-Katalog,
+- Überführung der verbleibenden Core-Enrichments in einen späteren typisierten Vertrag,
 - spätere fachliche Regel- und Parameterkalibrierung.

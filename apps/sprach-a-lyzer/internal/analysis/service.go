@@ -59,7 +59,11 @@ func New(core Core) *Service {
 }
 
 func NewDefault() *Service {
-	return New(engine.New())
+	return New(engine.NewDefault())
+}
+
+func NewWithRuleCatalogue(provider engine.CatalogueProvider) *Service {
+	return New(engine.New(provider))
 }
 
 func (s *Service) Analyze(request Request) (Result, error) {

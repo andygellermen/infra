@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"unicode"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 )
 
 var ErrEmptyText = errors.New("analysis text must not be empty")
 
-type Engine struct{}
+type Engine struct {
+	catalogue CatalogueProvider
+}
 
-func New() *Engine {
-	return &Engine{}
+func New(catalogue CatalogueProvider) *Engine {
+	return &Engine{catalogue: catalogue}
 }
 
 type evidence struct {
@@ -53,23 +55,23 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 	}
 
 	normalized := normalize(text)
+	matchedRules, err := e.matchingRules(request, normalized)
+	if err != nil {
+		return domain.AnalysisResult{}, err
+	}
 	var evidenceItems []evidence
 
 	switch {
-	case isHomophoneGuard(normalized):
-		result.ResonanceHints = append(result.ResonanceHints, domain.ResonanceHint{
-			Kind:          "HOMOPHONE",
-			Tokens:        []string{"hast", "hasst"},
-			SemanticScore: false,
-			Message:       "Die lautliche Nähe wird nur als Resonanzhinweis geführt und verändert keine semantische Bewertung.",
-		})
+	case hasRule(matchedRules, "R-HOMOPHONE-GUARD"):
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-HOMOPHONE-GUARD"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
 		result.Notes = append(result.Notes, "Homophonie erkannt; keine semantische Vererbung.")
 
-	case isFreeOfCharge(normalized):
-		result.ResolvedSenses = append(result.ResolvedSenses, domain.ResolvedSense{
-			Lexeme: "frei", Sense: "FREE_OF_CHARGE", Confidence: 0.80,
-			Reason: "Die Kollokation „Eintritt ist frei“ bezeichnet Kostenfreiheit.",
-		})
+	case hasRule(matchedRules, "R-FREE-OF-CHARGE"):
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-FREE-OF-CHARGE"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
 		result.Notes = append(result.Notes, "„frei“ bedeutet hier kostenlos und erzeugt keinen VOLITION-Beitrag.")
 
 	case isReportedClaim(normalized):
@@ -80,8 +82,11 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 		result.Patterns = append(result.Patterns, "REPORTED_CLAIM")
 		result.Notes = append(result.Notes, "Berichtete Behauptung; kein Normativitätsmalus.")
 
-	case isRespectfulBoundary(normalized):
-		result.Patterns = append(result.Patterns, "ACKNOWLEDGEMENT", "CLEAR_BOUNDARY", "RESPECTFUL_BOUNDARY")
+	case hasRule(matchedRules, "R-RESPECTFUL-BOUNDARY"):
+		result.Patterns = append(result.Patterns, "ACKNOWLEDGEMENT", "CLEAR_BOUNDARY")
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-RESPECTFUL-BOUNDARY"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
 		evidenceItems = append(evidenceItems,
 			item("R-RESPECTFUL-BOUNDARY", "ich verstehe … wichtig / nicht infrage", domain.DimensionAgency, 6.7, 0.51, "Eine eigene Grenze wird als handlungsfähige Position formuliert."),
 			item("R-RESPECTFUL-BOUNDARY", "ich verstehe … wichtig / nicht infrage", domain.DimensionConnection, 20.8, 0.64, "Anerkennung erhält Verbindung trotz Grenze."),
@@ -97,30 +102,33 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			"Dein Anliegen ist bei mir angekommen; für mich braucht es dennoch einen anderen Weg.",
 		)
 
-	case containsMust(normalized) && context == domain.ContextSafety:
-		result.ResolvedSenses = append(result.ResolvedSenses, domain.ResolvedSense{
-			Lexeme: "müssen", Sense: "SAFETY_NECESSITY", Confidence: 0.79,
-			Reason: "Der explizite Sicherheitskontext schlägt die isolierte Modalverbdeutung.",
-		})
-		result.Patterns = append(result.Patterns, "SAFETY_DIRECTIVE", "URGENCY")
+	case hasRule(matchedRules, "R-SAFETY-DIRECTIVE"):
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-SAFETY-DIRECTIVE"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
+		if urgency, ok := matchedRules["R-URGENCY"]; ok {
+			if err := executeRule(&result, &evidenceItems, urgency); err != nil {
+				return domain.AnalysisResult{}, err
+			}
+		}
 		evidenceItems = append(evidenceItems,
 			item("R-SAFETY-DIRECTIVE", "musst … sofort / context=SAFETY", domain.DimensionAgency, 9.6, 0.54, "Die Anweisung benennt eine unmittelbar ausführbare Handlung."),
 			item("R-SAFETY-DIRECTIVE", "musst … sofort / context=SAFETY", domain.DimensionClarity, 22.3, 0.87, "Handlung, Ziel und Dringlichkeit sind im Sicherheitskontext klar."),
 		)
 		result.Notes = append(result.Notes, "Sicherheitsnotwendigkeit; kein pauschaler Zwangsmalus.")
 
-	case containsMust(normalized):
+	case hasRule(matchedRules, "R-INTERNAL-PRESSURE"):
 		result.ResolvedSenses = append(result.ResolvedSenses, domain.ResolvedSense{
 			Lexeme: "müssen", Sense: "INTERNAL_PRESSURE", Confidence: 0.785,
 			Reason: "Selbstbezug, Zeitmarker und Verstärker stützen die Lesart inneren Drucks.",
 		})
-		result.Patterns = append(result.Patterns, "INTERNAL_PRESSURE")
-		evidenceItems = append(evidenceItems,
-			item("R-INTERNAL-PRESSURE", "ich muss", domain.DimensionVolition, -10.0, 0.62, "Notwendigkeitssprache reduziert den sichtbaren eigenen Wahlraum."),
-			item("R-INTERNAL-PRESSURE", "ich muss", domain.DimensionOpenness, -4.0, 0.53, "Die Formulierung stellt zunächst nur einen zwingenden Weg dar."),
-		)
-		if strings.Contains(normalized, "unbedingt") || strings.Contains(normalized, "sofort") {
-			result.Patterns = append(result.Patterns, "URGENCY")
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-INTERNAL-PRESSURE"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
+		if hasRule(matchedRules, "R-URGENCY") {
+			if err := executeRule(&result, &evidenceItems, matchedRules["R-URGENCY"]); err != nil {
+				return domain.AnalysisResult{}, err
+			}
 			evidenceItems = append(evidenceItems,
 				item("R-URGENCY", "unbedingt", domain.DimensionVolition, -5.6, 0.78, "Der Verstärker erhöht den sprachlich sichtbaren Druck."),
 				item("R-URGENCY", "unbedingt", domain.DimensionOpenness, -4.0, 0.67, "Dringlichkeit verengt den dargestellten Möglichkeitsraum."),
@@ -134,9 +142,19 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			"Ich entscheide, ob ich das heute beende oder bewusst neu einplane.",
 		)
 	}
+	if len(result.Patterns) == 0 && hasRule(matchedRules, "R-URGENCY") {
+		if err := executeRule(&result, &evidenceItems, matchedRules["R-URGENCY"]); err != nil {
+			return domain.AnalysisResult{}, err
+		}
+	}
 
 	applyEvidence(&result, evidenceItems)
 	return result, nil
+}
+
+func hasRule(matched map[string]rules.Definition, key string) bool {
+	_, exists := matched[key]
+	return exists
 }
 
 func item(ruleID, matched string, dimension domain.DimensionID, delta, strength float64, reason string) evidence {
@@ -197,29 +215,8 @@ func normalize(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(text), " "))
 }
 
-func containsMust(text string) bool {
-	return strings.Contains(text, " muss ") || strings.HasPrefix(text, "muss ") ||
-		strings.Contains(text, " musst ") || strings.HasPrefix(text, "musst ")
-}
-
-func isFreeOfCharge(text string) bool {
-	return strings.Contains(text, "eintritt ist frei")
-}
-
 func isReportedClaim(text string) bool {
 	return strings.HasPrefix(text, "er soll ") && strings.Contains(text, " sein")
-}
-
-func isRespectfulBoundary(text string) bool {
-	return strings.Contains(text, "ich verstehe") && strings.Contains(text, "wichtig") &&
-		(strings.Contains(text, "nicht infrage") || strings.Contains(text, "nicht in frage"))
-}
-
-func isHomophoneGuard(text string) bool {
-	trimmed := strings.TrimFunc(text, func(r rune) bool {
-		return unicode.IsPunct(r) || unicode.IsSpace(r)
-	})
-	return trimmed == "hast du geld"
 }
 
 func propositions(text string) []domain.Proposition {

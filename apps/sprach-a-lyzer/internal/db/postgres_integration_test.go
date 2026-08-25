@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/app"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db/migrations"
@@ -110,6 +111,24 @@ func TestPostgresFoundation(t *testing.T) {
 	if err != nil || ruleCatalogue.Version != "0.2" || len(ruleCatalogue.Rules) != 6 {
 		t.Fatalf("rules module catalogue = %+v, %v", ruleCatalogue, err)
 	}
+	runtimeResult, err := application.Analysis.Analyze(analysis.Request{
+		Text: "Ich muss das heute unbedingt noch schaffen.", Context: analysis.ContextSelfTalk,
+	})
+	if err != nil || !contains(runtimeResult.Patterns, "INTERNAL_PRESSURE") {
+		t.Fatalf("database-backed runtime catalogue result = %+v, %v", runtimeResult, err)
+	}
+	if _, err := database.Exec(`UPDATE rules SET enabled = false WHERE rule_key = 'R-INTERNAL-PRESSURE' AND version = 2`); err != nil {
+		t.Fatalf("disable runtime rule: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = database.Exec(`UPDATE rules SET enabled = true WHERE rule_key = 'R-INTERNAL-PRESSURE' AND version = 2`)
+	})
+	disabledResult, err := application.Analysis.Analyze(analysis.Request{
+		Text: "Ich muss das heute unbedingt noch schaffen.", Context: analysis.ContextSelfTalk,
+	})
+	if err != nil || contains(disabledResult.Patterns, "INTERNAL_PRESSURE") {
+		t.Fatalf("disabled database rule still active: %+v, %v", disabledResult, err)
+	}
 	corporateBundle, err := application.Presentation.Bundle(ctx, "CORPORATE", "de-DE")
 	if err != nil {
 		t.Fatalf("presentation module bundle: %v", err)
@@ -117,6 +136,15 @@ func TestPostgresFoundation(t *testing.T) {
 	if got := corporateBundle.Resolve("METRIC_WING_SCORE"); got != "Wirkungsprofil" {
 		t.Fatalf("corporate metric label = %q; want Wirkungsprofil", got)
 	}
+}
+
+func contains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func assertScalar(t *testing.T, database queryRower, query string, want int) {
