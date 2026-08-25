@@ -11,6 +11,12 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 3. [Developer Handoff](docs/00-start/DEVELOPER-HANDOFF-v0.1.md)
 4. [Roadmap](docs/00-start/ROADMAP.md)
 5. [Documentation Manifest](docs/00-start/DOCUMENTATION-MANIFEST.md)
+6. [Implementation Baseline v0.1](docs/00-start/IMPLEMENTATION-BASELINE-v0.1.md)
+7. [Foundation v0.0](docs/00-start/FOUNDATION-v0.0.md)
+8. [Modular Monolith](docs/70-architecture/sprach-a-lyzer_modular-monolith_v0.1.md)
+9. [Canonical Dimensions](docs/20-domain-model/sprach-a-lyzer_canonical-dimensions_v0.1.md)
+10. [Analyse- und Trace-Verträge](docs/20-domain-model/sprach-a-lyzer_analysis-trace-contracts_v0.1.md)
+11. [Vertical-Slice Golden Gate](docs/40-golden/sprach-a-lyzer_vertical-slice-golden_v0.2.md)
 
 ## Repository-Struktur
 
@@ -31,7 +37,7 @@ data/
   import-examples/   Importvorlagen und Beispiel-Batches
 
 schemas/
-  analysis/          Reserviert für Analyseverträge
+  analysis/          Versionierte Analyse- und Trace-Verträge
   questions/         Q/A-Verträge
   imports/           Importverträge
   rules/             Reserviert für Regelverträge
@@ -46,8 +52,81 @@ schemas/
   `schemas/` angelegt.
 - Bestehende Versionen werden nicht überschrieben oder gelöscht.
 
-## Noch vor der fachlichen Implementierung
+## Fachliche Kompatibilität
 
-Die in [CODY-HANDOFF](docs/00-start/CODY-HANDOFF.md) festgehaltenen Starttickets
-bleiben bestehen. Insbesondere wird die fachliche Migration von `FREE_WILL` zu
-`VOLITION` separat und testbar durchgeführt.
+Neue Verträge und der Go-Core verwenden die kanonische Dimension `VOLITION`.
+Ältere, versionierte Fachdaten mit `FREE_WILL` bleiben unverändert und werden
+an Importgrenzen testbar auf `VOLITION` abgebildet.
+
+JSON- und CSV-Artefakte können ohne Veränderung ihrer Quelldatei geprüft und
+normalisiert werden:
+
+```bash
+go run ./cmd/normalize-dimensions \
+  -input data/seed/sprachkompass_coaching-question-pool_v0.1.json \
+  > /tmp/question-pool-canonical.json
+```
+
+## Ausführbarer Vertical Slice
+
+Der erste Go-Core implementiert die sechs Acceptance Cases aus `START-HERE`
+mit Sense-Auflösung, Pattern-Erkennung, Assessability und Contribution Trace.
+
+```bash
+go test ./...
+
+go run ./cmd/analyze \
+  -context SELF_TALK \
+  -text 'Ich muss das heute unbedingt noch schaffen.'
+
+go run ./cmd/analyze \
+  -trace \
+  -context SELF_TALK \
+  -text 'Ich muss das heute unbedingt noch schaffen.'
+```
+
+Die maschinenlesbaren Request-, Ergebnis- und Trace-Verträge liegen unter
+`schemas/analysis/`, die Golden Suite unter
+`data/golden/sprach-a-lyzer_vertical-slice_v0.2.json`.
+
+## PostgreSQL und HTTP-API
+
+Die lokale Entwicklungsumgebung führt PostgreSQL, Migration, Seed und API in
+der korrekten Reihenfolge aus:
+
+```bash
+docker compose up --build
+```
+
+Danach:
+
+```bash
+curl --fail-with-body http://localhost:8080/health/ready
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Ich muss das heute unbedingt noch schaffen.","context":"SELF_TALK"}' \
+  http://localhost:8080/api/v1/analyze
+```
+
+Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
+Seed-Daten und Betriebsdetails sind in `docs/00-start/FOUNDATION-v0.0.md`
+dokumentiert.
+
+## Modulstruktur
+
+Der Server bleibt ein gemeinsam deploybarer Go-Prozess. Die fachlichen
+Bereiche sind dennoch durch Fassaden und Repository-Ports getrennt:
+
+```text
+internal/app/           Composition Root
+internal/analysis/      öffentliche Analyse-Fassade
+internal/knowledge/     kanonischer Wissensbestand
+internal/rules/         Rule Sets und Regelkatalog
+internal/presentation/  Profile, Labels und sichere Fallbacks
+internal/dimension/     kanonischer Shared Kernel und Legacy-Mapping
+internal/httpapp/       HTTP-Adapter
+internal/db/            PostgreSQL-Adapter
+```
+
+Ein automatischer Architekturtest schützt diese Abhängigkeitsrichtung.

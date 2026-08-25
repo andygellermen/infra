@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/analysis-trace-v0.1.json",
+  "title": "Sprach-A-Lyzer Analysis Trace v0.1",
+  "description": "Deterministic explainability data derived from an analysis result. Contribution indexes are zero-based.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contributions", "assessability"],
+  "properties": {
+    "contributions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/contributionTraceEntry"}
+    },
+    "assessability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+      "properties": {
+        "AGENCY": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "CONNECTION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "APPRECIATION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "CLARITY": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "VOLITION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "OPENNESS": {"$ref": "#/$defs/assessabilityTraceEntry"}
+      }
+    }
+  },
+  "$defs": {
+    "dimensionID": {
+      "enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]
+    },
+    "contributionTraceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "evidence", "dimension", "delta", "reason"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "dimension": {"$ref": "#/$defs/dimensionID"},
+        "delta": {"type": "number"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "assessabilityTraceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "final_assessability", "contribution_indexes"],
+      "properties": {
+        "state": {"enum": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE", "STRONG"]},
+        "final_assessability": {"type": "number", "minimum": 0, "maximum": 1},
+        "contribution_indexes": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 0},
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

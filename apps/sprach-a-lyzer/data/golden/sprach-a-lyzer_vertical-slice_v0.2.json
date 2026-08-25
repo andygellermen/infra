@@ -1,0 +1,198 @@
+{
+  "version": "0.2",
+  "analysis_contract": "0.1",
+  "trace_contract": "0.1",
+  "canonical_dimension_ids": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+  "cases": [
+    {
+      "id": "VS01_INTERNAL_PRESSURE",
+      "request": {"text": "Ich muss das heute unbedingt noch schaffen.", "context": "SELF_TALK"},
+      "expected_result": {
+        "text": "Ich muss das heute unbedingt noch schaffen.",
+        "context": "SELF_TALK",
+        "input_mode": "TEXT",
+        "propositions": [{"id": "P0", "text": "Ich muss das heute unbedingt noch schaffen"}],
+        "resolved_senses": [{
+          "lexeme": "müssen",
+          "sense": "INTERNAL_PRESSURE",
+          "confidence": 0.785,
+          "reason": "Selbstbezug, Zeitmarker und Verstärker stützen die Lesart inneren Drucks."
+        }],
+        "patterns": ["INTERNAL_PRESSURE", "URGENCY"],
+        "dimensions": {
+          "AGENCY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CONNECTION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "APPRECIATION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CLARITY": {"state": "WEAK", "score": 57.7, "confidence": 0.8, "assessability": 0.5},
+          "VOLITION": {"state": "ASSESSABLE", "score": 34.4, "confidence": 0.97, "assessability": 0.78},
+          "OPENNESS": {"state": "ASSESSABLE", "score": 42, "confidence": 0.9, "assessability": 0.67}
+        },
+        "contribution_trace": [
+          {"rule_id": "R-INTERNAL-PRESSURE", "evidence": "ich muss", "dimension": "VOLITION", "delta": -10, "reason": "Notwendigkeitssprache reduziert den sichtbaren eigenen Wahlraum."},
+          {"rule_id": "R-INTERNAL-PRESSURE", "evidence": "ich muss", "dimension": "OPENNESS", "delta": -4, "reason": "Die Formulierung stellt zunächst nur einen zwingenden Weg dar."},
+          {"rule_id": "R-URGENCY", "evidence": "unbedingt", "dimension": "VOLITION", "delta": -5.6, "reason": "Der Verstärker erhöht den sprachlich sichtbaren Druck."},
+          {"rule_id": "R-URGENCY", "evidence": "unbedingt", "dimension": "OPENNESS", "delta": -4, "reason": "Dringlichkeit verengt den dargestellten Möglichkeitsraum."},
+          {"rule_id": "R-TEMPORAL-SPECIFICITY", "evidence": "heute / noch", "dimension": "CLARITY", "delta": 7.7, "reason": "Der Zeitbezug macht die Aussage teilweise konkret."}
+        ],
+        "reflection_question": "Welche eigene Priorität oder Entscheidung steckt hinter diesem Muss?",
+        "alternatives": [
+          "Ich möchte das heute noch abschließen, weil es mir wichtig ist.",
+          "Ich entscheide, ob ich das heute beende oder bewusst neu einplane."
+        ],
+        "resonance_hints": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "VS02_SAFETY_DIRECTIVE",
+      "request": {"text": "Du musst sofort das Gebäude verlassen!", "context": "SAFETY"},
+      "expected_result": {
+        "text": "Du musst sofort das Gebäude verlassen!",
+        "context": "SAFETY",
+        "input_mode": "TEXT",
+        "propositions": [{"id": "P0", "text": "Du musst sofort das Gebäude verlassen"}],
+        "resolved_senses": [{
+          "lexeme": "müssen",
+          "sense": "SAFETY_NECESSITY",
+          "confidence": 0.79,
+          "reason": "Der explizite Sicherheitskontext schlägt die isolierte Modalverbdeutung."
+        }],
+        "patterns": ["SAFETY_DIRECTIVE", "URGENCY"],
+        "dimensions": {
+          "AGENCY": {"state": "ASSESSABLE", "score": 59.6, "confidence": 0.82, "assessability": 0.54},
+          "CONNECTION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "APPRECIATION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CLARITY": {"state": "STRONG", "score": 72.3, "confidence": 0.98, "assessability": 0.87},
+          "VOLITION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "OPENNESS": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0}
+        },
+        "contribution_trace": [
+          {"rule_id": "R-SAFETY-DIRECTIVE", "evidence": "musst … sofort / context=SAFETY", "dimension": "AGENCY", "delta": 9.6, "reason": "Die Anweisung benennt eine unmittelbar ausführbare Handlung."},
+          {"rule_id": "R-SAFETY-DIRECTIVE", "evidence": "musst … sofort / context=SAFETY", "dimension": "CLARITY", "delta": 22.3, "reason": "Handlung, Ziel und Dringlichkeit sind im Sicherheitskontext klar."}
+        ],
+        "reflection_question": null,
+        "alternatives": [],
+        "resonance_hints": [],
+        "notes": ["Sicherheitsnotwendigkeit; kein pauschaler Zwangsmalus."]
+      }
+    },
+    {
+      "id": "VS03_FREE_OF_CHARGE",
+      "request": {"text": "Der Eintritt ist frei.", "context": "PUBLIC_INFORMATION"},
+      "expected_result": {
+        "text": "Der Eintritt ist frei.",
+        "context": "PUBLIC_INFORMATION",
+        "input_mode": "TEXT",
+        "propositions": [{"id": "P0", "text": "Der Eintritt ist frei"}],
+        "resolved_senses": [{"lexeme": "frei", "sense": "FREE_OF_CHARGE", "confidence": 0.8, "reason": "Die Kollokation „Eintritt ist frei“ bezeichnet Kostenfreiheit."}],
+        "patterns": [],
+        "dimensions": {
+          "AGENCY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CONNECTION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "APPRECIATION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CLARITY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "VOLITION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "OPENNESS": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0}
+        },
+        "contribution_trace": [],
+        "reflection_question": null,
+        "alternatives": [],
+        "resonance_hints": [],
+        "notes": ["„frei“ bedeutet hier kostenlos und erzeugt keinen VOLITION-Beitrag."]
+      }
+    },
+    {
+      "id": "VS04_REPORTED_CLAIM",
+      "request": {"text": "Er soll sehr erfolgreich sein.", "context": "PRIVATE_CONVERSATION"},
+      "expected_result": {
+        "text": "Er soll sehr erfolgreich sein.",
+        "context": "PRIVATE_CONVERSATION",
+        "input_mode": "TEXT",
+        "propositions": [{"id": "P0", "text": "Er soll sehr erfolgreich sein"}],
+        "resolved_senses": [{"lexeme": "sollen", "sense": "REPORTED_CLAIM", "confidence": 0.79, "reason": "„soll … sein“ berichtet eine fremde Behauptung statt eine Verpflichtung."}],
+        "patterns": ["REPORTED_CLAIM"],
+        "dimensions": {
+          "AGENCY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CONNECTION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "APPRECIATION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CLARITY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "VOLITION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "OPENNESS": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0}
+        },
+        "contribution_trace": [],
+        "reflection_question": null,
+        "alternatives": [],
+        "resonance_hints": [],
+        "notes": ["Berichtete Behauptung; kein Normativitätsmalus."]
+      }
+    },
+    {
+      "id": "VS05_RESPECTFUL_BOUNDARY",
+      "request": {"text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.", "context": "PRIVATE_CONVERSATION"},
+      "expected_result": {
+        "text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+        "context": "PRIVATE_CONVERSATION",
+        "input_mode": "TEXT",
+        "propositions": [
+          {"id": "P0", "text": "Ich verstehe, dass dir das wichtig ist"},
+          {"id": "P1", "text": "Für mich kommt diese Lösung trotzdem nicht infrage", "relation": "CONCESSION"}
+        ],
+        "resolved_senses": [],
+        "patterns": ["ACKNOWLEDGEMENT", "CLEAR_BOUNDARY", "RESPECTFUL_BOUNDARY"],
+        "dimensions": {
+          "AGENCY": {"state": "ASSESSABLE", "score": 56.7, "confidence": 0.81, "assessability": 0.51},
+          "CONNECTION": {"state": "ASSESSABLE", "score": 70.8, "confidence": 0.88, "assessability": 0.64},
+          "APPRECIATION": {"state": "ASSESSABLE", "score": 70.7, "confidence": 0.88, "assessability": 0.63},
+          "CLARITY": {"state": "ASSESSABLE", "score": 70.8, "confidence": 0.96, "assessability": 0.76},
+          "VOLITION": {"state": "ASSESSABLE", "score": 70.2, "confidence": 0.87, "assessability": 0.62},
+          "OPENNESS": {"state": "WEAK", "score": 53.9, "confidence": 0.78, "assessability": 0.47}
+        },
+        "contribution_trace": [
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "AGENCY", "delta": 6.7, "reason": "Eine eigene Grenze wird als handlungsfähige Position formuliert."},
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "CONNECTION", "delta": 20.8, "reason": "Anerkennung erhält Verbindung trotz Grenze."},
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "APPRECIATION", "delta": 20.7, "reason": "Das Anliegen des Gegenübers wird ausdrücklich gewürdigt."},
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "CLARITY", "delta": 20.8, "reason": "Die eigene Grenze ist eindeutig benannt."},
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "VOLITION", "delta": 20.2, "reason": "Die Formulierung verbindet Anerkennung mit eigener Wahl."},
+          {"rule_id": "R-RESPECTFUL-BOUNDARY", "evidence": "ich verstehe … wichtig / nicht infrage", "dimension": "OPENNESS", "delta": 3.9, "reason": "Die Perspektive des Gegenübers bleibt sichtbar."}
+        ],
+        "reflection_question": "Wie könntest du deine Grenze ebenso klar halten und zugleich im Gespräch verbunden bleiben?",
+        "alternatives": [
+          "Ich sehe, wie wichtig dir das ist. Gleichzeitig kann ich dieser Lösung nicht zustimmen.",
+          "Dein Anliegen ist bei mir angekommen; für mich braucht es dennoch einen anderen Weg."
+        ],
+        "resonance_hints": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "VS06_HOMOPHONE_GUARD",
+      "request": {"text": "Hast du Geld?", "context": "MODERATION"},
+      "expected_result": {
+        "text": "Hast du Geld?",
+        "context": "MODERATION",
+        "input_mode": "TEXT",
+        "propositions": [{"id": "P0", "text": "Hast du Geld"}],
+        "resolved_senses": [],
+        "patterns": [],
+        "dimensions": {
+          "AGENCY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CONNECTION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "APPRECIATION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "CLARITY": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "VOLITION": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0},
+          "OPENNESS": {"state": "NOT_ASSESSABLE", "score": null, "confidence": 0, "assessability": 0}
+        },
+        "contribution_trace": [],
+        "reflection_question": null,
+        "alternatives": [],
+        "resonance_hints": [{
+          "kind": "HOMOPHONE",
+          "tokens": ["hast", "hasst"],
+          "semantic_score": false,
+          "message": "Die lautliche Nähe wird nur als Resonanzhinweis geführt und verändert keine semantische Bewertung."
+        }],
+        "notes": ["Homophonie erkannt; keine semantische Vererbung."]
+      }
+    }
+  ]
+}

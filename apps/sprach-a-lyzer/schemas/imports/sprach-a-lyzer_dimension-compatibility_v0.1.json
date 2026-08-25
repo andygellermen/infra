@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/dimension-compatibility-v0.1.json",
+  "title": "Sprach-A-Lyzer Dimension Compatibility v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["canonical_ids", "accepted_legacy_aliases"],
+  "properties": {
+    "canonical_ids": {
+      "const": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]
+    },
+    "accepted_legacy_aliases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["FREE_WILL"],
+      "properties": {
+        "FREE_WILL": {"const": "VOLITION"}
+      }
+    }
+  }
+}

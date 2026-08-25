@@ -53,3 +53,4 @@ apps/static-inline-editor/.gomodcache/
 # Sprach-A-Lyzer canonical, versioned data artifacts
 !apps/sprach-a-lyzer/data/
 !apps/sprach-a-lyzer/data/**
+apps/sprach-a-lyzer/.env

@@ -1,0 +1,53 @@
+name: Sprach-A-Lyzer
+
+on:
+  push:
+    paths:
+      - "apps/sprach-a-lyzer/**"
+      - ".github/workflows/sprach-a-lyzer.yml"
+  pull_request:
+    paths:
+      - "apps/sprach-a-lyzer/**"
+      - ".github/workflows/sprach-a-lyzer.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Quality and Golden Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sprachalyzer_test
+          POSTGRES_USER: sprachalyzer
+          POSTGRES_PASSWORD: test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sprachalyzer -d sprachalyzer_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      SAL_TEST_DATABASE_URL: postgres://sprachalyzer:test-only@localhost:5432/sprachalyzer_test?sslmode=disable
+    defaults:
+      run:
+        working-directory: apps/sprach-a-lyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/sprach-a-lyzer/go.mod
+          cache-dependency-path: apps/sprach-a-lyzer/go.sum
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Golden vertical-slice release gate
+        run: go test ./internal/golden -run '^TestVerticalSliceGolden$' -count=1
+      - name: Test with race detector
+        run: go test -race ./...

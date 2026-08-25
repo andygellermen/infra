@@ -1,5 +1,5 @@
 # Rule schemas
 
-Dieser Bereich ist für die kanonischen, maschinenlesbaren Regelverträge
-reserviert. Bedingungen, Aktionen und Guardrails werden hier versioniert,
-sobald ihre erste implementierbare Fassung aus dem Fachmodell abgeleitet ist.
+`sprach-a-lyzer_rule_v0.1.json` beschreibt den versionierten Regelvertrag des
+Foundation Seeds. Conditions und Actions bleiben in v0.1 bewusst erweiterbare
+JSON-Objekte; harte Score- und Datenschutzgrenzen bleiben im Go-Core.
