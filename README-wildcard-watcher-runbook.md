@@ -33,6 +33,8 @@ ssh-copy-id -i /root/.ssh/id_wildcard_stage.pub root@<ziel-ip>
 ssh-keyscan -H <ziel-ip-1> <ziel-ip-2> <ziel-ip-3> >> /root/.ssh/known_hosts
 chmod 600 /root/.ssh/known_hosts
 ```
+Die Fingerprints muessen vor dem Eintragen ueber einen vertrauenswuerdigen zweiten Kanal
+(zum Beispiel die Server-Konsole des Hosters) geprueft werden.
 4. Passwortlosen Login hart pruefen:
 ```bash
 ssh -o BatchMode=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i /root/.ssh/id_wildcard_stage root@<ziel-ip> true
@@ -102,9 +104,34 @@ ls -la /home/andy/infra/data/wildcard-distribution-state
 Kontext: Skript wurde nicht als `root` gestartet.
 Fix: als `root` ausfuehren oder Pfade auf User-Home umstellen.
 
-2. `Host key verification failed`
-Kontext: `known_hosts` fehlt/ist unvollstaendig.
-Fix: `ssh-keyscan` erneut ausfuehren.
+2. `Host key verification failed` oder `REMOTE HOST IDENTIFICATION HAS CHANGED`
+Kontext: `known_hosts` fehlt, ist unvollstaendig oder enthaelt nach einem legitimen
+Hardware-/Servertausch noch den alten Host-Key. Ein geaenderter Key darf nicht
+ungeprueft ersetzt werden, da dieselbe Meldung auch auf einen MITM-Angriff hinweisen kann.
+
+Fix nach Abgleich des neuen Fingerprints ueber die Hoster-Konsole (Befehle als derselbe
+Benutzer wie der Watcher, hier `root`, ausfuehren):
+```bash
+ssh-keygen -f /root/.ssh/known_hosts -R '<ziel-ip>'
+new_host_key="$(mktemp)"
+ssh-keyscan -t ed25519 -H '<ziel-ip>' > "$new_host_key"
+ssh-keygen -lf "$new_host_key"
+# Nur nach erfolgreichem Fingerprint-Abgleich fortfahren:
+cat "$new_host_key" >> /root/.ssh/known_hosts
+rm -f "$new_host_key"
+chmod 600 /root/.ssh/known_hosts
+```
+Alternativ kann direkt nach dem Entfernen des bestaetigten alten Keys genau ein Lauf
+neue, bisher unbekannte Keys nicht-interaktiv aufnehmen. Bereits bekannte, geaenderte
+Keys werden dabei weiterhin abgelehnt:
+```bash
+./scripts/wildcard-distribute-on-change.sh --all \
+  --config ./ansible/wildcards/export.yml \
+  --state-dir ./data/wildcard-distribution-state \
+  --force --accept-new-host-keys
+```
+`--accept-new-host-keys` setzt OpenSSH `StrictHostKeyChecking=accept-new`; die Option
+umgeht daher keinen Konflikt mit einem noch vorhandenen alten Host-Key.
 
 3. `start-limit-hit` bei der Service-Unit
 Kontext: alte Trigger-Schleife oder Event-Burst.

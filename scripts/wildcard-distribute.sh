@@ -28,8 +28,8 @@ DEFAULT_CONFIG="$(pick_default_config)"
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/wildcard-distribute.sh <apex-domain> [--config /pfad/export.yml] [--dry-run]
-  ./scripts/wildcard-distribute.sh --all [--config /pfad/export.yml] [--dry-run]
+  ./scripts/wildcard-distribute.sh <apex-domain> [--config /pfad/export.yml] [--dry-run] [--accept-new-host-keys]
+  ./scripts/wildcard-distribute.sh --all [--config /pfad/export.yml] [--dry-run] [--accept-new-host-keys]
   ./scripts/wildcard-distribute.sh --all [--config /pfad/export.yml] --list-exports
 USAGE
 }
@@ -97,6 +97,7 @@ CONFIG_FILE="$DEFAULT_CONFIG"
 DRY_RUN=0
 RUN_ALL=0
 LIST_EXPORTS=0
+ACCEPT_NEW_HOST_KEYS=0
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -120,6 +121,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --list-exports)
       LIST_EXPORTS=1
+      shift
+      ;;
+    --accept-new-host-keys)
+      ACCEPT_NEW_HOST_KEYS=1
       shift
       ;;
     --help|-h)
@@ -449,6 +454,9 @@ for line in "${TARGET_LINES[@]}"; do
   info "Verteile Wildcard-Zertifikat ${source_domain} an ${label}"
 
   ssh_args=(-p "$port" -o BatchMode=yes)
+  if [[ "$ACCEPT_NEW_HOST_KEYS" -eq 1 ]]; then
+    ssh_args+=(-o StrictHostKeyChecking=accept-new)
+  fi
   if [[ -n "$identity_file" ]]; then
     ssh_args+=(-i "$identity_file" -o IdentitiesOnly=yes)
   fi

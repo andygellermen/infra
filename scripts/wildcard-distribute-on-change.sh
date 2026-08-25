@@ -12,8 +12,8 @@ setup_error_notification "$(basename "$0")" "$ROOT_DIR" "$0 $*"
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/wildcard-distribute-on-change.sh <apex-domain> [--config /pfad/export.yml] [--state-dir /pfad/state] [--dry-run] [--force]
-  ./scripts/wildcard-distribute-on-change.sh --all [--config /pfad/export.yml] [--state-dir /pfad/state] [--dry-run] [--force]
+  ./scripts/wildcard-distribute-on-change.sh <apex-domain> [--config /pfad/export.yml] [--state-dir /pfad/state] [--dry-run] [--force] [--accept-new-host-keys]
+  ./scripts/wildcard-distribute-on-change.sh --all [--config /pfad/export.yml] [--state-dir /pfad/state] [--dry-run] [--force] [--accept-new-host-keys]
 USAGE
 }
 
@@ -82,6 +82,7 @@ STATE_DIR="$DEFAULT_STATE_DIR"
 RUN_ALL=0
 DRY_RUN=0
 FORCE=0
+ACCEPT_NEW_HOST_KEYS=0
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -115,6 +116,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --force)
       FORCE=1
+      shift
+      ;;
+    --accept-new-host-keys)
+      ACCEPT_NEW_HOST_KEYS=1
       shift
       ;;
     --help|-h)
@@ -153,6 +158,10 @@ RUN_ARGS=()
 if [[ -n "$CONFIG_FILE" ]]; then
   LIST_ARGS+=(--config "$CONFIG_FILE")
   RUN_ARGS+=(--config "$CONFIG_FILE")
+fi
+
+if [[ "$ACCEPT_NEW_HOST_KEYS" -eq 1 ]]; then
+  RUN_ARGS+=(--accept-new-host-keys)
 fi
 
 if [[ "$RUN_ALL" -eq 1 ]]; then
