@@ -1,0 +1,58 @@
+{
+  "fixture_version": "0.1",
+  "canonical_questions": [
+    {
+      "contract_version": "0.1",
+      "question_id": "CQ001",
+      "construct_intent": "GOAL_ORIENTATION",
+      "secondary_constructs": ["CLARITY"],
+      "phase": "P1_ENTRY",
+      "audience_scope": "BOTH",
+      "risk_level": "LOW",
+      "canonical_semantics": "Erfragt den gewünschten Nutzen oder Klärungsgewinn des Gesprächs, ohne eine positive oder negative Richtung vorzugeben.",
+      "prohibited_semantics": ["Erfolg unterstellen", "Defizit diagnostizieren", "eine erwünschte Antwort nahelegen"],
+      "expected_dimensions": ["CLARITY", "OPENNESS"],
+      "question_score_bias": 0,
+      "status": "APPROVED",
+      "version": 1
+    }
+  ],
+  "renderings": [
+    {
+      "contract_version": "0.1",
+      "rendering_id": "CQ001:PRIVATE_STANDARD:v1",
+      "question_id": "CQ001",
+      "rendering_profile": "PRIVATE_STANDARD",
+      "language_level": "STANDARD",
+      "locale": "de-DE",
+      "text": "Was wäre am Ende dieses Gesprächs für dich hilfreich geklärt?",
+      "rephrase_type": "CANONICAL",
+      "leadingness": 0.2,
+      "specificity": 0.55,
+      "intimacy_level": 0.2,
+      "spiritual_explicitness": 0,
+      "relational_warmth": 0.6,
+      "requires_opt_in": false,
+      "status": "APPROVED",
+      "version": 1
+    },
+    {
+      "contract_version": "0.1",
+      "rendering_id": "CQ001:CORPORATE_STANDARD:v1",
+      "question_id": "CQ001",
+      "rendering_profile": "CORPORATE_STANDARD",
+      "language_level": "STANDARD",
+      "locale": "de-DE",
+      "text": "Was sollte am Ende dieses Gesprächs für Sie hilfreich geklärt sein?",
+      "rephrase_type": "CANONICAL",
+      "leadingness": 0.2,
+      "specificity": 0.55,
+      "intimacy_level": 0.1,
+      "spiritual_explicitness": 0,
+      "relational_warmth": 0.5,
+      "requires_opt_in": false,
+      "status": "APPROVED",
+      "version": 1
+    }
+  ]
+}

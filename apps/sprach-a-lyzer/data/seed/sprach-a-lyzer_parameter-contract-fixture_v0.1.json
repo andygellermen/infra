@@ -1,0 +1,50 @@
+{
+  "fixture_version": "0.1",
+  "parameters": [
+    {
+      "contract_version": "0.1",
+      "key": "assessability.weak_min",
+      "category": "ASSESSABILITY",
+      "value_type": "NUMBER",
+      "default_value": 0.35,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Mindestwert für eine intern sichtbare schwache Tendenz.",
+      "editable": true,
+      "requires_approval": true,
+      "guardrail_level": "NONE",
+      "status": "TESTING",
+      "version": 1
+    },
+    {
+      "contract_version": "0.1",
+      "key": "aggregation.scale",
+      "category": "AGGREGATION",
+      "value_type": "NUMBER",
+      "default_value": 80,
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "Skalierung der begrenzten Aggregationsfunktion.",
+      "editable": true,
+      "requires_approval": true,
+      "guardrail_level": "NONE",
+      "status": "TESTING",
+      "version": 1
+    },
+    {
+      "contract_version": "0.1",
+      "key": "resonance.factor",
+      "category": "RESONANCE",
+      "value_type": "NUMBER",
+      "default_value": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Optionale Resonanzgewichtung außerhalb des semantischen Core-Scores.",
+      "editable": true,
+      "requires_approval": true,
+      "guardrail_level": "SOFT",
+      "status": "TESTING",
+      "version": 1
+    }
+  ]
+}

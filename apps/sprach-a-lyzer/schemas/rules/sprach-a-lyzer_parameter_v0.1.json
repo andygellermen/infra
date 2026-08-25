@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/parameter-v0.1.json",
+  "title": "Sprach-A-Lyzer Adjustable Parameter v0.1",
+  "description": "Versioned and bounded fachlicher parameter. Engine-locked guardrails are not parameters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "key", "category", "value_type", "default_value", "description", "editable", "requires_approval", "guardrail_level", "status", "version"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_]*)+$"},
+    "category": {"enum": ["SCORING", "ASSESSABILITY", "AMBIGUITY", "AGGREGATION", "FREQUENCY", "RESONANCE", "PRESENTATION"]},
+    "value_type": {"enum": ["NUMBER", "INTEGER", "BOOLEAN", "STRING"]},
+    "default_value": {},
+    "minimum": {"type": "number"},
+    "maximum": {"type": "number"},
+    "description": {"type": "string", "minLength": 1},
+    "editable": {"type": "boolean"},
+    "requires_approval": {"type": "boolean"},
+    "guardrail_level": {"enum": ["NONE", "SOFT"]},
+    "status": {"enum": ["DRAFT", "TESTING", "APPROVED", "PRODUCTION", "ARCHIVED"]},
+    "version": {"type": "integer", "minimum": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"value_type": {"enum": ["NUMBER", "INTEGER"]}}, "required": ["value_type"]},
+      "then": {"required": ["minimum", "maximum"]}
+    },
+    {
+      "if": {"properties": {"editable": {"const": true}}, "required": ["editable"]},
+      "then": {"properties": {"requires_approval": {"const": true}}}
+    }
+  ]
+}

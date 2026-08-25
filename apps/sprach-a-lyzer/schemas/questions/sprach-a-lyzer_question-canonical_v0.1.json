@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-canonical-v0.1.json",
+  "title": "Sprach-A-Lyzer Canonical Question v0.1",
+  "description": "Profile-independent question intent. Visible wording belongs to a Question Rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "question_id", "construct_intent", "secondary_constructs", "phase", "audience_scope", "risk_level", "canonical_semantics", "prohibited_semantics", "expected_dimensions", "question_score_bias", "status", "version"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+    "construct_intent": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "secondary_constructs": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "uniqueItems": true},
+    "phase": {"enum": ["P1_ENTRY", "P2_FOLLOWUP_1_10", "P3_ADVANCED_10_20", "P4_INTEGRATION"]},
+    "audience_scope": {"enum": ["PRIVATE", "CORPORATE", "BOTH"]},
+    "risk_level": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+    "canonical_semantics": {"type": "string", "minLength": 1},
+    "prohibited_semantics": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "expected_dimensions": {"type": "array", "items": {"$ref": "#/$defs/dimensionID"}, "uniqueItems": true},
+    "question_score_bias": {"const": 0},
+    "status": {"enum": ["DRAFT", "REVIEW", "APPROVED", "ARCHIVED"]},
+    "version": {"type": "integer", "minimum": 1}
+  },
+  "$defs": {
+    "dimensionID": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]}
+  }
+}

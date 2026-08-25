@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-rendering-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Rendering v0.1",
+  "description": "Visible, profile-bound wording for one canonical question intent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "rendering_id", "question_id", "rendering_profile", "language_level", "locale", "text", "rephrase_type", "leadingness", "specificity", "intimacy_level", "spiritual_explicitness", "relational_warmth", "requires_opt_in", "status", "version"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "rendering_id": {"type": "string", "pattern": "^CQ[0-9]{3}:(?:CORPORATE_STANDARD|CORPORATE_EASY|PRIVATE_STANDARD|PRIVATE_EASY|DEEP_REFLECTIVE):v[1-9][0-9]*$"},
+    "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+    "rendering_profile": {"enum": ["CORPORATE_STANDARD", "CORPORATE_EASY", "PRIVATE_STANDARD", "PRIVATE_EASY", "DEEP_REFLECTIVE"]},
+    "language_level": {"enum": ["STANDARD", "EASY", "VERY_EASY"]},
+    "locale": {"const": "de-DE"},
+    "text": {"type": "string", "minLength": 1},
+    "rephrase_type": {"enum": ["CANONICAL", "SIMPLIFY", "ALTERNATIVE_PERSPECTIVE", "SHORTEN", "ADD_EXAMPLE"]},
+    "leadingness": {"type": "number", "minimum": 0, "maximum": 1},
+    "specificity": {"type": "number", "minimum": 0, "maximum": 1},
+    "intimacy_level": {"type": "number", "minimum": 0, "maximum": 1},
+    "spiritual_explicitness": {"type": "number", "minimum": 0, "maximum": 1},
+    "relational_warmth": {"type": "number", "minimum": 0, "maximum": 1},
+    "requires_opt_in": {"type": "boolean"},
+    "status": {"enum": ["DRAFT", "REVIEW", "APPROVED", "ARCHIVED"]},
+    "version": {"type": "integer", "minimum": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"rendering_profile": {"const": "DEEP_REFLECTIVE"}}, "required": ["rendering_profile"]},
+      "then": {"properties": {"requires_opt_in": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"rendering_profile": {"enum": ["CORPORATE_STANDARD", "CORPORATE_EASY"]}}, "required": ["rendering_profile"]},
+      "then": {"properties": {"spiritual_explicitness": {"const": 0}}}
+    }
+  ]
+}

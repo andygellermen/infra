@@ -17,6 +17,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 9. [Canonical Dimensions](docs/20-domain-model/sprach-a-lyzer_canonical-dimensions_v0.1.md)
 10. [Analyse- und Trace-Verträge](docs/20-domain-model/sprach-a-lyzer_analysis-trace-contracts_v0.1.md)
 11. [Vertical-Slice Golden Gate](docs/40-golden/sprach-a-lyzer_vertical-slice-golden_v0.2.md)
+12. [Sprint 0A Canonical Contracts](docs/00-start/SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md)
 
 ## Repository-Struktur
 
@@ -40,7 +41,7 @@ schemas/
   analysis/          Versionierte Analyse- und Trace-Verträge
   questions/         Q/A-Verträge
   imports/           Importverträge
-  rules/             Reserviert für Regelverträge
+  rules/             Regel-, Policy- und Guardrail-Verträge
 ```
 
 ## Artefaktregeln

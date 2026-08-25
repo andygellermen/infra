@@ -188,3 +188,26 @@ Nur als Starttickets, nicht als Blocker:
 - CI startet Tests
 
 > **Der erste MVP soll nicht alles können. Er soll beweisen, dass unsere Kernidee ohne Magie funktioniert.**
+
+## 9. Umsetzungsstand Sprint 0A
+
+Die kanonische Auflösung der Starttickets ist in
+[`SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md`](SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md)
+festgeschrieben.
+
+Abgeschlossen:
+
+- `FREE_WILL` ist nur noch Legacy-Alias; neue Verträge verwenden `VOLITION`.
+- Analyse-, Ergebnis- und Trace-Verträge v0.1 sind stabil.
+- Rule Contract v0.2 ist die strikte künftige Authoring-Grenze.
+- Canonical Question und sichtbares Rendering besitzen getrennte Verträge.
+- Privacy Defaults und Feature Flags sind kanonisch registriert.
+- Hard und Soft Guardrails sind getrennt und maschinenlesbar.
+- Versionsvektor und Golden-gesicherter Publish-Ablauf sind festgelegt.
+
+Weiterhin eigene Folgeschritte:
+
+- NLP Adapter Interface,
+- Vereinheitlichung der historischen Golden Suites,
+- Migration der sechs Foundation-Regeln auf Rule v0.2,
+- spätere fachliche Regel- und Parameterkalibrierung.
