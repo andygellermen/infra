@@ -3,6 +3,8 @@
 package analysis
 
 import (
+	"fmt"
+
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/engine"
 )
@@ -17,6 +19,12 @@ type ResolvedSense = domain.ResolvedSense
 type ContributionTraceEntry = domain.ContributionTraceEntry
 type AssessabilityTraceEntry = domain.AssessabilityTraceEntry
 type ResonanceHint = domain.ResonanceHint
+type ResolverResult = domain.ResolverResult
+type PropositionGraph = domain.PropositionGraph
+type PropositionNode = domain.PropositionNode
+type PropositionEdge = domain.PropositionEdge
+type ResolverSense = domain.ResolverSense
+type Ambiguity = domain.Ambiguity
 type Locale = domain.Locale
 type Context = domain.AnalysisContext
 type InputMode = domain.InputMode
@@ -50,12 +58,19 @@ type Core interface {
 	Analyze(Request) (Result, error)
 }
 
+type ContextResolver interface {
+	Resolve(Request) (ResolverResult, error)
+}
+
 type Service struct {
-	core Core
+	core     Core
+	resolver ContextResolver
 }
 
 func New(core Core) *Service {
-	return &Service{core: core}
+	service := &Service{core: core}
+	service.resolver, _ = core.(ContextResolver)
+	return service
 }
 
 func NewDefault() *Service {
@@ -72,4 +87,11 @@ func NewWithRuntime(catalogue engine.CatalogueProvider, texts engine.TextProvide
 
 func (s *Service) Analyze(request Request) (Result, error) {
 	return s.core.Analyze(request)
+}
+
+func (s *Service) Resolve(request Request) (ResolverResult, error) {
+	if s.resolver == nil {
+		return ResolverResult{}, fmt.Errorf("context resolver is unavailable")
+	}
+	return s.resolver.Resolve(request)
 }

@@ -72,11 +72,11 @@ func mapsClone(source map[string]string) map[string]string {
 }
 
 type catalogueFacts struct {
-	phrase, context, inputMode string
-	tokens, patterns, senses   []string
+	phrase, context, inputMode, targetType, expectationSource         string
+	tokens, patterns, senses, discourseRelations, propositionFeatures []string
 }
 
-func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string) ([]rules.Definition, catalogueFacts, error) {
+func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string, resolution domain.ResolverResult) ([]rules.Definition, catalogueFacts, error) {
 	if e.catalogue == nil {
 		return nil, catalogueFacts{}, fmt.Errorf("rule catalogue provider is nil")
 	}
@@ -103,8 +103,38 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 	}
 	facts := catalogueFacts{
 		phrase: normalizePhrase(normalizedText), tokens: catalogueTokens(normalizedText),
-		context:   strings.ToUpper(strings.TrimSpace(string(request.Context))),
-		inputMode: strings.ToUpper(strings.TrimSpace(string(request.InputMode))),
+		context:    strings.ToUpper(strings.TrimSpace(string(request.Context))),
+		inputMode:  strings.ToUpper(strings.TrimSpace(string(request.InputMode))),
+		targetType: string(resolution.TargetType), expectationSource: string(resolution.ExpectationSource),
+	}
+	for _, sense := range resolution.SelectedSenses {
+		facts.senses = append(facts.senses, sense.Sense)
+	}
+	for _, edge := range resolution.PropositionGraph.Edges {
+		facts.discourseRelations = append(facts.discourseRelations, string(edge.Relation))
+	}
+	for _, node := range resolution.PropositionGraph.Nodes {
+		if node.Predicate {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "PREDICATE")
+		}
+		if node.Target {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "TARGET")
+		}
+		if node.Time {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "TIME")
+		}
+		if node.Boundary {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "BOUNDARY")
+		}
+		if node.Decision {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "DECISION")
+		}
+		if node.Negation {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "NEGATION")
+		}
+		if node.Modality != domain.ModalityNone {
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "MODALITY_"+string(node.Modality))
+		}
 	}
 	if facts.context == "" {
 		facts.context = string(domain.ContextUnspecified)
@@ -154,10 +184,25 @@ func evaluateCondition(condition rules.Condition, facts catalogueFacts) (bool, e
 		values = facts.patterns
 	case "selected_sense":
 		values = facts.senses
+	case "target_type":
+		values = []string{facts.targetType}
+	case "expectation_source":
+		values = []string{facts.expectationSource}
+	case "discourse_relation":
+		values = facts.discourseRelations
+	case "proposition_feature":
+		values = facts.propositionFeatures
 	default:
 		return false, fmt.Errorf("runtime field %q is not supported", condition.Field)
 	}
 	return evaluatePredicate(values, condition.Operator, condition.Value, condition.CaseSensitive, condition.Field == "phrase")
+}
+
+func appendUniqueFact(values []string, value string) []string {
+	if !slices.Contains(values, value) {
+		return append(values, value)
+	}
+	return values
 }
 
 func evaluatePredicate(actual []string, operator string, rawExpected json.RawMessage, caseSensitive, substringMatch bool) (bool, error) {

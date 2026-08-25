@@ -1,0 +1,73 @@
+{
+  "suite_version": "0.1",
+  "resolver_contract": "0.2",
+  "cases": [
+    {
+      "id": "CP01_LAW_SOURCE",
+      "request": {"text": "Ich bin gesetzlich verpflichtet, die Unterlagen bis Freitag einzureichen.", "context": "LEGAL_ADMINISTRATIVE"},
+      "expected": {
+        "nodes": [{"text": "Ich bin gesetzlich verpflichtet, die Unterlagen bis Freitag einzureichen.", "actor": "SELF", "predicate": true, "target": true, "time": true, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "NONE"}],
+        "edges": [], "selected_senses": [], "ambiguities": [], "target_type": "UNKNOWN", "expectation_source": "LAW", "pattern_candidates": [], "overall_confidence": 0.9
+      }
+    },
+    {
+      "id": "CP02_RESPECTFUL_CONCESSION",
+      "request": {"text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.", "context": "PRIVATE_CONVERSATION"},
+      "expected": {
+        "nodes": [
+          {"text": "Ich verstehe, dass dir das wichtig ist.", "actor": "SELF", "predicate": true, "target": true, "time": false, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "Für mich kommt diese Lösung trotzdem nicht infrage.", "actor": "SELF", "predicate": true, "target": true, "time": false, "boundary": true, "decision": false, "negation": true, "negation_scope": "PROPOSITION", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "trotzdem", "relation": "CONCESSION", "confidence": 0.92}],
+        "selected_senses": [], "ambiguities": [], "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED", "pattern_candidates": ["ACKNOWLEDGEMENT", "CLEAR_BOUNDARY", "RESPECTFUL_BOUNDARY"], "overall_confidence": 0.9
+      }
+    },
+    {
+      "id": "CP03_DISCOUNTING_CONTRAST",
+      "request": {"text": "Ja, aber das funktioniert doch sowieso nie.", "context": "WORKPLACE"},
+      "expected": {
+        "nodes": [
+          {"text": "Ja", "actor": "UNKNOWN", "predicate": false, "target": false, "time": false, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "das funktioniert doch sowieso nie.", "actor": "UNKNOWN", "predicate": true, "target": true, "time": false, "boundary": false, "decision": false, "negation": true, "negation_scope": "PROPOSITION", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "aber", "relation": "CONTRAST", "confidence": 0.92}],
+        "selected_senses": [], "ambiguities": [], "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED", "pattern_candidates": ["DISCOUNTING", "GENERALIZATION"], "overall_confidence": 0.9
+      }
+    },
+    {
+      "id": "CP04_INTERNALIZED_EXPECTATION",
+      "request": {"text": "Ich sollte längst weiter sein.", "context": "SELF_TALK"},
+      "expected": {
+        "nodes": [{"text": "Ich sollte längst weiter sein.", "actor": "SELF", "predicate": true, "target": false, "time": true, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "EXPECTATION"}],
+        "edges": [], "selected_senses": [{"lexeme": "sollen", "sense": "INTERNALIZED_EXPECTATION", "confidence": 0.785, "gap": 0.135, "state": "HIGH"}], "ambiguities": [], "target_type": "UNKNOWN", "expectation_source": "INTERNALIZED", "pattern_candidates": ["INTERNALIZED_EXPECTATION", "SELF_PRESSURE"], "overall_confidence": 0.9
+      }
+    },
+    {
+      "id": "CP05_PERSON_TARGET",
+      "request": {"text": "Du bist das Problem.", "context": "PRIVATE_CONVERSATION"},
+      "expected": {
+        "nodes": [{"text": "Du bist das Problem.", "actor": "OTHER_PERSON", "predicate": true, "target": true, "time": false, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "NONE"}],
+        "edges": [], "selected_senses": [{"lexeme": "Problem", "sense": "PERSON_LABEL", "confidence": 0.815, "gap": 0.075, "state": "MEDIUM"}], "ambiguities": [], "target_type": "PERSON", "expectation_source": "UNSPECIFIED", "pattern_candidates": ["PERSON_DEVALUATION", "PREDICATIVE_LABELING"], "overall_confidence": 0.9
+      }
+    },
+    {
+      "id": "CP06_SEMANTIC_AMBIGUITY",
+      "request": {"text": "Wir müssen das Hindernis umfahren.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Wir müssen das Hindernis umfahren.", "actor": "GROUP_SELF", "predicate": true, "target": true, "time": false, "boundary": false, "decision": false, "negation": false, "negation_scope": "NONE", "modality": "NECESSITY"}],
+        "edges": [],
+        "selected_senses": [{"lexeme": "müssen", "sense": "EXTERNAL_NECESSITY", "confidence": 0.655, "gap": 0.05, "state": "AMBIGUOUS"}, {"lexeme": "umfahren", "sense": "DRIVE_AROUND", "confidence": 0.7825, "gap": 0.24, "state": "HIGH"}],
+        "ambiguities": [{"item": "müssen", "type": "SEMANTIC", "top": "EXTERNAL_NECESSITY", "second": "EPISTEMIC_INFERENCE", "gap": 0.05}],
+        "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED", "pattern_candidates": [], "overall_confidence": 0.72
+      }
+    },
+    {
+      "id": "CP07_NEGATED_PERMISSION",
+      "request": {"text": "Du darfst das nicht.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Du darfst das nicht.", "actor": "OTHER_PERSON", "predicate": true, "target": true, "time": false, "boundary": false, "decision": false, "negation": true, "negation_scope": "MODALITY", "modality": "PERMISSION"}],
+        "edges": [], "selected_senses": [{"lexeme": "dürfen", "sense": "PROHIBITION", "confidence": 0.765, "gap": 0.075, "state": "MEDIUM"}], "ambiguities": [], "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED", "pattern_candidates": ["PROHIBITION"], "overall_confidence": 0.9
+      }
+    }
+  ]
+}

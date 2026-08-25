@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/resolver"
 )
 
 var ErrEmptyText = errors.New("analysis text must not be empty")
@@ -15,6 +16,7 @@ var ErrEmptyText = errors.New("analysis text must not be empty")
 type Engine struct {
 	catalogue CatalogueProvider
 	texts     TextProvider
+	resolver  *resolver.Resolver
 }
 
 // New retains the catalogue-only test seam and uses the embedded presentation
@@ -24,7 +26,14 @@ func New(catalogue CatalogueProvider) *Engine {
 }
 
 func NewWithProviders(catalogue CatalogueProvider, texts TextProvider) *Engine {
-	return &Engine{catalogue: catalogue, texts: texts}
+	return &Engine{catalogue: catalogue, texts: texts, resolver: resolver.New()}
+}
+
+func (e *Engine) Resolve(request domain.AnalysisRequest) (domain.ResolverResult, error) {
+	if e.resolver == nil {
+		return domain.ResolverResult{}, fmt.Errorf("context resolver is nil")
+	}
+	return e.resolver.Resolve(request)
 }
 
 type evidence struct {
@@ -61,7 +70,11 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 		ContributionTrace: []domain.ContributionTraceEntry{}, Alternatives: []string{},
 		ResonanceHints: []domain.ResonanceHint{}, Notes: []string{},
 	}
-	definitions, facts, err := e.activeDefinitions(request, normalize(text))
+	resolution, err := e.Resolve(request)
+	if err != nil {
+		return domain.AnalysisResult{}, fmt.Errorf("resolve context and propositions: %w", err)
+	}
+	definitions, facts, err := e.activeDefinitions(request, normalize(text), resolution)
 	if err != nil {
 		return domain.AnalysisResult{}, err
 	}
@@ -93,6 +106,9 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			executed[definition.Key], progress = true, true
 			facts.patterns = append([]string(nil), result.Patterns...)
 			facts.senses = facts.senses[:0]
+			for _, sense := range resolution.SelectedSenses {
+				facts.senses = append(facts.senses, sense.Sense)
+			}
 			for _, sense := range result.ResolvedSenses {
 				facts.senses = append(facts.senses, sense.Sense)
 			}

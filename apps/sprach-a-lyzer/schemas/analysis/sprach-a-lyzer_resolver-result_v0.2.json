@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/resolver-result-v0.2.json",
+  "title": "Sprach-A-Lyzer Context and Proposition Resolver Result v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "text", "context", "proposition_graph", "selected_senses", "ambiguities", "target_type", "expectation_source", "pattern_candidates", "overall_confidence"],
+  "properties": {
+    "contract_version": {"const": "0.2"},
+    "text": {"type": "string", "minLength": 1},
+    "context": {"type": "string", "minLength": 1},
+    "proposition_graph": {"$ref": "#/$defs/propositionGraph"},
+    "selected_senses": {"type": "array", "items": {"$ref": "#/$defs/resolverSense"}},
+    "ambiguities": {"type": "array", "items": {"$ref": "#/$defs/ambiguity"}},
+    "target_type": {"$ref": "#/$defs/targetType"},
+    "expectation_source": {"$ref": "#/$defs/expectationSource"},
+    "pattern_candidates": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "uniqueItems": true},
+    "overall_confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "$defs": {
+    "actor": {"enum": ["SELF", "OTHER_PERSON", "GROUP_SELF", "UNKNOWN"]},
+    "targetType": {"enum": ["PERSON", "SELF", "BEHAVIOR", "EVENT", "OBJECT", "PROCESS", "IDEA", "GROUP", "INSTITUTION", "UNKNOWN"]},
+    "expectationSource": {"enum": ["SELF", "OTHER_PERSON", "GROUP", "INSTITUTION", "LAW", "CULTURE", "UNSPECIFIED", "INTERNALIZED"]},
+    "relation": {"enum": ["CONTRAST", "CONCESSION", "CAUSE", "CONSEQUENCE", "ADDITION", "CONDITION", "CORRECTION", "DISCOUNTING"]},
+    "modality": {"enum": ["NONE", "NECESSITY", "POSSIBILITY", "PERMISSION", "EXPECTATION", "INTENTION", "PROBABILITY"]},
+    "negationScope": {"enum": ["NONE", "PROPOSITION", "MODALITY", "ACTOR", "AMBIGUOUS"]},
+    "senseState": {"enum": ["HIGH", "MEDIUM", "AMBIGUOUS"]},
+    "propositionGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/propositionNode"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/propositionEdge"}}
+      }
+    },
+    "propositionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sentence_index", "text", "source_start", "source_end", "actor", "predicate", "target", "time", "boundary", "decision", "negation", "negation_scope", "modality", "target_type", "expectation_source", "confidence"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^P[0-9]+$"},
+        "sentence_index": {"type": "integer", "minimum": 0},
+        "text": {"type": "string", "minLength": 1},
+        "source_start": {"type": "integer", "minimum": 0},
+        "source_end": {"type": "integer", "minimum": 1},
+        "actor": {"$ref": "#/$defs/actor"},
+        "predicate": {"type": "boolean"},
+        "target": {"type": "boolean"},
+        "time": {"type": "boolean"},
+        "boundary": {"type": "boolean"},
+        "decision": {"type": "boolean"},
+        "negation": {"type": "boolean"},
+        "negation_scope": {"$ref": "#/$defs/negationScope"},
+        "modality": {"$ref": "#/$defs/modality"},
+        "target_type": {"$ref": "#/$defs/targetType"},
+        "expectation_source": {"$ref": "#/$defs/expectationSource"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "propositionEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "marker", "relation", "confidence"],
+      "properties": {
+        "source": {"type": "string", "pattern": "^P[0-9]+$"},
+        "target": {"type": "string", "pattern": "^P[0-9]+$"},
+        "marker": {"type": "string", "minLength": 1},
+        "relation": {"$ref": "#/$defs/relation"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "resolverSense": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lexeme", "sense", "confidence", "gap", "state"],
+      "properties": {
+        "lexeme": {"type": "string", "minLength": 1},
+        "sense": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "gap": {"type": "number", "minimum": 0, "maximum": 1},
+        "state": {"$ref": "#/$defs/senseState"}
+      }
+    },
+    "ambiguity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "type", "top", "second", "gap"],
+      "properties": {
+        "item": {"type": "string", "minLength": 1},
+        "type": {"enum": ["SEMANTIC", "PHONETIC", "ORTHOGRAPHIC", "PRAGMATIC", "SYNTACTIC", "REGISTER", "RESONANCE"]},
+        "top": {"type": "string", "minLength": 1},
+        "second": {"type": "string", "minLength": 1},
+        "gap": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

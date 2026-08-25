@@ -18,6 +18,7 @@ func TestGoContractsMatchJSONSchemaObjectShapes(t *testing.T) {
 	request := readSchema(t, "sprach-a-lyzer_analysis-request_v0.1.json")
 	result := readSchema(t, "sprach-a-lyzer_analysis-result_v0.1.json")
 	trace := readSchema(t, "sprach-a-lyzer_analysis-trace_v0.1.json")
+	resolverResult := readSchema(t, "sprach-a-lyzer_resolver-result_v0.2.json")
 
 	assertObjectShape(t, reflect.TypeOf(analysis.Request{}), request)
 	assertObjectShape(t, reflect.TypeOf(analysis.Result{}), result)
@@ -29,6 +30,12 @@ func TestGoContractsMatchJSONSchemaObjectShapes(t *testing.T) {
 	assertObjectShape(t, reflect.TypeOf(analysis.ResonanceHint{}), definition(t, result, "resonanceHint"))
 	assertObjectShape(t, reflect.TypeOf(analysis.ContributionTraceEntry{}), definition(t, trace, "contributionTraceEntry"))
 	assertObjectShape(t, reflect.TypeOf(analysis.AssessabilityTraceEntry{}), definition(t, trace, "assessabilityTraceEntry"))
+	assertObjectShape(t, reflect.TypeOf(analysis.ResolverResult{}), resolverResult)
+	assertObjectShape(t, reflect.TypeOf(analysis.PropositionGraph{}), definition(t, resolverResult, "propositionGraph"))
+	assertObjectShape(t, reflect.TypeOf(analysis.PropositionNode{}), definition(t, resolverResult, "propositionNode"))
+	assertObjectShape(t, reflect.TypeOf(analysis.PropositionEdge{}), definition(t, resolverResult, "propositionEdge"))
+	assertObjectShape(t, reflect.TypeOf(analysis.ResolverSense{}), definition(t, resolverResult, "resolverSense"))
+	assertObjectShape(t, reflect.TypeOf(analysis.Ambiguity{}), definition(t, resolverResult, "ambiguity"))
 }
 
 func TestSchemasUseExactlyTheCanonicalDimensions(t *testing.T) {

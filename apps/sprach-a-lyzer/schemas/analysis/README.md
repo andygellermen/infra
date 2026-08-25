@@ -7,6 +7,9 @@
 - `sprach-a-lyzer_analysis-trace_v0.1.json` beschreibt den eigenständigen,
   aus dem Ergebnis ableitbaren Explainability-Vertrag. Seine Contribution-
   Indizes sind nullbasiert.
+- `sprach-a-lyzer_resolver-result_v0.2.json` beschreibt den additive aufgebauten
+  Context-/Proposition-Resolver vor dem Scoring. Der veröffentlichte v0.1-
+  Analysevertrag bleibt dadurch unverändert.
 - Neue Verträge verwenden ausschließlich die kanonische Dimension
   `VOLITION`; `FREE_WILL` wird nur an Legacy-Importgrenzen akzeptiert.
 

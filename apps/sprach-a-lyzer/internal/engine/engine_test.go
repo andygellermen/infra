@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 )
 
@@ -116,6 +117,39 @@ func TestRuntimeCatalogueActivationAndDeactivationSmoke(t *testing.T) {
 	if len(reactivated.ContributionTrace) != len(active.ContributionTrace) ||
 		*reactivated.Dimensions[domain.DimensionVolition].Score != *active.Dimensions[domain.DimensionVolition].Score {
 		t.Fatalf("reactivated result did not restore parity: active=%+v reactivated=%+v", active, reactivated)
+	}
+}
+
+func TestContextAndPropositionFactsAreCatalogueAddressable(t *testing.T) {
+	t.Parallel()
+
+	definitions := []rules.Definition{
+		factRule("20000000-0000-4000-8000-000000000301", "R-PERSON-FACT", "PERSON_FACT", rules.Condition{Op: "AND", Children: []rules.Condition{
+			{Field: "target_type", Operator: "EQUALS", Value: []byte(`"PERSON"`)},
+			{Field: "selected_sense", Operator: "EQUALS", Value: []byte(`"PERSON_LABEL"`)},
+			{Field: "proposition_feature", Operator: "EQUALS", Value: []byte(`"PREDICATE"`)},
+		}}),
+		factRule("20000000-0000-4000-8000-000000000302", "R-LAW-CONTRAST", "LAW_CONTRAST", rules.Condition{Op: "AND", Children: []rules.Condition{
+			{Field: "expectation_source", Operator: "EQUALS", Value: []byte(`"LAW"`)},
+			{Field: "discourse_relation", Operator: "EQUALS", Value: []byte(`"CONTRAST"`)},
+			{Field: "proposition_feature", Operator: "EQUALS", Value: []byte(`"TIME"`)},
+		}}),
+	}
+	engine := New(staticCatalogue{catalogue: rules.Catalogue{Version: "context-test", Rules: definitions}})
+	person, err := engine.Analyze(domain.AnalysisRequest{Text: "Du bist das Problem.", Context: "PRIVATE_CONVERSATION"})
+	if err != nil { t.Fatalf("person Analyze() error: %v", err) }
+	if !containsString(person.Patterns, "PERSON_FACT") { t.Fatalf("person facts did not match: %v", person.Patterns) }
+	law, err := engine.Analyze(domain.AnalysisRequest{Text: "Ich bin gesetzlich bis Freitag verpflichtet, aber die Form bleibt offen.", Context: "LEGAL_ADMINISTRATIVE"})
+	if err != nil { t.Fatalf("law Analyze() error: %v", err) }
+	if !containsString(law.Patterns, "LAW_CONTRAST") { t.Fatalf("context/proposition facts did not match: %v", law.Patterns) }
+}
+
+func factRule(id, key, pattern string, condition rules.Condition) rules.Definition {
+	return rules.Definition{
+		ContractVersion: rules.ContractVersion, ID: id, Key: key, Name: key,
+		Description: "Context/proposition fact smoke rule.", Priority: 100, Enabled: true,
+		Scope: "TEXT", Status: "TESTING", Version: 1, Condition: condition,
+		Actions: []rules.Action{{Type: policy.AddPattern, Key: pattern}}, ConfidenceModifier: 1,
 	}
 }
 

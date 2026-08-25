@@ -81,6 +81,59 @@ func AnalysisContexts() []AnalysisContextID {
 	}
 }
 
+type TargetTypeID string
+
+const (
+	TargetPerson      TargetTypeID = "PERSON"
+	TargetSelf        TargetTypeID = "SELF"
+	TargetBehavior    TargetTypeID = "BEHAVIOR"
+	TargetEvent       TargetTypeID = "EVENT"
+	TargetObject      TargetTypeID = "OBJECT"
+	TargetProcess     TargetTypeID = "PROCESS"
+	TargetIdea        TargetTypeID = "IDEA"
+	TargetGroup       TargetTypeID = "GROUP"
+	TargetInstitution TargetTypeID = "INSTITUTION"
+	TargetUnknown     TargetTypeID = "UNKNOWN"
+)
+
+func TargetTypes() []TargetTypeID {
+	return []TargetTypeID{TargetPerson, TargetSelf, TargetBehavior, TargetEvent, TargetObject, TargetProcess, TargetIdea, TargetGroup, TargetInstitution, TargetUnknown}
+}
+
+type ExpectationSourceID string
+
+const (
+	ExpectationSelf         ExpectationSourceID = "SELF"
+	ExpectationOtherPerson  ExpectationSourceID = "OTHER_PERSON"
+	ExpectationGroup        ExpectationSourceID = "GROUP"
+	ExpectationInstitution  ExpectationSourceID = "INSTITUTION"
+	ExpectationLaw          ExpectationSourceID = "LAW"
+	ExpectationCulture      ExpectationSourceID = "CULTURE"
+	ExpectationUnspecified  ExpectationSourceID = "UNSPECIFIED"
+	ExpectationInternalized ExpectationSourceID = "INTERNALIZED"
+)
+
+func ExpectationSources() []ExpectationSourceID {
+	return []ExpectationSourceID{ExpectationSelf, ExpectationOtherPerson, ExpectationGroup, ExpectationInstitution, ExpectationLaw, ExpectationCulture, ExpectationUnspecified, ExpectationInternalized}
+}
+
+type DiscourseRelationID string
+
+const (
+	RelationContrast    DiscourseRelationID = "CONTRAST"
+	RelationConcession  DiscourseRelationID = "CONCESSION"
+	RelationCause       DiscourseRelationID = "CAUSE"
+	RelationConsequence DiscourseRelationID = "CONSEQUENCE"
+	RelationAddition    DiscourseRelationID = "ADDITION"
+	RelationCondition   DiscourseRelationID = "CONDITION"
+	RelationCorrection  DiscourseRelationID = "CORRECTION"
+	RelationDiscounting DiscourseRelationID = "DISCOUNTING"
+)
+
+func DiscourseRelations() []DiscourseRelationID {
+	return []DiscourseRelationID{RelationContrast, RelationConcession, RelationCause, RelationConsequence, RelationAddition, RelationCondition, RelationCorrection, RelationDiscounting}
+}
+
 type ResonanceModeID string
 
 const (
