@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	foundationPath := flag.String("foundation", "data/seed/sprach-a-lyzer_foundation_v0.2.json", "foundation seed JSON")
+	foundationPath := flag.String("foundation", "data/seed/sprach-a-lyzer_foundation_v0.3.json", "foundation seed JSON")
 	goldenPath := flag.String("golden", "data/golden/sprach-a-lyzer_vertical-slice_v0.2.json", "vertical-slice golden JSON")
 	flag.Parse()
 

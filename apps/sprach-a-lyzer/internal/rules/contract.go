@@ -12,7 +12,10 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
-const ContractVersion = "0.3"
+const (
+	ContractVersion       = "0.4"
+	LegacyContractVersion = "0.3"
+)
 
 var ruleKeyPattern = regexp.MustCompile(`^R-[A-Z0-9]+(?:-[A-Z0-9]+)*$`)
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
@@ -34,6 +37,7 @@ type Action struct {
 	Confidence    *float64              `json:"confidence,omitempty"`
 	Factor        *float64              `json:"factor,omitempty"`
 	ReasonKey     string                `json:"reason_key,omitempty"`
+	EvidenceKey   string                `json:"evidence_key,omitempty"`
 	Key           string                `json:"key,omitempty"`
 	Lexeme        string                `json:"lexeme,omitempty"`
 	Sense         string                `json:"sense,omitempty"`
@@ -78,8 +82,8 @@ func DecodeDefinition(data []byte) (Definition, error) {
 }
 
 func (d Definition) Validate() error {
-	if d.ContractVersion != ContractVersion {
-		return fmt.Errorf("rule %q contract_version = %q; want %q", d.Key, d.ContractVersion, ContractVersion)
+	if d.ContractVersion != ContractVersion && d.ContractVersion != LegacyContractVersion {
+		return fmt.Errorf("rule %q contract_version = %q; want %q or %q", d.Key, d.ContractVersion, ContractVersion, LegacyContractVersion)
 	}
 	if !uuidPattern.MatchString(d.ID) || !ruleKeyPattern.MatchString(d.Key) || d.Name == "" {
 		return fmt.Errorf("rule %q must contain a canonical id, key and name", d.Key)
@@ -106,7 +110,7 @@ func (d Definition) Validate() error {
 		return fmt.Errorf("rule %s must contain at least one action", d.Key)
 	}
 	for index, action := range d.Actions {
-		if err := validateAction(action); err != nil {
+		if err := validateAction(action, d.ContractVersion); err != nil {
 			return fmt.Errorf("rule %s action %d: %w", d.Key, index, err)
 		}
 	}
@@ -153,12 +157,12 @@ func validateCondition(condition Condition, depth int) error {
 	return nil
 }
 
-func validateAction(action Action) error {
+func validateAction(action Action, contractVersion string) error {
 	if !slices.Contains(policy.RuleActionTypes(), action.Type) {
 		return fmt.Errorf("unregistered action type %q", action.Type)
 	}
 	allowedFields := map[policy.RuleActionType][]string{
-		policy.AddContribution:      {"dimension", "value", "confidence", "reason_key"},
+		policy.AddContribution:      {"dimension", "value", "confidence", "reason_key", "evidence_key"},
 		policy.MultiplyContribution: {"dimension", "factor", "reason_key"},
 		policy.CapMin:               {"dimension", "value", "reason_key"},
 		policy.CapMax:               {"dimension", "value", "reason_key"},
@@ -169,7 +173,8 @@ func validateAction(action Action) error {
 		policy.AddPattern:           {"key"},
 		policy.AddExplanation:       {"key"},
 		policy.AddReflectionPrompt:  {"key"},
-		policy.SelectSense:          {"lexeme", "sense"},
+		policy.AddAlternative:       {"key"},
+		policy.SelectSense:          {"lexeme", "sense", "confidence", "reason_key"},
 		policy.AddResonanceHint:     {"tokens", "semantic_score", "message_key"},
 		policy.StopRuleChain:        {},
 	}
@@ -192,7 +197,7 @@ func validateAction(action Action) error {
 		if !canonicalDimension || action.ReasonKey == "" {
 			return fmt.Errorf("%s requires canonical dimension and reason_key", action.Type)
 		}
-	case policy.AddPattern, policy.AddExplanation, policy.AddReflectionPrompt:
+	case policy.AddPattern, policy.AddExplanation, policy.AddReflectionPrompt, policy.AddAlternative:
 		if action.Key == "" {
 			return fmt.Errorf("%s requires key", action.Type)
 		}
@@ -205,6 +210,9 @@ func validateAction(action Action) error {
 			return fmt.Errorf("ADD_RESONANCE_HINT requires two tokens and semantic_score=false")
 		}
 	case policy.StopRuleChain:
+	}
+	if contractVersion == ContractVersion && requiresV04Fields(action) {
+		return fmt.Errorf("%s requires Rule v0.4 runtime metadata", action.Type)
 	}
 	if action.Confidence != nil && (*action.Confidence < 0 || *action.Confidence > 1) {
 		return fmt.Errorf("confidence must be between 0 and 1")
@@ -229,6 +237,9 @@ func populatedActionFields(action Action) map[string]bool {
 	if action.ReasonKey != "" {
 		result["reason_key"] = true
 	}
+	if action.EvidenceKey != "" {
+		result["evidence_key"] = true
+	}
 	if action.Key != "" {
 		result["key"] = true
 	}
@@ -248,6 +259,19 @@ func populatedActionFields(action Action) map[string]bool {
 		result["message_key"] = true
 	}
 	return result
+}
+
+func requiresV04Fields(action Action) bool {
+	switch action.Type {
+	case policy.AddContribution:
+		return action.EvidenceKey == "" || action.Confidence == nil
+	case policy.SelectSense:
+		return action.ReasonKey == "" || action.Confidence == nil
+	case policy.AddResonanceHint:
+		return action.MessageKey == ""
+	default:
+		return false
+	}
 }
 
 func uniqueStrings(values []string) bool {

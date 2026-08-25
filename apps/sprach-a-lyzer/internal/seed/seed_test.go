@@ -29,7 +29,7 @@ func TestDecodeFoundation(t *testing.T) {
 func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.2.json")
+	file, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
 	if err != nil {
 		t.Fatalf("open canonical foundation: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	if len(foundation.PresentationBundles) != 2 {
 		t.Fatalf("presentation bundles = %d; want 2", len(foundation.PresentationBundles))
 	}
-	if foundation.Version != "0.2" || foundation.RuleSet.Version != "0.2" || len(foundation.Rules) != 6 {
+	if foundation.Version != "0.3" || foundation.RuleSet.Version != "0.3" || len(foundation.Rules) != 9 {
 		t.Fatalf("foundation/rule-set migration incomplete: version=%s rule_set=%s rules=%d", foundation.Version, foundation.RuleSet.Version, len(foundation.Rules))
 	}
 	for _, rule := range foundation.Rules {
@@ -63,7 +63,7 @@ func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 func TestDecodeFoundationRejectsScoringResonanceHint(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.2.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
 	if err != nil {
 		t.Fatalf("read canonical foundation: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestDecodeFoundationRejectsScoringResonanceHint(t *testing.T) {
 func TestDecodeFoundationRejectsLegacyRuleShape(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.2.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
 	if err != nil {
 		t.Fatalf("read canonical foundation: %v", err)
 	}

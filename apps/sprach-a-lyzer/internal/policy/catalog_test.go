@@ -35,7 +35,7 @@ type registryFixture struct {
 func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.2.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.3.json")
 	if err != nil {
 		t.Fatalf("read policy registry: %v", err)
 	}

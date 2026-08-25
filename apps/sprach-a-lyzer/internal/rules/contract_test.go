@@ -9,7 +9,7 @@ import (
 func TestDecodeCanonicalRuleFixture(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.3.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.4.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestDecodeCanonicalRuleFixture(t *testing.T) {
 func TestDecodeDefinitionRejectsUnknownField(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.3.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.4.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

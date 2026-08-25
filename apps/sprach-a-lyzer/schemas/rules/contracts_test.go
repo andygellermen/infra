@@ -11,10 +11,10 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
-func TestRuleV03UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
+func TestRuleV04UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
 	t.Parallel()
 
-	schema := readObject(t, "sprach-a-lyzer_rule_v0.3.json")
+	schema := readObject(t, "sprach-a-lyzer_rule_v0.4.json")
 	definitions := object(t, schema["$defs"])
 	dimensionDefinition := object(t, definitions["dimensionID"])
 	gotDimensions := stringArray(t, dimensionDefinition["enum"])
@@ -49,16 +49,16 @@ func TestRuleV03UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
 	}
 	data, _ := json.Marshal(schema)
 	if bytes.Contains(data, []byte("FREE_WILL")) {
-		t.Error("rule v0.3 schema contains legacy dimension ID")
+		t.Error("rule v0.4 schema contains legacy dimension ID")
 	}
 }
 
 func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 	t.Parallel()
 
-	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.3.json")
-	if fixture["contract_version"] != "0.3" {
-		t.Fatalf("fixture contract version = %#v; want 0.3", fixture["contract_version"])
+	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.4.json")
+	if fixture["contract_version"] != "0.4" {
+		t.Fatalf("fixture contract version = %#v; want 0.4", fixture["contract_version"])
 	}
 	allowed := map[string]bool{}
 	for _, action := range policy.RuleActionTypes() {
@@ -77,9 +77,9 @@ func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 
 func TestPolicyRegistrySchemaAndSeedAreJSON(t *testing.T) {
 	t.Parallel()
-	readObject(t, "sprach-a-lyzer_policy-registry_v0.2.json")
+	readObject(t, "sprach-a-lyzer_policy-registry_v0.3.json")
 	readObject(t, "sprach-a-lyzer_parameter_v0.1.json")
-	readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.2.json")
+	readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.3.json")
 	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_parameter-contract-fixture_v0.1.json")
 	for _, raw := range array(t, fixture["parameters"]) {
 		parameter := object(t, raw)

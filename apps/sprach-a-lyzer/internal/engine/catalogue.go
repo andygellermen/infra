@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -20,44 +21,71 @@ type CatalogueProvider interface {
 	Active(context.Context) (rules.Catalogue, error)
 }
 
-type staticCatalogue struct {
-	catalogue rules.Catalogue
+// TextProvider supplies one presentation-safe key catalogue per request.
+type TextProvider interface {
+	Texts(context.Context, string, string) (map[string]string, error)
 }
 
-func (s staticCatalogue) Active(context.Context) (rules.Catalogue, error) {
-	return s.catalogue, nil
+type staticCatalogue struct{ catalogue rules.Catalogue }
+
+func (s staticCatalogue) Active(context.Context) (rules.Catalogue, error) { return s.catalogue, nil }
+
+type staticTexts struct{ bundles map[string]map[string]string }
+
+func (s staticTexts) Texts(_ context.Context, profile, locale string) (map[string]string, error) {
+	entries, ok := s.bundles[profile+"/"+locale]
+	if !ok {
+		return nil, fmt.Errorf("presentation bundle %s/%s is unavailable", profile, locale)
+	}
+	return mapsClone(entries), nil
 }
 
 func NewDefault() *Engine {
-	foundation, err := seed.DecodeFoundation(bytes.NewReader(assets.FoundationV02))
+	foundation := embeddedFoundation()
+	return NewWithProviders(staticCatalogue{catalogue: rules.Catalogue{
+		Version: foundation.RuleSet.Version, Rules: foundation.Rules,
+	}}, staticTextProvider(foundation))
+}
+
+func embeddedFoundation() seed.Foundation {
+	foundation, err := seed.DecodeFoundation(bytes.NewReader(assets.FoundationV03))
 	if err != nil {
 		panic(fmt.Sprintf("decode embedded Foundation catalogue: %v", err))
 	}
-	return New(staticCatalogue{catalogue: rules.Catalogue{
-		Version: foundation.RuleSet.Version,
-		Rules:   foundation.Rules,
-	}})
+	return foundation
+}
+
+func staticTextProvider(foundation seed.Foundation) TextProvider {
+	bundles := make(map[string]map[string]string, len(foundation.PresentationBundles))
+	for _, bundle := range foundation.PresentationBundles {
+		bundles[bundle.Profile+"/"+bundle.Locale] = mapsClone(bundle.Entries)
+	}
+	return staticTexts{bundles: bundles}
+}
+
+func mapsClone(source map[string]string) map[string]string {
+	result := make(map[string]string, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
 }
 
 type catalogueFacts struct {
-	phrase    string
-	tokens    []string
-	context   string
-	inputMode string
-	patterns  []string
-	senses    []string
+	phrase, context, inputMode string
+	tokens, patterns, senses   []string
 }
 
-func (e *Engine) matchingRules(request domain.AnalysisRequest, normalizedText string) (map[string]rules.Definition, error) {
+func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string) ([]rules.Definition, catalogueFacts, error) {
 	if e.catalogue == nil {
-		return nil, fmt.Errorf("rule catalogue provider is nil")
+		return nil, catalogueFacts{}, fmt.Errorf("rule catalogue provider is nil")
 	}
 	catalogue, err := e.catalogue.Active(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("load active rule catalogue: %w", err)
+		return nil, catalogueFacts{}, fmt.Errorf("load active rule catalogue: %w", err)
 	}
 	if catalogue.Version == "" || len(catalogue.Rules) == 0 {
-		return nil, fmt.Errorf("active rule catalogue is empty")
+		return nil, catalogueFacts{}, fmt.Errorf("active rule catalogue is empty")
 	}
 	definitions := slices.Clone(catalogue.Rules)
 	sort.SliceStable(definitions, func(i, j int) bool {
@@ -66,9 +94,15 @@ func (e *Engine) matchingRules(request domain.AnalysisRequest, normalizedText st
 		}
 		return definitions[i].Priority > definitions[j].Priority
 	})
+	for _, definition := range definitions {
+		if definition.Enabled {
+			if err := definition.Validate(); err != nil {
+				return nil, catalogueFacts{}, fmt.Errorf("validate active catalogue: %w", err)
+			}
+		}
+	}
 	facts := catalogueFacts{
-		phrase:    normalizePhrase(normalizedText),
-		tokens:    catalogueTokens(normalizedText),
+		phrase: normalizePhrase(normalizedText), tokens: catalogueTokens(normalizedText),
 		context:   strings.ToUpper(strings.TrimSpace(string(request.Context))),
 		inputMode: strings.ToUpper(strings.TrimSpace(string(request.InputMode))),
 	}
@@ -78,23 +112,7 @@ func (e *Engine) matchingRules(request domain.AnalysisRequest, normalizedText st
 	if facts.inputMode == "" {
 		facts.inputMode = string(domain.InputModeText)
 	}
-	matched := make(map[string]rules.Definition)
-	for _, definition := range definitions {
-		if !definition.Enabled {
-			continue
-		}
-		if err := definition.Validate(); err != nil {
-			return nil, fmt.Errorf("validate active catalogue: %w", err)
-		}
-		matches, err := evaluateCondition(definition.Condition, facts)
-		if err != nil {
-			return nil, fmt.Errorf("evaluate rule %s: %w", definition.Key, err)
-		}
-		if matches {
-			matched[definition.Key] = definition
-		}
-	}
-	return matched, nil
+	return definitions, facts, nil
 }
 
 func evaluateCondition(condition rules.Condition, facts catalogueFacts) (bool, error) {
@@ -122,7 +140,6 @@ func evaluateCondition(condition rules.Condition, facts catalogueFacts) (bool, e
 		matched, err := evaluateCondition(*condition.Child, facts)
 		return !matched, err
 	}
-
 	var values []string
 	switch condition.Field {
 	case "tokens":
@@ -155,8 +172,7 @@ func evaluatePredicate(actual []string, operator string, rawExpected json.RawMes
 		return false, err
 	}
 	if !caseSensitive {
-		actual = lowerStrings(actual)
-		expected = lowerStrings(expected)
+		actual, expected = lowerStrings(actual), lowerStrings(expected)
 	}
 	equalsAny := func(want string) bool { return slices.Contains(actual, want) }
 	contains := func(want string) bool {
@@ -189,7 +205,19 @@ func evaluatePredicate(actual []string, operator string, rawExpected json.RawMes
 		}
 		return true, nil
 	case "MATCHES":
-		return false, fmt.Errorf("MATCHES is not enabled in the deterministic Foundation runtime")
+		if len(expected) != 1 || len(expected[0]) > 512 {
+			return false, fmt.Errorf("MATCHES requires one bounded expression")
+		}
+		expression, err := regexp.Compile(expected[0])
+		if err != nil {
+			return false, fmt.Errorf("compile MATCHES expression: %w", err)
+		}
+		for _, value := range actual {
+			if expression.MatchString(value) {
+				return true, nil
+			}
+		}
+		return false, nil
 	default:
 		return false, fmt.Errorf("operator %q is not supported", operator)
 	}
@@ -208,9 +236,7 @@ func decodeExpected(value json.RawMessage) ([]string, error) {
 }
 
 func catalogueTokens(text string) []string {
-	fields := strings.FieldsFunc(text, func(r rune) bool {
-		return unicode.IsSpace(r) || unicode.IsPunct(r)
-	})
+	fields := strings.FieldsFunc(text, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsPunct(r) })
 	result := make([]string, 0, len(fields)+1)
 	for _, field := range fields {
 		field = strings.ToLower(field)
@@ -223,9 +249,7 @@ func catalogueTokens(text string) []string {
 }
 
 func normalizePhrase(text string) string {
-	return strings.TrimFunc(text, func(r rune) bool {
-		return unicode.IsPunct(r) || unicode.IsSpace(r)
-	})
+	return strings.TrimFunc(text, func(r rune) bool { return unicode.IsPunct(r) || unicode.IsSpace(r) })
 }
 
 func lowerStrings(values []string) []string {

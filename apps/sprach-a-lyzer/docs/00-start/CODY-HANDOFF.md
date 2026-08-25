@@ -1,7 +1,7 @@
-# Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.2
+# Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
 **Status:** MVP Initiation Package  
-**Stand:** 21. August 2026  
+**Stand:** 26. August 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -199,13 +199,13 @@ Abgeschlossen:
 
 - `FREE_WILL` ist nur noch Legacy-Alias; neue Verträge verwenden `VOLITION`.
 - Analyse-, Ergebnis- und Trace-Verträge v0.1 sind stabil.
-- Rule Contract v0.2 ist die strikte künftige Authoring-Grenze.
+- Rule Contract v0.4 ist die aktuelle strikte Authoring-Grenze.
 - Canonical Question und sichtbares Rendering besitzen getrennte Verträge.
 - Privacy Defaults und Feature Flags sind kanonisch registriert.
 - Hard und Soft Guardrails sind getrennt und maschinenlesbar.
 - Versionsvektor und Golden-gesicherter Publish-Ablauf sind festgelegt.
-- Die sechs Foundation-Regeln liegen strikt typisiert als Rule v0.3 vor.
-- Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.3.
+- Neun Foundation-Regeln liegen strikt typisiert als Rule v0.4 vor.
+- Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.4.
 - Server/API beziehen den aktiven Foundation-Regelkatalog zur Laufzeit aus
   PostgreSQL; CLI und Tests verwenden das eingebettete kanonische Seed-Artefakt.
 
@@ -213,5 +213,16 @@ Weiterhin eigene Folgeschritte:
 
 - NLP Adapter Interface,
 - Vereinheitlichung der historischen Golden Suites,
-- Überführung der verbleibenden Core-Enrichments in einen späteren typisierten Vertrag,
 - spätere fachliche Regel- und Parameterkalibrierung.
+
+## 10. Core Closure v0.1.0
+
+Der Deterministic Language Core ist mit
+[`CORE-CLOSURE-v0.1.0.md`](CORE-CLOSURE-v0.1.0.md) abgeschlossen. Aktueller
+kanonischer Laufzeitvektor: Rule Contract v0.4, Foundation/Rule Set v0.3,
+Policy Registry v0.3, Presentation Bundle v0.2, Golden Suite v0.2 und
+DB-Schema 3.
+
+Die früher noch fest im Core verbliebenen Enrichments sind nun katalogisiert.
+Der nächste Roadmap-Meilenstein ist v0.2 Context & Proposition. Die fachliche
+Kalibrierung bleibt ein bewusst eigener, Golden-gesicherter Folgesprint.

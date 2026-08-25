@@ -45,6 +45,19 @@ func (s *Service) Bundle(ctx context.Context, profile, locale string) (Bundle, e
 	return s.repository.Load(ctx, profile, locale)
 }
 
+// Texts returns canonical presentation entries without UI fallbacks.
+func (s *Service) Texts(ctx context.Context, profile, locale string) (map[string]string, error) {
+	bundle, err := s.Bundle(ctx, profile, locale)
+	if err != nil {
+		return nil, err
+	}
+	entries := make(map[string]string, len(bundle.Entries))
+	for key, value := range bundle.Entries {
+		entries[key] = value
+	}
+	return entries, nil
+}
+
 type PostgresRepository struct {
 	database *sql.DB
 }

@@ -9,98 +9,173 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 )
 
-func executeRule(result *domain.AnalysisResult, evidenceItems *[]evidence, definition rules.Definition) error {
+type executionState struct {
+	result        *domain.AnalysisResult
+	evidence      []evidence
+	nonAssessable map[domain.DimensionID]bool
+	texts         map[string]string
+	stop          bool
+}
+
+func (s *executionState) execute(definition rules.Definition) error {
+	resolve := func(key string) (string, error) {
+		value := s.texts[key]
+		if value == "" {
+			return "", fmt.Errorf("rule %s references unpublished presentation key %s", definition.Key, key)
+		}
+		return value, nil
+	}
 	for _, action := range definition.Actions {
 		switch action.Type {
 		case policy.AddPattern:
-			appendPattern(result, action.Key)
+			appendPattern(s.result, action.Key)
 		case policy.SelectSense:
-			sense, ok := resolvedSense(action.Lexeme, action.Sense)
-			if !ok {
-				return fmt.Errorf("rule %s selects unknown runtime sense %s", definition.Key, action.Sense)
+			reason, err := resolve(action.ReasonKey)
+			if err != nil {
+				return err
 			}
-			result.ResolvedSenses = append(result.ResolvedSenses, sense)
+			s.result.ResolvedSenses = append(s.result.ResolvedSenses, domain.ResolvedSense{
+				Lexeme: action.Lexeme, Sense: action.Sense,
+				Confidence: roundThree(*action.Confidence * definition.ConfidenceModifier), Reason: reason,
+			})
 		case policy.AddResonanceHint:
 			if action.SemanticScore == nil || *action.SemanticScore {
 				return fmt.Errorf("rule %s attempted scoring resonance", definition.Key)
 			}
-			message, ok := resonanceMessage(action.MessageKey)
-			if !ok {
-				return fmt.Errorf("rule %s uses unknown resonance message %s", definition.Key, action.MessageKey)
+			message, err := resolve(action.MessageKey)
+			if err != nil {
+				return err
 			}
-			result.ResonanceHints = append(result.ResonanceHints, domain.ResonanceHint{
-				Kind: "HOMOPHONE", Tokens: slices.Clone(action.Tokens),
-				SemanticScore: false, Message: message,
+			s.result.ResonanceHints = append(s.result.ResonanceHints, domain.ResonanceHint{
+				Kind: "HOMOPHONE", Tokens: slices.Clone(action.Tokens), SemanticScore: false, Message: message,
 			})
 		case policy.AddContribution:
-			if action.Value == nil {
-				return fmt.Errorf("rule %s contribution has no value", definition.Key)
+			if s.nonAssessable[action.Dimension] {
+				continue
 			}
-			metadata, ok := contributionMetadataFor(action.ReasonKey)
-			if !ok {
-				return fmt.Errorf("rule %s uses unknown contribution reason %s", definition.Key, action.ReasonKey)
+			reason, err := resolve(action.ReasonKey)
+			if err != nil {
+				return err
 			}
-			*evidenceItems = append(*evidenceItems, item(
-				definition.Key, metadata.evidence, action.Dimension,
-				*action.Value, metadata.strength, metadata.reason,
-			))
+			evidenceText, err := resolve(action.EvidenceKey)
+			if err != nil {
+				return err
+			}
+			s.evidence = append(s.evidence, item(definition.Key, evidenceText, action.Dimension,
+				*action.Value, *action.Confidence*definition.ConfidenceModifier, reason))
+		case policy.MultiplyContribution:
+			if _, err := resolve(action.ReasonKey); err != nil {
+				return err
+			}
+			s.transform(action.Dimension, func(value float64) float64 { return value * *action.Factor })
+		case policy.Invert:
+			if _, err := resolve(action.ReasonKey); err != nil {
+				return err
+			}
+			s.transform(action.Dimension, func(value float64) float64 { return -value })
+		case policy.Suppress:
+			if _, err := resolve(action.ReasonKey); err != nil {
+				return err
+			}
+			s.removeDimension(action.Dimension)
+		case policy.MarkNonAssessable:
+			if _, err := resolve(action.ReasonKey); err != nil {
+				return err
+			}
+			s.removeDimension(action.Dimension)
+			s.nonAssessable[action.Dimension] = true
+		case policy.CapMin, policy.CapMax, policy.SetValue:
+			if err := s.applyAbsoluteModifier(definition.Key, action, resolve); err != nil {
+				return err
+			}
+		case policy.AddExplanation:
+			value, err := resolve(action.Key)
+			if err != nil {
+				return err
+			}
+			s.result.Notes = append(s.result.Notes, value)
+		case policy.AddReflectionPrompt:
+			value, err := resolve(action.Key)
+			if err != nil {
+				return err
+			}
+			s.result.ReflectionQuestion = &value
+		case policy.AddAlternative:
+			value, err := resolve(action.Key)
+			if err != nil {
+				return err
+			}
+			s.result.Alternatives = append(s.result.Alternatives, value)
+		case policy.StopRuleChain:
+			s.stop = true
 		default:
-			return fmt.Errorf("rule %s uses action %s not enabled in Foundation runtime", definition.Key, action.Type)
+			return fmt.Errorf("rule %s uses unsupported runtime action %s", definition.Key, action.Type)
 		}
+	}
+	if definition.StopProcessing {
+		s.stop = true
 	}
 	return nil
 }
 
-func appendPattern(result *domain.AnalysisResult, pattern string) {
-	for _, existing := range result.Patterns {
-		if existing == pattern {
-			return
+func (s *executionState) transform(dimension domain.DimensionID, operation func(float64) float64) {
+	for index := range s.evidence {
+		if s.evidence[index].contribution.Dimension == dimension {
+			s.evidence[index].contribution.Delta = roundOne(operation(s.evidence[index].contribution.Delta))
 		}
 	}
-	result.Patterns = append(result.Patterns, pattern)
 }
 
-func resolvedSense(lexeme, sense string) (domain.ResolvedSense, bool) {
-	switch sense {
-	case "SAFETY_NECESSITY":
-		return domain.ResolvedSense{
-			Lexeme: lexeme, Sense: sense, Confidence: 0.79,
-			Reason: "Der explizite Sicherheitskontext schlägt die isolierte Modalverbdeutung.",
-		}, true
-	case "FREE_OF_CHARGE":
-		return domain.ResolvedSense{
-			Lexeme: lexeme, Sense: sense, Confidence: 0.80,
-			Reason: "Die Kollokation „Eintritt ist frei“ bezeichnet Kostenfreiheit.",
-		}, true
-	default:
-		return domain.ResolvedSense{}, false
+func (s *executionState) removeDimension(dimension domain.DimensionID) {
+	filtered := s.evidence[:0]
+	for _, entry := range s.evidence {
+		if entry.contribution.Dimension != dimension {
+			filtered = append(filtered, entry)
+		}
 	}
+	s.evidence = filtered
 }
 
-func resonanceMessage(key string) (string, bool) {
-	if key != "HOMOPHONE_HAST_HASST" {
-		return "", false
+func (s *executionState) applyAbsoluteModifier(ruleID string, action rules.Action, resolve func(string) (string, error)) error {
+	if s.nonAssessable[action.Dimension] {
+		return nil
 	}
-	return "Die lautliche Nähe wird nur als Resonanzhinweis geführt und verändert keine semantische Bewertung.", true
-}
-
-type contributionMetadata struct {
-	evidence string
-	strength float64
-	reason   string
-}
-
-func contributionMetadataFor(key string) (contributionMetadata, bool) {
-	metadata := map[string]contributionMetadata{
-		"INTERNAL_PRESSURE_VOLITION": {
-			evidence: "ich muss", strength: 0.62,
-			reason: "Notwendigkeitssprache reduziert den sichtbaren eigenen Wahlraum.",
-		},
-		"INTERNAL_PRESSURE_OPENNESS": {
-			evidence: "ich muss", strength: 0.53,
-			reason: "Die Formulierung stellt zunächst nur einen zwingenden Weg dar.",
-		},
+	current := 0.0
+	strength := 0.0
+	for _, entry := range s.evidence {
+		if entry.contribution.Dimension == action.Dimension {
+			current += entry.contribution.Delta
+			if entry.strength > strength {
+				strength = entry.strength
+			}
+		}
 	}
-	value, ok := metadata[key]
-	return value, ok
+	target := current
+	switch action.Type {
+	case policy.CapMin:
+		if target < *action.Value {
+			target = *action.Value
+		}
+	case policy.CapMax:
+		if target > *action.Value {
+			target = *action.Value
+		}
+	case policy.SetValue:
+		target = *action.Value
+	}
+	if target == current {
+		return nil
+	}
+	reason, err := resolve(action.ReasonKey)
+	if err != nil {
+		return err
+	}
+	s.evidence = append(s.evidence, item(ruleID, reason, action.Dimension, roundOne(target-current), strength, reason))
+	return nil
+}
+
+func appendPattern(result *domain.AnalysisResult, pattern string) {
+	if !slices.Contains(result.Patterns, pattern) {
+		result.Patterns = append(result.Patterns, pattern)
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/version"
 )
 
 const maxTextRunes = 10_000
@@ -88,7 +89,7 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 		writeError(response, http.StatusInternalServerError, "ANALYSIS_FAILED", "Die Analyse konnte nicht ausgeführt werden.")
 		return
 	}
-	response.Header().Set("X-Sprach-A-Lyzer-Version", "0.1.0")
+	response.Header().Set("X-Sprach-A-Lyzer-Version", version.Core)
 	writeJSON(response, http.StatusOK, result)
 }
 

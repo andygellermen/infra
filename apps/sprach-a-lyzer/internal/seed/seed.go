@@ -117,8 +117,9 @@ func DecodeFoundationWithReport(reader io.Reader) (Foundation, dimension.Compati
 	if len(wantDimensions) != 0 {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation seed has duplicate or missing canonical dimensions")
 	}
-	if len(foundation.Rules) > 0 && len(foundation.Rules) != 6 {
-		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation must contain exactly six rules")
+	wantRules := map[string]int{"0.2": 6, "0.3": 9}[foundation.Version]
+	if len(foundation.Rules) > 0 && wantRules > 0 && len(foundation.Rules) != wantRules {
+		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation %s must contain exactly %d rules", foundation.Version, wantRules)
 	}
 	seenRuleKeys := make(map[string]bool, len(foundation.Rules))
 	for _, rule := range foundation.Rules {
@@ -305,6 +306,14 @@ ON CONFLICT (parameter_set_id, parameter_key) DO UPDATE SET value = EXCLUDED.val
 	}
 
 	for _, bundle := range foundation.PresentationBundles {
+		if bundle.Status == "PRODUCTION" {
+			if _, err := tx.ExecContext(ctx, `
+UPDATE presentation_bundles SET status = 'ARCHIVED', updated_at = now()
+WHERE profile = $1 AND locale = $2 AND status = 'PRODUCTION' AND version <> $3`,
+				bundle.Profile, bundle.Locale, bundle.Version); err != nil {
+				return fmt.Errorf("archive previous presentation bundle %s: %w", bundle.Profile, err)
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO presentation_bundles(id, profile, locale, version, status, fallbacks)
 VALUES($1, $2, $3, $4, $5, $6::jsonb)

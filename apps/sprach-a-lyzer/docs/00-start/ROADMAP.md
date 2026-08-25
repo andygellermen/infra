@@ -1,7 +1,7 @@
 # Sprachkompass – Product & Engineering Roadmap
 
 **Status:** strategische Grobplanung  
-**Stand:** 21. August 2026  
+**Stand:** 26. August 2026
 **Prinzip:** Versionen markieren Fähigkeitspakete, keine festen Kalenderzusagen.
 
 ## v0.0 – Foundation
@@ -13,6 +13,9 @@ Repo, Build, PostgreSQL, Migrationen, CI, Basistabellen, Golden Harness, Seed Lo
 Token-/Phrase Recognition, Sense Candidates, Rule Engine, Contributions, Assessability, 6 Dimensions, Contribution Trace, erste 6 Vertical-Slice Acceptance Cases.
 
 **Exit:** ein Beispielsatz kann vollständig erklärt werden.
+
+**Status:** abgeschlossen am 26. August 2026; Release-Commit und annotierter
+Tag `v0.1.0`, siehe [`CORE-CLOSURE-v0.1.0.md`](CORE-CLOSURE-v0.1.0.md).
 
 ## v0.2 – Context & Proposition
 Proposition Graph, TargetType, ExpectationSource, Syntactic Scope, Negation/Modality, Ambiguity Resolver, Construct Ontology v0.2.

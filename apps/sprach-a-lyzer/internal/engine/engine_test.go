@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
@@ -56,7 +57,7 @@ func TestRuntimeCatalogueExecutesActionPayload(t *testing.T) {
 		t.Fatalf("load default catalogue: %v", err)
 	}
 	for ruleIndex := range catalogue.Rules {
-		if catalogue.Rules[ruleIndex].Key != "R-URGENCY" {
+		if catalogue.Rules[ruleIndex].Key != "R-URGENCY-DETECTOR" {
 			continue
 		}
 		for actionIndex := range catalogue.Rules[ruleIndex].Actions {
@@ -72,6 +73,52 @@ func TestRuntimeCatalogueExecutesActionPayload(t *testing.T) {
 	}
 }
 
+func TestRuntimeCatalogueActivationAndDeactivationSmoke(t *testing.T) {
+	t.Parallel()
+
+	defaultEngine := NewDefault()
+	catalogue, err := defaultEngine.catalogue.Active(context.Background())
+	if err != nil {
+		t.Fatalf("load default catalogue: %v", err)
+	}
+	request := domain.AnalysisRequest{Text: "Ich muss das heute unbedingt noch schaffen.", Context: domain.ContextSelfTalk}
+	active, err := defaultEngine.Analyze(request)
+	if err != nil {
+		t.Fatalf("active Analyze() error: %v", err)
+	}
+	for index := range catalogue.Rules {
+		if catalogue.Rules[index].Key == "R-URGENCY" {
+			catalogue.Rules[index].Enabled = false
+		}
+	}
+	disabledEngine := New(staticCatalogue{catalogue: catalogue})
+	disabled, err := disabledEngine.Analyze(request)
+	if err != nil {
+		t.Fatalf("disabled Analyze() error: %v", err)
+	}
+	if len(disabled.ContributionTrace) != len(active.ContributionTrace)-2 {
+		t.Fatalf("disabled contribution count = %d; active = %d", len(disabled.ContributionTrace), len(active.ContributionTrace))
+	}
+	for _, contribution := range disabled.ContributionTrace {
+		if contribution.RuleID == "R-URGENCY" {
+			t.Fatalf("disabled rule still contributed: %+v", contribution)
+		}
+	}
+	for index := range catalogue.Rules {
+		if catalogue.Rules[index].Key == "R-URGENCY" {
+			catalogue.Rules[index].Enabled = true
+		}
+	}
+	reactivated, err := New(staticCatalogue{catalogue: catalogue}).Analyze(request)
+	if err != nil {
+		t.Fatalf("reactivated Analyze() error: %v", err)
+	}
+	if len(reactivated.ContributionTrace) != len(active.ContributionTrace) ||
+		*reactivated.Dimensions[domain.DimensionVolition].Score != *active.Dimensions[domain.DimensionVolition].Score {
+		t.Fatalf("reactivated result did not restore parity: active=%+v reactivated=%+v", active, reactivated)
+	}
+}
+
 func TestRuntimeCatalogueFailureIsFailClosed(t *testing.T) {
 	t.Parallel()
 
@@ -79,6 +126,18 @@ func TestRuntimeCatalogueFailureIsFailClosed(t *testing.T) {
 	_, err := New(failingCatalogue{err: want}).Analyze(domain.AnalysisRequest{Text: "Ein Satz."})
 	if !errors.Is(err, want) {
 		t.Fatalf("Analyze() error = %v; want wrapped catalogue error", err)
+	}
+}
+
+func TestMissingPresentationKeyIsFailClosed(t *testing.T) {
+	t.Parallel()
+
+	defaultEngine := NewDefault()
+	_, err := NewWithProviders(defaultEngine.catalogue, staticTexts{bundles: map[string]map[string]string{
+		"PRIVATE/de-DE": {},
+	}}).Analyze(domain.AnalysisRequest{Text: "Der Eintritt ist frei."})
+	if err == nil || !containsError(err, "unpublished presentation key") {
+		t.Fatalf("Analyze() error = %v; want missing presentation key", err)
 	}
 }
 
@@ -95,6 +154,10 @@ func containsString(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func containsError(err error, want string) bool {
+	return err != nil && strings.Contains(err.Error(), want)
 }
 
 func TestMissingEvidenceIsNotNeutralScore(t *testing.T) {

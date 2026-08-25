@@ -66,6 +66,10 @@ func NewWithRuleCatalogue(provider engine.CatalogueProvider) *Service {
 	return New(engine.New(provider))
 }
 
+func NewWithRuntime(catalogue engine.CatalogueProvider, texts engine.TextProvider) *Service {
+	return New(engine.NewWithProviders(catalogue, texts))
+}
+
 func (s *Service) Analyze(request Request) (Result, error) {
 	return s.core.Analyze(request)
 }

@@ -21,11 +21,12 @@ type Application struct {
 
 func New(database *sql.DB) *Application {
 	ruleRepository := rules.NewPostgresRepository(database)
+	presentationService := presentation.New(presentation.NewPostgresRepository(database))
 	return &Application{
-		Analysis:     analysis.NewWithRuleCatalogue(ruleRepository),
+		Analysis:     analysis.NewWithRuntime(ruleRepository, presentationService),
 		Knowledge:    knowledge.New(knowledge.NewPostgresRepository(database)),
 		Rules:        rules.New(ruleRepository),
-		Presentation: presentation.New(presentation.NewPostgresRepository(database)),
+		Presentation: presentationService,
 		Readiness:    db.NewSchemaPinger(database, db.RequiredSchemaVersion),
 	}
 }

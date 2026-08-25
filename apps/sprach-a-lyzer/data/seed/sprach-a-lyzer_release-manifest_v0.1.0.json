@@ -1,0 +1,28 @@
+{
+  "manifest_version": "0.1",
+  "product": "sprach-a-lyzer-core",
+  "release_version": "0.1.0",
+  "release_date": "2026-08-26",
+  "status": "RELEASED",
+  "git_tag": "v0.1.0",
+  "capability": "DETERMINISTIC_LANGUAGE_CORE",
+  "version_vector": {
+    "analysis_request": "0.1",
+    "analysis_result": "0.1",
+    "analysis_trace": "0.1",
+    "rule_contract": "0.4",
+    "rule_set": "0.3",
+    "policy_registry": "0.3",
+    "parameter_contract": "0.1",
+    "parameter_set": "0.1",
+    "presentation_bundle": "0.2",
+    "golden_suite": "0.2",
+    "database_schema": 3
+  },
+  "closure_evidence": [
+    "GOLDEN_V0_2_PARITY",
+    "RULE_ACTIVATION_DEACTIVATION_SMOKE",
+    "PRESENTATION_KEY_FAIL_CLOSED",
+    "DATABASE_SCHEMA_READINESS"
+  ]
+}

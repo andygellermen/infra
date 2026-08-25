@@ -1,6 +1,6 @@
 # Sprachkompass – Repository Documentation Manifest
 
-**Stand:** 21. August 2026
+**Stand:** 26. August 2026
 
 ## Root-Einstieg
 
@@ -12,6 +12,7 @@ docs/00-start/DEVELOPER-HANDOFF-v0.1.md
 docs/00-start/SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md
 docs/00-start/FOUNDATION-RULE-MIGRATION-v0.1.md
 docs/00-start/FOUNDATION-RUNTIME-BINDING-v0.1.md
+docs/00-start/CORE-CLOSURE-v0.1.0.md
 docs/00-start/ROADMAP.md
 docs/00-start/NEXT-STEPS-AND-IDEAS.md
 ```
