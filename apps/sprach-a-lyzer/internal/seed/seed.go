@@ -10,13 +10,14 @@ import (
 	"slices"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/dimension"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 )
 
 type Foundation struct {
 	Version             string               `json:"version"`
 	Dimensions          []Dimension          `json:"dimensions"`
 	RuleSet             VersionedSet         `json:"rule_set"`
-	Rules               []Rule               `json:"rules"`
+	Rules               []rules.Definition   `json:"rules"`
 	ParameterSet        VersionedSet         `json:"parameter_set"`
 	Parameters          []Parameter          `json:"parameters"`
 	PresentationBundles []PresentationBundle `json:"presentation_bundles"`
@@ -35,15 +36,6 @@ type VersionedSet struct {
 	Version   string `json:"version"`
 	Status    string `json:"status"`
 	Changelog string `json:"changelog"`
-}
-
-type Rule struct {
-	ID        string          `json:"id"`
-	Key       string          `json:"key"`
-	Name      string          `json:"name"`
-	Priority  int             `json:"priority"`
-	Condition json.RawMessage `json:"condition"`
-	Actions   json.RawMessage `json:"actions"`
 }
 
 type Parameter struct {
@@ -106,6 +98,9 @@ func DecodeFoundationWithReport(reader io.Reader) (Foundation, dimension.Compati
 	if err := decoder.Decode(&foundation); err != nil {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("decode foundation seed: %w", err)
 	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("decode foundation seed: trailing JSON value")
+	}
 	if foundation.Version == "" || len(foundation.Dimensions) != 6 {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation seed must contain a version and six dimensions")
 	}
@@ -121,6 +116,19 @@ func DecodeFoundationWithReport(reader io.Reader) (Foundation, dimension.Compati
 	}
 	if len(wantDimensions) != 0 {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation seed has duplicate or missing canonical dimensions")
+	}
+	if len(foundation.Rules) > 0 && len(foundation.Rules) != 6 {
+		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation must contain exactly six rules")
+	}
+	seenRuleKeys := make(map[string]bool, len(foundation.Rules))
+	for _, rule := range foundation.Rules {
+		if err := rule.Validate(); err != nil {
+			return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("invalid foundation rule: %w", err)
+		}
+		if seenRuleKeys[rule.Key] {
+			return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("duplicate foundation rule key %q", rule.Key)
+		}
+		seenRuleKeys[rule.Key] = true
 	}
 	profiles := make(map[string]PresentationBundle)
 	for _, bundle := range foundation.PresentationBundles {
@@ -233,12 +241,37 @@ ON CONFLICT (dimension_id) DO UPDATE SET
 		return err
 	}
 	for _, rule := range foundation.Rules {
+		condition, err := json.Marshal(rule.Condition)
+		if err != nil {
+			return fmt.Errorf("encode rule %s condition: %w", rule.Key, err)
+		}
+		actions, err := json.Marshal(rule.Actions)
+		if err != nil {
+			return fmt.Errorf("encode rule %s actions: %w", rule.Key, err)
+		}
+		sourceKeys, err := json.Marshal(rule.SourceKeys)
+		if err != nil {
+			return fmt.Errorf("encode rule %s sources: %w", rule.Key, err)
+		}
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO rules(id, rule_key, name, priority, condition_tree, actions, status, version)
-VALUES($1, $2, $3, $4, $5::jsonb, $6::jsonb, 'APPROVED', 1)
-ON CONFLICT (rule_key) DO UPDATE SET
-  name = EXCLUDED.name, priority = EXCLUDED.priority, condition_tree = EXCLUDED.condition_tree,
-  actions = EXCLUDED.actions, updated_at = now()`, rule.ID, rule.Key, rule.Name, rule.Priority, rule.Condition, rule.Actions); err != nil {
+INSERT INTO rules(
+  id, contract_version, rule_key, name, description, priority, enabled, scope,
+  condition_tree, actions, confidence_modifier, stop_processing, status, version,
+  evidence_class, source_keys)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15, $16::jsonb)
+ON CONFLICT (rule_key, version) DO UPDATE SET
+  contract_version = EXCLUDED.contract_version, name = EXCLUDED.name,
+  description = EXCLUDED.description, priority = EXCLUDED.priority,
+  enabled = EXCLUDED.enabled, scope = EXCLUDED.scope,
+  condition_tree = EXCLUDED.condition_tree, actions = EXCLUDED.actions,
+  confidence_modifier = EXCLUDED.confidence_modifier,
+  stop_processing = EXCLUDED.stop_processing, status = EXCLUDED.status,
+  version = EXCLUDED.version, evidence_class = EXCLUDED.evidence_class,
+  source_keys = EXCLUDED.source_keys, updated_at = now()`,
+			rule.ID, rule.ContractVersion, rule.Key, rule.Name, rule.Description,
+			rule.Priority, rule.Enabled, rule.Scope, condition, actions,
+			rule.ConfidenceModifier, rule.StopProcessing, rule.Status, rule.Version,
+			rule.EvidenceClass, sourceKeys); err != nil {
 			return fmt.Errorf("upsert rule %s: %w", rule.Key, err)
 		}
 		if _, err := tx.ExecContext(ctx, `
@@ -294,6 +327,14 @@ ON CONFLICT (bundle_id, canonical_key) DO UPDATE SET display_value = EXCLUDED.di
 }
 
 func upsertSet(ctx context.Context, tx *sql.Tx, table string, set VersionedSet) error {
+	if set.Status == "PRODUCTION" {
+		query := fmt.Sprintf(`
+UPDATE %s SET status = 'ARCHIVED', updated_at = now()
+WHERE status = 'PRODUCTION' AND version <> $1`, table)
+		if _, err := tx.ExecContext(ctx, query, set.Version); err != nil {
+			return fmt.Errorf("archive previous production %s: %w", table, err)
+		}
+	}
 	query := fmt.Sprintf(`
 INSERT INTO %s(id, version, status, changelog, published_at)
 VALUES($1, $2, $3, $4, CASE WHEN $3 = 'PRODUCTION' THEN now() ELSE NULL END)

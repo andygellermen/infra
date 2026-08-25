@@ -147,6 +147,8 @@ const (
 	AddExplanation       RuleActionType = "ADD_EXPLANATION"
 	AddReflectionPrompt  RuleActionType = "ADD_REFLECTION_PROMPT"
 	MarkNonAssessable    RuleActionType = "MARK_NON_ASSESSABLE"
+	SelectSense          RuleActionType = "SELECT_SENSE"
+	AddResonanceHint     RuleActionType = "ADD_RESONANCE_HINT"
 	StopRuleChain        RuleActionType = "STOP_RULE_CHAIN"
 )
 
@@ -154,6 +156,6 @@ func RuleActionTypes() []RuleActionType {
 	return []RuleActionType{
 		AddContribution, MultiplyContribution, CapMin, CapMax, SetValue, Invert,
 		Suppress, AddPattern, AddExplanation, AddReflectionPrompt,
-		MarkNonAssessable, StopRuleChain,
+		MarkNonAssessable, SelectSense, AddResonanceHint, StopRuleChain,
 	}
 }

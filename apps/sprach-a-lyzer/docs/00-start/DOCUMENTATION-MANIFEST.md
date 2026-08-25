@@ -10,6 +10,7 @@ docs/00-start/START-HERE.md
 docs/00-start/CODY-HANDOFF.md
 docs/00-start/DEVELOPER-HANDOFF-v0.1.md
 docs/00-start/SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md
+docs/00-start/FOUNDATION-RULE-MIGRATION-v0.1.md
 docs/00-start/ROADMAP.md
 docs/00-start/NEXT-STEPS-AND-IDEAS.md
 ```

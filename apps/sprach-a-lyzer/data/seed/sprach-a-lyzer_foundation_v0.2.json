@@ -1,0 +1,159 @@
+{
+  "version": "0.2",
+  "dimensions": [
+    {"id": "AGENCY", "slug": "agency", "positive_label": "Wirksamkeit", "negative_label": "Ohnmacht", "description": "Sprachlich sichtbarer Handlungs- und Einflussraum."},
+    {"id": "CONNECTION", "slug": "connection", "positive_label": "Verbindung", "negative_label": "Trennung", "description": "Sprachlich sichtbare Bezogenheit und Kontaktorientierung."},
+    {"id": "APPRECIATION", "slug": "appreciation", "positive_label": "Wertschätzung", "negative_label": "Abwertung", "description": "Würdigende oder abwertende sprachliche Evidenz."},
+    {"id": "CLARITY", "slug": "clarity", "positive_label": "Klarheit", "negative_label": "Unklarheit", "description": "Konkretheit und strukturelle Bestimmtheit einer Aussage."},
+    {"id": "VOLITION", "slug": "volition", "positive_label": "Freier Wille", "negative_label": "Zwang", "description": "Sprachlich sichtbarer eigener Wahl- und Gestaltungsspielraum."},
+    {"id": "OPENNESS", "slug": "openness", "positive_label": "Offenheit", "negative_label": "Begrenzung", "description": "Sprachlich sichtbarer Möglichkeits- und Lernraum."}
+  ],
+  "rule_set": {
+    "id": "10000000-0000-4000-8000-000000000002",
+    "version": "0.2",
+    "status": "PRODUCTION",
+    "changelog": "Migrated the six Foundation rules to the strict canonical Rule v0.3 contract without recalibration."
+  },
+  "rules": [
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000101",
+      "key": "R-INTERNAL-PRESSURE",
+      "name": "Internal pressure",
+      "description": "Erkennt explizite Notwendigkeitssprache außerhalb eines Sicherheitskontexts.",
+      "priority": 100,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"op": "AND", "children": [{"field": "tokens", "operator": "CONTAINS", "value": "müssen"}, {"field": "context", "operator": "NOT_EQUALS", "value": "SAFETY"}]},
+      "actions": [{"type": "ADD_PATTERN", "key": "INTERNAL_PRESSURE"}, {"type": "ADD_CONTRIBUTION", "dimension": "VOLITION", "value": -10.0, "confidence": 1.0, "reason_key": "INTERNAL_PRESSURE_VOLITION"}, {"type": "ADD_CONTRIBUTION", "dimension": "OPENNESS", "value": -4.0, "confidence": 1.0, "reason_key": "INTERNAL_PRESSURE_OPENNESS"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    },
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000102",
+      "key": "R-URGENCY",
+      "name": "Urgency intensifier",
+      "description": "Erkennt die Intensivierung durch die Foundation-Tokens unbedingt oder sofort.",
+      "priority": 110,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"field": "tokens", "operator": "CONTAINS_ANY", "value": ["unbedingt", "sofort"]},
+      "actions": [{"type": "ADD_PATTERN", "key": "URGENCY"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    },
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000103",
+      "key": "R-SAFETY-DIRECTIVE",
+      "name": "Safety directive",
+      "description": "Ordnet Notwendigkeitssprache im Sicherheitskontext dem Sicherheitssinn zu.",
+      "priority": 200,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"op": "AND", "children": [{"field": "tokens", "operator": "CONTAINS", "value": "müssen"}, {"field": "context", "operator": "EQUALS", "value": "SAFETY"}]},
+      "actions": [{"type": "SELECT_SENSE", "lexeme": "müssen", "sense": "SAFETY_NECESSITY"}, {"type": "ADD_PATTERN", "key": "SAFETY_DIRECTIVE"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    },
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000104",
+      "key": "R-RESPECTFUL-BOUNDARY",
+      "name": "Respectful boundary",
+      "description": "Erkennt die dreiteilige Foundation-Phrase einer respektvoll formulierten Grenze.",
+      "priority": 180,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"field": "phrase", "operator": "CONTAINS_ALL", "value": ["ich verstehe", "wichtig", "nicht infrage"]},
+      "actions": [{"type": "ADD_PATTERN", "key": "RESPECTFUL_BOUNDARY"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    },
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000105",
+      "key": "R-FREE-OF-CHARGE",
+      "name": "Free of charge sense",
+      "description": "Wählt für frei in der Eintrittsphrase den nicht-scorenden Sinn kostenlos.",
+      "priority": 190,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"field": "phrase", "operator": "CONTAINS", "value": "eintritt ist frei"},
+      "actions": [{"type": "SELECT_SENSE", "lexeme": "frei", "sense": "FREE_OF_CHARGE"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    },
+    {
+      "contract_version": "0.3",
+      "id": "20000000-0000-4000-8000-000000000106",
+      "key": "R-HOMOPHONE-GUARD",
+      "name": "Homophone semantic guard",
+      "description": "Erzeugt für hast/hasst ausschließlich einen Resonanzhinweis ohne semantischen Kernscore.",
+      "priority": 250,
+      "enabled": true,
+      "scope": "TEXT",
+      "status": "APPROVED",
+      "version": 2,
+      "evidence_class": "B",
+      "source_keys": ["REFERENCE_ENGINE_V0_4_1"],
+      "condition": {"field": "phrase", "operator": "CONTAINS", "value": "hast du geld"},
+      "actions": [{"type": "ADD_RESONANCE_HINT", "tokens": ["hast", "hasst"], "semantic_score": false, "message_key": "HOMOPHONE_HAST_HASST"}],
+      "confidence_modifier": 1.0,
+      "stop_processing": false
+    }
+  ],
+  "parameter_set": {
+    "id": "30000000-0000-4000-8000-000000000001",
+    "version": "0.1",
+    "status": "PRODUCTION",
+    "changelog": "Initial assessability and scoring thresholds."
+  },
+  "parameters": [
+    {"key": "score.neutral_baseline", "category": "SCORING", "value": 50.0, "min": 0.0, "max": 100.0, "description": "Baseline used only after evidence exists.", "editable": false},
+    {"key": "assessability.weak_min", "category": "ASSESSABILITY", "value": 0.35, "min": 0.0, "max": 1.0, "description": "Minimum evidence for a weak internal tendency.", "editable": true},
+    {"key": "assessability.assessable_min", "category": "ASSESSABILITY", "value": 0.51, "min": 0.0, "max": 1.0, "description": "Minimum evidence for an assessable result.", "editable": true},
+    {"key": "assessability.strong_min", "category": "ASSESSABILITY", "value": 0.80, "min": 0.0, "max": 1.0, "description": "Minimum evidence for a strong result.", "editable": true}
+  ],
+  "presentation_bundles": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "profile": "PRIVATE",
+      "locale": "de-DE",
+      "version": "0.1",
+      "status": "PRODUCTION",
+      "fallbacks": {"UNKNOWN_METRIC": "Reflexionswert", "UNKNOWN_CONCEPT": "Sprachmuster"},
+      "entries": {"METRIC_WING_SCORE": "WingScore", "RESONANCE": "Resonanz", "VOLITION": "Freier Wille"}
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "profile": "CORPORATE",
+      "locale": "de-DE",
+      "version": "0.1",
+      "status": "PRODUCTION",
+      "fallbacks": {"UNKNOWN_METRIC": "Reflexionswert", "UNKNOWN_CONCEPT": "Sprachmuster"},
+      "entries": {"METRIC_WING_SCORE": "Wirkungsprofil", "RESONANCE": "Wahrnehmungswirkung", "VOLITION": "Gestaltungsspielraum"}
+    }
+  ]
+}

@@ -8,13 +8,6 @@ import (
 	"fmt"
 )
 
-type Definition struct {
-	Key       string          `json:"key"`
-	Priority  int             `json:"priority"`
-	Condition json.RawMessage `json:"condition"`
-	Actions   json.RawMessage `json:"actions"`
-}
-
 type Catalogue struct {
 	Version string       `json:"version"`
 	Rules   []Definition `json:"rules"`
@@ -55,7 +48,10 @@ func (r *PostgresRepository) Active(ctx context.Context) (Catalogue, error) {
 		return Catalogue{}, fmt.Errorf("load production rule set: %w", err)
 	}
 	rows, err := r.database.QueryContext(ctx, `
-SELECT r.rule_key, r.priority, r.condition_tree, r.actions
+SELECT r.contract_version, r.id::text, r.rule_key, r.name, r.description,
+       r.priority, r.enabled, r.scope, r.status, r.version, COALESCE(r.evidence_class, ''),
+       r.source_keys, r.condition_tree, r.actions, r.confidence_modifier,
+       r.stop_processing
 FROM rules r
 JOIN rule_set_rules rsr ON rsr.rule_id = r.id
 JOIN rule_sets rs ON rs.id = rsr.rule_set_id
@@ -67,8 +63,27 @@ ORDER BY r.priority DESC, r.rule_key`)
 	defer rows.Close()
 	for rows.Next() {
 		var definition Definition
-		if err := rows.Scan(&definition.Key, &definition.Priority, &definition.Condition, &definition.Actions); err != nil {
+		var sourceKeys, condition, actions json.RawMessage
+		if err := rows.Scan(
+			&definition.ContractVersion, &definition.ID, &definition.Key, &definition.Name,
+			&definition.Description, &definition.Priority, &definition.Enabled,
+			&definition.Scope, &definition.Status, &definition.Version,
+			&definition.EvidenceClass, &sourceKeys, &condition, &actions,
+			&definition.ConfidenceModifier, &definition.StopProcessing,
+		); err != nil {
 			return Catalogue{}, fmt.Errorf("scan production rule: %w", err)
+		}
+		if err := json.Unmarshal(sourceKeys, &definition.SourceKeys); err != nil {
+			return Catalogue{}, fmt.Errorf("decode rule %s sources: %w", definition.Key, err)
+		}
+		if err := json.Unmarshal(condition, &definition.Condition); err != nil {
+			return Catalogue{}, fmt.Errorf("decode rule %s condition: %w", definition.Key, err)
+		}
+		if err := json.Unmarshal(actions, &definition.Actions); err != nil {
+			return Catalogue{}, fmt.Errorf("decode rule %s actions: %w", definition.Key, err)
+		}
+		if err := definition.Validate(); err != nil {
+			return Catalogue{}, fmt.Errorf("validate production rule: %w", err)
 		}
 		catalogue.Rules = append(catalogue.Rules, definition)
 	}

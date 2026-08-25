@@ -32,8 +32,8 @@ func TestPostgresFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first migration run: %v", err)
 	}
-	if first.Total != 1 {
-		t.Fatalf("migration total = %d; want 1", first.Total)
+	if first.Total != 2 {
+		t.Fatalf("migration total = %d; want 2", first.Total)
 	}
 	second, err := migrator.Up(ctx)
 	if err != nil {
@@ -43,7 +43,7 @@ func TestPostgresFoundation(t *testing.T) {
 		t.Fatalf("second migration run applied %v; want none", second.Applied)
 	}
 
-	foundation, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.1.json")
+	foundation, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.2.json")
 	if err != nil {
 		t.Fatalf("open foundation: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestPostgresFoundation(t *testing.T) {
 	if result.Dimensions != 6 || result.GoldenCases != 6 || result.PresentationBundles != 2 {
 		t.Fatalf("unexpected seed result: %+v", result)
 	}
-	legacyFoundation, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.1.json")
+	legacyFoundation, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.2.json")
 	if err != nil {
 		t.Fatalf("read legacy foundation source: %v", err)
 	}
@@ -86,6 +86,8 @@ func TestPostgresFoundation(t *testing.T) {
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'VOLITION'`, 1)
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'FREE_WILL'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE actions::text LIKE '%FREE_WILL%'`, 0)
+	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE contract_version = '0.3'`, 6)
+	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE jsonb_array_length(source_keys) > 0`, 6)
 	assertScalar(t, database, `SELECT COUNT(*) FROM presentation_entries WHERE canonical_key = 'FREE_WILL'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM audit_events WHERE event_type = 'LEGACY_DIMENSION_MAPPED'`, 1)
 
@@ -105,7 +107,7 @@ func TestPostgresFoundation(t *testing.T) {
 		t.Fatalf("knowledge module snapshot = %+v, %v", knowledgeSnapshot, err)
 	}
 	ruleCatalogue, err := application.Rules.Active(ctx)
-	if err != nil || ruleCatalogue.Version != "0.1" || len(ruleCatalogue.Rules) != 6 {
+	if err != nil || ruleCatalogue.Version != "0.2" || len(ruleCatalogue.Rules) != 6 {
 		t.Fatalf("rules module catalogue = %+v, %v", ruleCatalogue, err)
 	}
 	corporateBundle, err := application.Presentation.Bundle(ctx, "CORPORATE", "de-DE")

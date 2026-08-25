@@ -204,10 +204,12 @@ Abgeschlossen:
 - Privacy Defaults und Feature Flags sind kanonisch registriert.
 - Hard und Soft Guardrails sind getrennt und maschinenlesbar.
 - Versionsvektor und Golden-gesicherter Publish-Ablauf sind festgelegt.
+- Die sechs Foundation-Regeln liegen strikt typisiert als Rule v0.3 vor.
+- Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.3.
 
 Weiterhin eigene Folgeschritte:
 
 - NLP Adapter Interface,
 - Vereinheitlichung der historischen Golden Suites,
-- Migration der sechs Foundation-Regeln auf Rule v0.2,
+- Anbindung der deterministischen Engine an den typisierten Rule-v0.3-Katalog,
 - spätere fachliche Regel- und Parameterkalibrierung.

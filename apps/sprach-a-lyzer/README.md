@@ -18,6 +18,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 10. [Analyse- und Trace-Verträge](docs/20-domain-model/sprach-a-lyzer_analysis-trace-contracts_v0.1.md)
 11. [Vertical-Slice Golden Gate](docs/40-golden/sprach-a-lyzer_vertical-slice-golden_v0.2.md)
 12. [Sprint 0A Canonical Contracts](docs/00-start/SPRINT-0A-CANONICAL-CONTRACTS-v0.1.md)
+13. [Foundation Rule Migration](docs/00-start/FOUNDATION-RULE-MIGRATION-v0.1.md)
 
 ## Repository-Struktur
 
@@ -89,6 +90,11 @@ go run ./cmd/analyze \
 Die maschinenlesbaren Request-, Ergebnis- und Trace-Verträge liegen unter
 `schemas/analysis/`, die Golden Suite unter
 `data/golden/sprach-a-lyzer_vertical-slice_v0.2.json`.
+
+Die sechs Foundation-Regeln liegen ohne fachliche Neukalibrierung im strikten
+Rule-v0.3-Format unter
+`data/seed/sprach-a-lyzer_foundation_v0.2.json`. Die Seed-Pipeline verwirft
+unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 
 ## PostgreSQL und HTTP-API
 
