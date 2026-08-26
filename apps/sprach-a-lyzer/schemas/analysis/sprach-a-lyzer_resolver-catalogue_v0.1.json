@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/resolver-catalogue-v0.1.json",
+  "title": "Sprach-A-Lyzer Resolver Catalogue v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "catalogue_version", "status", "locale", "version_contract", "sense_thresholds", "lexemes", "connectors", "scope_rules", "hard_guardrails"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "catalogue_version": {"const": "0.1"},
+    "status": {"const": "APPROVED"},
+    "locale": {"const": "de-DE"},
+    "version_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resolver_result", "policy_registry"],
+      "properties": {"resolver_result": {"const": "0.2"}, "policy_registry": {"const": "0.4"}}
+    },
+    "sense_thresholds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["high", "medium", "fallback"],
+      "properties": {
+        "high": {"$ref": "#/$defs/threshold"},
+        "medium": {"$ref": "#/$defs/threshold"},
+        "fallback": {"const": "AMBIGUOUS"}
+      }
+    },
+    "lexemes": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/lexeme"}},
+    "connectors": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/connector"}},
+    "scope_rules": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/scopeRule"}},
+    "hard_guardrails": {
+      "const": ["AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE", "PROPOSITION_SPAN_MUST_MATCH_SOURCE", "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES"]
+    }
+  },
+  "$defs": {
+    "canonicalKey": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "signalList": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "threshold": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum_confidence", "minimum_gap"],
+      "properties": {
+        "minimum_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_gap": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "lexeme": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "forms", "senses", "status"],
+      "properties": {
+        "key": {"$ref": "#/$defs/canonicalKey"},
+        "forms": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "senses": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/sense"}},
+        "status": {"const": "APPROVED"}
+      }
+    },
+    "sense": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "phrase_signals", "token_signals", "context_signals"],
+      "properties": {
+        "id": {"$ref": "#/$defs/canonicalKey"},
+        "phrase_signals": {"$ref": "#/$defs/signalList"},
+        "token_signals": {"$ref": "#/$defs/signalList"},
+        "context_signals": {
+          "type": "array", "uniqueItems": true,
+          "items": {"enum": ["UNSPECIFIED", "SELF_TALK", "SAFETY", "LEGAL_ADMINISTRATIVE", "WORKPLACE", "PRIVATE_CONVERSATION", "FAMILY", "COACHING", "MODERATION", "WEBSITE", "PUBLIC_INFORMATION"]}
+        }
+      }
+    },
+    "connector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "markers", "relation", "placement", "confidence", "status"],
+      "properties": {
+        "key": {"$ref": "#/$defs/canonicalKey"},
+        "markers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "relation": {"enum": ["CONTRAST", "CONCESSION", "CAUSE", "CONSEQUENCE", "ADDITION", "CONDITION", "CORRECTION", "DISCOUNTING"]},
+        "placement": {"enum": ["PREFIX", "INFIX"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "status": {"const": "APPROVED"}
+      }
+    },
+    "scopeRule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "kind", "priority", "cues", "output", "confidence", "status"],
+      "properties": {
+        "key": {"$ref": "#/$defs/canonicalKey"},
+        "kind": {"const": "NEGATION"},
+        "priority": {"type": "integer", "minimum": 0},
+        "cues": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "output": {"enum": ["NONE", "PROPOSITION", "MODALITY", "ACTOR", "AMBIGUOUS"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "status": {"const": "APPROVED"}
+      }
+    }
+  }
+}

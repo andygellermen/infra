@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/policy-registry-v0.4.json",
+  "title": "Sprach-A-Lyzer Canonical Policy Registry v0.4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "registry_version", "status", "canonical_ids", "version_contract", "privacy_defaults", "feature_flags", "hard_guardrails", "soft_guardrails"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "registry_version": {"const": "0.4"},
+    "status": {"const": "APPROVED"},
+    "canonical_ids": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimensions", "assessability_states", "presentation_profiles", "analysis_contexts", "input_modes", "analysis_modes", "resonance_modes", "evidence_classes", "inference_classes", "causal_levels", "target_types", "expectation_sources", "discourse_relations", "actors", "modalities", "negation_scopes", "sense_states", "ambiguity_types", "rule_scopes", "rule_statuses", "rule_action_types"],
+      "properties": {
+        "dimensions": {"const": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+        "assessability_states": {"const": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE", "STRONG"]},
+        "presentation_profiles": {"const": ["PRIVATE", "CORPORATE"]},
+        "analysis_contexts": {"const": ["UNSPECIFIED", "SELF_TALK", "SAFETY", "LEGAL_ADMINISTRATIVE", "WORKPLACE", "PRIVATE_CONVERSATION", "FAMILY", "COACHING", "MODERATION", "WEBSITE", "PUBLIC_INFORMATION"]},
+        "input_modes": {"const": ["TEXT", "SPOKEN_DICTATION", "DIRECT_AUDIO"]},
+        "analysis_modes": {"const": ["STANDARD"]},
+        "resonance_modes": {"const": ["OFF", "HINT_ONLY", "MODERATE", "FULL", "PERSONALIZED"]},
+        "evidence_classes": {"const": ["A", "B", "C", "D", "E"]},
+        "inference_classes": {"const": ["OBSERVABLE", "INFERABLE", "WORKING_HYPOTHESIS", "REFLECTIVE_ONLY"]},
+        "causal_levels": {"const": ["C0", "C1", "C2", "C3", "C4"]},
+        "target_types": {"const": ["PERSON", "SELF", "BEHAVIOR", "PROCESS", "EVENT", "OBJECT", "IDEA", "GROUP", "INSTITUTION", "UNKNOWN"]},
+        "expectation_sources": {"const": ["SELF", "OTHER_PERSON", "GROUP", "INSTITUTION", "LAW", "CULTURE", "UNSPECIFIED", "INTERNALIZED"]},
+        "discourse_relations": {"const": ["CONTRAST", "CONCESSION", "CAUSE", "CONSEQUENCE", "ADDITION", "CONDITION", "CORRECTION", "DISCOUNTING"]},
+        "actors": {"const": ["SELF", "OTHER_PERSON", "GROUP_SELF", "UNKNOWN"]},
+        "modalities": {"const": ["NONE", "NECESSITY", "POSSIBILITY", "PERMISSION", "EXPECTATION", "INTENTION", "PROBABILITY"]},
+        "negation_scopes": {"const": ["NONE", "PROPOSITION", "MODALITY", "ACTOR", "AMBIGUOUS"]},
+        "sense_states": {"const": ["HIGH", "MEDIUM", "AMBIGUOUS"]},
+        "ambiguity_types": {"const": ["SEMANTIC", "PHONETIC", "ORTHOGRAPHIC", "PRAGMATIC", "SYNTACTIC", "REGISTER", "RESONANCE"]},
+        "rule_scopes": {"const": ["TEXT", "QUESTION_ANSWER", "SPOKEN_DICTATION"]},
+        "rule_statuses": {"const": ["DRAFT", "TESTING", "APPROVED", "PRODUCTION", "ARCHIVED"]},
+        "rule_action_types": {"const": ["ADD_CONTRIBUTION", "MULTIPLY_CONTRIBUTION", "CAP_MIN", "CAP_MAX", "SET", "INVERT", "SUPPRESS", "ADD_PATTERN", "ADD_EXPLANATION", "ADD_REFLECTION_PROMPT", "ADD_ALTERNATIVE", "MARK_NON_ASSESSABLE", "SELECT_SENSE", "ADD_RESONANCE_HINT", "STOP_RULE_CHAIN"]}
+      }
+    },
+    "version_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["analysis_request", "analysis_result", "analysis_trace", "resolver_result", "resolver_catalogue", "rule", "parameter", "question_canonical", "question_rendering", "knowledge_base", "rule_set", "parameter_set", "presentation_bundle", "golden_suite"],
+      "properties": {
+        "analysis_request": {"$ref": "#/$defs/version"}, "analysis_result": {"$ref": "#/$defs/version"},
+        "analysis_trace": {"$ref": "#/$defs/version"}, "resolver_result": {"const": "0.2"},
+        "resolver_catalogue": {"const": "0.1"}, "rule": {"$ref": "#/$defs/version"},
+        "parameter": {"$ref": "#/$defs/version"}, "question_canonical": {"$ref": "#/$defs/version"},
+        "question_rendering": {"$ref": "#/$defs/version"}, "knowledge_base": {"$ref": "#/$defs/version"},
+        "rule_set": {"$ref": "#/$defs/version"}, "parameter_set": {"$ref": "#/$defs/version"},
+        "presentation_bundle": {"$ref": "#/$defs/version"}, "golden_suite": {"$ref": "#/$defs/version"}
+      }
+    },
+    "privacy_defaults": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_text_retention", "analysis_storage", "raw_audio_storage", "personal_history", "manager_individual_access", "employee_ranking", "hr_selection_use"],
+      "properties": {
+        "raw_text_retention": {"const": "DISCARD_AFTER_ANALYSIS"}, "analysis_storage": {"const": false},
+        "raw_audio_storage": {"const": false}, "personal_history": {"const": "EXPLICIT_OPT_IN"},
+        "manager_individual_access": {"const": false}, "employee_ranking": {"const": false}, "hr_selection_use": {"const": false}
+      }
+    },
+    "feature_flags": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"$ref": "#/$defs/featureFlag"}},
+    "hard_guardrails": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"$ref": "#/$defs/hardGuardrail"}},
+    "soft_guardrails": {"type": "array", "items": {"$ref": "#/$defs/softGuardrail"}}
+  },
+  "$defs": {
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"},
+    "featureFlag": {
+      "type": "object", "additionalProperties": false, "required": ["id", "default", "stage"],
+      "properties": {
+        "id": {"enum": ["AI_EXPLANATION", "AI_REPHRASING", "AI_ADAPTIVE_QUESTION", "LOCAL_LLM", "CLOUD_LLM", "LOCAL_ASR", "PROSODY_ANALYSIS", "STORE_RAW_TEXT", "STORE_AUDIO"]},
+        "default": {"const": false}, "stage": {"enum": ["OPTIONAL_PREVIEW", "LATER", "EXPLICIT_OPT_IN_ONLY"]}
+      }
+    },
+    "hardGuardrail": {
+      "type": "object", "additionalProperties": false, "required": ["id", "editable", "enforced_by", "description"],
+      "properties": {
+        "id": {"enum": ["MISSING_EVIDENCE_IS_NULL", "SCORE_IS_BOUNDED", "CONFIDENCE_IS_BOUNDED", "CALCULATIONS_ARE_FINITE", "NO_CIRCULAR_RULE_CHAINS", "NO_INFINITE_MODIFIER_CHAINS", "NO_SEMANTIC_HOMOPHONE_INHERITANCE", "NO_PERSON_DIAGNOSIS", "NO_TRAIT_CLAIMS", "NO_EMPLOYEE_RANKING", "QUESTION_SCORE_BIAS_IS_ZERO", "QUESTION_ALONE_IS_NOT_ASSESSABLE", "RESONANCE_DOES_NOT_SCORE_CORE", "CORPORATE_HAS_NO_CANONICAL_FALLBACK", "LLM_CANNOT_SCORE", "WING_SCORE_EVALUATES_TEXT", "RAW_TEXT_STORAGE_REQUIRES_OPT_IN", "RAW_AUDIO_STORAGE_REQUIRES_OPT_IN", "AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE", "PROPOSITION_SPAN_MUST_MATCH_SOURCE", "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES"]},
+        "editable": {"const": false},
+        "enforced_by": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "uniqueItems": true},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "softGuardrail": {
+      "type": "object", "additionalProperties": false, "required": ["id", "parameter_key", "warn_above", "requires_approval"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^WARN_[A-Z0-9_]+$"},
+        "parameter_key": {"type": "string", "pattern": "^[a-z][a-z0-9_.]+$"},
+        "warn_above": {"type": "number"}, "requires_approval": {"const": true}
+      }
+    }
+  }
+}

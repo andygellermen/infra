@@ -22,6 +22,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 14. [Foundation Runtime Binding](docs/00-start/FOUNDATION-RUNTIME-BINDING-v0.1.md)
 15. [Core Closure v0.1.0](docs/00-start/CORE-CLOSURE-v0.1.0.md)
 16. [Context & Proposition Vertical Slice v0.1](docs/00-start/CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md)
+17. [Resolver Catalogue Contracts v0.1](docs/00-start/RESOLVER-CATALOGUE-CONTRACTS-v0.1.md)
 
 ## Repository-Struktur
 

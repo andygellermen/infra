@@ -75,11 +75,38 @@ func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 	}
 }
 
-func TestPolicyRegistrySchemaAndSeedAreJSON(t *testing.T) {
+func TestPolicyRegistryV04SchemaAndSeedAreLocked(t *testing.T) {
 	t.Parallel()
-	readObject(t, "sprach-a-lyzer_policy-registry_v0.3.json")
+	schema := readObject(t, "sprach-a-lyzer_policy-registry_v0.4.json")
 	readObject(t, "sprach-a-lyzer_parameter_v0.1.json")
-	readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.3.json")
+	seed := readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.4.json")
+	if seed["registry_version"] != policy.RegistryVersion {
+		t.Fatalf("registry version = %#v; want %s", seed["registry_version"], policy.RegistryVersion)
+	}
+	schemaProperties := object(t, schema["properties"])
+	seedCanonicalIDs := object(t, seed["canonical_ids"])
+	schemaCanonicalIDs := object(t, object(t, schemaProperties["canonical_ids"])["properties"])
+	for key, seedValue := range seedCanonicalIDs {
+		if !jsonEqual(seedValue, object(t, schemaCanonicalIDs[key])["const"]) {
+			t.Errorf("canonical IDs %q differ between registry seed and schema", key)
+		}
+	}
+	definitions := object(t, schema["$defs"])
+	guardrailDefinition := object(t, definitions["hardGuardrail"])
+	guardrailProperties := object(t, guardrailDefinition["properties"])
+	wantGuardrails := stringArray(t, object(t, guardrailProperties["id"])["enum"])
+	gotGuardrails := make([]string, 0, len(wantGuardrails))
+	for _, raw := range array(t, seed["hard_guardrails"]) {
+		guardrail := object(t, raw)
+		gotGuardrails = append(gotGuardrails, guardrail["id"].(string))
+		if guardrail["editable"] != false {
+			t.Errorf("hard guardrail %q must be immutable", guardrail["id"])
+		}
+	}
+	if !slices.Equal(gotGuardrails, wantGuardrails) {
+		t.Errorf("hard guardrails differ between registry seed and schema")
+	}
+
 	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_parameter-contract-fixture_v0.1.json")
 	for _, raw := range array(t, fixture["parameters"]) {
 		parameter := object(t, raw)
@@ -94,6 +121,12 @@ func TestPolicyRegistrySchemaAndSeedAreJSON(t *testing.T) {
 			}
 		}
 	}
+}
+
+func jsonEqual(left, right any) bool {
+	leftJSON, _ := json.Marshal(left)
+	rightJSON, _ := json.Marshal(right)
+	return bytes.Equal(leftJSON, rightJSON)
 }
 
 func readObject(t *testing.T, filename string) map[string]any {

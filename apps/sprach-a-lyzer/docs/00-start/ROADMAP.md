@@ -26,6 +26,9 @@ Proposition Graph, TargetType, ExpectationSource, Syntactic Scope, Negation/Moda
 Proposition Graph, Source Ranges, ersten Relations-, Target-, Expectation-,
 Modalitäts-, Negations- und Ambiguitätsfällen implementiert; siehe
 [`CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md`](CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md).
+Die Vertragsbasis für die nächste Resolver-Ausbaustufe ist mit Resolver
+Catalogue v0.1, Policy Registry v0.4 und drei neuen Hard Guardrails fixiert;
+siehe [`RESOLVER-CATALOGUE-CONTRACTS-v0.1.md`](RESOLVER-CATALOGUE-CONTRACTS-v0.1.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.

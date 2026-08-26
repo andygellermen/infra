@@ -10,6 +10,8 @@
 - `sprach-a-lyzer_resolver-result_v0.2.json` beschreibt den additive aufgebauten
   Context-/Proposition-Resolver vor dem Scoring. Der veröffentlichte v0.1-
   Analysevertrag bleibt dadurch unverändert.
+- `sprach-a-lyzer_resolver-catalogue_v0.1.json` beschreibt den strikten Vertrag
+  für Lexeme, Sense-Kandidaten, Konnektoren, Scope-Regeln und Sense-Schwellen.
 - Neue Verträge verwenden ausschließlich die kanonische Dimension
   `VOLITION`; `FREE_WILL` wird nur an Legacy-Importgrenzen akzeptiert.
 

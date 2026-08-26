@@ -235,3 +235,13 @@ dokumentiert. Resolver Contract v0.2, Proposition Graph, Source Ranges,
 TargetType, ExpectationSource, Modalität, Negations-Scope, Sense-/Ambiguitäts-
 Ergebnisse und sieben neue Golden-Fälle sind implementiert. Der v0.1-
 Analysevertrag und seine Golden-Parität bleiben unverändert.
+
+## 12. Resolver Catalogue Contracts – Sprint v0.2B-A
+
+Die kanonische Vertragsbasis für den Catalogue-Ausbau ist in
+[`RESOLVER-CATALOGUE-CONTRACTS-v0.1.md`](RESOLVER-CATALOGUE-CONTRACTS-v0.1.md)
+dokumentiert. Policy Registry v0.4 registriert die Resolver-IDs und drei neue,
+nicht editierbare Hard Guardrails. Resolver Catalogue v0.1 fixiert acht
+Lexemfamilien, acht Relationsklassen, priorisierte Negations-Scope-Regeln und
+die Sense-Schwellen. Schema, Seed und Go-Contracts sind gegeneinander
+driftgesichert. Die Laufzeitbindung folgt bewusst erst in v0.2B-B.

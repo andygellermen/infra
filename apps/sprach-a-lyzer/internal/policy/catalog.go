@@ -5,6 +5,8 @@
 // override them.
 package policy
 
+const RegistryVersion = "0.4"
+
 type PrivacyDefaults struct {
 	RawTextRetention        string
 	AnalysisStorage         bool
@@ -134,6 +136,77 @@ func DiscourseRelations() []DiscourseRelationID {
 	return []DiscourseRelationID{RelationContrast, RelationConcession, RelationCause, RelationConsequence, RelationAddition, RelationCondition, RelationCorrection, RelationDiscounting}
 }
 
+type ActorID string
+
+const (
+	ActorSelf        ActorID = "SELF"
+	ActorOtherPerson ActorID = "OTHER_PERSON"
+	ActorGroupSelf   ActorID = "GROUP_SELF"
+	ActorUnknown     ActorID = "UNKNOWN"
+)
+
+func Actors() []ActorID {
+	return []ActorID{ActorSelf, ActorOtherPerson, ActorGroupSelf, ActorUnknown}
+}
+
+type ModalityID string
+
+const (
+	ModalityNone        ModalityID = "NONE"
+	ModalityNecessity   ModalityID = "NECESSITY"
+	ModalityPossibility ModalityID = "POSSIBILITY"
+	ModalityPermission  ModalityID = "PERMISSION"
+	ModalityExpectation ModalityID = "EXPECTATION"
+	ModalityIntention   ModalityID = "INTENTION"
+	ModalityProbability ModalityID = "PROBABILITY"
+)
+
+func Modalities() []ModalityID {
+	return []ModalityID{ModalityNone, ModalityNecessity, ModalityPossibility, ModalityPermission, ModalityExpectation, ModalityIntention, ModalityProbability}
+}
+
+type NegationScopeID string
+
+const (
+	NegationNone        NegationScopeID = "NONE"
+	NegationProposition NegationScopeID = "PROPOSITION"
+	NegationModality    NegationScopeID = "MODALITY"
+	NegationActor       NegationScopeID = "ACTOR"
+	NegationAmbiguous   NegationScopeID = "AMBIGUOUS"
+)
+
+func NegationScopes() []NegationScopeID {
+	return []NegationScopeID{NegationNone, NegationProposition, NegationModality, NegationActor, NegationAmbiguous}
+}
+
+type SenseStateID string
+
+const (
+	SenseHigh      SenseStateID = "HIGH"
+	SenseMedium    SenseStateID = "MEDIUM"
+	SenseAmbiguous SenseStateID = "AMBIGUOUS"
+)
+
+func SenseStates() []SenseStateID {
+	return []SenseStateID{SenseHigh, SenseMedium, SenseAmbiguous}
+}
+
+type AmbiguityTypeID string
+
+const (
+	AmbiguitySemantic     AmbiguityTypeID = "SEMANTIC"
+	AmbiguityPhonetic     AmbiguityTypeID = "PHONETIC"
+	AmbiguityOrthographic AmbiguityTypeID = "ORTHOGRAPHIC"
+	AmbiguityPragmatic    AmbiguityTypeID = "PRAGMATIC"
+	AmbiguitySyntactic    AmbiguityTypeID = "SYNTACTIC"
+	AmbiguityRegister     AmbiguityTypeID = "REGISTER"
+	AmbiguityResonance    AmbiguityTypeID = "RESONANCE"
+)
+
+func AmbiguityTypes() []AmbiguityTypeID {
+	return []AmbiguityTypeID{AmbiguitySemantic, AmbiguityPhonetic, AmbiguityOrthographic, AmbiguityPragmatic, AmbiguitySyntactic, AmbiguityRegister, AmbiguityResonance}
+}
+
 type ResonanceModeID string
 
 const (
@@ -154,24 +227,27 @@ func ResonanceModes() []ResonanceModeID {
 type GuardrailID string
 
 const (
-	MissingEvidenceIsNull           GuardrailID = "MISSING_EVIDENCE_IS_NULL"
-	ScoreIsBounded                  GuardrailID = "SCORE_IS_BOUNDED"
-	ConfidenceIsBounded             GuardrailID = "CONFIDENCE_IS_BOUNDED"
-	CalculationsAreFinite           GuardrailID = "CALCULATIONS_ARE_FINITE"
-	NoCircularRuleChains            GuardrailID = "NO_CIRCULAR_RULE_CHAINS"
-	NoInfiniteModifierChains        GuardrailID = "NO_INFINITE_MODIFIER_CHAINS"
-	NoSemanticHomophoneInheritance  GuardrailID = "NO_SEMANTIC_HOMOPHONE_INHERITANCE"
-	NoPersonDiagnosis               GuardrailID = "NO_PERSON_DIAGNOSIS"
-	NoTraitClaims                   GuardrailID = "NO_TRAIT_CLAIMS"
-	NoEmployeeRanking               GuardrailID = "NO_EMPLOYEE_RANKING"
-	QuestionScoreBiasIsZero         GuardrailID = "QUESTION_SCORE_BIAS_IS_ZERO"
-	QuestionAloneIsNotAssessable    GuardrailID = "QUESTION_ALONE_IS_NOT_ASSESSABLE"
-	ResonanceDoesNotScoreCore       GuardrailID = "RESONANCE_DOES_NOT_SCORE_CORE"
-	CorporateHasNoCanonicalFallback GuardrailID = "CORPORATE_HAS_NO_CANONICAL_FALLBACK"
-	LLMCannotScore                  GuardrailID = "LLM_CANNOT_SCORE"
-	WingScoreEvaluatesText          GuardrailID = "WING_SCORE_EVALUATES_TEXT"
-	RawTextStorageRequiresOptIn     GuardrailID = "RAW_TEXT_STORAGE_REQUIRES_OPT_IN"
-	RawAudioStorageRequiresOptIn    GuardrailID = "RAW_AUDIO_STORAGE_REQUIRES_OPT_IN"
+	MissingEvidenceIsNull              GuardrailID = "MISSING_EVIDENCE_IS_NULL"
+	ScoreIsBounded                     GuardrailID = "SCORE_IS_BOUNDED"
+	ConfidenceIsBounded                GuardrailID = "CONFIDENCE_IS_BOUNDED"
+	CalculationsAreFinite              GuardrailID = "CALCULATIONS_ARE_FINITE"
+	NoCircularRuleChains               GuardrailID = "NO_CIRCULAR_RULE_CHAINS"
+	NoInfiniteModifierChains           GuardrailID = "NO_INFINITE_MODIFIER_CHAINS"
+	NoSemanticHomophoneInheritance     GuardrailID = "NO_SEMANTIC_HOMOPHONE_INHERITANCE"
+	NoPersonDiagnosis                  GuardrailID = "NO_PERSON_DIAGNOSIS"
+	NoTraitClaims                      GuardrailID = "NO_TRAIT_CLAIMS"
+	NoEmployeeRanking                  GuardrailID = "NO_EMPLOYEE_RANKING"
+	QuestionScoreBiasIsZero            GuardrailID = "QUESTION_SCORE_BIAS_IS_ZERO"
+	QuestionAloneIsNotAssessable       GuardrailID = "QUESTION_ALONE_IS_NOT_ASSESSABLE"
+	ResonanceDoesNotScoreCore          GuardrailID = "RESONANCE_DOES_NOT_SCORE_CORE"
+	CorporateHasNoCanonicalFallback    GuardrailID = "CORPORATE_HAS_NO_CANONICAL_FALLBACK"
+	LLMCannotScore                     GuardrailID = "LLM_CANNOT_SCORE"
+	WingScoreEvaluatesText             GuardrailID = "WING_SCORE_EVALUATES_TEXT"
+	RawTextStorageRequiresOptIn        GuardrailID = "RAW_TEXT_STORAGE_REQUIRES_OPT_IN"
+	RawAudioStorageRequiresOptIn       GuardrailID = "RAW_AUDIO_STORAGE_REQUIRES_OPT_IN"
+	AmbiguousFeatureCannotHardScore    GuardrailID = "AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE"
+	PropositionSpanMustMatchSource     GuardrailID = "PROPOSITION_SPAN_MUST_MATCH_SOURCE"
+	ResolverCandidateCannotBypassRules GuardrailID = "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES"
 )
 
 func HardGuardrails() []GuardrailID {
@@ -183,6 +259,8 @@ func HardGuardrails() []GuardrailID {
 		ResonanceDoesNotScoreCore, CorporateHasNoCanonicalFallback, LLMCannotScore,
 		WingScoreEvaluatesText, RawTextStorageRequiresOptIn,
 		RawAudioStorageRequiresOptIn,
+		AmbiguousFeatureCannotHardScore, PropositionSpanMustMatchSource,
+		ResolverCandidateCannotBypassRules,
 	}
 }
 

@@ -2,20 +2,20 @@ package domain
 
 import "github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 
-type ActorID string
+type ActorID = policy.ActorID
 type TargetTypeID = policy.TargetTypeID
 type ExpectationSourceID = policy.ExpectationSourceID
 type DiscourseRelationID = policy.DiscourseRelationID
-type ModalityID string
-type NegationScopeID string
-type SenseState string
-type AmbiguityType string
+type ModalityID = policy.ModalityID
+type NegationScopeID = policy.NegationScopeID
+type SenseState = policy.SenseStateID
+type AmbiguityType = policy.AmbiguityTypeID
 
 const (
-	ActorSelf        ActorID = "SELF"
-	ActorOtherPerson ActorID = "OTHER_PERSON"
-	ActorGroupSelf   ActorID = "GROUP_SELF"
-	ActorUnknown     ActorID = "UNKNOWN"
+	ActorSelf        = policy.ActorSelf
+	ActorOtherPerson = policy.ActorOtherPerson
+	ActorGroupSelf   = policy.ActorGroupSelf
+	ActorUnknown     = policy.ActorUnknown
 
 	TargetPerson      = policy.TargetPerson
 	TargetSelf        = policy.TargetSelf
@@ -46,25 +46,25 @@ const (
 	RelationCorrection  = policy.RelationCorrection
 	RelationDiscounting = policy.RelationDiscounting
 
-	ModalityNone        ModalityID = "NONE"
-	ModalityNecessity   ModalityID = "NECESSITY"
-	ModalityPossibility ModalityID = "POSSIBILITY"
-	ModalityPermission  ModalityID = "PERMISSION"
-	ModalityExpectation ModalityID = "EXPECTATION"
-	ModalityIntention   ModalityID = "INTENTION"
-	ModalityProbability ModalityID = "PROBABILITY"
+	ModalityNone        = policy.ModalityNone
+	ModalityNecessity   = policy.ModalityNecessity
+	ModalityPossibility = policy.ModalityPossibility
+	ModalityPermission  = policy.ModalityPermission
+	ModalityExpectation = policy.ModalityExpectation
+	ModalityIntention   = policy.ModalityIntention
+	ModalityProbability = policy.ModalityProbability
 
-	NegationNone        NegationScopeID = "NONE"
-	NegationProposition NegationScopeID = "PROPOSITION"
-	NegationModality    NegationScopeID = "MODALITY"
-	NegationActor       NegationScopeID = "ACTOR"
-	NegationAmbiguous   NegationScopeID = "AMBIGUOUS"
+	NegationNone        = policy.NegationNone
+	NegationProposition = policy.NegationProposition
+	NegationModality    = policy.NegationModality
+	NegationActor       = policy.NegationActor
+	NegationAmbiguous   = policy.NegationAmbiguous
 
-	SenseHigh      SenseState = "HIGH"
-	SenseMedium    SenseState = "MEDIUM"
-	SenseAmbiguous SenseState = "AMBIGUOUS"
+	SenseHigh      = policy.SenseHigh
+	SenseMedium    = policy.SenseMedium
+	SenseAmbiguous = policy.SenseAmbiguous
 
-	AmbiguitySemantic AmbiguityType = "SEMANTIC"
+	AmbiguitySemantic = policy.AmbiguitySemantic
 )
 
 type ResolverResult struct {

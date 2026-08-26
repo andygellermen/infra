@@ -13,5 +13,7 @@
   und Rule Set v0.2.
 - `sprach-a-lyzer_policy-registry_v0.3.json` registriert Rule Contract v0.4,
   Rule Set v0.3 und `ADD_ALTERNATIVE`.
+- `sprach-a-lyzer_policy-registry_v0.4.json` ergänzt die kanonischen Resolver-
+  IDs, Resolver Catalogue v0.1 und drei nicht editierbare Resolver-Guardrails.
 
 Hard Guardrails gehören nicht in editierbare Rule- oder Parameter-Sets.

@@ -1,0 +1,116 @@
+{
+  "$schema": "../../schemas/analysis/sprach-a-lyzer_resolver-catalogue_v0.1.json",
+  "catalogue_version": "0.1",
+  "status": "APPROVED",
+  "locale": "de-DE",
+  "version_contract": {"resolver_result": "0.2", "policy_registry": "0.4"},
+  "sense_thresholds": {
+    "high": {"minimum_confidence": 0.75, "minimum_gap": 0.20},
+    "medium": {"minimum_confidence": 0.60, "minimum_gap": 0.10},
+    "fallback": "AMBIGUOUS"
+  },
+  "lexemes": [
+    {
+      "key": "MUSSEN", "forms": ["muss", "musst", "müssen"], "status": "APPROVED",
+      "senses": [
+        {"id": "EXTERNAL_NECESSITY", "phrase_signals": [], "token_signals": ["notwendig"], "context_signals": []},
+        {"id": "FORMAL_OBLIGATION", "phrase_signals": ["gesetzlich verpflichtet"], "token_signals": ["Vertrag", "vorgeschrieben", "Frist"], "context_signals": ["LEGAL_ADMINISTRATIVE"]},
+        {"id": "SAFETY_NECESSITY", "phrase_signals": ["Gebäude verlassen"], "token_signals": ["Gefahr", "Brand", "Schutz", "Notfall"], "context_signals": ["SAFETY"]},
+        {"id": "INTERNAL_PRESSURE", "phrase_signals": ["ich muss"], "token_signals": ["unbedingt", "endlich", "perfekt", "schaffen"], "context_signals": ["SELF_TALK"]},
+        {"id": "SOCIAL_NORM", "phrase_signals": ["man muss"], "token_signals": [], "context_signals": []},
+        {"id": "EMPHATIC_RECOMMENDATION", "phrase_signals": ["musst du sehen"], "token_signals": [], "context_signals": []},
+        {"id": "EPISTEMIC_INFERENCE", "phrase_signals": ["muss wohl", "muss bedeuten"], "token_signals": ["bereits"], "context_signals": []}
+      ]
+    },
+    {
+      "key": "SOLLEN", "forms": ["soll", "sollte", "solltest", "sollten"], "status": "APPROVED",
+      "senses": [
+        {"id": "DIRECTIVE", "phrase_signals": ["du sollst"], "token_signals": [], "context_signals": []},
+        {"id": "ADVICE", "phrase_signals": ["du solltest"], "token_signals": [], "context_signals": ["COACHING"]},
+        {"id": "SOCIAL_NORM", "phrase_signals": ["man sollte"], "token_signals": [], "context_signals": []},
+        {"id": "INTERNALIZED_EXPECTATION", "phrase_signals": ["ich sollte"], "token_signals": ["längst", "endlich", "eigentlich"], "context_signals": ["SELF_TALK"]},
+        {"id": "EXPECTED_OUTCOME", "phrase_signals": ["soll ergeben"], "token_signals": [], "context_signals": []},
+        {"id": "REPORTED_CLAIM", "phrase_signals": ["er soll", "sie soll"], "token_signals": ["sein"], "context_signals": ["PRIVATE_CONVERSATION"]},
+        {"id": "CONDITIONAL_OPENING", "phrase_signals": ["solltest du Fragen haben"], "token_signals": ["Fragen", "Hilfe", "Bedarf"], "context_signals": ["WORKPLACE"]}
+      ]
+    },
+    {
+      "key": "DUERFEN", "forms": ["darf", "darfst", "dürfen", "dürfte"], "status": "APPROVED",
+      "senses": [
+        {"id": "PERMISSION", "phrase_signals": ["du darfst"], "token_signals": [], "context_signals": []},
+        {"id": "PROHIBITION", "phrase_signals": ["darfst nicht", "dürfen nicht"], "token_signals": ["nicht"], "context_signals": []},
+        {"id": "POLITE_REQUEST", "phrase_signals": ["darf ich"], "token_signals": [], "context_signals": []},
+        {"id": "PROBABILITY", "phrase_signals": ["dürfte sein"], "token_signals": [], "context_signals": []},
+        {"id": "RHETORICAL_LEGITIMATION", "phrase_signals": ["man darf wohl"], "token_signals": [], "context_signals": []}
+      ]
+    },
+    {
+      "key": "FREI", "forms": ["frei", "freie", "freier"], "status": "APPROVED",
+      "senses": [
+        {"id": "LIBERTY", "phrase_signals": ["ich bin frei"], "token_signals": [], "context_signals": []},
+        {"id": "AVAILABLE", "phrase_signals": ["Termin ist frei"], "token_signals": ["Termin"], "context_signals": []},
+        {"id": "FREE_OF_CHARGE", "phrase_signals": ["Eintritt ist frei"], "token_signals": ["Eintritt"], "context_signals": ["PUBLIC_INFORMATION"]},
+        {"id": "UNBOUND", "phrase_signals": ["Platz ist frei"], "token_signals": [], "context_signals": []},
+        {"id": "FREE_FROM", "phrase_signals": ["frei von"], "token_signals": [], "context_signals": []}
+      ]
+    },
+    {
+      "key": "PROBLEM", "forms": ["Problem", "Probleme"], "status": "APPROVED",
+      "senses": [
+        {"id": "TECHNICAL_ISSUE", "phrase_signals": ["technisches Problem"], "token_signals": ["System", "Schnittstelle", "Code"], "context_signals": ["WORKPLACE"]},
+        {"id": "TASK_DIFFICULTY", "phrase_signals": ["schwieriges Problem"], "token_signals": ["Aufgabe"], "context_signals": []},
+        {"id": "PERSONAL_CHALLENGE", "phrase_signals": ["mein Problem"], "token_signals": [], "context_signals": []},
+        {"id": "PERSON_LABEL", "phrase_signals": ["du bist das Problem"], "token_signals": [], "context_signals": ["PRIVATE_CONVERSATION"]},
+        {"id": "SCIENTIFIC_PROBLEM", "phrase_signals": ["wissenschaftliches Problem"], "token_signals": ["Hypothese"], "context_signals": []}
+      ]
+    },
+    {
+      "key": "FEHLER", "forms": ["Fehler", "Fehlern"], "status": "APPROVED",
+      "senses": [
+        {"id": "TECHNICAL_ERROR", "phrase_signals": ["im Code ist ein Fehler"], "token_signals": ["Code", "System"], "context_signals": ["WORKPLACE"]},
+        {"id": "FACTUAL_ERROR", "phrase_signals": ["faktischer Fehler"], "token_signals": ["falsch"], "context_signals": []},
+        {"id": "BEHAVIOR_ERROR", "phrase_signals": ["Fehler gemacht"], "token_signals": [], "context_signals": []},
+        {"id": "LEARNING_EVENT", "phrase_signals": ["Fehler zeigt uns"], "token_signals": ["lernen", "verändern", "Versuch"], "context_signals": ["WORKPLACE"]},
+        {"id": "IDENTITY_LABEL", "phrase_signals": ["du bist ein Fehler"], "token_signals": [], "context_signals": []}
+      ]
+    },
+    {
+      "key": "UMFAHREN", "forms": ["umfahren"], "status": "APPROVED",
+      "senses": [
+        {"id": "DRIVE_AROUND", "phrase_signals": ["Hindernis umfahren"], "token_signals": ["Hindernis"], "context_signals": []},
+        {"id": "KNOCK_DOWN_BY_DRIVING", "phrase_signals": ["Person umfahren"], "token_signals": ["Person"], "context_signals": []}
+      ]
+    },
+    {
+      "key": "EIGENTLICH", "forms": ["eigentlich"], "status": "APPROVED",
+      "senses": [
+        {"id": "HEDGE", "phrase_signals": ["eigentlich vielleicht"], "token_signals": ["unsicher"], "context_signals": []},
+        {"id": "ORIGINAL_INTENTION", "phrase_signals": ["eigentlich wollte"], "token_signals": ["wollte"], "context_signals": []},
+        {"id": "IMPLICIT_CONTRAST", "phrase_signals": ["eigentlich aber"], "token_signals": ["aber"], "context_signals": []},
+        {"id": "POLITENESS_SOFTENER", "phrase_signals": ["eigentlich gern"], "token_signals": [], "context_signals": []},
+        {"id": "SELF_CORRECTION", "phrase_signals": ["eigentlich meinte"], "token_signals": ["meinte"], "context_signals": []},
+        {"id": "ATTITUDE_MARKER", "phrase_signals": ["was eigentlich"], "token_signals": [], "context_signals": []}
+      ]
+    }
+  ],
+  "connectors": [
+    {"key": "CONNECTOR_ABER", "markers": ["aber"], "relation": "CONTRAST", "placement": "INFIX", "confidence": 0.92, "status": "APPROVED"},
+    {"key": "CONNECTOR_TROTZDEM", "markers": ["trotzdem"], "relation": "CONCESSION", "placement": "PREFIX", "confidence": 0.92, "status": "APPROVED"},
+    {"key": "CONNECTOR_WEIL", "markers": ["weil"], "relation": "CAUSE", "placement": "INFIX", "confidence": 0.90, "status": "APPROVED"},
+    {"key": "CONNECTOR_DESHALB", "markers": ["deshalb", "daher"], "relation": "CONSEQUENCE", "placement": "PREFIX", "confidence": 0.90, "status": "APPROVED"},
+    {"key": "CONNECTOR_ADDITION", "markers": ["außerdem", "und"], "relation": "ADDITION", "placement": "INFIX", "confidence": 0.82, "status": "APPROVED"},
+    {"key": "CONNECTOR_CONDITION", "markers": ["wenn", "falls"], "relation": "CONDITION", "placement": "PREFIX", "confidence": 0.90, "status": "APPROVED"},
+    {"key": "CONNECTOR_CORRECTION", "markers": ["sondern", "genauer gesagt"], "relation": "CORRECTION", "placement": "INFIX", "confidence": 0.90, "status": "APPROVED"},
+    {"key": "CONNECTOR_DISCOUNTING", "markers": ["ja, aber"], "relation": "DISCOUNTING", "placement": "PREFIX", "confidence": 0.86, "status": "APPROVED"}
+  ],
+  "scope_rules": [
+    {"key": "NEGATION_ACTOR_PREFIX", "kind": "NEGATION", "priority": 300, "cues": ["nicht du", "nicht ich"], "output": "ACTOR", "confidence": 0.92, "status": "APPROVED"},
+    {"key": "NEGATION_MODAL", "kind": "NEGATION", "priority": 200, "cues": ["musst nicht", "darfst nicht", "solltest nicht"], "output": "MODALITY", "confidence": 0.88, "status": "APPROVED"},
+    {"key": "NEGATION_PROPOSITION_DEFAULT", "kind": "NEGATION", "priority": 100, "cues": ["nicht", "nie", "kein", "keine", "niemals"], "output": "PROPOSITION", "confidence": 0.75, "status": "APPROVED"}
+  ],
+  "hard_guardrails": [
+    "AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE",
+    "PROPOSITION_SPAN_MUST_MATCH_SOURCE",
+    "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES"
+  ]
+}

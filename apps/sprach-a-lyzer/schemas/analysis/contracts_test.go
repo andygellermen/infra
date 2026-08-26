@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
 func TestGoContractsMatchJSONSchemaObjectShapes(t *testing.T) {
@@ -116,6 +117,59 @@ func TestEngineOutputAndDerivedTraceRespectContractShapes(t *testing.T) {
 				t.Fatalf("%s links contribution %d for %s", id, index, trace.Contributions[index].Dimension)
 			}
 		}
+	}
+}
+
+func TestResolverCatalogueSchemaAndSeedAreVersionLocked(t *testing.T) {
+	t.Parallel()
+	schema := readSchema(t, "sprach-a-lyzer_resolver-catalogue_v0.1.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_resolver-catalogue_v0.1.json")
+	if err != nil {
+		t.Fatalf("read resolver catalogue: %v", err)
+	}
+	var seed map[string]any
+	if err := json.Unmarshal(data, &seed); err != nil {
+		t.Fatalf("decode resolver catalogue: %v", err)
+	}
+	assertConst(t, property(t, schema, "catalogue_version"), "0.1")
+	if seed["catalogue_version"] != "0.1" || seed["status"] != "APPROVED" || seed["locale"] != "de-DE" {
+		t.Fatalf("unexpected resolver catalogue envelope: %#v", seed)
+	}
+	versionContract := seed["version_contract"].(map[string]any)
+	if versionContract["resolver_result"] != "0.2" || versionContract["policy_registry"] != "0.4" {
+		t.Fatalf("resolver version contract = %#v", versionContract)
+	}
+	wantGuardrails := property(t, schema, "hard_guardrails")["const"]
+	if !reflect.DeepEqual(seed["hard_guardrails"], wantGuardrails) {
+		t.Fatalf("resolver guardrails = %#v; schema = %#v", seed["hard_guardrails"], wantGuardrails)
+	}
+}
+
+func TestResolverResultEnumsMatchCanonicalPolicyIDs(t *testing.T) {
+	t.Parallel()
+	schema := readSchema(t, "sprach-a-lyzer_resolver-result_v0.2.json")
+	assertSameStringSet(t, "actor", definition(t, schema, "actor")["enum"], policy.Actors())
+	assertSameStringSet(t, "target type", definition(t, schema, "targetType")["enum"], policy.TargetTypes())
+	assertSameStringSet(t, "expectation source", definition(t, schema, "expectationSource")["enum"], policy.ExpectationSources())
+	assertSameStringSet(t, "relation", definition(t, schema, "relation")["enum"], policy.DiscourseRelations())
+	assertSameStringSet(t, "modality", definition(t, schema, "modality")["enum"], policy.Modalities())
+	assertSameStringSet(t, "negation scope", definition(t, schema, "negationScope")["enum"], policy.NegationScopes())
+	assertSameStringSet(t, "sense state", definition(t, schema, "senseState")["enum"], policy.SenseStates())
+	ambiguityType := property(t, definition(t, schema, "ambiguity"), "type")
+	assertSameStringSet(t, "ambiguity type", ambiguityType["enum"], policy.AmbiguityTypes())
+}
+
+func assertSameStringSet[T ~string](t *testing.T, name string, schemaValues any, policyValues []T) {
+	t.Helper()
+	got := stringsFrom(t, schemaValues)
+	want := make([]string, len(policyValues))
+	for index, value := range policyValues {
+		want[index] = string(value)
+	}
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("resolver %s IDs = %v; policy = %v", name, got, want)
 	}
 }
 
