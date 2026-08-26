@@ -120,7 +120,7 @@ func TestRuntimeCatalogueActivationAndDeactivationSmoke(t *testing.T) {
 	}
 }
 
-func TestContextAndPropositionFactsAreCatalogueAddressable(t *testing.T) {
+func TestContextFactsAreAddressableWithoutResolverGuardrailBypass(t *testing.T) {
 	t.Parallel()
 
 	definitions := []rules.Definition{
@@ -134,14 +134,30 @@ func TestContextAndPropositionFactsAreCatalogueAddressable(t *testing.T) {
 			{Field: "discourse_relation", Operator: "EQUALS", Value: []byte(`"CONTRAST"`)},
 			{Field: "proposition_feature", Operator: "EQUALS", Value: []byte(`"TIME"`)},
 		}}),
+		factRule("20000000-0000-4000-8000-000000000303", "R-CANDIDATE-BYPASS", "CANDIDATE_BYPASS", rules.Condition{
+			Field: "pattern", Operator: "EQUALS", Value: []byte(`"PERSON_DEVALUATION"`),
+		}),
+		contributionRule("20000000-0000-4000-8000-000000000304", "R-AMBIGUOUS-SCORE", rules.Condition{
+			Field: "selected_sense", Operator: "EQUALS", Value: []byte(`"PERSON_LABEL"`),
+		}),
+		factRule("20000000-0000-4000-8000-000000000305", "R-TRUSTED-SENSE", "TRUSTED_SENSE", rules.Condition{
+			Field: "selected_sense", Operator: "EQUALS", Value: []byte(`"INTERNALIZED_EXPECTATION"`),
+		}),
 	}
 	engine := New(staticCatalogue{catalogue: rules.Catalogue{Version: "context-test", Rules: definitions}})
 	person, err := engine.Analyze(domain.AnalysisRequest{Text: "Du bist das Problem.", Context: "PRIVATE_CONVERSATION"})
 	if err != nil {
 		t.Fatalf("person Analyze() error: %v", err)
 	}
-	if !containsString(person.Patterns, "PERSON_FACT") {
-		t.Fatalf("person facts did not match: %v", person.Patterns)
+	if containsString(person.Patterns, "PERSON_FACT") || containsString(person.Patterns, "CANDIDATE_BYPASS") || person.Dimensions[domain.DimensionAgency].Score != nil {
+		t.Fatalf("ambiguous sense or resolver candidate bypassed rule guardrails: %+v", person)
+	}
+	trusted, err := engine.Analyze(domain.AnalysisRequest{Text: "Ich sollte längst weiter sein.", Context: "SELF_TALK"})
+	if err != nil {
+		t.Fatalf("trusted Analyze() error: %v", err)
+	}
+	if !containsString(trusted.Patterns, "TRUSTED_SENSE") {
+		t.Fatalf("non-ambiguous selected sense was not addressable: %v", trusted.Patterns)
 	}
 	law, err := engine.Analyze(domain.AnalysisRequest{Text: "Ich bin gesetzlich bis Freitag verpflichtet, aber die Form bleibt offen.", Context: "LEGAL_ADMINISTRATIVE"})
 	if err != nil {
@@ -149,6 +165,20 @@ func TestContextAndPropositionFactsAreCatalogueAddressable(t *testing.T) {
 	}
 	if !containsString(law.Patterns, "LAW_CONTRAST") {
 		t.Fatalf("context/proposition facts did not match: %v", law.Patterns)
+	}
+}
+
+func contributionRule(id, key string, condition rules.Condition) rules.Definition {
+	value, confidence := -20.0, .9
+	return rules.Definition{
+		ContractVersion: rules.ContractVersion, ID: id, Key: key, Name: key,
+		Description: "Ambiguous resolver sense guardrail smoke rule.", Priority: 110, Enabled: true,
+		Scope: "TEXT", Status: "TESTING", Version: 1, Condition: condition,
+		Actions: []rules.Action{{
+			Type: policy.AddContribution, Dimension: domain.DimensionAgency, Value: &value, Confidence: &confidence,
+			ReasonKey: "REASON_INTERNAL_PRESSURE_VOLITION", EvidenceKey: "EVIDENCE_INTERNAL_PRESSURE",
+		}},
+		ConfidenceModifier: 1,
 	}
 }
 

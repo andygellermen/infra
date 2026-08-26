@@ -1,0 +1,28 @@
+{
+  "suite_version": "0.2",
+  "resolver_contract": "0.2",
+  "base_suite": "sprach-a-lyzer_context-proposition_v0.1.json",
+  "overrides": [
+    {
+      "id": "CP04_INTERNALIZED_EXPECTATION",
+      "selected_senses": [
+        {"lexeme": "sollen", "sense": "INTERNALIZED_EXPECTATION", "confidence": 0.785, "gap": 0.135, "state": "MEDIUM"}
+      ],
+      "overall_confidence": 0.9
+    },
+    {
+      "id": "CP05_PERSON_TARGET",
+      "selected_senses": [
+        {"lexeme": "Problem", "sense": "PERSON_LABEL", "confidence": 0.815, "gap": 0.075, "state": "AMBIGUOUS"}
+      ],
+      "overall_confidence": 0.72
+    },
+    {
+      "id": "CP07_NEGATED_PERMISSION",
+      "selected_senses": [
+        {"lexeme": "dürfen", "sense": "PROHIBITION", "confidence": 0.765, "gap": 0.075, "state": "AMBIGUOUS"}
+      ],
+      "overall_confidence": 0.72
+    }
+  ]
+}

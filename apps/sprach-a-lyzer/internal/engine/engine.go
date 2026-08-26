@@ -16,7 +16,11 @@ var ErrEmptyText = errors.New("analysis text must not be empty")
 type Engine struct {
 	catalogue CatalogueProvider
 	texts     TextProvider
-	resolver  *resolver.Resolver
+	resolver  contextResolver
+}
+
+type contextResolver interface {
+	Resolve(domain.AnalysisRequest) (domain.ResolverResult, error)
 }
 
 // New retains the catalogue-only test seam and uses the embedded presentation
@@ -105,10 +109,7 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			}
 			executed[definition.Key], progress = true, true
 			facts.patterns = append([]string(nil), result.Patterns...)
-			facts.senses = facts.senses[:0]
-			for _, sense := range resolution.SelectedSenses {
-				facts.senses = append(facts.senses, sense.Sense)
-			}
+			facts.senses = trustedResolverSenses(resolution.SelectedSenses)
 			for _, sense := range result.ResolvedSenses {
 				facts.senses = append(facts.senses, sense.Sense)
 			}

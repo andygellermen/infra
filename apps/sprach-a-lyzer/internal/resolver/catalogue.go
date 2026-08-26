@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,6 +75,20 @@ type ScopeDefinition struct {
 	Output     policy.NegationScopeID `json:"output"`
 	Confidence float64                `json:"confidence"`
 	Status     string                 `json:"status"`
+}
+
+// CatalogueProvider supplies the approved resolver catalogue for one
+// resolution. Providers must fail closed when no valid catalogue is active.
+type CatalogueProvider interface {
+	Active(context.Context) (Catalogue, error)
+}
+
+type StaticCatalogueProvider struct {
+	Catalogue Catalogue
+}
+
+func (s StaticCatalogueProvider) Active(context.Context) (Catalogue, error) {
+	return s.Catalogue, nil
 }
 
 func DecodeCatalogue(reader io.Reader) (Catalogue, error) {

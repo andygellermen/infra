@@ -23,6 +23,19 @@ type goldenCase struct {
 	Expected expectedResult         `json:"expected"`
 }
 
+type runtimeGoldenDelta struct {
+	SuiteVersion     string            `json:"suite_version"`
+	ResolverContract string            `json:"resolver_contract"`
+	BaseSuite        string            `json:"base_suite"`
+	Overrides        []runtimeOverride `json:"overrides"`
+}
+
+type runtimeOverride struct {
+	ID                string                 `json:"id"`
+	SelectedSenses    []domain.ResolverSense `json:"selected_senses"`
+	OverallConfidence float64                `json:"overall_confidence"`
+}
+
 type expectedResult struct {
 	Nodes             []expectedNode             `json:"nodes"`
 	Edges             []domain.PropositionEdge   `json:"edges"`
@@ -50,7 +63,7 @@ type expectedNode struct {
 func TestContextPropositionGolden(t *testing.T) {
 	t.Parallel()
 	suite := loadSuite(t)
-	if suite.SuiteVersion != "0.1" || suite.ResolverContract != resolver.ContractVersion || len(suite.Cases) != 7 {
+	if suite.SuiteVersion != "0.2" || suite.ResolverContract != resolver.ContractVersion || len(suite.Cases) != 7 {
 		t.Fatalf("unexpected suite header: %+v", suite)
 	}
 	engine := resolver.New()
@@ -117,19 +130,53 @@ func assertEqual(t *testing.T, label string, want, got any) {
 
 func loadSuite(t *testing.T) goldenSuite {
 	t.Helper()
-	file, err := os.Open("../../data/golden/sprach-a-lyzer_context-proposition_v0.1.json")
+	file, err := os.Open("../../data/golden/sprach-a-lyzer_context-proposition-catalogue-runtime_v0.2.json")
 	if err != nil {
 		t.Fatalf("open golden suite: %v", err)
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()
-	var suite goldenSuite
-	if err := decoder.Decode(&suite); err != nil {
-		t.Fatalf("decode golden suite: %v", err)
+	var delta runtimeGoldenDelta
+	if err := decoder.Decode(&delta); err != nil {
+		t.Fatalf("decode runtime golden delta: %v", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		t.Fatalf("decode trailing golden data: %v", err)
+	}
+	if delta.BaseSuite != "sprach-a-lyzer_context-proposition_v0.1.json" {
+		t.Fatalf("unexpected base suite %q", delta.BaseSuite)
+	}
+	baseFile, err := os.Open("../../data/golden/" + delta.BaseSuite)
+	if err != nil {
+		t.Fatalf("open base golden suite: %v", err)
+	}
+	defer baseFile.Close()
+	baseDecoder := json.NewDecoder(baseFile)
+	baseDecoder.DisallowUnknownFields()
+	var suite goldenSuite
+	if err := baseDecoder.Decode(&suite); err != nil {
+		t.Fatalf("decode base golden suite: %v", err)
+	}
+	suite.SuiteVersion, suite.ResolverContract = delta.SuiteVersion, delta.ResolverContract
+	overrides := make(map[string]runtimeOverride, len(delta.Overrides))
+	for _, override := range delta.Overrides {
+		if overrides[override.ID].ID != "" {
+			t.Fatalf("duplicate runtime override %q", override.ID)
+		}
+		overrides[override.ID] = override
+	}
+	for index := range suite.Cases {
+		override, ok := overrides[suite.Cases[index].ID]
+		if !ok {
+			continue
+		}
+		suite.Cases[index].Expected.SelectedSenses = override.SelectedSenses
+		suite.Cases[index].Expected.OverallConfidence = override.OverallConfidence
+		delete(overrides, override.ID)
+	}
+	if len(overrides) != 0 {
+		t.Fatalf("runtime overrides reference unknown cases: %v", overrides)
 	}
 	return suite
 }

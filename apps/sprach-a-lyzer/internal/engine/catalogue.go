@@ -107,9 +107,10 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 		inputMode:  strings.ToUpper(strings.TrimSpace(string(request.InputMode))),
 		targetType: string(resolution.TargetType), expectationSource: string(resolution.ExpectationSource),
 	}
-	for _, sense := range resolution.SelectedSenses {
-		facts.senses = append(facts.senses, sense.Sense)
-	}
+	// Resolver candidates are not rule patterns. Only a non-ambiguous selected
+	// sense becomes an addressable fact; this enforces both resolver scoring
+	// guardrails at the engine boundary.
+	facts.senses = trustedResolverSenses(resolution.SelectedSenses)
 	for _, edge := range resolution.PropositionGraph.Edges {
 		facts.discourseRelations = append(facts.discourseRelations, string(edge.Relation))
 	}
@@ -143,6 +144,17 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 		facts.inputMode = string(domain.InputModeText)
 	}
 	return definitions, facts, nil
+}
+
+func trustedResolverSenses(senses []domain.ResolverSense) []string {
+	result := make([]string, 0, len(senses))
+	for _, sense := range senses {
+		if sense.State == domain.SenseAmbiguous {
+			continue
+		}
+		result = appendUniqueFact(result, sense.Sense)
+	}
+	return result
 }
 
 func evaluateCondition(condition rules.Condition, facts catalogueFacts) (bool, error) {

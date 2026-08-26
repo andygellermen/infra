@@ -23,6 +23,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 15. [Core Closure v0.1.0](docs/00-start/CORE-CLOSURE-v0.1.0.md)
 16. [Context & Proposition Vertical Slice v0.1](docs/00-start/CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md)
 17. [Resolver Catalogue Contracts v0.1](docs/00-start/RESOLVER-CATALOGUE-CONTRACTS-v0.1.md)
+18. [Resolver Catalogue Runtime Binding v0.1](docs/00-start/RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md)
 
 ## Repository-Struktur
 
@@ -109,6 +110,12 @@ Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
 Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Der
 geschlossene Core-Stand ist durch das Release-Manifest v0.1.0 und den
 annotierten Git-Tag `v0.1.0` fixiert.
+
+Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
+eingebettetes, strikt validiertes Runtime-Artefakt. `AMBIGUOUS`-Senses und
+diagnostische Pattern-Kandidaten werden an der Rule-Engine-Grenze nicht zu
+scorenden Fakten; Proposition-Spans werden vor jeder Rückgabe gegen den
+Quelltext geprüft.
 
 ## PostgreSQL und HTTP-API
 

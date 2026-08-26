@@ -2,45 +2,79 @@
 package resolver
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"unicode"
 
+	assets "github.com/andygellermann/infra/apps/sprach-a-lyzer"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
 )
 
 const ContractVersion = "0.2"
 
-var ErrEmptyText = errors.New("resolver text must not be empty")
+var (
+	ErrEmptyText         = errors.New("resolver text must not be empty")
+	ErrInvalidSourceSpan = errors.New("resolver proposition span does not match source")
+)
 
-type Resolver struct{}
+type Resolver struct {
+	catalogue CatalogueProvider
+}
 
-func New() *Resolver { return &Resolver{} }
+func New() *Resolver {
+	catalogue, err := DecodeCatalogue(bytes.NewReader(assets.ResolverCatalogueV01))
+	if err != nil {
+		panic(fmt.Sprintf("decode embedded resolver catalogue: %v", err))
+	}
+	return NewWithCatalogueProvider(StaticCatalogueProvider{Catalogue: catalogue})
+}
+
+func NewWithCatalogueProvider(provider CatalogueProvider) *Resolver {
+	return &Resolver{catalogue: provider}
+}
 
 func (r *Resolver) Resolve(request domain.AnalysisRequest) (domain.ResolverResult, error) {
 	text := strings.TrimSpace(request.Text)
 	if text == "" {
 		return domain.ResolverResult{}, ErrEmptyText
 	}
+	if r == nil || r.catalogue == nil {
+		return domain.ResolverResult{}, fmt.Errorf("resolver catalogue provider is nil")
+	}
+	catalogue, err := r.catalogue.Active(context.Background())
+	if err != nil {
+		return domain.ResolverResult{}, fmt.Errorf("load active resolver catalogue: %w", err)
+	}
+	if err := catalogue.Validate(); err != nil {
+		return domain.ResolverResult{}, fmt.Errorf("validate active resolver catalogue: %w", err)
+	}
+	runtime := newCatalogueRuntime(catalogue)
 	contextValue := domain.AnalysisContext(strings.ToUpper(strings.TrimSpace(string(request.Context))))
 	if contextValue == "" {
 		contextValue = domain.ContextUnspecified
 	}
-	targetType := resolveTargetType(text)
-	expectationSource := resolveExpectationSource(text)
-	graph := buildGraph(text, targetType, expectationSource)
-	senses, ambiguities, patterns := resolveSensesAndPatterns(text, graph)
+	targetType := resolveTargetType(text, runtime)
+	expectationSource := resolveExpectationSource(text, runtime)
+	graph := buildGraph(text, targetType, expectationSource, runtime)
+	senses, ambiguities, patterns := resolveSensesAndPatterns(text, contextValue, graph, runtime)
 	confidence := .90
-	if len(ambiguities) > 0 {
+	if len(ambiguities) > 0 || hasAmbiguousSense(senses) {
 		confidence = .72
 	}
-	return domain.ResolverResult{
+	result := domain.ResolverResult{
 		ContractVersion: ContractVersion, Text: text, Context: contextValue,
 		PropositionGraph: graph, SelectedSenses: senses, Ambiguities: ambiguities,
 		TargetType: targetType, ExpectationSource: expectationSource,
 		PatternCandidates: patterns, OverallConfidence: confidence,
-	}, nil
+	}
+	if err := validateSourceSpans(result); err != nil {
+		return domain.ResolverResult{}, err
+	}
+	return result, nil
 }
 
 type span struct {
@@ -48,40 +82,36 @@ type span struct {
 	start, end, sentence int
 	marker               string
 	relation             domain.DiscourseRelationID
+	confidence           float64
 }
 
-func buildGraph(text string, target domain.TargetTypeID, expectation domain.ExpectationSourceID) domain.PropositionGraph {
-	spans := propositionSpans(text)
+func buildGraph(text string, target domain.TargetTypeID, expectation domain.ExpectationSourceID, runtime catalogueRuntime) domain.PropositionGraph {
+	spans := propositionSpans(text, runtime)
 	graph := domain.PropositionGraph{Nodes: make([]domain.PropositionNode, 0, len(spans)), Edges: []domain.PropositionEdge{}}
 	for index, part := range spans {
-		node := propositionNode(index, part, target, expectation)
+		node := propositionNode(index, part, target, expectation, runtime)
 		graph.Nodes = append(graph.Nodes, node)
 		if index == 0 {
 			continue
 		}
 		marker, relation := part.marker, part.relation
+		confidence := part.confidence
 		if relation == "" {
-			lower := normalize(part.text)
-			switch {
-			case hasWord(lower, "trotzdem"):
-				marker, relation = "trotzdem", domain.RelationConcession
-			case hasWord(lower, "deshalb"):
-				marker, relation = "deshalb", domain.RelationConsequence
-			case hasWord(lower, "außerdem"):
-				marker, relation = "außerdem", domain.RelationAddition
+			if connector, ok := runtime.relationIn(part.text); ok {
+				marker, relation, confidence = connector.marker, connector.relation, connector.confidence
 			}
 		}
 		if relation != "" {
 			graph.Edges = append(graph.Edges, domain.PropositionEdge{
 				Source: graph.Nodes[index-1].ID, Target: node.ID, Marker: marker,
-				Relation: relation, Confidence: .92,
+				Relation: relation, Confidence: confidence,
 			})
 		}
 	}
 	return graph
 }
 
-func propositionSpans(text string) []span {
+func propositionSpans(text string, runtime catalogueRuntime) []span {
 	var sentences []span
 	start, sentenceIndex := 0, 0
 	for index := 0; index < len(text); index++ {
@@ -100,22 +130,21 @@ func propositionSpans(text string) []span {
 
 	result := make([]span, 0, len(sentences)+2)
 	for _, sentence := range sentences {
-		lower := strings.ToLower(sentence.text)
-		markerStart, markerLength := strings.Index(lower, ", aber "), len(", aber ")
-		if markerStart < 0 {
-			markerStart, markerLength = strings.Index(lower, " aber "), len(" aber ")
-		}
-		if markerStart <= 0 {
+		markerStart, connector, ok := runtime.connectorAt(sentence.text, true)
+		if !ok || markerStart <= 0 {
 			result = append(result, sentence)
 			continue
 		}
 		leftStart, leftEnd := sentence.start, sentence.start+markerStart
+		for leftEnd > leftStart && (unicode.IsSpace(rune(text[leftEnd-1])) || strings.ContainsRune(",;:", rune(text[leftEnd-1]))) {
+			leftEnd--
+		}
 		if left, ok := trimmedSpan(text, leftStart, leftEnd, sentence.sentence); ok {
 			result = append(result, left)
 		}
-		rightStart := sentence.start + markerStart + markerLength
+		rightStart := sentence.start + markerStart + len(connector.marker)
 		if right, ok := trimmedSpan(text, rightStart, sentence.end, sentence.sentence); ok {
-			right.marker, right.relation = "aber", domain.RelationContrast
+			right.marker, right.relation, right.confidence = connector.marker, connector.relation, connector.confidence
 			result = append(result, right)
 		}
 	}
@@ -135,7 +164,7 @@ func trimmedSpan(source string, start, end, sentence int) (span, bool) {
 	return span{text: source[start:end], start: start, end: end, sentence: sentence}, true
 }
 
-func propositionNode(index int, part span, target domain.TargetTypeID, expectation domain.ExpectationSourceID) domain.PropositionNode {
+func propositionNode(index int, part span, target domain.TargetTypeID, expectation domain.ExpectationSourceID, runtime catalogueRuntime) domain.PropositionNode {
 	lower := normalize(part.text)
 	actor := domain.ActorUnknown
 	switch {
@@ -147,17 +176,10 @@ func propositionNode(index int, part span, target domain.TargetTypeID, expectati
 		actor = domain.ActorOtherPerson
 	}
 	negation := hasAnyWord(lower, "nicht", "nie", "kein", "keine", "keinen", "niemals")
-	modality := resolveModality(lower)
+	modality := resolveModality(lower, runtime)
 	negationScope := domain.NegationNone
 	if negation {
-		switch {
-		case strings.HasPrefix(lower, "nicht du "), strings.HasPrefix(lower, "nicht ich "):
-			negationScope = domain.NegationActor
-		case modality != domain.ModalityNone && (strings.Contains(lower, "musst") || strings.Contains(lower, "darfst")):
-			negationScope = domain.NegationModality
-		default:
-			negationScope = domain.NegationProposition
-		}
+		negationScope = runtime.negationScope(lower)
 	}
 	predicate := strings.Trim(lower, " .,!?;") != "ja" && len(strings.Fields(lower)) > 1
 	return domain.PropositionNode{
@@ -170,33 +192,36 @@ func propositionNode(index int, part span, target domain.TargetTypeID, expectati
 	}
 }
 
-func resolveModality(text string) domain.ModalityID {
+func resolveModality(text string, runtime catalogueRuntime) domain.ModalityID {
 	switch {
-	case hasAnyWord(text, "muss", "musst", "müssen"):
+	case runtime.matchesLexeme("MUSSEN", text):
 		return domain.ModalityNecessity
-	case hasAnyWord(text, "soll", "sollte", "solltest", "sollten"):
+	case runtime.matchesLexeme("SOLLEN", text):
 		return domain.ModalityExpectation
-	case hasAnyWord(text, "darf", "darfst", "dürfen"):
+	case runtime.matchesLexeme("DUERFEN", text):
+		if hasWord(text, "dürfte") {
+			return domain.ModalityProbability
+		}
 		return domain.ModalityPermission
-	case hasAnyWord(text, "möchte", "will", "wollte"):
-		return domain.ModalityIntention
-	case hasAnyWord(text, "dürfte"):
-		return domain.ModalityProbability
 	case hasAnyWord(text, "kann", "können", "könnte"):
 		return domain.ModalityPossibility
+	case hasAnyWord(text, "möchte", "will", "wollte"):
+		return domain.ModalityIntention
 	default:
 		return domain.ModalityNone
 	}
 }
 
-func resolveTargetType(text string) domain.TargetTypeID {
+func resolveTargetType(text string, runtime catalogueRuntime) domain.TargetTypeID {
 	lower := normalize(text)
 	switch {
-	case strings.Contains(lower, "du bist das problem"), strings.Contains(lower, "du bist ein fehler"):
+	case runtime.hasSense("PROBLEM", "PERSON_LABEL") && strings.Contains(lower, "du bist das problem"),
+		runtime.hasSense("FEHLER", "IDENTITY_LABEL") && strings.Contains(lower, "du bist ein fehler"):
 		return domain.TargetPerson
-	case strings.Contains(lower, "technisches problem"), strings.Contains(lower, "schnittstelle"), strings.Contains(lower, "im code"):
+	case runtime.hasSense("PROBLEM", "TECHNICAL_ISSUE") && (strings.Contains(lower, "technisches problem") || strings.Contains(lower, "schnittstelle")),
+		runtime.hasSense("FEHLER", "TECHNICAL_ERROR") && strings.Contains(lower, "im code"):
 		return domain.TargetProcess
-	case strings.Contains(lower, "fehler zeigt"), strings.Contains(lower, "nächsten versuch"):
+	case runtime.hasSense("FEHLER", "LEARNING_EVENT") && (strings.Contains(lower, "fehler zeigt") || strings.Contains(lower, "nächsten versuch")):
 		return domain.TargetEvent
 	case strings.Contains(lower, "vereinbarung") && strings.Contains(lower, "eingehalten"):
 		return domain.TargetBehavior
@@ -205,16 +230,16 @@ func resolveTargetType(text string) domain.TargetTypeID {
 	}
 }
 
-func resolveExpectationSource(text string) domain.ExpectationSourceID {
+func resolveExpectationSource(text string, runtime catalogueRuntime) domain.ExpectationSourceID {
 	lower := normalize(text)
 	switch {
 	case hasAnyWord(lower, "gesetzlich", "gesetz", "vorgeschrieben"):
 		return domain.ExpectationLaw
-	case strings.Contains(lower, "ich sollte") && hasAnyWord(lower, "längst", "endlich", "eigentlich"):
+	case runtime.hasSense("SOLLEN", "INTERNALIZED_EXPECTATION") && strings.Contains(lower, "ich sollte") && hasAnyWord(lower, "längst", "endlich", "eigentlich"):
 		return domain.ExpectationInternalized
 	case strings.Contains(lower, "man sollte"):
 		return domain.ExpectationCulture
-	case strings.Contains(lower, "ich muss") && hasAnyWord(lower, "unbedingt", "endlich", "perfekt"):
+	case runtime.hasSense("MUSSEN", "INTERNAL_PRESSURE") && strings.Contains(lower, "ich muss") && hasAnyWord(lower, "unbedingt", "endlich", "perfekt"):
 		return domain.ExpectationInternalized
 	default:
 		return domain.ExpectationUnspecified
@@ -226,75 +251,90 @@ type positionedSense struct {
 	sense    domain.ResolverSense
 }
 
-func resolveSensesAndPatterns(text string, graph domain.PropositionGraph) ([]domain.ResolverSense, []domain.Ambiguity, []string) {
+func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, graph domain.PropositionGraph, runtime catalogueRuntime) ([]domain.ResolverSense, []domain.Ambiguity, []string) {
 	lower := normalize(text)
 	var positioned []positionedSense
 	ambiguities := []domain.Ambiguity{}
 	patterns := []string{}
-	add := func(lexeme, sense string, confidence, gap float64, state domain.SenseState) {
-		positioned = append(positioned, positionedSense{position: strings.Index(lower, strings.ToLower(lexeme)), sense: domain.ResolverSense{
-			Lexeme: lexeme, Sense: sense, Confidence: confidence, Gap: gap, State: state,
+	add := func(key, lexeme, sense string, confidence, gap float64) bool {
+		if !runtime.matchesLexeme(key, lower) || !runtime.hasSense(key, sense) {
+			return false
+		}
+		positioned = append(positioned, positionedSense{position: runtime.lexemePosition(key, lower), sense: domain.ResolverSense{
+			Lexeme: lexeme, Sense: sense, Confidence: confidence, Gap: gap, State: runtime.senseState(confidence, gap),
 		}})
+		return true
 	}
 
-	if hasAnyWord(lower, "muss", "musst", "müssen") {
+	if runtime.matchesLexeme("MUSSEN", lower) {
 		switch {
 		case strings.Contains(lower, "ich muss") && hasAnyWord(lower, "unbedingt", "endlich", "perfekt"):
-			add("müssen", "INTERNAL_PRESSURE", .785, .13, domain.SenseHigh)
-			patterns = appendUnique(patterns, "INTERNAL_PRESSURE")
+			if add("MUSSEN", "müssen", "INTERNAL_PRESSURE", .785, .13) {
+				patterns = appendUnique(patterns, "INTERNAL_PRESSURE")
+			}
 		case strings.Contains(lower, "hindernis umfahren"):
-			add("müssen", "EXTERNAL_NECESSITY", .655, .05, domain.SenseAmbiguous)
-			ambiguities = append(ambiguities, domain.Ambiguity{Item: "müssen", Type: domain.AmbiguitySemantic, Top: "EXTERNAL_NECESSITY", Second: "EPISTEMIC_INFERENCE", Gap: .05})
-		case hasAnyWord(lower, "gefahr", "brand", "notfall") || strings.Contains(lower, "gebäude verlassen"):
-			add("müssen", "SAFETY_NECESSITY", .90, .25, domain.SenseHigh)
+			if add("MUSSEN", "müssen", "EXTERNAL_NECESSITY", .655, .05) && runtime.hasSense("MUSSEN", "EPISTEMIC_INFERENCE") {
+				ambiguities = append(ambiguities, domain.Ambiguity{Item: "müssen", Type: domain.AmbiguitySemantic, Top: "EXTERNAL_NECESSITY", Second: "EPISTEMIC_INFERENCE", Gap: .05})
+			}
+		case contextValue == domain.ContextSafety && (hasAnyWord(lower, "gefahr", "brand", "notfall") || strings.Contains(lower, "gebäude verlassen")):
+			add("MUSSEN", "müssen", "SAFETY_NECESSITY", .90, .25)
 		default:
-			add("müssen", "EXTERNAL_NECESSITY", .66, .08, domain.SenseMedium)
+			add("MUSSEN", "müssen", "EXTERNAL_NECESSITY", .66, .08)
 		}
 	}
-	if hasAnyWord(lower, "soll", "sollte", "solltest", "sollten") {
+	if runtime.matchesLexeme("SOLLEN", lower) {
 		switch {
 		case (strings.HasPrefix(lower, "er soll ") || strings.HasPrefix(lower, "sie soll ")) && strings.Contains(lower, " sein"):
-			add("sollen", "REPORTED_CLAIM", .79, .14, domain.SenseHigh)
-			patterns = appendUnique(patterns, "REPORTED_CLAIM")
+			if add("SOLLEN", "sollen", "REPORTED_CLAIM", .79, .14) {
+				patterns = appendUnique(patterns, "REPORTED_CLAIM")
+			}
 		case strings.Contains(lower, "ich sollte") && hasAnyWord(lower, "längst", "endlich", "eigentlich"):
-			add("sollen", "INTERNALIZED_EXPECTATION", .785, .135, domain.SenseHigh)
-			patterns = appendUnique(patterns, "INTERNALIZED_EXPECTATION", "SELF_PRESSURE")
+			if add("SOLLEN", "sollen", "INTERNALIZED_EXPECTATION", .785, .135) {
+				patterns = appendUnique(patterns, "INTERNALIZED_EXPECTATION", "SELF_PRESSURE")
+			}
 		case strings.Contains(lower, "solltest du") && hasAnyWord(lower, "fragen", "hilfe", "bedarf"):
-			add("sollen", "CONDITIONAL_OPENING", .805, .155, domain.SenseHigh)
-			patterns = appendUnique(patterns, "CONDITIONAL_OPENING")
+			if add("SOLLEN", "sollen", "CONDITIONAL_OPENING", .805, .155) {
+				patterns = appendUnique(patterns, "CONDITIONAL_OPENING")
+			}
 		default:
-			add("sollen", "SOCIAL_NORM", .68, .08, domain.SenseMedium)
+			add("SOLLEN", "sollen", "SOCIAL_NORM", .68, .08)
 		}
 	}
-	if hasAnyWord(lower, "darf", "darfst", "dürfen") {
+	if runtime.matchesLexeme("DUERFEN", lower) {
 		if hasAnyWord(lower, "nicht", "kein", "keine") {
-			add("dürfen", "PROHIBITION", .765, .075, domain.SenseMedium)
-			patterns = appendUnique(patterns, "PROHIBITION")
+			if add("DUERFEN", "dürfen", "PROHIBITION", .765, .075) {
+				patterns = appendUnique(patterns, "PROHIBITION")
+			}
 		} else {
-			add("dürfen", "PERMISSION", .69, .085, domain.SenseMedium)
-			patterns = appendUnique(patterns, "CONSENT_LANGUAGE")
+			if add("DUERFEN", "dürfen", "PERMISSION", .69, .085) {
+				patterns = appendUnique(patterns, "CONSENT_LANGUAGE")
+			}
 		}
 	}
 	if strings.Contains(lower, "eintritt ist frei") {
-		add("frei", "FREE_OF_CHARGE", .80, .09, domain.SenseMedium)
+		add("FREI", "frei", "FREE_OF_CHARGE", .80, .09)
 	}
 	if strings.Contains(lower, "technisches problem") {
-		add("Problem", "TECHNICAL_ISSUE", .875, .135, domain.SenseHigh)
-		patterns = appendUnique(patterns, "TECHNICAL_ISSUE")
+		if add("PROBLEM", "Problem", "TECHNICAL_ISSUE", .875, .135) {
+			patterns = appendUnique(patterns, "TECHNICAL_ISSUE")
+		}
 	} else if strings.Contains(lower, "du bist das problem") {
-		add("Problem", "PERSON_LABEL", .815, .075, domain.SenseMedium)
-		patterns = appendUnique(patterns, "PERSON_DEVALUATION", "PREDICATIVE_LABELING")
+		if add("PROBLEM", "Problem", "PERSON_LABEL", .815, .075) {
+			patterns = appendUnique(patterns, "PERSON_DEVALUATION", "PREDICATIVE_LABELING")
+		}
 	}
 	if strings.Contains(lower, "fehler zeigt") {
-		add("Fehler", "LEARNING_EVENT", .84, .09, domain.SenseMedium)
-		patterns = appendUnique(patterns, "LEARNING_FRAME", "LEARNING_RECOVERY", "OPENING_LANGUAGE")
+		if add("FEHLER", "Fehler", "LEARNING_EVENT", .84, .09) {
+			patterns = appendUnique(patterns, "LEARNING_FRAME", "LEARNING_RECOVERY", "OPENING_LANGUAGE")
+		}
 	}
 	if strings.Contains(lower, "hindernis umfahren") {
-		add("umfahren", "DRIVE_AROUND", .7825, .24, domain.SenseHigh)
+		add("UMFAHREN", "umfahren", "DRIVE_AROUND", .7825, .24)
 	}
-	if hasWord(lower, "eigentlich") {
-		add("eigentlich", "ORIGINAL_INTENTION", .765, .02, domain.SenseAmbiguous)
-		ambiguities = append(ambiguities, domain.Ambiguity{Item: "eigentlich", Type: domain.AmbiguitySemantic, Top: "ORIGINAL_INTENTION", Second: "HEDGE", Gap: .02})
+	if runtime.matchesLexeme("EIGENTLICH", lower) {
+		if add("EIGENTLICH", "eigentlich", "ORIGINAL_INTENTION", .765, .02) && runtime.hasSense("EIGENTLICH", "HEDGE") {
+			ambiguities = append(ambiguities, domain.Ambiguity{Item: "eigentlich", Type: domain.AmbiguitySemantic, Top: "ORIGINAL_INTENTION", Second: "HEDGE", Gap: .02})
+		}
 	}
 
 	if strings.Contains(lower, "ich verstehe") && strings.Contains(lower, "nicht infrage") {
@@ -318,6 +358,25 @@ func resolveSensesAndPatterns(text string, graph domain.PropositionGraph) ([]dom
 	}
 	_ = graph
 	return senses, ambiguities, patterns
+}
+
+func validateSourceSpans(result domain.ResolverResult) error {
+	for _, node := range result.PropositionGraph.Nodes {
+		if node.SourceStart < 0 || node.SourceEnd > len(result.Text) || node.SourceStart >= node.SourceEnd ||
+			result.Text[node.SourceStart:node.SourceEnd] != node.Text {
+			return fmt.Errorf("%w: %s at %d:%d", ErrInvalidSourceSpan, node.ID, node.SourceStart, node.SourceEnd)
+		}
+	}
+	return nil
+}
+
+func hasAmbiguousSense(senses []domain.ResolverSense) bool {
+	for _, sense := range senses {
+		if sense.State == domain.SenseAmbiguous {
+			return true
+		}
+	}
+	return false
 }
 
 func hasTarget(text string) bool {

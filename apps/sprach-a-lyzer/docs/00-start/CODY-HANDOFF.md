@@ -245,3 +245,14 @@ nicht editierbare Hard Guardrails. Resolver Catalogue v0.1 fixiert acht
 Lexemfamilien, acht Relationsklassen, priorisierte Negations-Scope-Regeln und
 die Sense-Schwellen. Schema, Seed und Go-Contracts sind gegeneinander
 driftgesichert. Die Laufzeitbindung folgt bewusst erst in v0.2B-B.
+
+## 13. Resolver Catalogue Runtime Binding – Sprint v0.2B-B
+
+Die in
+[`RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md`](RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md)
+dokumentierte Laufzeitbindung ist abgeschlossen. Der eingebettete Catalogue
+wird je Resolution Fail-Closed geladen und validiert. Lexeme/Senses,
+Thresholds, Konnektoren und Scope-Cues steuern den Resolver tatsächlich. Die
+drei Resolver-Guardrails sind an Resolver- und Engine-Grenze durchgesetzt.
+Der additive Runtime-Golden-Stand v0.2 hält die konservative
+Schwellenkorrektur fest; die Core-Golden-Suite bleibt paritätisch.

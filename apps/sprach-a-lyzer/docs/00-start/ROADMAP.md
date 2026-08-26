@@ -29,6 +29,10 @@ Modalitäts-, Negations- und Ambiguitätsfällen implementiert; siehe
 Die Vertragsbasis für die nächste Resolver-Ausbaustufe ist mit Resolver
 Catalogue v0.1, Policy Registry v0.4 und drei neuen Hard Guardrails fixiert;
 siehe [`RESOLVER-CATALOGUE-CONTRACTS-v0.1.md`](RESOLVER-CATALOGUE-CONTRACTS-v0.1.md).
+Die Catalogue Runtime Binding einschließlich Fail-Closed-Provider,
+katalogberechneter Sense-Zustände und durchgesetzter Resolver-Guardrails ist
+ebenfalls abgeschlossen; siehe
+[`RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md`](RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.
