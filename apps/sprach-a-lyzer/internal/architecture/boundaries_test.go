@@ -50,11 +50,12 @@ func TestAnalysisInternalsAreOnlyUsedThroughFacade(t *testing.T) {
 		}
 		if strings.HasPrefix(relative, filepath.Join("internal", "analysis")) ||
 			strings.HasPrefix(relative, filepath.Join("internal", "engine")) ||
-			strings.HasPrefix(relative, filepath.Join("internal", "domain")) {
+			strings.HasPrefix(relative, filepath.Join("internal", "domain")) ||
+			strings.HasPrefix(relative, filepath.Join("internal", "resolver")) {
 			return nil
 		}
 		for _, imported := range importsInFile(t, path) {
-			if imported == modulePath+"engine" || imported == modulePath+"domain" {
+			if imported == modulePath+"engine" || imported == modulePath+"domain" || imported == modulePath+"resolver" {
 				t.Errorf("%s bypasses the analysis facade by importing %s", relative, imported)
 			}
 		}

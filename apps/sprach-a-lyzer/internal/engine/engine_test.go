@@ -137,11 +137,19 @@ func TestContextAndPropositionFactsAreCatalogueAddressable(t *testing.T) {
 	}
 	engine := New(staticCatalogue{catalogue: rules.Catalogue{Version: "context-test", Rules: definitions}})
 	person, err := engine.Analyze(domain.AnalysisRequest{Text: "Du bist das Problem.", Context: "PRIVATE_CONVERSATION"})
-	if err != nil { t.Fatalf("person Analyze() error: %v", err) }
-	if !containsString(person.Patterns, "PERSON_FACT") { t.Fatalf("person facts did not match: %v", person.Patterns) }
+	if err != nil {
+		t.Fatalf("person Analyze() error: %v", err)
+	}
+	if !containsString(person.Patterns, "PERSON_FACT") {
+		t.Fatalf("person facts did not match: %v", person.Patterns)
+	}
 	law, err := engine.Analyze(domain.AnalysisRequest{Text: "Ich bin gesetzlich bis Freitag verpflichtet, aber die Form bleibt offen.", Context: "LEGAL_ADMINISTRATIVE"})
-	if err != nil { t.Fatalf("law Analyze() error: %v", err) }
-	if !containsString(law.Patterns, "LAW_CONTRAST") { t.Fatalf("context/proposition facts did not match: %v", law.Patterns) }
+	if err != nil {
+		t.Fatalf("law Analyze() error: %v", err)
+	}
+	if !containsString(law.Patterns, "LAW_CONTRAST") {
+		t.Fatalf("context/proposition facts did not match: %v", law.Patterns)
+	}
 }
 
 func factRule(id, key, pattern string, condition rules.Condition) rules.Definition {

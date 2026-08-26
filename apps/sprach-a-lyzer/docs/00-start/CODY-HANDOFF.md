@@ -226,3 +226,12 @@ DB-Schema 3.
 Die früher noch fest im Core verbliebenen Enrichments sind nun katalogisiert.
 Der nächste Roadmap-Meilenstein ist v0.2 Context & Proposition. Die fachliche
 Kalibrierung bleibt ein bewusst eigener, Golden-gesicherter Folgesprint.
+
+## 11. Context & Proposition – erster Vertikalschnitt
+
+Der erste additive v0.2-Schritt ist in
+[`CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md`](CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md)
+dokumentiert. Resolver Contract v0.2, Proposition Graph, Source Ranges,
+TargetType, ExpectationSource, Modalität, Negations-Scope, Sense-/Ambiguitäts-
+Ergebnisse und sieben neue Golden-Fälle sind implementiert. Der v0.1-
+Analysevertrag und seine Golden-Parität bleiben unverändert.

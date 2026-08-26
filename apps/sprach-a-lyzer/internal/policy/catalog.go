@@ -97,7 +97,7 @@ const (
 )
 
 func TargetTypes() []TargetTypeID {
-	return []TargetTypeID{TargetPerson, TargetSelf, TargetBehavior, TargetEvent, TargetObject, TargetProcess, TargetIdea, TargetGroup, TargetInstitution, TargetUnknown}
+	return []TargetTypeID{TargetPerson, TargetSelf, TargetBehavior, TargetProcess, TargetEvent, TargetObject, TargetIdea, TargetGroup, TargetInstitution, TargetUnknown}
 }
 
 type ExpectationSourceID string

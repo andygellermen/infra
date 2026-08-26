@@ -9,9 +9,12 @@ import (
 
 type registryFixture struct {
 	CanonicalIDs struct {
-		AnalysisContexts []AnalysisContextID `json:"analysis_contexts"`
-		ResonanceModes   []ResonanceModeID   `json:"resonance_modes"`
-		RuleActionTypes  []RuleActionType    `json:"rule_action_types"`
+		AnalysisContexts   []AnalysisContextID   `json:"analysis_contexts"`
+		ResonanceModes     []ResonanceModeID     `json:"resonance_modes"`
+		RuleActionTypes    []RuleActionType      `json:"rule_action_types"`
+		TargetTypes        []TargetTypeID        `json:"target_types"`
+		ExpectationSources []ExpectationSourceID `json:"expectation_sources"`
+		DiscourseRelations []DiscourseRelationID `json:"discourse_relations"`
 	} `json:"canonical_ids"`
 	PrivacyDefaults struct {
 		RawTextRetention        string `json:"raw_text_retention"`
@@ -51,6 +54,15 @@ func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	}
 	if !slices.Equal(fixture.CanonicalIDs.ResonanceModes, ResonanceModes()) {
 		t.Errorf("resonance mode IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.ResonanceModes, ResonanceModes())
+	}
+	if !slices.Equal(fixture.CanonicalIDs.TargetTypes, TargetTypes()) {
+		t.Errorf("target type IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.TargetTypes, TargetTypes())
+	}
+	if !slices.Equal(fixture.CanonicalIDs.ExpectationSources, ExpectationSources()) {
+		t.Errorf("expectation source IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.ExpectationSources, ExpectationSources())
+	}
+	if !slices.Equal(fixture.CanonicalIDs.DiscourseRelations, DiscourseRelations()) {
+		t.Errorf("discourse relation IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.DiscourseRelations, DiscourseRelations())
 	}
 
 	flags := DefaultFeatureFlags()
@@ -95,6 +107,9 @@ func TestCanonicalIDsAreUnique(t *testing.T) {
 	assertUnique(t, FeatureFlags())
 	assertUnique(t, AnalysisContexts())
 	assertUnique(t, ResonanceModes())
+	assertUnique(t, TargetTypes())
+	assertUnique(t, ExpectationSources())
+	assertUnique(t, DiscourseRelations())
 	assertUnique(t, HardGuardrails())
 	assertUnique(t, RuleActionTypes())
 }

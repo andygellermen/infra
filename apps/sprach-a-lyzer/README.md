@@ -21,6 +21,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 13. [Foundation Rule Migration](docs/00-start/FOUNDATION-RULE-MIGRATION-v0.1.md)
 14. [Foundation Runtime Binding](docs/00-start/FOUNDATION-RUNTIME-BINDING-v0.1.md)
 15. [Core Closure v0.1.0](docs/00-start/CORE-CLOSURE-v0.1.0.md)
+16. [Context & Proposition Vertical Slice v0.1](docs/00-start/CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md)
 
 ## Repository-Struktur
 
@@ -83,6 +84,10 @@ go run ./cmd/analyze \
   -context SELF_TALK \
   -text 'Ich muss das heute unbedingt noch schaffen.'
 
+go run ./cmd/resolve \
+  -context PRIVATE_CONVERSATION \
+  -text 'Eigentlich wollte ich absagen, aber ich bin noch unsicher.'
+
 go run ./cmd/analyze \
   -trace \
   -context SELF_TALK \
@@ -136,6 +141,7 @@ Bereiche sind dennoch durch Fassaden und Repository-Ports getrennt:
 ```text
 internal/app/           Composition Root
 internal/analysis/      öffentliche Analyse-Fassade
+internal/resolver/      Context-, Proposition-, Sense- und Scope-Auflösung
 internal/knowledge/     kanonischer Wissensbestand
 internal/rules/         Rule Sets und Regelkatalog
 internal/presentation/  Profile, Labels und sichere Fallbacks

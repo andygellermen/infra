@@ -22,6 +22,11 @@ Proposition Graph, TargetType, ExpectationSource, Syntactic Scope, Negation/Moda
 
 **Exit:** kontextabhängige Golden Cases bestehen ohne grobe Over-Assessment-Fehler.
 
+**Status:** in Arbeit. Der erste additive Resolver-Vertikalschnitt ist mit
+Proposition Graph, Source Ranges, ersten Relations-, Target-, Expectation-,
+Modalitäts-, Negations- und Ambiguitätsfällen implementiert; siehe
+[`CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md`](CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md).
+
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.
 
