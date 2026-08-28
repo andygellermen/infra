@@ -119,6 +119,9 @@ type ResolverSense struct {
 	Confidence float64    `json:"confidence"`
 	Gap        float64    `json:"gap"`
 	State      SenseState `json:"state"`
+	// PropositionID is runtime provenance. Resolver Result v0.2 remains
+	// byte-compatible; Trace v0.2 publishes this link through contributions.
+	PropositionID string `json:"-"`
 }
 
 type Ambiguity struct {

@@ -1,7 +1,7 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
 **Status:** MVP Initiation Package  
-**Stand:** 26. August 2026
+**Stand:** 28. August 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -266,5 +266,16 @@ dokumentierte Ausbaustufe ist abgeschlossen. `CAUSE`, `CONSEQUENCE`,
 Relationsklassen ausführbar. Rekursives Catalogue-Splitting, neun neue
 Relations-/Scope-Goldens und Rule-End-to-End-Smokes sichern den Stand.
 Actor-, Modalitäts- und Proposition-Scope reagieren nachweislich auf ihre
-aktiven Catalogue-Cues. Der nächste v0.2-Schritt ist die proposition-lokale
-Target-/Expectation-Auflösung samt Trace-Verknüpfung.
+aktiven Catalogue-Cues. Damit ist die proposition-lokale Target-/Expectation-
+Auflösung samt Trace-Verknüpfung als nächste Ausbaustufe vorbereitet.
+
+## 15. Proposition Context & Contribution Provenance – Sprint v0.2C-A
+
+Die in
+[`PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md`](PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md)
+dokumentierte Bindung ist abgeschlossen. TargetType und ExpectationSource
+werden je Proposition aufgelöst; das Aggregat bleibt konservativ. Positive
+Resolver- und Regelfakten tragen ihre Proposition IDs bis in jede wirksame
+Contribution. Der additive Analysis Trace v0.2 veröffentlicht diese Referenzen
+und ist in Policy Registry v0.5 registriert. Analysis Result v0.1, Trace v0.1
+und Resolver Result v0.2 bleiben serialisiert unverändert.

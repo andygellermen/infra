@@ -5,7 +5,7 @@
 // override them.
 package policy
 
-const RegistryVersion = "0.4"
+const RegistryVersion = "0.5"
 
 type PrivacyDefaults struct {
 	RawTextRetention        string

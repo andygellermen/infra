@@ -57,9 +57,8 @@ func (r *Resolver) Resolve(request domain.AnalysisRequest) (domain.ResolverResul
 	if contextValue == "" {
 		contextValue = domain.ContextUnspecified
 	}
-	targetType := resolveTargetType(text, runtime)
-	expectationSource := resolveExpectationSource(text, runtime)
-	graph := buildGraph(text, targetType, expectationSource, runtime)
+	graph := buildGraph(text, runtime)
+	targetType, expectationSource := aggregateNodeContext(graph.Nodes)
 	senses, ambiguities, patterns := resolveSensesAndPatterns(text, contextValue, graph, runtime)
 	confidence := .90
 	if len(ambiguities) > 0 || hasAmbiguousSense(senses) {
@@ -85,11 +84,11 @@ type span struct {
 	confidence           float64
 }
 
-func buildGraph(text string, target domain.TargetTypeID, expectation domain.ExpectationSourceID, runtime catalogueRuntime) domain.PropositionGraph {
+func buildGraph(text string, runtime catalogueRuntime) domain.PropositionGraph {
 	spans := propositionSpans(text, runtime)
 	graph := domain.PropositionGraph{Nodes: make([]domain.PropositionNode, 0, len(spans)), Edges: []domain.PropositionEdge{}}
 	for index, part := range spans {
-		node := propositionNode(index, part, target, expectation, runtime)
+		node := propositionNode(index, part, runtime)
 		graph.Nodes = append(graph.Nodes, node)
 		if index == 0 {
 			continue
@@ -195,8 +194,10 @@ func trimmedSpan(source string, start, end, sentence int) (span, bool) {
 	return span{text: source[start:end], start: start, end: end, sentence: sentence}, true
 }
 
-func propositionNode(index int, part span, target domain.TargetTypeID, expectation domain.ExpectationSourceID, runtime catalogueRuntime) domain.PropositionNode {
+func propositionNode(index int, part span, runtime catalogueRuntime) domain.PropositionNode {
 	lower := normalize(part.text)
+	target := resolveTargetType(part.text, runtime)
+	expectation := resolveExpectationSource(part.text, runtime)
 	actor := domain.ActorUnknown
 	switch {
 	case hasWord(lower, "ich"), strings.Contains(lower, "für mich"):
@@ -279,6 +280,7 @@ func resolveExpectationSource(text string, runtime catalogueRuntime) domain.Expe
 
 type positionedSense struct {
 	position int
+	key      string
 	sense    domain.ResolverSense
 }
 
@@ -291,7 +293,7 @@ func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, 
 		if !runtime.matchesLexeme(key, lower) || !runtime.hasSense(key, sense) {
 			return false
 		}
-		positioned = append(positioned, positionedSense{position: runtime.lexemePosition(key, lower), sense: domain.ResolverSense{
+		positioned = append(positioned, positionedSense{position: runtime.lexemePosition(key, lower), key: key, sense: domain.ResolverSense{
 			Lexeme: lexeme, Sense: sense, Confidence: confidence, Gap: gap, State: runtime.senseState(confidence, gap),
 		}})
 		return true
@@ -385,10 +387,41 @@ func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, 
 	sort.SliceStable(positioned, func(i, j int) bool { return positioned[i].position < positioned[j].position })
 	senses := make([]domain.ResolverSense, len(positioned))
 	for index := range positioned {
+		for _, node := range graph.Nodes {
+			if runtime.matchesLexeme(positioned[index].key, normalize(node.Text)) {
+				positioned[index].sense.PropositionID = node.ID
+				break
+			}
+		}
 		senses[index] = positioned[index].sense
 	}
-	_ = graph
 	return senses, ambiguities, patterns
+}
+
+func aggregateNodeContext(nodes []domain.PropositionNode) (domain.TargetTypeID, domain.ExpectationSourceID) {
+	targets := map[domain.TargetTypeID]bool{}
+	expectations := map[domain.ExpectationSourceID]bool{}
+	for _, node := range nodes {
+		if node.TargetType != domain.TargetUnknown {
+			targets[node.TargetType] = true
+		}
+		if node.ExpectationSource != domain.ExpectationUnspecified {
+			expectations[node.ExpectationSource] = true
+		}
+	}
+	target := domain.TargetUnknown
+	if len(targets) == 1 {
+		for value := range targets {
+			target = value
+		}
+	}
+	expectation := domain.ExpectationUnspecified
+	if len(expectations) == 1 {
+		for value := range expectations {
+			expectation = value
+		}
+	}
+	return target, expectation
 }
 
 func validateSourceSpans(result domain.ResolverResult) error {

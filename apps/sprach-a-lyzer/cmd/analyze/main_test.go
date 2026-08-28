@@ -15,14 +15,18 @@ func TestSelectOutputCanEmitStandaloneTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze() error: %v", err)
 	}
-	output, ok := selectOutput(result, true).(analysis.Trace)
+	output, ok := selectOutput(result, true, false).(analysis.Trace)
 	if !ok {
-		t.Fatalf("trace output has type %T", selectOutput(result, true))
+		t.Fatalf("trace output has type %T", selectOutput(result, true, false))
 	}
 	if len(output.Contributions) != 5 || len(output.Assessability) != 6 {
 		t.Fatalf("trace output = %+v", output)
 	}
-	if got, ok := selectOutput(result, false).(analysis.Result); !ok || got.Text != result.Text {
-		t.Fatalf("analysis output has type/value %T/%+v", selectOutput(result, false), got)
+	traceV02, ok := selectOutput(result, false, true).(analysis.TraceV02)
+	if !ok || traceV02.ContractVersion != "0.2" || len(traceV02.Propositions) == 0 {
+		t.Fatalf("trace v0.2 output has type/value %T/%+v", selectOutput(result, false, true), traceV02)
+	}
+	if got, ok := selectOutput(result, false, false).(analysis.Result); !ok || got.Text != result.Text {
+		t.Fatalf("analysis output has type/value %T/%+v", selectOutput(result, false, false), got)
 	}
 }

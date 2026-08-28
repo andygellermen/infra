@@ -1,7 +1,7 @@
 # Sprachkompass – Product & Engineering Roadmap
 
 **Status:** strategische Grobplanung  
-**Stand:** 26. August 2026
+**Stand:** 28. August 2026
 **Prinzip:** Versionen markieren Fähigkeitspakete, keine festen Kalenderzusagen.
 
 ## v0.0 – Foundation
@@ -36,6 +36,10 @@ ebenfalls abgeschlossen; siehe
 Alle acht Catalogue-Relationsklassen sowie die ersten Actor- und Scope-
 Schutzmatrizen sind ausführbar Golden- und Rule-gesichert; siehe
 [`RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md`](RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md).
+TargetType und ExpectationSource sind inzwischen proposition-lokal aufgelöst;
+Resolver-Fakten sind über Analysis Trace v0.2 mit den Contribution-Einträgen
+verknüpft; siehe
+[`PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md`](PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.

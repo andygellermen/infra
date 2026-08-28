@@ -200,6 +200,48 @@ func TestAdditionConnectorDoesNotSplitNominalCoordination(t *testing.T) {
 	}
 }
 
+func TestTargetAndExpectationAreResolvedPerProposition(t *testing.T) {
+	t.Parallel()
+	result, err := New().Resolve(domainRequest(
+		"Technisches Problem liegt in der Schnittstelle. Ich sollte längst reagieren.",
+		policy.ContextWorkplace,
+	))
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if len(result.PropositionGraph.Nodes) != 2 {
+		t.Fatalf("nodes = %d; want 2", len(result.PropositionGraph.Nodes))
+	}
+	first, second := result.PropositionGraph.Nodes[0], result.PropositionGraph.Nodes[1]
+	if first.TargetType != policy.TargetProcess || first.ExpectationSource != policy.ExpectationUnspecified {
+		t.Fatalf("P0 context = %s/%s; want PROCESS/UNSPECIFIED", first.TargetType, first.ExpectationSource)
+	}
+	if second.TargetType != policy.TargetUnknown || second.ExpectationSource != policy.ExpectationInternalized {
+		t.Fatalf("P1 context = %s/%s; want UNKNOWN/INTERNALIZED", second.TargetType, second.ExpectationSource)
+	}
+	if result.TargetType != policy.TargetProcess || result.ExpectationSource != policy.ExpectationInternalized {
+		t.Fatalf("aggregate context = %s/%s; want PROCESS/INTERNALIZED", result.TargetType, result.ExpectationSource)
+	}
+	if len(result.SelectedSenses) != 2 || result.SelectedSenses[0].PropositionID != "P0" || result.SelectedSenses[1].PropositionID != "P1" {
+		t.Fatalf("sense provenance = %+v; want P0/P1", result.SelectedSenses)
+	}
+}
+
+func TestConflictingNodeTargetsFallBackAtAggregateOnly(t *testing.T) {
+	t.Parallel()
+	result, err := New().Resolve(domainRequest(
+		"Technisches Problem liegt in der Schnittstelle. Der Fehler zeigt einen nächsten Versuch.",
+		policy.ContextWorkplace,
+	))
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if result.PropositionGraph.Nodes[0].TargetType != policy.TargetProcess ||
+		result.PropositionGraph.Nodes[1].TargetType != policy.TargetEvent || result.TargetType != policy.TargetUnknown {
+		t.Fatalf("target localization/aggregate = %+v/%s", result.PropositionGraph.Nodes, result.TargetType)
+	}
+}
+
 func TestResolverCatalogueFailuresAreFailClosed(t *testing.T) {
 	t.Parallel()
 	want := errors.New("resolver catalogue unavailable")

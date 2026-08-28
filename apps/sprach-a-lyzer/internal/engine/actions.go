@@ -10,14 +10,22 @@ import (
 )
 
 type executionState struct {
-	result        *domain.AnalysisResult
-	evidence      []evidence
-	nonAssessable map[domain.DimensionID]bool
-	texts         map[string]string
-	stop          bool
+	result            *domain.AnalysisResult
+	evidence          []evidence
+	nonAssessable     map[domain.DimensionID]bool
+	texts             map[string]string
+	patternReferences map[string][]string
+	senseReferences   map[string][]string
+	stop              bool
 }
 
-func (s *executionState) execute(definition rules.Definition) error {
+func (s *executionState) execute(definition rules.Definition, propositionIDs []string) error {
+	if s.patternReferences == nil {
+		s.patternReferences = make(map[string][]string)
+	}
+	if s.senseReferences == nil {
+		s.senseReferences = make(map[string][]string)
+	}
 	resolve := func(key string) (string, error) {
 		value := s.texts[key]
 		if value == "" {
@@ -29,6 +37,7 @@ func (s *executionState) execute(definition rules.Definition) error {
 		switch action.Type {
 		case policy.AddPattern:
 			appendPattern(s.result, action.Key)
+			s.patternReferences[action.Key] = appendUniqueFact(s.patternReferences[action.Key], propositionIDs...)
 		case policy.SelectSense:
 			reason, err := resolve(action.ReasonKey)
 			if err != nil {
@@ -38,6 +47,7 @@ func (s *executionState) execute(definition rules.Definition) error {
 				Lexeme: action.Lexeme, Sense: action.Sense,
 				Confidence: roundThree(*action.Confidence * definition.ConfidenceModifier), Reason: reason,
 			})
+			s.senseReferences[action.Sense] = appendUniqueFact(s.senseReferences[action.Sense], propositionIDs...)
 		case policy.AddResonanceHint:
 			if action.SemanticScore == nil || *action.SemanticScore {
 				return fmt.Errorf("rule %s attempted scoring resonance", definition.Key)
@@ -62,7 +72,7 @@ func (s *executionState) execute(definition rules.Definition) error {
 				return err
 			}
 			s.evidence = append(s.evidence, item(definition.Key, evidenceText, action.Dimension,
-				*action.Value, *action.Confidence*definition.ConfidenceModifier, reason))
+				*action.Value, *action.Confidence*definition.ConfidenceModifier, reason, propositionIDs))
 		case policy.MultiplyContribution:
 			if _, err := resolve(action.ReasonKey); err != nil {
 				return err
@@ -85,7 +95,7 @@ func (s *executionState) execute(definition rules.Definition) error {
 			s.removeDimension(action.Dimension)
 			s.nonAssessable[action.Dimension] = true
 		case policy.CapMin, policy.CapMax, policy.SetValue:
-			if err := s.applyAbsoluteModifier(definition.Key, action, resolve); err != nil {
+			if err := s.applyAbsoluteModifier(definition.Key, action, propositionIDs, resolve); err != nil {
 				return err
 			}
 		case policy.AddExplanation:
@@ -136,7 +146,7 @@ func (s *executionState) removeDimension(dimension domain.DimensionID) {
 	s.evidence = filtered
 }
 
-func (s *executionState) applyAbsoluteModifier(ruleID string, action rules.Action, resolve func(string) (string, error)) error {
+func (s *executionState) applyAbsoluteModifier(ruleID string, action rules.Action, propositionIDs []string, resolve func(string) (string, error)) error {
 	if s.nonAssessable[action.Dimension] {
 		return nil
 	}
@@ -170,7 +180,7 @@ func (s *executionState) applyAbsoluteModifier(ruleID string, action rules.Actio
 	if err != nil {
 		return err
 	}
-	s.evidence = append(s.evidence, item(ruleID, reason, action.Dimension, roundOne(target-current), strength, reason))
+	s.evidence = append(s.evidence, item(ruleID, reason, action.Dimension, roundOne(target-current), strength, reason, propositionIDs))
 	return nil
 }
 

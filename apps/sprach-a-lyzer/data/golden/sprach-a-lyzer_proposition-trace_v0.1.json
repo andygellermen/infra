@@ -1,0 +1,42 @@
+{
+  "version": "0.1",
+  "trace_contract": "0.2",
+  "cases": [
+    {
+      "id": "PT01_LOCAL_EXPECTATION",
+      "request": {
+        "text": "Ich muss das heute unbedingt noch schaffen.",
+        "context": "SELF_TALK"
+      },
+      "expected_propositions": [
+        {"id": "P0", "target_type": "UNKNOWN", "expectation_source": "INTERNALIZED"}
+      ],
+      "expected_contribution_refs": [
+        {"rule_id": "R-INTERNAL-PRESSURE", "proposition_ids": ["P0"]},
+        {"rule_id": "R-INTERNAL-PRESSURE", "proposition_ids": ["P0"]},
+        {"rule_id": "R-URGENCY", "proposition_ids": ["P0"]},
+        {"rule_id": "R-URGENCY", "proposition_ids": ["P0"]},
+        {"rule_id": "R-TEMPORAL-SPECIFICITY", "proposition_ids": ["P0"]}
+      ]
+    },
+    {
+      "id": "PT02_SPANNING_PHRASE",
+      "request": {
+        "text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+        "context": "PRIVATE_CONVERSATION"
+      },
+      "expected_propositions": [
+        {"id": "P0", "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED"},
+        {"id": "P1", "target_type": "UNKNOWN", "expectation_source": "UNSPECIFIED"}
+      ],
+      "expected_contribution_refs": [
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]},
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]},
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]},
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]},
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]},
+        {"rule_id": "R-RESPECTFUL-BOUNDARY", "proposition_ids": ["P0", "P1"]}
+      ]
+    }
+  ]
+}

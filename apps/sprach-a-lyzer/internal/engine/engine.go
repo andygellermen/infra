@@ -41,8 +41,9 @@ func (e *Engine) Resolve(request domain.AnalysisRequest) (domain.ResolverResult,
 }
 
 type evidence struct {
-	contribution domain.ContributionTraceEntry
-	strength     float64
+	contribution   domain.ContributionTraceEntry
+	strength       float64
+	propositionIDs []string
 }
 
 func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult, error) {
@@ -78,6 +79,12 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 	if err != nil {
 		return domain.AnalysisResult{}, fmt.Errorf("resolve context and propositions: %w", err)
 	}
+	for _, node := range resolution.PropositionGraph.Nodes {
+		result.TraceProvenance.Propositions = append(result.TraceProvenance.Propositions, domain.TraceProposition{
+			ID: node.ID, Text: node.Text, SourceStart: node.SourceStart, SourceEnd: node.SourceEnd,
+			TargetType: node.TargetType, ExpectationSource: node.ExpectationSource,
+		})
+	}
 	definitions, facts, err := e.activeDefinitions(request, normalize(text), resolution)
 	if err != nil {
 		return domain.AnalysisResult{}, err
@@ -89,7 +96,10 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 	if err != nil {
 		return domain.AnalysisResult{}, fmt.Errorf("load presentation texts: %w", err)
 	}
-	state := executionState{result: &result, nonAssessable: make(map[domain.DimensionID]bool), texts: texts}
+	state := executionState{
+		result: &result, nonAssessable: make(map[domain.DimensionID]bool), texts: texts,
+		patternReferences: make(map[string][]string), senseReferences: make(map[string][]string),
+	}
 	executed := make(map[string]bool, len(definitions))
 	for pass := 0; pass < len(definitions) && !state.stop; pass++ {
 		progress := false
@@ -97,21 +107,32 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 			if !definition.Enabled || executed[definition.Key] {
 				continue
 			}
-			matched, err := evaluateCondition(definition.Condition, facts)
+			match, err := evaluateCondition(definition.Condition, facts)
 			if err != nil {
 				return domain.AnalysisResult{}, fmt.Errorf("evaluate rule %s: %w", definition.Key, err)
 			}
-			if !matched {
+			if !match.matched {
 				continue
 			}
-			if err := state.execute(definition); err != nil {
+			if err := state.execute(definition, match.propositionIDs); err != nil {
 				return domain.AnalysisResult{}, err
 			}
 			executed[definition.Key], progress = true, true
 			facts.patterns = append([]string(nil), result.Patterns...)
+			facts.references["pattern"] = nil
+			for _, pattern := range result.Patterns {
+				facts.addReference("pattern", pattern, state.patternReferences[pattern]...)
+			}
 			facts.senses = trustedResolverSenses(resolution.SelectedSenses)
+			facts.references["selected_sense"] = nil
+			for _, sense := range resolution.SelectedSenses {
+				if sense.State != domain.SenseAmbiguous {
+					facts.addReference("selected_sense", sense.Sense, sense.PropositionID)
+				}
+			}
 			for _, sense := range result.ResolvedSenses {
 				facts.senses = append(facts.senses, sense.Sense)
+				facts.addReference("selected_sense", sense.Sense, state.senseReferences[sense.Sense]...)
 			}
 			if state.stop {
 				break
@@ -125,8 +146,11 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 	return result, nil
 }
 
-func item(ruleID, matched string, dimension domain.DimensionID, delta, strength float64, reason string) evidence {
-	return evidence{contribution: domain.ContributionTraceEntry{RuleID: ruleID, Evidence: matched, Dimension: dimension, Delta: delta, Reason: reason}, strength: strength}
+func item(ruleID, matched string, dimension domain.DimensionID, delta, strength float64, reason string, propositionIDs []string) evidence {
+	return evidence{
+		contribution: domain.ContributionTraceEntry{RuleID: ruleID, Evidence: matched, Dimension: dimension, Delta: delta, Reason: reason},
+		strength:     strength, propositionIDs: append([]string(nil), propositionIDs...),
+	}
 }
 
 func applyEvidence(result *domain.AnalysisResult, items []evidence, nonAssessable map[domain.DimensionID]bool) {
@@ -136,6 +160,10 @@ func applyEvidence(result *domain.AnalysisResult, items []evidence, nonAssessabl
 			continue
 		}
 		result.ContributionTrace = append(result.ContributionTrace, item.contribution)
+		result.TraceProvenance.ContributionPropositionIDs = append(
+			result.TraceProvenance.ContributionPropositionIDs,
+			append([]string(nil), item.propositionIDs...),
+		)
 		dimension := item.contribution.Dimension
 		scores[dimension] += item.contribution.Delta
 		if item.strength > strengths[dimension] {

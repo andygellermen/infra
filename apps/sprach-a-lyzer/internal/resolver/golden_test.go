@@ -78,7 +78,7 @@ func TestContextPropositionGolden(t *testing.T) {
 			}
 			assertNodes(t, got.Text, testCase.Expected.Nodes, got.PropositionGraph.Nodes)
 			assertEqual(t, "edges", testCase.Expected.Edges, got.PropositionGraph.Edges)
-			assertEqual(t, "selected senses", testCase.Expected.SelectedSenses, got.SelectedSenses)
+			assertEqual(t, "selected senses", testCase.Expected.SelectedSenses, publicResolverSenses(got.SelectedSenses))
 			assertEqual(t, "ambiguities", testCase.Expected.Ambiguities, got.Ambiguities)
 			assertEqual(t, "pattern candidates", testCase.Expected.PatternCandidates, got.PatternCandidates)
 			if got.TargetType != testCase.Expected.TargetType || got.ExpectationSource != testCase.Expected.ExpectationSource || got.OverallConfidence != testCase.Expected.OverallConfidence {
@@ -87,6 +87,15 @@ func TestContextPropositionGolden(t *testing.T) {
 			assertGraphIntegrity(t, got)
 		})
 	}
+}
+
+func publicResolverSenses(values []domain.ResolverSense) []domain.ResolverSense {
+	result := make([]domain.ResolverSense, len(values))
+	copy(result, values)
+	for index := range result {
+		result[index].PropositionID = ""
+	}
+	return result
 }
 
 func assertNodes(t *testing.T, source string, want []expectedNode, got []domain.PropositionNode) {

@@ -19,11 +19,15 @@ func TestGoContractsMatchJSONSchemaObjectShapes(t *testing.T) {
 	request := readSchema(t, "sprach-a-lyzer_analysis-request_v0.1.json")
 	result := readSchema(t, "sprach-a-lyzer_analysis-result_v0.1.json")
 	trace := readSchema(t, "sprach-a-lyzer_analysis-trace_v0.1.json")
+	traceV02 := readSchema(t, "sprach-a-lyzer_analysis-trace_v0.2.json")
 	resolverResult := readSchema(t, "sprach-a-lyzer_resolver-result_v0.2.json")
 
 	assertObjectShape(t, reflect.TypeOf(analysis.Request{}), request)
 	assertObjectShape(t, reflect.TypeOf(analysis.Result{}), result)
 	assertObjectShape(t, reflect.TypeOf(analysis.Trace{}), trace)
+	assertObjectShape(t, reflect.TypeOf(analysis.TraceV02{}), traceV02)
+	assertObjectShape(t, reflect.TypeOf(analysis.TraceProposition{}), definition(t, traceV02, "traceProposition"))
+	assertObjectShape(t, reflect.TypeOf(analysis.ContributionTraceEntryV02{}), definition(t, traceV02, "contributionTraceEntry"))
 	assertObjectShape(t, reflect.TypeOf(analysis.Proposition{}), definition(t, result, "proposition"))
 	assertObjectShape(t, reflect.TypeOf(analysis.ResolvedSense{}), definition(t, result, "resolvedSense"))
 	assertObjectShape(t, reflect.TypeOf(analysis.DimensionResult{}), definition(t, result, "dimensionResult"))
@@ -49,6 +53,7 @@ func TestSchemasUseExactlyTheCanonicalDimensions(t *testing.T) {
 	for _, filename := range []string{
 		"sprach-a-lyzer_analysis-result_v0.1.json",
 		"sprach-a-lyzer_analysis-trace_v0.1.json",
+		"sprach-a-lyzer_analysis-trace_v0.2.json",
 	} {
 		schema := readSchema(t, filename)
 		got := stringsFrom(t, definition(t, schema, "dimensionID")["enum"])
@@ -107,6 +112,22 @@ func TestEngineOutputAndDerivedTraceRespectContractShapes(t *testing.T) {
 	assertEncodedTopLevelShape(t, result, readSchema(t, "sprach-a-lyzer_analysis-result_v0.1.json"))
 	trace := result.Trace()
 	assertEncodedTopLevelShape(t, trace, readSchema(t, "sprach-a-lyzer_analysis-trace_v0.1.json"))
+	traceV02 := result.TraceV02()
+	assertEncodedTopLevelShape(t, traceV02, readSchema(t, "sprach-a-lyzer_analysis-trace_v0.2.json"))
+	if traceV02.ContractVersion != "0.2" || len(traceV02.Propositions) == 0 {
+		t.Fatalf("trace v0.2 lacks contract/proposition provenance: %+v", traceV02)
+	}
+	knownPropositions := map[string]bool{}
+	for _, proposition := range traceV02.Propositions {
+		knownPropositions[proposition.ID] = true
+	}
+	for _, contribution := range traceV02.Contributions {
+		for _, propositionID := range contribution.PropositionIDs {
+			if !knownPropositions[propositionID] {
+				t.Fatalf("contribution references unknown proposition %q", propositionID)
+			}
+		}
+	}
 
 	for id, entry := range trace.Assessability {
 		for _, index := range entry.ContributionIndexes {

@@ -10,6 +10,7 @@ import (
 type registryFixture struct {
 	RegistryVersion string `json:"registry_version"`
 	VersionContract struct {
+		AnalysisTrace     string `json:"analysis_trace"`
 		ResolverResult    string `json:"resolver_result"`
 		ResolverCatalogue string `json:"resolver_catalogue"`
 	} `json:"version_contract"`
@@ -48,7 +49,7 @@ type registryFixture struct {
 func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.4.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.5.json")
 	if err != nil {
 		t.Fatalf("read policy registry: %v", err)
 	}
@@ -61,6 +62,9 @@ func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	}
 	if fixture.VersionContract.ResolverResult != "0.2" || fixture.VersionContract.ResolverCatalogue != "0.1" {
 		t.Fatalf("resolver version contract = %+v; want result 0.2 and catalogue 0.1", fixture.VersionContract)
+	}
+	if fixture.VersionContract.AnalysisTrace != "0.2" {
+		t.Fatalf("analysis trace version = %q; want 0.2", fixture.VersionContract.AnalysisTrace)
 	}
 	if !slices.Equal(fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes()) {
 		t.Errorf("rule action IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes())
@@ -170,6 +174,29 @@ func TestPolicyRegistryV03RemainsHistorical(t *testing.T) {
 	}
 	if historical.RegistryVersion != "0.3" || len(historical.CanonicalIDs.Actors) != 0 || len(historical.HardGuardrails) != 18 {
 		t.Fatalf("historical registry v0.3 changed: version=%q actors=%d guardrails=%d", historical.RegistryVersion, len(historical.CanonicalIDs.Actors), len(historical.HardGuardrails))
+	}
+}
+
+func TestPolicyRegistryV04RemainsHistorical(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.4.json")
+	if err != nil {
+		t.Fatalf("read policy registry v0.4: %v", err)
+	}
+	var historical struct {
+		RegistryVersion string `json:"registry_version"`
+		VersionContract struct {
+			AnalysisTrace string `json:"analysis_trace"`
+		} `json:"version_contract"`
+		HardGuardrails []struct {
+			ID GuardrailID `json:"id"`
+		} `json:"hard_guardrails"`
+	}
+	if err := json.Unmarshal(data, &historical); err != nil {
+		t.Fatalf("decode policy registry v0.4: %v", err)
+	}
+	if historical.RegistryVersion != "0.4" || historical.VersionContract.AnalysisTrace != "0.1" || len(historical.HardGuardrails) != 21 {
+		t.Fatalf("historical registry v0.4 changed: version=%q trace=%q guardrails=%d", historical.RegistryVersion, historical.VersionContract.AnalysisTrace, len(historical.HardGuardrails))
 	}
 }
 

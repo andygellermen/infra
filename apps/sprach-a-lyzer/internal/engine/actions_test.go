@@ -22,7 +22,7 @@ func TestGenericContributionModifiers(t *testing.T) {
 		{Type: policy.MultiplyContribution, Dimension: domain.DimensionVolition, Factor: &factor, ReasonKey: "REASON"},
 		{Type: policy.CapMax, Dimension: domain.DimensionVolition, Value: &cap, ReasonKey: "REASON"},
 	}}
-	if err := state.execute(definition); err != nil {
+	if err := state.execute(definition, []string{"P0"}); err != nil {
 		t.Fatalf("execute() error: %v", err)
 	}
 	total := 0.0
@@ -33,12 +33,12 @@ func TestGenericContributionModifiers(t *testing.T) {
 		t.Fatalf("effective contribution = %v; want 15", total)
 	}
 
-	state.evidence = append(state.evidence, item("R-X", "e", domain.DimensionClarity, 7, .5, "r"))
+	state.evidence = append(state.evidence, item("R-X", "e", domain.DimensionClarity, 7, .5, "r", []string{"P0"}))
 	if err := state.execute(rules.Definition{Key: "R-GUARD", Actions: []rules.Action{
 		{Type: policy.Invert, Dimension: domain.DimensionVolition, ReasonKey: "REASON"},
 		{Type: policy.Suppress, Dimension: domain.DimensionVolition, ReasonKey: "REASON"},
 		{Type: policy.MarkNonAssessable, Dimension: domain.DimensionClarity, ReasonKey: "REASON"},
-	}}); err != nil {
+	}}, nil); err != nil {
 		t.Fatalf("execute guard actions: %v", err)
 	}
 	if len(state.evidence) != 0 || !state.nonAssessable[domain.DimensionClarity] {

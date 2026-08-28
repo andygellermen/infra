@@ -13,6 +13,7 @@ func main() {
 	text := flag.String("text", "", "German text to analyze")
 	context := flag.String("context", "UNSPECIFIED", "analysis context, for example SELF_TALK or SAFETY")
 	traceOnly := flag.Bool("trace", false, "emit the standalone Contribution Trace instead of the analysis result")
+	traceV2 := flag.Bool("trace-v2", false, "emit Trace v0.2 with proposition-local contribution links")
 	flag.Parse()
 
 	result, err := analysis.NewDefault().Analyze(analysis.Request{
@@ -23,7 +24,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	output := selectOutput(result, *traceOnly)
+	output := selectOutput(result, *traceOnly, *traceV2)
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
@@ -33,7 +34,10 @@ func main() {
 	}
 }
 
-func selectOutput(result analysis.Result, traceOnly bool) any {
+func selectOutput(result analysis.Result, traceOnly, traceV2 bool) any {
+	if traceV2 {
+		return result.TraceV02()
+	}
 	if traceOnly {
 		return result.Trace()
 	}

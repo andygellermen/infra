@@ -46,6 +46,7 @@ type AnalysisResult struct {
 	Alternatives       []string                        `json:"alternatives"`
 	ResonanceHints     []ResonanceHint                 `json:"resonance_hints"`
 	Notes              []string                        `json:"notes"`
+	TraceProvenance    TraceProvenance                 `json:"-"`
 }
 
 type Proposition struct {
@@ -77,6 +78,33 @@ type ContributionTraceEntry struct {
 	Reason    string      `json:"reason"`
 }
 
+const AnalysisTraceV02ContractVersion = "0.2"
+
+// TraceProvenance is internal analysis state omitted from the public result
+// v0.1. It is materialized only through the additive Trace v0.2 contract.
+type TraceProvenance struct {
+	Propositions               []TraceProposition
+	ContributionPropositionIDs [][]string
+}
+
+type TraceProposition struct {
+	ID                string              `json:"id"`
+	Text              string              `json:"text"`
+	SourceStart       int                 `json:"source_start"`
+	SourceEnd         int                 `json:"source_end"`
+	TargetType        TargetTypeID        `json:"target_type"`
+	ExpectationSource ExpectationSourceID `json:"expectation_source"`
+}
+
+type ContributionTraceEntryV02 struct {
+	RuleID         string      `json:"rule_id"`
+	Evidence       string      `json:"evidence"`
+	Dimension      DimensionID `json:"dimension"`
+	Delta          float64     `json:"delta"`
+	Reason         string      `json:"reason"`
+	PropositionIDs []string    `json:"proposition_ids"`
+}
+
 type ResonanceHint struct {
 	Kind          string   `json:"kind"`
 	Tokens        []string `json:"tokens"`
@@ -89,6 +117,13 @@ type ResonanceHint struct {
 type AnalysisTrace struct {
 	Contributions []ContributionTraceEntry                `json:"contributions"`
 	Assessability map[DimensionID]AssessabilityTraceEntry `json:"assessability"`
+}
+
+type AnalysisTraceV02 struct {
+	ContractVersion string                                  `json:"contract_version"`
+	Propositions    []TraceProposition                      `json:"propositions"`
+	Contributions   []ContributionTraceEntryV02             `json:"contributions"`
+	Assessability   map[DimensionID]AssessabilityTraceEntry `json:"assessability"`
 }
 
 type AssessabilityTraceEntry struct {
@@ -119,6 +154,27 @@ func (result AnalysisResult) Trace() AnalysisTrace {
 		trace.Assessability[id] = AssessabilityTraceEntry{
 			State: dimensionResult.State, FinalAssessability: dimensionResult.Assessability,
 			ContributionIndexes: indexes,
+		}
+	}
+	return trace
+}
+
+func (result AnalysisResult) TraceV02() AnalysisTraceV02 {
+	legacy := result.Trace()
+	trace := AnalysisTraceV02{
+		ContractVersion: AnalysisTraceV02ContractVersion,
+		Propositions:    append([]TraceProposition(nil), result.TraceProvenance.Propositions...),
+		Contributions:   make([]ContributionTraceEntryV02, len(result.ContributionTrace)),
+		Assessability:   legacy.Assessability,
+	}
+	for index, contribution := range result.ContributionTrace {
+		trace.Contributions[index] = ContributionTraceEntryV02{
+			RuleID: contribution.RuleID, Evidence: contribution.Evidence,
+			Dimension: contribution.Dimension, Delta: contribution.Delta, Reason: contribution.Reason,
+			PropositionIDs: []string{},
+		}
+		if index < len(result.TraceProvenance.ContributionPropositionIDs) {
+			trace.Contributions[index].PropositionIDs = append([]string(nil), result.TraceProvenance.ContributionPropositionIDs[index]...)
 		}
 	}
 	return trace

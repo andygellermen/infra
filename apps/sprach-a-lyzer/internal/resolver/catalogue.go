@@ -11,7 +11,10 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
-const CatalogueVersion = "0.1"
+const (
+	CatalogueVersion               = "0.1"
+	CataloguePolicyRegistryVersion = "0.4"
+)
 
 var catalogueKeyPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
@@ -111,8 +114,8 @@ func (c Catalogue) Validate() error {
 	if c.Version != CatalogueVersion || c.Status != "APPROVED" || c.Locale != "de-DE" {
 		return fmt.Errorf("resolver catalogue requires version %s, APPROVED status and de-DE locale", CatalogueVersion)
 	}
-	if c.VersionContract.ResolverResult != ContractVersion || c.VersionContract.PolicyRegistry != policy.RegistryVersion {
-		return fmt.Errorf("resolver catalogue version contract must reference resolver %s and policy %s", ContractVersion, policy.RegistryVersion)
+	if c.VersionContract.ResolverResult != ContractVersion || c.VersionContract.PolicyRegistry != CataloguePolicyRegistryVersion {
+		return fmt.Errorf("resolver catalogue version contract must reference resolver %s and policy %s", ContractVersion, CataloguePolicyRegistryVersion)
 	}
 	if !validThreshold(c.SenseThresholds.High) || !validThreshold(c.SenseThresholds.Medium) ||
 		c.SenseThresholds.High.MinimumConfidence <= c.SenseThresholds.Medium.MinimumConfidence ||

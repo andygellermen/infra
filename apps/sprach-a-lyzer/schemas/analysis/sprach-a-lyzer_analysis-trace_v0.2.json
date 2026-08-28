@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/analysis-trace-v0.2.json",
+  "title": "Sprach-A-Lyzer Analysis Trace v0.2",
+  "description": "Additive deterministic trace with proposition-local contribution provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "propositions", "contributions", "assessability"],
+  "properties": {
+    "contract_version": {"const": "0.2"},
+    "propositions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/traceProposition"}
+    },
+    "contributions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/contributionTraceEntry"}
+    },
+    "assessability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+      "properties": {
+        "AGENCY": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "CONNECTION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "APPRECIATION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "CLARITY": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "VOLITION": {"$ref": "#/$defs/assessabilityTraceEntry"},
+        "OPENNESS": {"$ref": "#/$defs/assessabilityTraceEntry"}
+      }
+    }
+  },
+  "$defs": {
+    "dimensionID": {
+      "enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]
+    },
+    "targetType": {
+      "enum": ["PERSON", "SELF", "BEHAVIOR", "PROCESS", "EVENT", "OBJECT", "IDEA", "GROUP", "INSTITUTION", "UNKNOWN"]
+    },
+    "expectationSource": {
+      "enum": ["SELF", "OTHER_PERSON", "GROUP", "INSTITUTION", "LAW", "CULTURE", "UNSPECIFIED", "INTERNALIZED"]
+    },
+    "traceProposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "source_start", "source_end", "target_type", "expectation_source"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^P[0-9]+$"},
+        "text": {"type": "string", "minLength": 1},
+        "source_start": {"type": "integer", "minimum": 0},
+        "source_end": {"type": "integer", "minimum": 1},
+        "target_type": {"$ref": "#/$defs/targetType"},
+        "expectation_source": {"$ref": "#/$defs/expectationSource"}
+      }
+    },
+    "contributionTraceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "evidence", "dimension", "delta", "reason", "proposition_ids"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "dimension": {"$ref": "#/$defs/dimensionID"},
+        "delta": {"type": "number"},
+        "reason": {"type": "string", "minLength": 1},
+        "proposition_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^P[0-9]+$"},
+          "uniqueItems": true
+        }
+      }
+    },
+    "assessabilityTraceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "final_assessability", "contribution_indexes"],
+      "properties": {
+        "state": {"enum": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE", "STRONG"]},
+        "final_assessability": {"type": "number", "minimum": 0, "maximum": 1},
+        "contribution_indexes": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 0},
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

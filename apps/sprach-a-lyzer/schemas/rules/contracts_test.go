@@ -75,11 +75,11 @@ func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 	}
 }
 
-func TestPolicyRegistryV04SchemaAndSeedAreLocked(t *testing.T) {
+func TestPolicyRegistryV05SchemaAndSeedAreLocked(t *testing.T) {
 	t.Parallel()
-	schema := readObject(t, "sprach-a-lyzer_policy-registry_v0.4.json")
+	schema := readObject(t, "sprach-a-lyzer_policy-registry_v0.5.json")
 	readObject(t, "sprach-a-lyzer_parameter_v0.1.json")
-	seed := readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.4.json")
+	seed := readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.5.json")
 	if seed["registry_version"] != policy.RegistryVersion {
 		t.Fatalf("registry version = %#v; want %s", seed["registry_version"], policy.RegistryVersion)
 	}

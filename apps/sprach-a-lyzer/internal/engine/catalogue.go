@@ -72,8 +72,21 @@ func mapsClone(source map[string]string) map[string]string {
 }
 
 type catalogueFacts struct {
-	phrase, context, inputMode, targetType, expectationSource         string
-	tokens, patterns, senses, discourseRelations, propositionFeatures []string
+	phrase, context, inputMode             string
+	tokens, patterns, senses, targetTypes  []string
+	expectationSources, discourseRelations []string
+	propositionFeatures                    []string
+	references                             map[string][]factReference
+}
+
+type factReference struct {
+	value          string
+	propositionIDs []string
+}
+
+type conditionMatch struct {
+	matched        bool
+	propositionIDs []string
 }
 
 func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string, resolution domain.ResolverResult) ([]rules.Definition, catalogueFacts, error) {
@@ -105,36 +118,61 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 		phrase: normalizePhrase(normalizedText), tokens: catalogueTokens(normalizedText),
 		context:    strings.ToUpper(strings.TrimSpace(string(request.Context))),
 		inputMode:  strings.ToUpper(strings.TrimSpace(string(request.InputMode))),
-		targetType: string(resolution.TargetType), expectationSource: string(resolution.ExpectationSource),
+		references: make(map[string][]factReference),
+	}
+	for _, node := range resolution.PropositionGraph.Nodes {
+		facts.addReference("phrase", normalizePhrase(normalize(node.Text)), node.ID)
+		for _, token := range catalogueTokens(normalize(node.Text)) {
+			facts.addReference("tokens", token, node.ID)
+		}
+		facts.targetTypes = appendUniqueFact(facts.targetTypes, string(node.TargetType))
+		facts.expectationSources = appendUniqueFact(facts.expectationSources, string(node.ExpectationSource))
+		facts.addReference("target_type", string(node.TargetType), node.ID)
+		facts.addReference("expectation_source", string(node.ExpectationSource), node.ID)
 	}
 	// Resolver candidates are not rule patterns. Only a non-ambiguous selected
 	// sense becomes an addressable fact; this enforces both resolver scoring
 	// guardrails at the engine boundary.
-	facts.senses = trustedResolverSenses(resolution.SelectedSenses)
+	for _, sense := range resolution.SelectedSenses {
+		if sense.State == domain.SenseAmbiguous {
+			continue
+		}
+		facts.senses = appendUniqueFact(facts.senses, sense.Sense)
+		facts.addReference("selected_sense", sense.Sense, sense.PropositionID)
+	}
 	for _, edge := range resolution.PropositionGraph.Edges {
 		facts.discourseRelations = append(facts.discourseRelations, string(edge.Relation))
+		facts.addReference("discourse_relation", string(edge.Relation), edge.Source, edge.Target)
 	}
 	for _, node := range resolution.PropositionGraph.Nodes {
 		if node.Predicate {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "PREDICATE")
+			facts.addReference("proposition_feature", "PREDICATE", node.ID)
 		}
 		if node.Target {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "TARGET")
+			facts.addReference("proposition_feature", "TARGET", node.ID)
 		}
 		if node.Time {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "TIME")
+			facts.addReference("proposition_feature", "TIME", node.ID)
 		}
 		if node.Boundary {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "BOUNDARY")
+			facts.addReference("proposition_feature", "BOUNDARY", node.ID)
 		}
 		if node.Decision {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "DECISION")
+			facts.addReference("proposition_feature", "DECISION", node.ID)
 		}
 		if node.Negation {
 			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "NEGATION")
+			facts.addReference("proposition_feature", "NEGATION", node.ID)
 		}
 		if node.Modality != domain.ModalityNone {
-			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, "MODALITY_"+string(node.Modality))
+			value := "MODALITY_" + string(node.Modality)
+			facts.propositionFeatures = appendUniqueFact(facts.propositionFeatures, value)
+			facts.addReference("proposition_feature", value, node.ID)
 		}
 	}
 	if facts.context == "" {
@@ -144,6 +182,22 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 		facts.inputMode = string(domain.InputModeText)
 	}
 	return definitions, facts, nil
+}
+
+func (f *catalogueFacts) addReference(field, value string, propositionIDs ...string) {
+	if value == "" {
+		return
+	}
+	for index := range f.references[field] {
+		if f.references[field][index].value != value {
+			continue
+		}
+		f.references[field][index].propositionIDs = appendUniqueFact(f.references[field][index].propositionIDs, propositionIDs...)
+		return
+	}
+	ids := []string{}
+	ids = appendUniqueFact(ids, propositionIDs...)
+	f.references[field] = append(f.references[field], factReference{value: value, propositionIDs: ids})
 }
 
 func trustedResolverSenses(senses []domain.ResolverSense) []string {
@@ -157,62 +211,130 @@ func trustedResolverSenses(senses []domain.ResolverSense) []string {
 	return result
 }
 
-func evaluateCondition(condition rules.Condition, facts catalogueFacts) (bool, error) {
+func evaluateCondition(condition rules.Condition, facts catalogueFacts) (conditionMatch, error) {
 	switch condition.Op {
 	case "AND":
+		result := conditionMatch{matched: true, propositionIDs: []string{}}
 		for _, child := range condition.Children {
-			matched, err := evaluateCondition(child, facts)
-			if err != nil || !matched {
-				return false, err
+			childMatch, err := evaluateCondition(child, facts)
+			if err != nil || !childMatch.matched {
+				return conditionMatch{}, err
 			}
+			result.propositionIDs = appendUniqueFact(result.propositionIDs, childMatch.propositionIDs...)
 		}
-		return true, nil
+		return result, nil
 	case "OR":
+		result := conditionMatch{propositionIDs: []string{}}
 		for _, child := range condition.Children {
-			matched, err := evaluateCondition(child, facts)
+			childMatch, err := evaluateCondition(child, facts)
 			if err != nil {
-				return false, err
+				return conditionMatch{}, err
 			}
-			if matched {
-				return true, nil
+			if childMatch.matched {
+				result.matched = true
+				result.propositionIDs = appendUniqueFact(result.propositionIDs, childMatch.propositionIDs...)
 			}
 		}
-		return false, nil
+		return result, nil
 	case "NOT":
-		matched, err := evaluateCondition(*condition.Child, facts)
-		return !matched, err
+		childMatch, err := evaluateCondition(*condition.Child, facts)
+		return conditionMatch{matched: !childMatch.matched, propositionIDs: []string{}}, err
 	}
-	var values []string
-	switch condition.Field {
-	case "tokens":
-		values = facts.tokens
-	case "phrase":
-		values = []string{facts.phrase}
-	case "context":
-		values = []string{facts.context}
-	case "input_mode":
-		values = []string{facts.inputMode}
-	case "pattern":
-		values = facts.patterns
-	case "selected_sense":
-		values = facts.senses
-	case "target_type":
-		values = []string{facts.targetType}
-	case "expectation_source":
-		values = []string{facts.expectationSource}
-	case "discourse_relation":
-		values = facts.discourseRelations
-	case "proposition_feature":
-		values = facts.propositionFeatures
-	default:
-		return false, fmt.Errorf("runtime field %q is not supported", condition.Field)
+	values, supported := facts.values(condition.Field)
+	if !supported {
+		return conditionMatch{}, fmt.Errorf("runtime field %q is not supported", condition.Field)
 	}
-	return evaluatePredicate(values, condition.Operator, condition.Value, condition.CaseSensitive, condition.Field == "phrase")
+	matched, err := evaluatePredicate(values, condition.Operator, condition.Value, condition.CaseSensitive, condition.Field == "phrase")
+	if err != nil || !matched {
+		return conditionMatch{matched: matched}, err
+	}
+	propositionIDs, err := facts.provenance(condition)
+	if err != nil {
+		return conditionMatch{}, err
+	}
+	return conditionMatch{matched: true, propositionIDs: propositionIDs}, nil
 }
 
-func appendUniqueFact(values []string, value string) []string {
-	if !slices.Contains(values, value) {
-		return append(values, value)
+func (f catalogueFacts) values(field string) ([]string, bool) {
+	switch field {
+	case "tokens":
+		return f.tokens, true
+	case "phrase":
+		return []string{f.phrase}, true
+	case "context":
+		return []string{f.context}, true
+	case "input_mode":
+		return []string{f.inputMode}, true
+	case "pattern":
+		return f.patterns, true
+	case "selected_sense":
+		return f.senses, true
+	case "target_type":
+		return f.targetTypes, true
+	case "expectation_source":
+		return f.expectationSources, true
+	case "discourse_relation":
+		return f.discourseRelations, true
+	case "proposition_feature":
+		return f.propositionFeatures, true
+	default:
+		return nil, false
+	}
+}
+
+func (f catalogueFacts) provenance(condition rules.Condition) ([]string, error) {
+	if condition.Operator == "NOT_EQUALS" || condition.Operator == "NOT_CONTAINS" || condition.Operator == "NOT_EXISTS" {
+		return []string{}, nil
+	}
+	references := f.references[condition.Field]
+	if condition.Operator == "EXISTS" {
+		result := []string{}
+		for _, reference := range references {
+			result = appendUniqueFact(result, reference.propositionIDs...)
+		}
+		return result, nil
+	}
+	expected, err := decodeExpected(condition.Value)
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	if condition.Operator == "CONTAINS_ALL" {
+		for _, want := range expected {
+			for _, reference := range references {
+				matched, err := evaluatePredicate([]string{reference.value}, "CONTAINS", mustJSON(want), condition.CaseSensitive, condition.Field == "phrase")
+				if err != nil {
+					return nil, err
+				}
+				if matched {
+					result = appendUniqueFact(result, reference.propositionIDs...)
+				}
+			}
+		}
+		return result, nil
+	}
+	for _, reference := range references {
+		matched, err := evaluatePredicate([]string{reference.value}, condition.Operator, condition.Value, condition.CaseSensitive, condition.Field == "phrase")
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			result = appendUniqueFact(result, reference.propositionIDs...)
+		}
+	}
+	return result, nil
+}
+
+func mustJSON(value string) json.RawMessage {
+	encoded, _ := json.Marshal(value)
+	return encoded
+}
+
+func appendUniqueFact(values []string, additions ...string) []string {
+	for _, value := range additions {
+		if value != "" && !slices.Contains(values, value) {
+			values = append(values, value)
+		}
 	}
 	return values
 }

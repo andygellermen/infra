@@ -1,6 +1,6 @@
 # Sprachkompass – Repository Documentation Manifest
 
-**Stand:** 26. August 2026
+**Stand:** 28. August 2026
 
 ## Root-Einstieg
 
@@ -17,6 +17,7 @@ docs/00-start/CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md
 docs/00-start/RESOLVER-CATALOGUE-CONTRACTS-v0.1.md
 docs/00-start/RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md
 docs/00-start/RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md
+docs/00-start/PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md
 docs/00-start/ROADMAP.md
 docs/00-start/NEXT-STEPS-AND-IDEAS.md
 ```

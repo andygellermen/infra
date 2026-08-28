@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -196,6 +197,67 @@ func TestExpandedDiscourseRelationsAreRuleAddressable(t *testing.T) {
 				t.Fatalf("relation %s was not rule-addressable: %v", testCase.relation, result.Patterns)
 			}
 		})
+	}
+}
+
+func TestContributionTraceV02LinksLocalResolverFacts(t *testing.T) {
+	t.Parallel()
+	definitions := []rules.Definition{
+		localContributionRule("20000000-0000-4000-8000-000000000321", "R-TARGET-LOCAL", domain.DimensionAgency, rules.Condition{
+			Field: "target_type", Operator: "EQUALS", Value: []byte(`"PROCESS"`),
+		}),
+		localContributionRule("20000000-0000-4000-8000-000000000322", "R-EXPECTATION-LOCAL", domain.DimensionClarity, rules.Condition{
+			Field: "expectation_source", Operator: "EQUALS", Value: []byte(`"INTERNALIZED"`),
+		}),
+	}
+	result, err := New(staticCatalogue{catalogue: rules.Catalogue{Version: "provenance-test", Rules: definitions}}).Analyze(domain.AnalysisRequest{
+		Text: "Technisches Problem liegt in der Schnittstelle. Ich sollte längst reagieren.", Context: "WORKPLACE",
+	})
+	if err != nil {
+		t.Fatalf("Analyze() error: %v", err)
+	}
+	trace := result.TraceV02()
+	if trace.ContractVersion != domain.AnalysisTraceV02ContractVersion || len(trace.Propositions) != 2 || len(trace.Contributions) != 2 {
+		t.Fatalf("trace v0.2 envelope = %+v", trace)
+	}
+	wantByRule := map[string][]string{"R-TARGET-LOCAL": {"P0"}, "R-EXPECTATION-LOCAL": {"P1"}}
+	for _, contribution := range trace.Contributions {
+		if !slices.Equal(contribution.PropositionIDs, wantByRule[contribution.RuleID]) {
+			t.Errorf("%s proposition IDs = %v; want %v", contribution.RuleID, contribution.PropositionIDs, wantByRule[contribution.RuleID])
+		}
+	}
+	if trace.Propositions[0].TargetType != domain.TargetProcess || trace.Propositions[1].ExpectationSource != domain.ExpectationInternalized {
+		t.Fatalf("trace proposition context = %+v", trace.Propositions)
+	}
+}
+
+func TestSpanningPhraseContributionLinksAllSupportingPropositions(t *testing.T) {
+	t.Parallel()
+	result, err := NewDefault().Analyze(domain.AnalysisRequest{
+		Text:    "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.",
+		Context: "PRIVATE_CONVERSATION",
+	})
+	if err != nil {
+		t.Fatalf("Analyze() error: %v", err)
+	}
+	for _, contribution := range result.TraceV02().Contributions {
+		if contribution.RuleID == "R-RESPECTFUL-BOUNDARY" && !slices.Equal(contribution.PropositionIDs, []string{"P0", "P1"}) {
+			t.Errorf("spanning contribution proposition IDs = %v; want P0/P1", contribution.PropositionIDs)
+		}
+	}
+}
+
+func localContributionRule(id, key string, dimension domain.DimensionID, condition rules.Condition) rules.Definition {
+	value, confidence := 5.0, .8
+	return rules.Definition{
+		ContractVersion: rules.ContractVersion, ID: id, Key: key, Name: key,
+		Description: "Proposition-local contribution provenance test rule.", Priority: 100, Enabled: true,
+		Scope: "TEXT", Status: "TESTING", Version: 1, Condition: condition,
+		Actions: []rules.Action{{
+			Type: policy.AddContribution, Dimension: dimension, Value: &value, Confidence: &confidence,
+			ReasonKey: "REASON_INTERNAL_PRESSURE_VOLITION", EvidenceKey: "EVIDENCE_INTERNAL_PRESSURE",
+		}},
+		ConfidenceModifier: 1,
 	}
 }
 

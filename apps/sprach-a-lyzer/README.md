@@ -25,6 +25,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 17. [Resolver Catalogue Contracts v0.1](docs/00-start/RESOLVER-CATALOGUE-CONTRACTS-v0.1.md)
 18. [Resolver Catalogue Runtime Binding v0.1](docs/00-start/RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md)
 19. [Resolver Relations & Scope Expansion v0.1](docs/00-start/RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md)
+20. [Proposition-local Trace Binding v0.1](docs/00-start/PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md)
 
 ## Repository-Struktur
 
@@ -93,6 +94,11 @@ go run ./cmd/resolve \
 
 go run ./cmd/analyze \
   -trace \
+  -context SELF_TALK \
+  -text 'Ich muss das heute unbedingt noch schaffen.'
+
+go run ./cmd/analyze \
+  -trace-v2 \
   -context SELF_TALK \
   -text 'Ich muss das heute unbedingt noch schaffen.'
 ```

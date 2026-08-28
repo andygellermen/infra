@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"encoding/json"
 	"slices"
 	"testing"
@@ -36,6 +37,39 @@ func TestAnalysisResultTraceLinksContributionsToCanonicalDimensions(t *testing.T
 	trace.Contributions[0].RuleID = "CHANGED"
 	if result.ContributionTrace[0].RuleID != "R-1" {
 		t.Fatal("trace mutation leaked into analysis result")
+	}
+}
+
+func TestAnalysisTraceV02PublishesPropositionLinksWithoutChangingResultV01(t *testing.T) {
+	t.Parallel()
+	result := AnalysisResult{
+		Dimensions: map[DimensionID]DimensionResult{DimensionAgency: {State: Assessable, Assessability: .7}},
+		ContributionTrace: []ContributionTraceEntry{{
+			RuleID: "R-LOCAL", Evidence: "e", Dimension: DimensionAgency, Delta: 5, Reason: "r",
+		}},
+		TraceProvenance: TraceProvenance{
+			Propositions: []TraceProposition{{
+				ID: "P0", Text: "Text", SourceStart: 0, SourceEnd: 4,
+				TargetType: TargetProcess, ExpectationSource: ExpectationUnspecified,
+			}},
+			ContributionPropositionIDs: [][]string{{"P0"}},
+		},
+	}
+	encodedResult, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal result: %v", err)
+	}
+	if bytes.Contains(encodedResult, []byte("trace_provenance")) || bytes.Contains(encodedResult, []byte("proposition_ids")) {
+		t.Fatalf("trace v0.2 provenance leaked into result v0.1: %s", encodedResult)
+	}
+	trace := result.TraceV02()
+	if trace.ContractVersion != AnalysisTraceV02ContractVersion || len(trace.Propositions) != 1 ||
+		!slices.Equal(trace.Contributions[0].PropositionIDs, []string{"P0"}) {
+		t.Fatalf("trace v0.2 = %+v", trace)
+	}
+	trace.Contributions[0].PropositionIDs[0] = "CHANGED"
+	if result.TraceProvenance.ContributionPropositionIDs[0][0] != "P0" {
+		t.Fatal("trace v0.2 mutation leaked into result provenance")
 	}
 }
 
