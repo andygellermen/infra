@@ -135,6 +135,22 @@ func (r catalogueRuntime) relationIn(text string) (runtimeConnector, bool) {
 	return connector, ok
 }
 
+func (r catalogueRuntime) prefixClauseAt(text string) (int, runtimeConnector, bool) {
+	lower := strings.ToLower(text)
+	for _, connector := range r.connectors {
+		if connector.placement != "PREFIX" || connector.relation != domain.RelationCondition || !strings.HasPrefix(lower, connector.marker) ||
+			!markerBounded(lower, 0, len(connector.marker)) {
+			continue
+		}
+		comma := strings.Index(lower[len(connector.marker):], ",")
+		if comma < 0 {
+			return 0, runtimeConnector{}, false
+		}
+		return len(connector.marker) + comma, connector, true
+	}
+	return 0, runtimeConnector{}, false
+}
+
 func (r catalogueRuntime) negationScope(text string) domain.NegationScopeID {
 	for _, scope := range r.scopes {
 		for _, cue := range scope.Cues {

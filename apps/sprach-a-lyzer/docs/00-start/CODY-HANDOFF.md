@@ -256,3 +256,15 @@ Thresholds, Konnektoren und Scope-Cues steuern den Resolver tatsächlich. Die
 drei Resolver-Guardrails sind an Resolver- und Engine-Grenze durchgesetzt.
 Der additive Runtime-Golden-Stand v0.2 hält die konservative
 Schwellenkorrektur fest; die Core-Golden-Suite bleibt paritätisch.
+
+## 14. Relations & Scope Expansion – Sprint v0.2B-C
+
+Die in
+[`RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md`](RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md)
+dokumentierte Ausbaustufe ist abgeschlossen. `CAUSE`, `CONSEQUENCE`,
+`CONDITION`, `ADDITION` und `CORRECTION` sind nun neben den drei bisherigen
+Relationsklassen ausführbar. Rekursives Catalogue-Splitting, neun neue
+Relations-/Scope-Goldens und Rule-End-to-End-Smokes sichern den Stand.
+Actor-, Modalitäts- und Proposition-Scope reagieren nachweislich auf ihre
+aktiven Catalogue-Cues. Der nächste v0.2-Schritt ist die proposition-lokale
+Target-/Expectation-Auflösung samt Trace-Verknüpfung.

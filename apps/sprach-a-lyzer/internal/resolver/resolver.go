@@ -130,25 +130,56 @@ func propositionSpans(text string, runtime catalogueRuntime) []span {
 
 	result := make([]span, 0, len(sentences)+2)
 	for _, sentence := range sentences {
-		markerStart, connector, ok := runtime.connectorAt(sentence.text, true)
-		if !ok || markerStart <= 0 {
-			result = append(result, sentence)
-			continue
-		}
-		leftStart, leftEnd := sentence.start, sentence.start+markerStart
-		for leftEnd > leftStart && (unicode.IsSpace(rune(text[leftEnd-1])) || strings.ContainsRune(",;:", rune(text[leftEnd-1]))) {
-			leftEnd--
-		}
-		if left, ok := trimmedSpan(text, leftStart, leftEnd, sentence.sentence); ok {
-			result = append(result, left)
-		}
-		rightStart := sentence.start + markerStart + len(connector.marker)
-		if right, ok := trimmedSpan(text, rightStart, sentence.end, sentence.sentence); ok {
-			right.marker, right.relation, right.confidence = connector.marker, connector.relation, connector.confidence
-			result = append(result, right)
-		}
+		result = append(result, splitConnectors(text, sentence, runtime, 0)...)
 	}
 	return result
+}
+
+func splitConnectors(source string, part span, runtime catalogueRuntime, depth int) []span {
+	if depth > len(runtime.connectors) {
+		return []span{part}
+	}
+	if comma, connector, ok := runtime.prefixClauseAt(part.text); ok {
+		left, leftOK := trimmedSpan(source, part.start, part.start+comma, part.sentence)
+		right, rightOK := trimmedSpan(source, part.start+comma+1, part.end, part.sentence)
+		if leftOK && rightOK {
+			left.marker, left.relation, left.confidence = part.marker, part.relation, part.confidence
+			right.marker, right.relation, right.confidence = connector.marker, connector.relation, connector.confidence
+			return append(splitConnectors(source, left, runtime, depth+1), splitConnectors(source, right, runtime, depth+1)...)
+		}
+	}
+	markerStart, connector, ok := runtime.connectorAt(part.text, true)
+	if !ok || markerStart <= 0 || !connectorSplitsPropositions(part.text, markerStart, connector) {
+		return []span{part}
+	}
+	leftStart, leftEnd := part.start, part.start+markerStart
+	for leftEnd > leftStart && (unicode.IsSpace(rune(source[leftEnd-1])) || strings.ContainsRune(",;:", rune(source[leftEnd-1]))) {
+		leftEnd--
+	}
+	left, leftOK := trimmedSpan(source, leftStart, leftEnd, part.sentence)
+	right, rightOK := trimmedSpan(source, part.start+markerStart+len(connector.marker), part.end, part.sentence)
+	if !leftOK || !rightOK {
+		return []span{part}
+	}
+	left.marker, left.relation, left.confidence = part.marker, part.relation, part.confidence
+	right.marker, right.relation, right.confidence = connector.marker, connector.relation, connector.confidence
+	return append(splitConnectors(source, left, runtime, depth+1), splitConnectors(source, right, runtime, depth+1)...)
+}
+
+func connectorSplitsPropositions(text string, markerStart int, connector runtimeConnector) bool {
+	if connector.relation != domain.RelationAddition || connector.marker != "und" {
+		return true
+	}
+	words := lexicalWords(normalize(text[markerStart+len(connector.marker):]))
+	if len(words) == 0 {
+		return false
+	}
+	switch words[0] {
+	case "ich", "du", "wir", "ihr", "er", "sie", "es", "man":
+		return true
+	default:
+		return false
+	}
 }
 
 func trimmedSpan(source string, start, end, sentence int) (span, bool) {

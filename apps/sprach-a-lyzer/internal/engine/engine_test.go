@@ -168,6 +168,37 @@ func TestContextFactsAreAddressableWithoutResolverGuardrailBypass(t *testing.T) 
 	}
 }
 
+func TestExpandedDiscourseRelationsAreRuleAddressable(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		id, key, relation, pattern, text string
+	}{
+		{"20000000-0000-4000-8000-000000000311", "R-CAUSE-FACT", "CAUSE", "CAUSE_FACT", "Ich bleibe zu Hause, weil ich krank bin."},
+		{"20000000-0000-4000-8000-000000000312", "R-CONSEQUENCE-FACT", "CONSEQUENCE", "CONSEQUENCE_FACT", "Es regnet. Deshalb bleibe ich zu Hause."},
+		{"20000000-0000-4000-8000-000000000313", "R-CONDITION-FACT", "CONDITION", "CONDITION_FACT", "Wenn du Zeit hast, sprechen wir morgen."},
+		{"20000000-0000-4000-8000-000000000314", "R-ADDITION-FACT", "ADDITION", "ADDITION_FACT", "Ich prüfe die Unterlagen und ich melde mich morgen."},
+		{"20000000-0000-4000-8000-000000000315", "R-CORRECTION-FACT", "CORRECTION", "CORRECTION_FACT", "Das ist kein Fehler, sondern ein Lernschritt."},
+	}
+	definitions := make([]rules.Definition, 0, len(testCases))
+	for _, testCase := range testCases {
+		definitions = append(definitions, factRule(testCase.id, testCase.key, testCase.pattern, rules.Condition{
+			Field: "discourse_relation", Operator: "EQUALS", Value: []byte(`"` + testCase.relation + `"`),
+		}))
+	}
+	engine := New(staticCatalogue{catalogue: rules.Catalogue{Version: "relations-test", Rules: definitions}})
+	for _, testCase := range testCases {
+		t.Run(testCase.relation, func(t *testing.T) {
+			result, err := engine.Analyze(domain.AnalysisRequest{Text: testCase.text})
+			if err != nil {
+				t.Fatalf("Analyze() error: %v", err)
+			}
+			if !containsString(result.Patterns, testCase.pattern) {
+				t.Fatalf("relation %s was not rule-addressable: %v", testCase.relation, result.Patterns)
+			}
+		})
+	}
+}
+
 func contributionRule(id, key string, condition rules.Condition) rules.Definition {
 	value, confidence := -20.0, .9
 	return rules.Definition{

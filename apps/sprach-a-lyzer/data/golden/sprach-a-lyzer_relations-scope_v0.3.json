@@ -1,0 +1,94 @@
+{
+  "suite_version": "0.3",
+  "resolver_contract": "0.2",
+  "resolver_catalogue": "0.1",
+  "cases": [
+    {
+      "id": "RSC01_CAUSE_INFIX",
+      "request": {"text": "Ich bleibe zu Hause, weil ich krank bin.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [
+          {"text": "Ich bleibe zu Hause", "actor": "SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "ich krank bin.", "actor": "SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "weil", "relation": "CAUSE", "confidence": 0.9}]
+      }
+    },
+    {
+      "id": "RSC02_CONSEQUENCE_PREFIX",
+      "request": {"text": "Es regnet. Deshalb bleibe ich zu Hause.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [
+          {"text": "Es regnet.", "actor": "UNKNOWN", "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "Deshalb bleibe ich zu Hause.", "actor": "SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "deshalb", "relation": "CONSEQUENCE", "confidence": 0.9}]
+      }
+    },
+    {
+      "id": "RSC03_CONDITION_PREFIX_CLAUSE",
+      "request": {"text": "Wenn du Zeit hast, sprechen wir morgen.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [
+          {"text": "Wenn du Zeit hast", "actor": "OTHER_PERSON", "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "sprechen wir morgen.", "actor": "GROUP_SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "wenn", "relation": "CONDITION", "confidence": 0.9}]
+      }
+    },
+    {
+      "id": "RSC04_ADDITION_INFIX",
+      "request": {"text": "Ich prüfe die Unterlagen und ich melde mich morgen.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [
+          {"text": "Ich prüfe die Unterlagen", "actor": "SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"},
+          {"text": "ich melde mich morgen.", "actor": "SELF", "negation": false, "negation_scope": "NONE", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "und", "relation": "ADDITION", "confidence": 0.82}]
+      }
+    },
+    {
+      "id": "RSC05_CORRECTION_INFIX",
+      "request": {"text": "Das ist kein Fehler, sondern ein Lernschritt.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [
+          {"text": "Das ist kein Fehler", "actor": "UNKNOWN", "negation": true, "negation_scope": "PROPOSITION", "modality": "NONE"},
+          {"text": "ein Lernschritt.", "actor": "UNKNOWN", "negation": false, "negation_scope": "NONE", "modality": "NONE"}
+        ],
+        "edges": [{"source": "P0", "target": "P1", "marker": "sondern", "relation": "CORRECTION", "confidence": 0.9}]
+      }
+    },
+    {
+      "id": "RSC06_ACTOR_SCOPE_SELF",
+      "request": {"text": "Nicht ich muss das entscheiden.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Nicht ich muss das entscheiden.", "actor": "SELF", "negation": true, "negation_scope": "ACTOR", "modality": "NECESSITY"}],
+        "edges": []
+      }
+    },
+    {
+      "id": "RSC07_ACTOR_SCOPE_OTHER",
+      "request": {"text": "Nicht du musst das entscheiden.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Nicht du musst das entscheiden.", "actor": "OTHER_PERSON", "negation": true, "negation_scope": "ACTOR", "modality": "NECESSITY"}],
+        "edges": []
+      }
+    },
+    {
+      "id": "RSC08_MODALITY_SCOPE",
+      "request": {"text": "Du musst das nicht heute entscheiden.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Du musst das nicht heute entscheiden.", "actor": "OTHER_PERSON", "negation": true, "negation_scope": "MODALITY", "modality": "NECESSITY"}],
+        "edges": []
+      }
+    },
+    {
+      "id": "RSC09_PROPOSITION_SCOPE",
+      "request": {"text": "Du entscheidest das heute nicht.", "context": "UNSPECIFIED"},
+      "expected": {
+        "nodes": [{"text": "Du entscheidest das heute nicht.", "actor": "OTHER_PERSON", "negation": true, "negation_scope": "PROPOSITION", "modality": "NONE"}],
+        "edges": []
+      }
+    }
+  ]
+}

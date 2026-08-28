@@ -24,6 +24,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 16. [Context & Proposition Vertical Slice v0.1](docs/00-start/CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md)
 17. [Resolver Catalogue Contracts v0.1](docs/00-start/RESOLVER-CATALOGUE-CONTRACTS-v0.1.md)
 18. [Resolver Catalogue Runtime Binding v0.1](docs/00-start/RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md)
+19. [Resolver Relations & Scope Expansion v0.1](docs/00-start/RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md)
 
 ## Repository-Struktur
 

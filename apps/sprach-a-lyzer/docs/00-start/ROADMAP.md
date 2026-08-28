@@ -33,6 +33,9 @@ Die Catalogue Runtime Binding einschließlich Fail-Closed-Provider,
 katalogberechneter Sense-Zustände und durchgesetzter Resolver-Guardrails ist
 ebenfalls abgeschlossen; siehe
 [`RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md`](RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md).
+Alle acht Catalogue-Relationsklassen sowie die ersten Actor- und Scope-
+Schutzmatrizen sind ausführbar Golden- und Rule-gesichert; siehe
+[`RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md`](RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.

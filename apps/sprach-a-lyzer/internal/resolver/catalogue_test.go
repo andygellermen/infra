@@ -154,6 +154,50 @@ func TestResolverCatalogueControlsThresholdConnectorAndScope(t *testing.T) {
 	if scopeResult.PropositionGraph.Nodes[0].NegationScope != policy.NegationProposition {
 		t.Fatalf("catalogue scope rule was not applied: %+v", scopeResult.PropositionGraph.Nodes[0])
 	}
+
+	actorVariant := cloneCatalogue(t, catalogue)
+	for index := range actorVariant.ScopeRules {
+		if actorVariant.ScopeRules[index].Key == "NEGATION_ACTOR_PREFIX" {
+			actorVariant.ScopeRules[index].Cues = []string{"nicht wir"}
+		}
+	}
+	actorResult, err := NewWithCatalogueProvider(StaticCatalogueProvider{Catalogue: actorVariant}).Resolve(
+		domainRequest("Nicht du musst das entscheiden.", policy.ContextUnspecified),
+	)
+	if err != nil {
+		t.Fatalf("actor scope Resolve() error: %v", err)
+	}
+	if actorResult.PropositionGraph.Nodes[0].NegationScope != policy.NegationProposition {
+		t.Fatalf("deactivated actor cue still emitted ACTOR scope: %+v", actorResult.PropositionGraph.Nodes[0])
+	}
+}
+
+func TestResolverHandlesMultipleCatalogueConnectorsInOneSentence(t *testing.T) {
+	t.Parallel()
+	result, err := New().Resolve(domainRequest("Wenn du Zeit hast, sprechen wir und wir planen morgen.", policy.ContextUnspecified))
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	wantRelations := []domain.DiscourseRelationID{domain.RelationCondition, domain.RelationAddition}
+	if len(result.PropositionGraph.Nodes) != 3 || len(result.PropositionGraph.Edges) != len(wantRelations) {
+		t.Fatalf("graph = %+v; want three nodes and two edges", result.PropositionGraph)
+	}
+	for index, relation := range wantRelations {
+		if result.PropositionGraph.Edges[index].Relation != relation {
+			t.Fatalf("edge %d relation = %s; want %s", index, result.PropositionGraph.Edges[index].Relation, relation)
+		}
+	}
+}
+
+func TestAdditionConnectorDoesNotSplitNominalCoordination(t *testing.T) {
+	t.Parallel()
+	result, err := New().Resolve(domainRequest("Ich kaufe Brot und Butter.", policy.ContextUnspecified))
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if len(result.PropositionGraph.Nodes) != 1 || len(result.PropositionGraph.Edges) != 0 {
+		t.Fatalf("nominal coordination became a proposition relation: %+v", result.PropositionGraph)
+	}
 }
 
 func TestResolverCatalogueFailuresAreFailClosed(t *testing.T) {
