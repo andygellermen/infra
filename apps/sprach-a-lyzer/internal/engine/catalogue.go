@@ -13,6 +13,7 @@ import (
 
 	assets "github.com/andygellermann/infra/apps/sprach-a-lyzer"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/ontology"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/seed"
 )
@@ -48,11 +49,19 @@ func NewDefault() *Engine {
 }
 
 func embeddedFoundation() seed.Foundation {
-	foundation, err := seed.DecodeFoundation(bytes.NewReader(assets.FoundationV03))
+	foundation, err := seed.DecodeFoundation(bytes.NewReader(assets.FoundationV04))
 	if err != nil {
 		panic(fmt.Sprintf("decode embedded Foundation catalogue: %v", err))
 	}
 	return foundation
+}
+
+func embeddedOntologyProvider() ontology.CatalogueProvider {
+	catalogue, err := ontology.Decode(bytes.NewReader(assets.ConstructOntologyV02))
+	if err != nil {
+		panic(fmt.Sprintf("decode embedded construct ontology: %v", err))
+	}
+	return ontology.StaticProvider{Catalogue: catalogue}
 }
 
 func staticTextProvider(foundation seed.Foundation) TextProvider {
@@ -75,7 +84,8 @@ type catalogueFacts struct {
 	phrase, context, inputMode             string
 	tokens, patterns, senses, targetTypes  []string
 	expectationSources, discourseRelations []string
-	propositionFeatures                    []string
+	propositionFeatures, constructs        []string
+	compositions                           []string
 	references                             map[string][]factReference
 }
 
@@ -89,7 +99,7 @@ type conditionMatch struct {
 	propositionIDs []string
 }
 
-func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string, resolution domain.ResolverResult) ([]rules.Definition, catalogueFacts, error) {
+func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedText string, resolution domain.ResolverResult, constructResult ontology.Result) ([]rules.Definition, catalogueFacts, error) {
 	if e.catalogue == nil {
 		return nil, catalogueFacts{}, fmt.Errorf("rule catalogue provider is nil")
 	}
@@ -129,6 +139,15 @@ func (e *Engine) activeDefinitions(request domain.AnalysisRequest, normalizedTex
 		facts.expectationSources = appendUniqueFact(facts.expectationSources, string(node.ExpectationSource))
 		facts.addReference("target_type", string(node.TargetType), node.ID)
 		facts.addReference("expectation_source", string(node.ExpectationSource), node.ID)
+	}
+	for _, evidence := range constructResult.Evidence {
+		value := string(evidence.ConstructID)
+		facts.constructs = appendUniqueFact(facts.constructs, value)
+		facts.addReference("construct", value, evidence.PropositionIDs...)
+	}
+	for _, composition := range constructResult.Compositions {
+		facts.compositions = appendUniqueFact(facts.compositions, composition.Pattern)
+		facts.addReference("composition", composition.Pattern, composition.PropositionIDs...)
 	}
 	// Resolver candidates are not rule patterns. Only a non-ambiguous selected
 	// sense becomes an addressable fact; this enforces both resolver scoring
@@ -277,6 +296,10 @@ func (f catalogueFacts) values(field string) ([]string, bool) {
 		return f.discourseRelations, true
 	case "proposition_feature":
 		return f.propositionFeatures, true
+	case "construct":
+		return f.constructs, true
+	case "composition":
+		return f.compositions, true
 	default:
 		return nil, false
 	}

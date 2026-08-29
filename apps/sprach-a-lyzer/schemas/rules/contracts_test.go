@@ -11,10 +11,10 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
-func TestRuleV04UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
+func TestRuleV05UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
 	t.Parallel()
 
-	schema := readObject(t, "sprach-a-lyzer_rule_v0.4.json")
+	schema := readObject(t, "sprach-a-lyzer_rule_v0.5.json")
 	definitions := object(t, schema["$defs"])
 	dimensionDefinition := object(t, definitions["dimensionID"])
 	gotDimensions := stringArray(t, dimensionDefinition["enum"])
@@ -49,16 +49,21 @@ func TestRuleV04UsesCanonicalDimensionsAndActionIDs(t *testing.T) {
 	}
 	data, _ := json.Marshal(schema)
 	if bytes.Contains(data, []byte("FREE_WILL")) {
-		t.Error("rule v0.4 schema contains legacy dimension ID")
+		t.Error("rule v0.5 schema contains legacy dimension ID")
+	}
+	predicate := object(t, definitions["predicate"])
+	fields := stringArray(t, object(t, object(t, predicate["properties"])["field"])["enum"])
+	if !slices.Contains(fields, "construct") || !slices.Contains(fields, "composition") {
+		t.Fatalf("Rule v0.5 fields = %v; want construct and composition", fields)
 	}
 }
 
 func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 	t.Parallel()
 
-	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.4.json")
-	if fixture["contract_version"] != "0.4" {
-		t.Fatalf("fixture contract version = %#v; want 0.4", fixture["contract_version"])
+	fixture := readObject(t, "../../data/seed/sprach-a-lyzer_rule-contract-fixture_v0.5.json")
+	if fixture["contract_version"] != "0.5" {
+		t.Fatalf("fixture contract version = %#v; want 0.5", fixture["contract_version"])
 	}
 	allowed := map[string]bool{}
 	for _, action := range policy.RuleActionTypes() {
@@ -75,11 +80,11 @@ func TestCanonicalRuleFixtureUsesOnlyRegisteredActions(t *testing.T) {
 	}
 }
 
-func TestPolicyRegistryV06SchemaAndSeedAreLocked(t *testing.T) {
+func TestPolicyRegistryV07SchemaAndSeedAreLocked(t *testing.T) {
 	t.Parallel()
-	schema := readObject(t, "sprach-a-lyzer_policy-registry_v0.6.json")
+	schema := readObject(t, "sprach-a-lyzer_policy-registry_v0.7.json")
 	readObject(t, "sprach-a-lyzer_parameter_v0.1.json")
-	seed := readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.6.json")
+	seed := readObject(t, "../../data/seed/sprach-a-lyzer_policy-registry_v0.7.json")
 	if seed["registry_version"] != policy.RegistryVersion {
 		t.Fatalf("registry version = %#v; want %s", seed["registry_version"], policy.RegistryVersion)
 	}

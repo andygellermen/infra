@@ -6,6 +6,8 @@
   Aktionen für Sinnauswahl und Resonanzhinweise.
 - `sprach-a-lyzer_rule_v0.4.json` macht Contribution-Evidenz und -Confidence,
   Sense-Gründe und -Confidence sowie Alternativen vollständig katalogfähig.
+- `sprach-a-lyzer_rule_v0.5.json` ergänzt proposition-lokale `construct`- und
+  `composition`-Fakten ohne neue Scoring-Aktionen.
 - `sprach-a-lyzer_parameter_v0.1.json` begrenzt justierbare Fachparameter und
   verlangt Approval für editierbare Werte.
 - `sprach-a-lyzer_policy-registry_v0.1.json` bleibt der Sprint-0A-Stand.
@@ -20,5 +22,7 @@
 - `sprach-a-lyzer_policy-registry_v0.6.json` registriert Construct Ontology
   v0.2, 36 kanonische Construct IDs und drei nicht editierbare Construct-
   Guardrails.
+- `sprach-a-lyzer_policy-registry_v0.7.json` registriert Rule Contract v0.5
+  und das propositionale Rule Set v0.4.
 
 Hard Guardrails gehören nicht in editierbare Rule- oder Parameter-Sets.

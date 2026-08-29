@@ -1,13 +1,16 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"slices"
 	"strings"
 	"testing"
 
+	assets "github.com/andygellermann/infra/apps/sprach-a-lyzer"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/ontology"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
 )
@@ -353,5 +356,82 @@ func TestSafetyContextOverridesInternalPressure(t *testing.T) {
 	}
 	if result.Dimensions[domain.DimensionVolition].Score != nil {
 		t.Fatal("safety directive must not receive a coercion score")
+	}
+}
+
+func TestConstructCompositionsAreRuleAddressableWithoutDirectScoring(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		text, pattern string
+		constructs    map[policy.ConstructID][]string
+	}{
+		{
+			"Ich muss unbedingt alles allein lösen, aber ich kann um Hilfe bitten.", "AGENCY_RECOVERY",
+			map[policy.ConstructID][]string{policy.ConstructControlPressureInterpretation: {"P0"}, policy.ConstructContextualAgency: {"P1"}},
+		},
+		{
+			"Ich bin ein Fehler, aber der Fehler zeigt mir den nächsten Versuch.", "LEARNING_RECOVERY",
+			map[policy.ConstructID][]string{policy.ConstructPersonBehaviorLabeling: {"P0"}, policy.ConstructArticulatedLearning: {"P1"}},
+		},
+	}
+	for _, testCase := range testCases {
+		result, err := NewDefault().Analyze(domain.AnalysisRequest{Text: testCase.text, Context: domain.ContextSelfTalk})
+		if err != nil {
+			t.Fatalf("Analyze() error: %v", err)
+		}
+		if !slices.Contains(result.Patterns, testCase.pattern) {
+			t.Errorf("patterns %v lack %s", result.Patterns, testCase.pattern)
+		}
+		for id, wantIDs := range testCase.constructs {
+			found := false
+			for _, evidence := range result.TraceProvenance.ConstructEvidence {
+				if evidence.ConstructID == id && slices.Equal(evidence.PropositionIDs, wantIDs) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("construct evidence %+v lacks %s/%v", result.TraceProvenance.ConstructEvidence, id, wantIDs)
+			}
+		}
+		for _, contribution := range result.ContributionTrace {
+			if contribution.RuleID == "R-AGENCY-RECOVERY" || contribution.RuleID == "R-LEARNING-RECOVERY" {
+				t.Errorf("non-scoring composition contributed: %+v", contribution)
+			}
+		}
+	}
+}
+
+func TestOntologyCompositionActivationAndDeactivationSmoke(t *testing.T) {
+	t.Parallel()
+	text := "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage."
+	defaultEngine := NewDefault()
+	active, err := defaultEngine.Analyze(domain.AnalysisRequest{Text: text, Context: "PRIVATE_CONVERSATION"})
+	if err != nil {
+		t.Fatalf("active Analyze() error: %v", err)
+	}
+	catalogue, err := ontology.Decode(bytes.NewReader(assets.ConstructOntologyV02))
+	if err != nil {
+		t.Fatalf("decode ontology: %v", err)
+	}
+	for index := range catalogue.Compositions {
+		if catalogue.Compositions[index].OutputPattern == "RESPECTFUL_BOUNDARY" {
+			catalogue.Compositions[index].RequiredConstructs = []policy.ConstructID{
+				policy.ConstructPerspectiveTaking, policy.ConstructOwnedCommitment,
+			}
+		}
+	}
+	disabled, err := NewWithOntologyProvider(defaultEngine.catalogue, defaultEngine.texts, ontology.StaticProvider{Catalogue: catalogue}).Analyze(domain.AnalysisRequest{Text: text, Context: "PRIVATE_CONVERSATION"})
+	if err != nil {
+		t.Fatalf("disabled Analyze() error: %v", err)
+	}
+	if len(disabled.ContributionTrace) != 0 || slices.Contains(disabled.Patterns, "RESPECTFUL_BOUNDARY") {
+		t.Fatalf("disabled composition remained active: %+v", disabled)
+	}
+	restored, err := NewWithOntologyProvider(defaultEngine.catalogue, defaultEngine.texts, embeddedOntologyProvider()).Analyze(domain.AnalysisRequest{Text: text, Context: "PRIVATE_CONVERSATION"})
+	if err != nil {
+		t.Fatalf("restored Analyze() error: %v", err)
+	}
+	if len(restored.ContributionTrace) != len(active.ContributionTrace) || !slices.Contains(restored.Patterns, "RESPECTFUL_BOUNDARY") {
+		t.Fatalf("restored composition lacks parity: active=%+v restored=%+v", active, restored)
 	}
 }

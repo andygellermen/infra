@@ -13,7 +13,10 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
 )
 
-const ContractVersion = "0.2"
+const (
+	ContractVersion               = "0.2"
+	ContractPolicyRegistryVersion = "0.6"
+)
 
 var patternID = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
@@ -86,8 +89,8 @@ func Decode(reader io.Reader) (Catalogue, error) {
 }
 
 func (c Catalogue) Validate() error {
-	if c.Version != ContractVersion || c.Status != "APPROVED" || c.Locale != "de-DE" || c.PolicyRegistry != policy.RegistryVersion {
-		return fmt.Errorf("construct ontology requires version %s, APPROVED status, de-DE locale and policy %s", ContractVersion, policy.RegistryVersion)
+	if c.Version != ContractVersion || c.Status != "APPROVED" || c.Locale != "de-DE" || c.PolicyRegistry != ContractPolicyRegistryVersion {
+		return fmt.Errorf("construct ontology requires version %s, APPROVED status, de-DE locale and policy %s", ContractVersion, ContractPolicyRegistryVersion)
 	}
 	want := policy.Constructs()
 	if len(c.Constructs) != len(want) {
@@ -129,6 +132,9 @@ func (d Definition) Validate() error {
 	if d.Definition == "" || len(d.Evidence) == 0 || len(d.NonEvidence) == 0 || d.AllowedClaim == "" || len(d.ProhibitedClaims) == 0 {
 		return fmt.Errorf("construct %s lacks definition, evidence or claim boundaries", d.ID)
 	}
+	if !uniqueNonEmpty(d.Evidence) || !uniqueNonEmpty(d.NonEvidence) || !uniqueNonEmpty(d.ProhibitedClaims) || !uniqueValues(d.DimensionLinks) {
+		return fmt.Errorf("construct %s contains duplicate or empty contract values", d.ID)
+	}
 	allowed := map[string][]string{
 		"LANGUAGE_FEATURE":     {"OBSERVABLE", "DIRECT_OBSERVATION"},
 		"CONTEXTUAL_CONSTRUCT": {"INFERABLE", "QUALIFIED_INFERENCE"},
@@ -151,8 +157,8 @@ func (d Definition) Validate() error {
 		}
 	}
 	for _, signal := range d.RuntimeSignals {
-		if signal.empty() {
-			return fmt.Errorf("construct %s contains an empty runtime signal", d.ID)
+		if err := signal.Validate(); err != nil {
+			return fmt.Errorf("construct %s runtime signal: %w", d.ID, err)
 		}
 	}
 	return nil
@@ -162,8 +168,42 @@ func (s RuntimeSignal) empty() bool {
 	return len(s.PhrasesAll)+len(s.PhrasesAny)+len(s.Actors)+len(s.Modalities)+len(s.TargetTypes)+len(s.ExpectationSources)+len(s.PropositionFeatures)+len(s.SelectedSenses) == 0
 }
 
+func (s RuntimeSignal) Validate() error {
+	if s.empty() || !uniqueNonEmpty(s.PhrasesAll) || !uniqueNonEmpty(s.PhrasesAny) || !uniqueValues(s.Actors) ||
+		!uniqueValues(s.Modalities) || !uniqueValues(s.TargetTypes) || !uniqueValues(s.ExpectationSources) ||
+		!uniqueNonEmpty(s.PropositionFeatures) || !uniqueNonEmpty(s.SelectedSenses) {
+		return fmt.Errorf("runtime signal contains empty or duplicate values")
+	}
+	for _, value := range s.Actors {
+		if !slices.Contains(policy.Actors(), value) {
+			return fmt.Errorf("runtime signal references unknown actor %s", value)
+		}
+	}
+	for _, value := range s.Modalities {
+		if !slices.Contains(policy.Modalities(), value) {
+			return fmt.Errorf("runtime signal references unknown modality %s", value)
+		}
+	}
+	for _, value := range s.TargetTypes {
+		if !slices.Contains(policy.TargetTypes(), value) {
+			return fmt.Errorf("runtime signal references unknown target %s", value)
+		}
+	}
+	for _, value := range s.ExpectationSources {
+		if !slices.Contains(policy.ExpectationSources(), value) {
+			return fmt.Errorf("runtime signal references unknown expectation source %s", value)
+		}
+	}
+	for _, value := range s.PropositionFeatures {
+		if !slices.Contains([]string{"PREDICATE", "TARGET", "TIME", "BOUNDARY", "DECISION", "NEGATION", "MODALITY_NONE", "MODALITY_NECESSITY", "MODALITY_POSSIBILITY", "MODALITY_PERMISSION", "MODALITY_EXPECTATION", "MODALITY_INTENTION", "MODALITY_PROBABILITY"}, value) {
+			return fmt.Errorf("runtime signal references unknown proposition feature %s", value)
+		}
+	}
+	return nil
+}
+
 func (c Composition) Validate(known map[policy.ConstructID]bool) error {
-	if !patternID.MatchString(c.OutputPattern) || len(c.RequiredConstructs) < 2 || c.MaximumPropositionGap < 0 || c.MaximumPropositionGap > 8 {
+	if !patternID.MatchString(c.OutputPattern) || len(c.RequiredConstructs) < 2 || !uniqueValues(c.RequiredConstructs) || !uniqueValues(c.RelationsAny) || c.MaximumPropositionGap < 0 || c.MaximumPropositionGap > 8 {
 		return fmt.Errorf("composition %q has invalid pattern, requirements or gap", c.OutputPattern)
 	}
 	for _, id := range c.RequiredConstructs {
@@ -177,4 +217,24 @@ func (c Composition) Validate(known map[policy.ConstructID]bool) error {
 		}
 	}
 	return nil
+}
+
+func uniqueNonEmpty(values []string) bool {
+	for _, value := range values {
+		if value == "" {
+			return false
+		}
+	}
+	return uniqueValues(values)
+}
+
+func uniqueValues[T comparable](values []T) bool {
+	seen := make(map[T]bool, len(values))
+	for _, value := range values {
+		if seen[value] {
+			return false
+		}
+		seen[value] = true
+	}
+	return true
 }

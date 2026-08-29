@@ -51,6 +51,7 @@ func TestAnalysisInternalsAreOnlyUsedThroughFacade(t *testing.T) {
 		if strings.HasPrefix(relative, filepath.Join("internal", "analysis")) ||
 			strings.HasPrefix(relative, filepath.Join("internal", "engine")) ||
 			strings.HasPrefix(relative, filepath.Join("internal", "domain")) ||
+			strings.HasPrefix(relative, filepath.Join("internal", "ontology")) ||
 			strings.HasPrefix(relative, filepath.Join("internal", "resolver")) {
 			return nil
 		}

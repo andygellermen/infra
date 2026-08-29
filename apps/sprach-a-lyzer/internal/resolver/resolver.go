@@ -281,6 +281,7 @@ func resolveExpectationSource(text string, runtime catalogueRuntime) domain.Expe
 type positionedSense struct {
 	position int
 	key      string
+	anchor   string
 	sense    domain.ResolverSense
 }
 
@@ -289,11 +290,15 @@ func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, 
 	var positioned []positionedSense
 	ambiguities := []domain.Ambiguity{}
 	patterns := []string{}
-	add := func(key, lexeme, sense string, confidence, gap float64) bool {
+	add := func(key, lexeme, sense string, confidence, gap float64, anchors ...string) bool {
 		if !runtime.matchesLexeme(key, lower) || !runtime.hasSense(key, sense) {
 			return false
 		}
-		positioned = append(positioned, positionedSense{position: runtime.lexemePosition(key, lower), key: key, sense: domain.ResolverSense{
+		position, anchor := runtime.lexemePosition(key, lower), ""
+		if len(anchors) > 0 && strings.Contains(lower, anchors[0]) {
+			position, anchor = strings.Index(lower, anchors[0]), anchors[0]
+		}
+		positioned = append(positioned, positionedSense{position: position, key: key, anchor: anchor, sense: domain.ResolverSense{
 			Lexeme: lexeme, Sense: sense, Confidence: confidence, Gap: gap, State: runtime.senseState(confidence, gap),
 		}})
 		return true
@@ -357,7 +362,7 @@ func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, 
 		}
 	}
 	if strings.Contains(lower, "fehler zeigt") {
-		if add("FEHLER", "Fehler", "LEARNING_EVENT", .84, .09) {
+		if add("FEHLER", "Fehler", "LEARNING_EVENT", .84, .09, "fehler zeigt") {
 			patterns = appendUnique(patterns, "LEARNING_FRAME", "LEARNING_RECOVERY", "OPENING_LANGUAGE")
 		}
 	}
@@ -388,7 +393,9 @@ func resolveSensesAndPatterns(text string, contextValue domain.AnalysisContext, 
 	senses := make([]domain.ResolverSense, len(positioned))
 	for index := range positioned {
 		for _, node := range graph.Nodes {
-			if runtime.matchesLexeme(positioned[index].key, normalize(node.Text)) {
+			nodeText := normalize(node.Text)
+			if (positioned[index].anchor != "" && strings.Contains(nodeText, positioned[index].anchor)) ||
+				(positioned[index].anchor == "" && runtime.matchesLexeme(positioned[index].key, nodeText)) {
 				positioned[index].sense.PropositionID = node.ID
 				break
 			}

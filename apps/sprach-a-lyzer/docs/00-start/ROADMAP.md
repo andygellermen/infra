@@ -1,7 +1,7 @@
 # Sprachkompass – Product & Engineering Roadmap
 
 **Status:** strategische Grobplanung  
-**Stand:** 28. August 2026
+**Stand:** 30. August 2026
 **Prinzip:** Versionen markieren Fähigkeitspakete, keine festen Kalenderzusagen.
 
 ## v0.0 – Foundation
@@ -44,6 +44,10 @@ Die nicht-scoring Construct Ontology v0.2 fixiert 36 kanonische Constructs,
 ihre Evidenz- und Aussagegrenzen sowie drei vorbereitete Proposition-
 Kompositionen; siehe
 [`CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md`](CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md).
+Die Ontology ist inzwischen proposition-lokal und fail-closed an Rule v0.5
+gebunden. Drei Composition-Pattern sind ausführbar, Golden-gesichert und nur
+im bereits kalibrierten Respectful-Boundary-Fall scoring; siehe
+[`CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md`](CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.

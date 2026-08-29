@@ -8,6 +8,11 @@ import _ "embed"
 //go:embed data/seed/sprach-a-lyzer_foundation_v0.3.json
 var FoundationV03 []byte
 
+// FoundationV04 binds Rule v0.5 to proposition-local ontology compositions.
+//
+//go:embed data/seed/sprach-a-lyzer_foundation_v0.4.json
+var FoundationV04 []byte
+
 // ResolverCatalogueV01 is the canonical deterministic resolver catalogue.
 //
 //go:embed data/seed/sprach-a-lyzer_resolver-catalogue_v0.1.json

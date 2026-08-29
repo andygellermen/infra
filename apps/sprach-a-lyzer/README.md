@@ -27,6 +27,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 19. [Resolver Relations & Scope Expansion v0.1](docs/00-start/RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md)
 20. [Proposition-local Trace Binding v0.1](docs/00-start/PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md)
 21. [Construct Ontology Contracts v0.2](docs/00-start/CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md)
+22. [Construct Runtime & Proposition Composition v0.1](docs/00-start/CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md)
 
 ## Repository-Struktur
 
@@ -109,9 +110,9 @@ Die maschinenlesbaren Request-, Ergebnis- und Trace-Verträge liegen unter
 `schemas/analysis/`, die Golden Suite unter
 `data/golden/sprach-a-lyzer_vertical-slice_v0.2.json`.
 
-Die neun ausführbaren Foundation-Regeln liegen ohne fachliche Neukalibrierung
-im strikten Rule-v0.4-Format unter
-`data/seed/sprach-a-lyzer_foundation_v0.3.json`. Die Seed-Pipeline verwirft
+Die elf ausführbaren Foundation-Regeln liegen ohne fachliche Neukalibrierung
+im strikten Rule-v0.5-Format unter
+`data/seed/sprach-a-lyzer_foundation_v0.4.json`. Die Seed-Pipeline verwirft
 unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
@@ -125,6 +126,11 @@ eingebettetes, strikt validiertes Runtime-Artefakt. `AMBIGUOUS`-Senses und
 diagnostische Pattern-Kandidaten werden an der Rule-Engine-Grenze nicht zu
 scorenden Fakten; Proposition-Spans werden vor jeder Rückgabe gegen den
 Quelltext geprüft.
+
+Construct Ontology v0.2 wird ebenfalls als eingebettetes, strikt validiertes
+Runtime-Artefakt geladen. Sie erzeugt proposition-lokale Construct-Evidenz und
+die Pattern `RESPECTFUL_BOUNDARY`, `AGENCY_RECOVERY` und `LEARNING_RECOVERY`;
+die beiden neuen Recovery-Pattern sind bewusst nicht-scoring.
 
 ## PostgreSQL und HTTP-API
 

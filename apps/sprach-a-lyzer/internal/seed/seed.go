@@ -117,7 +117,7 @@ func DecodeFoundationWithReport(reader io.Reader) (Foundation, dimension.Compati
 	if len(wantDimensions) != 0 {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation seed has duplicate or missing canonical dimensions")
 	}
-	wantRules := map[string]int{"0.2": 6, "0.3": 9}[foundation.Version]
+	wantRules := map[string]int{"0.2": 6, "0.3": 9, "0.4": 11}[foundation.Version]
 	if len(foundation.Rules) > 0 && wantRules > 0 && len(foundation.Rules) != wantRules {
 		return Foundation{}, dimension.CompatibilityReport{}, fmt.Errorf("foundation %s must contain exactly %d rules", foundation.Version, wantRules)
 	}

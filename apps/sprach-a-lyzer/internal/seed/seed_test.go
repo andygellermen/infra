@@ -29,7 +29,7 @@ func TestDecodeFoundation(t *testing.T) {
 func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	file, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.4.json")
 	if err != nil {
 		t.Fatalf("open canonical foundation: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	if len(foundation.PresentationBundles) != 2 {
 		t.Fatalf("presentation bundles = %d; want 2", len(foundation.PresentationBundles))
 	}
-	if foundation.Version != "0.3" || foundation.RuleSet.Version != "0.3" || len(foundation.Rules) != 9 {
+	if foundation.Version != "0.4" || foundation.RuleSet.Version != "0.4" || len(foundation.Rules) != 11 {
 		t.Fatalf("foundation/rule-set migration incomplete: version=%s rule_set=%s rules=%d", foundation.Version, foundation.RuleSet.Version, len(foundation.Rules))
 	}
 	for _, rule := range foundation.Rules {
@@ -60,10 +60,31 @@ func TestCanonicalFoundationKeepsPresentationBundlesSeparate(t *testing.T) {
 	}
 }
 
+func TestFoundationV03RemainsHistorical(t *testing.T) {
+	t.Parallel()
+	file, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	if err != nil {
+		t.Fatalf("open historical foundation: %v", err)
+	}
+	defer file.Close()
+	foundation, err := DecodeFoundation(file)
+	if err != nil {
+		t.Fatalf("decode historical foundation: %v", err)
+	}
+	if foundation.Version != "0.3" || foundation.RuleSet.Version != "0.3" || len(foundation.Rules) != 9 {
+		t.Fatalf("historical foundation changed: version=%s set=%s rules=%d", foundation.Version, foundation.RuleSet.Version, len(foundation.Rules))
+	}
+	for _, rule := range foundation.Rules {
+		if rule.ContractVersion != "0.4" {
+			t.Fatalf("historical rule %s contract = %s; want 0.4", rule.Key, rule.ContractVersion)
+		}
+	}
+}
+
 func TestDecodeFoundationRejectsScoringResonanceHint(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.4.json")
 	if err != nil {
 		t.Fatalf("read canonical foundation: %v", err)
 	}
@@ -77,11 +98,11 @@ func TestDecodeFoundationRejectsScoringResonanceHint(t *testing.T) {
 func TestDecodeFoundationRejectsLegacyRuleShape(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.4.json")
 	if err != nil {
 		t.Fatalf("read canonical foundation: %v", err)
 	}
-	invalid := strings.Replace(string(data), `"type": "ADD_PATTERN", "key": "INTERNAL_PRESSURE"`, `"pattern": "INTERNAL_PRESSURE"`, 1)
+	invalid := strings.Replace(string(data), `"type": "ADD_PATTERN"`, `"pattern": "INTERNAL_PRESSURE"`, 1)
 	_, err = DecodeFoundation(strings.NewReader(invalid))
 	if err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("DecodeFoundation() error = %v; want legacy shape rejection", err)

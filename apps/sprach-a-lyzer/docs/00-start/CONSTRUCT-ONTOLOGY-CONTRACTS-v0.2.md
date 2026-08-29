@@ -2,7 +2,7 @@
 
 **Status:** APPROVED
 **Version:** 0.2
-**Stand:** 29. August 2026
+**Stand:** 30. August 2026
 **Roadmap-Ziel:** v0.2 – Context & Proposition
 **Sprint:** v0.2C-B – Construct Ontology Contracts
 
@@ -53,7 +53,8 @@ Sechs Constructs enthalten erste deterministische Runtime-Signale:
 
 Daraus sind drei nicht direkt scorende Kompositionen definiert:
 `RESPECTFUL_BOUNDARY`, `AGENCY_RECOVERY` und `LEARNING_RECOVERY`.
-Die Ausführung und Regelbindung folgt in Sprint v0.2C-C.
+Die Ausführung und Regelbindung ist in Sprint v0.2C-C erfolgt; siehe
+[`CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md`](CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md).
 
 ## Kanonische Artefakte
 

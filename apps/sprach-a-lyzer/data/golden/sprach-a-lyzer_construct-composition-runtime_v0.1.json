@@ -1,0 +1,43 @@
+{
+  "version": "0.1",
+  "ontology_contract": "0.2",
+  "rule_contract": "0.5",
+  "cases": [
+    {
+      "id": "CC01_RESPECTFUL_BOUNDARY",
+      "request": {"text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.", "context": "PRIVATE_CONVERSATION"},
+      "expected_pattern": "RESPECTFUL_BOUNDARY",
+      "composition_rule_id": "R-RESPECTFUL-BOUNDARY",
+      "expected_constructs": [
+        {"id": "PERSPECTIVE_TAKING", "proposition_ids": ["P0"]},
+        {"id": "BOUNDARY_CLARITY", "proposition_ids": ["P1"]}
+      ],
+      "expected_composition_proposition_ids": ["P0", "P1"],
+      "expected_composition_contributions": 6
+    },
+    {
+      "id": "CC02_AGENCY_RECOVERY",
+      "request": {"text": "Ich muss unbedingt alles allein lösen, aber ich kann um Hilfe bitten.", "context": "SELF_TALK"},
+      "expected_pattern": "AGENCY_RECOVERY",
+      "composition_rule_id": "R-AGENCY-RECOVERY",
+      "expected_constructs": [
+        {"id": "CONTROL_PRESSURE_INTERPRETATION", "proposition_ids": ["P0"]},
+        {"id": "CONTEXTUAL_AGENCY", "proposition_ids": ["P1"]}
+      ],
+      "expected_composition_proposition_ids": ["P0", "P1"],
+      "expected_composition_contributions": 0
+    },
+    {
+      "id": "CC03_LEARNING_RECOVERY",
+      "request": {"text": "Ich bin ein Fehler, aber der Fehler zeigt mir den nächsten Versuch.", "context": "SELF_TALK"},
+      "expected_pattern": "LEARNING_RECOVERY",
+      "composition_rule_id": "R-LEARNING-RECOVERY",
+      "expected_constructs": [
+        {"id": "PERSON_BEHAVIOR_LABELING", "proposition_ids": ["P0"]},
+        {"id": "ARTICULATED_LEARNING", "proposition_ids": ["P1"]}
+      ],
+      "expected_composition_proposition_ids": ["P0", "P1"],
+      "expected_composition_contributions": 0
+    }
+  ]
+}

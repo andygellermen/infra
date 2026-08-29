@@ -44,7 +44,7 @@ func TestPostgresFoundation(t *testing.T) {
 		t.Fatalf("second migration run applied %v; want none", second.Applied)
 	}
 
-	foundation, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	foundation, err := os.Open("../../data/seed/sprach-a-lyzer_foundation_v0.4.json")
 	if err != nil {
 		t.Fatalf("open foundation: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestPostgresFoundation(t *testing.T) {
 	if result.Dimensions != 6 || result.GoldenCases != 6 || result.PresentationBundles != 2 {
 		t.Fatalf("unexpected seed result: %+v", result)
 	}
-	legacyFoundation, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.3.json")
+	legacyFoundation, err := os.ReadFile("../../data/seed/sprach-a-lyzer_foundation_v0.4.json")
 	if err != nil {
 		t.Fatalf("read legacy foundation source: %v", err)
 	}
@@ -87,8 +87,8 @@ func TestPostgresFoundation(t *testing.T) {
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'VOLITION'`, 1)
 	assertScalar(t, database, `SELECT COUNT(*) FROM dimensions WHERE dimension_id = 'FREE_WILL'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE actions::text LIKE '%FREE_WILL%'`, 0)
-	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE contract_version = '0.4'`, 9)
-	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE jsonb_array_length(source_keys) > 0`, 9)
+	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE contract_version = '0.5'`, 11)
+	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE jsonb_array_length(source_keys) > 0`, 11)
 	assertScalar(t, database, `SELECT COUNT(*) FROM presentation_entries WHERE canonical_key = 'FREE_WILL'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM audit_events WHERE event_type = 'LEGACY_DIMENSION_MAPPED'`, 1)
 

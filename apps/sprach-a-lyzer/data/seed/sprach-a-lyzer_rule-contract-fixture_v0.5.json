@@ -1,0 +1,45 @@
+{
+  "contract_version": "0.5",
+  "id": "20000000-0000-4000-8000-000000000101",
+  "key": "R-RESPECTFUL-BOUNDARY-V2",
+  "name": "Respectful boundary composition",
+  "description": "Consumes one proposition-local ontology composition.",
+  "priority": 100,
+  "enabled": true,
+  "scope": "TEXT",
+  "status": "TESTING",
+  "version": 1,
+  "evidence_class": "B",
+  "source_keys": [
+    "REFERENCE_ENGINE_V0_4_1"
+  ],
+  "condition": {
+    "field": "composition",
+    "operator": "EQUALS",
+    "value": "RESPECTFUL_BOUNDARY"
+  },
+  "actions": [
+    {
+      "type": "ADD_PATTERN",
+      "key": "INTERNAL_PRESSURE"
+    },
+    {
+      "type": "ADD_CONTRIBUTION",
+      "dimension": "VOLITION",
+      "value": -10,
+      "confidence": 0.9,
+      "reason_key": "INTERNAL_PRESSURE_VOLITION",
+      "evidence_key": "EVIDENCE_INTERNAL_PRESSURE"
+    },
+    {
+      "type": "ADD_CONTRIBUTION",
+      "dimension": "OPENNESS",
+      "value": -4,
+      "confidence": 0.8,
+      "reason_key": "INTERNAL_PRESSURE_OPENNESS",
+      "evidence_key": "EVIDENCE_INTERNAL_PRESSURE"
+    }
+  ],
+  "confidence_modifier": 1,
+  "stop_processing": false
+}

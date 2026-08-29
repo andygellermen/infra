@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/policy"
+
 type Locale string
 type AnalysisContext string
 type InputMode string
@@ -85,6 +87,14 @@ const AnalysisTraceV02ContractVersion = "0.2"
 type TraceProvenance struct {
 	Propositions               []TraceProposition
 	ContributionPropositionIDs [][]string
+	ConstructEvidence          []ConstructEvidence
+}
+
+type ConstructEvidence struct {
+	ConstructID    policy.ConstructID
+	InferenceClass string
+	ClaimMode      string
+	PropositionIDs []string
 }
 
 type TraceProposition struct {

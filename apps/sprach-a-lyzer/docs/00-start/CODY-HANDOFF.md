@@ -1,7 +1,7 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
 **Status:** MVP Initiation Package  
-**Stand:** 29. August 2026
+**Stand:** 30. August 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -199,13 +199,13 @@ Abgeschlossen:
 
 - `FREE_WILL` ist nur noch Legacy-Alias; neue Verträge verwenden `VOLITION`.
 - Analyse-, Ergebnis- und Trace-Verträge v0.1 sind stabil.
-- Rule Contract v0.4 ist die aktuelle strikte Authoring-Grenze.
+- Rule Contract v0.5 ist die aktuelle strikte Authoring-Grenze.
 - Canonical Question und sichtbares Rendering besitzen getrennte Verträge.
 - Privacy Defaults und Feature Flags sind kanonisch registriert.
 - Hard und Soft Guardrails sind getrennt und maschinenlesbar.
 - Versionsvektor und Golden-gesicherter Publish-Ablauf sind festgelegt.
-- Neun Foundation-Regeln liegen strikt typisiert als Rule v0.4 vor.
-- Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.4.
+- Elf Foundation-Regeln liegen strikt typisiert als Rule v0.5 vor.
+- Seed, PostgreSQL-Regelkatalog und Provenienzfelder konsumieren Rule v0.5.
 - Server/API beziehen den aktiven Foundation-Regelkatalog zur Laufzeit aus
   PostgreSQL; CLI und Tests verwenden das eingebettete kanonische Seed-Artefakt.
 
@@ -219,7 +219,7 @@ Weiterhin eigene Folgeschritte:
 
 Der Deterministic Language Core ist mit
 [`CORE-CLOSURE-v0.1.0.md`](CORE-CLOSURE-v0.1.0.md) abgeschlossen. Aktueller
-kanonischer Laufzeitvektor: Rule Contract v0.4, Foundation/Rule Set v0.3,
+damaliger Release-Laufzeitvektor: Rule Contract v0.4, Foundation/Rule Set v0.3,
 Policy Registry v0.3, Presentation Bundle v0.2, Golden Suite v0.2 und
 DB-Schema 3.
 
@@ -290,3 +290,15 @@ zulässige/verbotene Aussagen sind maschinenlesbar. Kein Construct scoret
 direkt. Policy Registry v0.6 schützt die Ontology mit drei neuen Hard
 Guardrails. Die vorbereiteten Runtime-Signale und Kompositionen werden erst in
 v0.2C-C ausführbar gebunden.
+
+## 17. Construct Runtime & Proposition Composition – Sprint v0.2C-C
+
+Die in
+[`CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md`](CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md)
+dokumentierte Runtime ist abgeschlossen. Ontology-Signale werden je
+Proposition ausgewertet und über `construct`- beziehungsweise `composition`-
+Fakten von Rule v0.5 konsumiert. Foundation v0.4 erkennt
+`RESPECTFUL_BOUNDARY`, `AGENCY_RECOVERY` und `LEARNING_RECOVERY`
+propositional. Nur die bereits Golden-kalibrierte respektvolle Grenze trägt
+weiterhin bei; die neuen Recovery-Pattern bleiben nicht-scoring. Policy
+Registry v0.7 fixiert den Laufzeitvektor.

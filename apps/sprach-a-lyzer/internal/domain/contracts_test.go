@@ -59,7 +59,7 @@ func TestAnalysisTraceV02PublishesPropositionLinksWithoutChangingResultV01(t *te
 	if err != nil {
 		t.Fatalf("marshal result: %v", err)
 	}
-	if bytes.Contains(encodedResult, []byte("trace_provenance")) || bytes.Contains(encodedResult, []byte("proposition_ids")) {
+	if bytes.Contains(encodedResult, []byte("trace_provenance")) || bytes.Contains(encodedResult, []byte("proposition_ids")) || bytes.Contains(encodedResult, []byte("construct_evidence")) {
 		t.Fatalf("trace v0.2 provenance leaked into result v0.1: %s", encodedResult)
 	}
 	trace := result.TraceV02()

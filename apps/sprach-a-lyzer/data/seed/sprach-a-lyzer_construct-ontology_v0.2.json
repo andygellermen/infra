@@ -715,8 +715,9 @@
       "core_scoring": false,
       "runtime_signals": [
         {
-          "selected_senses_any": [
-            "LEARNING_EVENT"
+          "phrases_all": [
+            "fehler zeigt",
+            "nächsten versuch"
           ]
         }
       ]

@@ -242,6 +242,19 @@ func TestConflictingNodeTargetsFallBackAtAggregateOnly(t *testing.T) {
 	}
 }
 
+func TestRepeatedLexemeSenseUsesSupportingPropositionAnchor(t *testing.T) {
+	t.Parallel()
+	result, err := New().Resolve(domain.AnalysisRequest{
+		Text: "Ich bin ein Fehler, aber der Fehler zeigt mir den nächsten Versuch.", Context: domain.ContextSelfTalk,
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if len(result.SelectedSenses) != 1 || result.SelectedSenses[0].Sense != "LEARNING_EVENT" || result.SelectedSenses[0].PropositionID != "P1" {
+		t.Fatalf("learning sense provenance = %+v; want LEARNING_EVENT/P1", result.SelectedSenses)
+	}
+}
+
 func TestResolverCatalogueFailuresAreFailClosed(t *testing.T) {
 	t.Parallel()
 	want := errors.New("resolver catalogue unavailable")

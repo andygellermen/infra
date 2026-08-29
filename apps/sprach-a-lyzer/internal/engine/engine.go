@@ -8,15 +8,17 @@ import (
 	"strings"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/domain"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/ontology"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/resolver"
 )
 
 var ErrEmptyText = errors.New("analysis text must not be empty")
 
 type Engine struct {
-	catalogue CatalogueProvider
-	texts     TextProvider
-	resolver  contextResolver
+	catalogue  CatalogueProvider
+	texts      TextProvider
+	resolver   contextResolver
+	constructs *ontology.Runtime
 }
 
 type contextResolver interface {
@@ -30,7 +32,11 @@ func New(catalogue CatalogueProvider) *Engine {
 }
 
 func NewWithProviders(catalogue CatalogueProvider, texts TextProvider) *Engine {
-	return &Engine{catalogue: catalogue, texts: texts, resolver: resolver.New()}
+	return NewWithOntologyProvider(catalogue, texts, embeddedOntologyProvider())
+}
+
+func NewWithOntologyProvider(catalogue CatalogueProvider, texts TextProvider, provider ontology.CatalogueProvider) *Engine {
+	return &Engine{catalogue: catalogue, texts: texts, resolver: resolver.New(), constructs: ontology.NewRuntime(provider)}
 }
 
 func (e *Engine) Resolve(request domain.AnalysisRequest) (domain.ResolverResult, error) {
@@ -79,13 +85,26 @@ func (e *Engine) Analyze(request domain.AnalysisRequest) (domain.AnalysisResult,
 	if err != nil {
 		return domain.AnalysisResult{}, fmt.Errorf("resolve context and propositions: %w", err)
 	}
+	if e.constructs == nil {
+		return domain.AnalysisResult{}, fmt.Errorf("construct runtime is nil")
+	}
+	constructResult, err := e.constructs.Resolve(context.Background(), resolution)
+	if err != nil {
+		return domain.AnalysisResult{}, fmt.Errorf("resolve construct evidence: %w", err)
+	}
+	for _, evidence := range constructResult.Evidence {
+		result.TraceProvenance.ConstructEvidence = append(result.TraceProvenance.ConstructEvidence, domain.ConstructEvidence{
+			ConstructID: evidence.ConstructID, InferenceClass: evidence.InferenceClass,
+			ClaimMode: evidence.ClaimMode, PropositionIDs: append([]string(nil), evidence.PropositionIDs...),
+		})
+	}
 	for _, node := range resolution.PropositionGraph.Nodes {
 		result.TraceProvenance.Propositions = append(result.TraceProvenance.Propositions, domain.TraceProposition{
 			ID: node.ID, Text: node.Text, SourceStart: node.SourceStart, SourceEnd: node.SourceEnd,
 			TargetType: node.TargetType, ExpectationSource: node.ExpectationSource,
 		})
 	}
-	definitions, facts, err := e.activeDefinitions(request, normalize(text), resolution)
+	definitions, facts, err := e.activeDefinitions(request, normalize(text), resolution, constructResult)
 	if err != nil {
 		return domain.AnalysisResult{}, err
 	}

@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	ContractVersion       = "0.4"
-	LegacyContractVersion = "0.3"
+	ContractVersion       = "0.5"
+	LegacyContractVersion = "0.4"
+	HistoricalContractV03 = "0.3"
 )
 
 var ruleKeyPattern = regexp.MustCompile(`^R-[A-Z0-9]+(?:-[A-Z0-9]+)*$`)
@@ -82,8 +83,8 @@ func DecodeDefinition(data []byte) (Definition, error) {
 }
 
 func (d Definition) Validate() error {
-	if d.ContractVersion != ContractVersion && d.ContractVersion != LegacyContractVersion {
-		return fmt.Errorf("rule %q contract_version = %q; want %q or %q", d.Key, d.ContractVersion, ContractVersion, LegacyContractVersion)
+	if !slices.Contains([]string{ContractVersion, LegacyContractVersion, HistoricalContractV03}, d.ContractVersion) {
+		return fmt.Errorf("rule %q contract_version = %q; want %q, %q or %q", d.Key, d.ContractVersion, ContractVersion, LegacyContractVersion, HistoricalContractV03)
 	}
 	if !uuidPattern.MatchString(d.ID) || !ruleKeyPattern.MatchString(d.Key) || d.Name == "" {
 		return fmt.Errorf("rule %q must contain a canonical id, key and name", d.Key)
@@ -103,7 +104,7 @@ func (d Definition) Validate() error {
 	if !uniqueStrings(d.SourceKeys) {
 		return fmt.Errorf("rule %s contains duplicate source keys", d.Key)
 	}
-	if err := validateCondition(d.Condition, 0); err != nil {
+	if err := validateCondition(d.Condition, 0, d.ContractVersion); err != nil {
 		return fmt.Errorf("rule %s condition: %w", d.Key, err)
 	}
 	if len(d.Actions) == 0 {
@@ -117,7 +118,7 @@ func (d Definition) Validate() error {
 	return nil
 }
 
-func validateCondition(condition Condition, depth int) error {
+func validateCondition(condition Condition, depth int, contractVersion string) error {
 	if depth > 16 {
 		return fmt.Errorf("condition depth exceeds 16")
 	}
@@ -127,7 +128,7 @@ func validateCondition(condition Condition, depth int) error {
 			return fmt.Errorf("%s requires children only", condition.Op)
 		}
 		for _, child := range condition.Children {
-			if err := validateCondition(child, depth+1); err != nil {
+			if err := validateCondition(child, depth+1, contractVersion); err != nil {
 				return err
 			}
 		}
@@ -136,7 +137,7 @@ func validateCondition(condition Condition, depth int) error {
 		if condition.Child == nil || len(condition.Children) != 0 || condition.Field != "" || condition.Operator != "" || len(condition.Value) != 0 || condition.CaseSensitive {
 			return fmt.Errorf("NOT requires one child only")
 		}
-		return validateCondition(*condition.Child, depth+1)
+		return validateCondition(*condition.Child, depth+1, contractVersion)
 	case "":
 	default:
 		return fmt.Errorf("unsupported operation %q", condition.Op)
@@ -144,7 +145,10 @@ func validateCondition(condition Condition, depth int) error {
 	if len(condition.Children) != 0 || condition.Child != nil {
 		return fmt.Errorf("predicate must not contain child conditions")
 	}
-	fields := []string{"selected_sense", "tokens", "phrase", "context", "input_mode", "target_type", "expectation_source", "discourse_relation", "pattern", "proposition_feature"}
+	fields := []string{"selected_sense", "tokens", "phrase", "context", "input_mode", "target_type", "expectation_source", "discourse_relation", "pattern", "proposition_feature", "construct", "composition"}
+	if contractVersion != ContractVersion {
+		fields = fields[:len(fields)-2]
+	}
 	operators := []string{"EQUALS", "NOT_EQUALS", "CONTAINS", "CONTAINS_ANY", "CONTAINS_ALL", "MATCHES", "EXISTS", "NOT_EXISTS"}
 	if !slices.Contains(fields, condition.Field) || !slices.Contains(operators, condition.Operator) {
 		return fmt.Errorf("unsupported predicate %q/%q", condition.Field, condition.Operator)
@@ -211,8 +215,8 @@ func validateAction(action Action, contractVersion string) error {
 		}
 	case policy.StopRuleChain:
 	}
-	if contractVersion == ContractVersion && requiresV04Fields(action) {
-		return fmt.Errorf("%s requires Rule v0.4 runtime metadata", action.Type)
+	if (contractVersion == ContractVersion || contractVersion == LegacyContractVersion) && requiresV04Fields(action) {
+		return fmt.Errorf("%s requires Rule v0.4+ runtime metadata", action.Type)
 	}
 	if action.Confidence != nil && (*action.Confidence < 0 || *action.Confidence > 1) {
 		return fmt.Errorf("confidence must be between 0 and 1")

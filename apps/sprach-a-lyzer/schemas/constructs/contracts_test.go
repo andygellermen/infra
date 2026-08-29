@@ -13,7 +13,7 @@ func TestOntologySchemaAndSeedLockCanonicalIDsAndGuardrails(t *testing.T) {
 	t.Parallel()
 	schema := readObject(t, "sprach-a-lyzer_construct-ontology_v0.2.json")
 	seed := readObject(t, "../../data/seed/sprach-a-lyzer_construct-ontology_v0.2.json")
-	if seed["ontology_version"] != "0.2" || seed["policy_registry"] != policy.RegistryVersion {
+	if seed["ontology_version"] != "0.2" || seed["policy_registry"] != "0.6" {
 		t.Fatalf("ontology version vector = %v/%v", seed["ontology_version"], seed["policy_registry"])
 	}
 	definitions := object(t, schema["$defs"])

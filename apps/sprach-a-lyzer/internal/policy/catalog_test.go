@@ -14,6 +14,8 @@ type registryFixture struct {
 		ResolverResult    string `json:"resolver_result"`
 		ResolverCatalogue string `json:"resolver_catalogue"`
 		ConstructOntology string `json:"construct_ontology"`
+		Rule              string `json:"rule"`
+		RuleSet           string `json:"rule_set"`
 	} `json:"version_contract"`
 	CanonicalIDs struct {
 		AnalysisContexts   []AnalysisContextID   `json:"analysis_contexts"`
@@ -51,7 +53,7 @@ type registryFixture struct {
 func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.6.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.7.json")
 	if err != nil {
 		t.Fatalf("read policy registry: %v", err)
 	}
@@ -70,6 +72,9 @@ func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	}
 	if fixture.VersionContract.ConstructOntology != "0.2" {
 		t.Fatalf("construct ontology version = %q; want 0.2", fixture.VersionContract.ConstructOntology)
+	}
+	if fixture.VersionContract.Rule != "0.5" || fixture.VersionContract.RuleSet != "0.4" {
+		t.Fatalf("rule version vector = %q/%q; want 0.5/0.4", fixture.VersionContract.Rule, fixture.VersionContract.RuleSet)
 	}
 	if !slices.Equal(fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes()) {
 		t.Errorf("rule action IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes())
@@ -230,6 +235,31 @@ func TestPolicyRegistryV05RemainsHistorical(t *testing.T) {
 	}
 	if historical.RegistryVersion != "0.5" || historical.VersionContract.AnalysisTrace != "0.2" || historical.VersionContract.ConstructOntology != "" || len(historical.HardGuardrails) != 21 {
 		t.Fatalf("historical registry v0.5 changed: version=%q trace=%q ontology=%q guardrails=%d", historical.RegistryVersion, historical.VersionContract.AnalysisTrace, historical.VersionContract.ConstructOntology, len(historical.HardGuardrails))
+	}
+}
+
+func TestPolicyRegistryV06RemainsHistorical(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.6.json")
+	if err != nil {
+		t.Fatalf("read policy registry v0.6: %v", err)
+	}
+	var historical struct {
+		RegistryVersion string `json:"registry_version"`
+		VersionContract struct {
+			ConstructOntology string `json:"construct_ontology"`
+			Rule              string `json:"rule"`
+			RuleSet           string `json:"rule_set"`
+		} `json:"version_contract"`
+		HardGuardrails []struct {
+			ID GuardrailID `json:"id"`
+		} `json:"hard_guardrails"`
+	}
+	if err := json.Unmarshal(data, &historical); err != nil {
+		t.Fatalf("decode policy registry v0.6: %v", err)
+	}
+	if historical.RegistryVersion != "0.6" || historical.VersionContract.ConstructOntology != "0.2" || historical.VersionContract.Rule != "0.4" || historical.VersionContract.RuleSet != "0.3" || len(historical.HardGuardrails) != 24 {
+		t.Fatalf("historical registry v0.6 changed: version=%q ontology=%q rule=%q set=%q guardrails=%d", historical.RegistryVersion, historical.VersionContract.ConstructOntology, historical.VersionContract.Rule, historical.VersionContract.RuleSet, len(historical.HardGuardrails))
 	}
 }
 

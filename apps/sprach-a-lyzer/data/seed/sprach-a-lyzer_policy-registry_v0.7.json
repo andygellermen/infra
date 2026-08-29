@@ -1,0 +1,516 @@
+{
+  "$schema": "../../schemas/rules/sprach-a-lyzer_policy-registry_v0.7.json",
+  "registry_version": "0.7",
+  "status": "APPROVED",
+  "canonical_ids": {
+    "dimensions": [
+      "AGENCY",
+      "CONNECTION",
+      "APPRECIATION",
+      "CLARITY",
+      "VOLITION",
+      "OPENNESS"
+    ],
+    "assessability_states": [
+      "NOT_ASSESSABLE",
+      "WEAK",
+      "ASSESSABLE",
+      "STRONG"
+    ],
+    "presentation_profiles": [
+      "PRIVATE",
+      "CORPORATE"
+    ],
+    "analysis_contexts": [
+      "UNSPECIFIED",
+      "SELF_TALK",
+      "SAFETY",
+      "LEGAL_ADMINISTRATIVE",
+      "WORKPLACE",
+      "PRIVATE_CONVERSATION",
+      "FAMILY",
+      "COACHING",
+      "MODERATION",
+      "WEBSITE",
+      "PUBLIC_INFORMATION"
+    ],
+    "input_modes": [
+      "TEXT",
+      "SPOKEN_DICTATION",
+      "DIRECT_AUDIO"
+    ],
+    "analysis_modes": [
+      "STANDARD"
+    ],
+    "resonance_modes": [
+      "OFF",
+      "HINT_ONLY",
+      "MODERATE",
+      "FULL",
+      "PERSONALIZED"
+    ],
+    "evidence_classes": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "inference_classes": [
+      "OBSERVABLE",
+      "INFERABLE",
+      "WORKING_HYPOTHESIS",
+      "REFLECTIVE_ONLY"
+    ],
+    "causal_levels": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4"
+    ],
+    "target_types": [
+      "PERSON",
+      "SELF",
+      "BEHAVIOR",
+      "PROCESS",
+      "EVENT",
+      "OBJECT",
+      "IDEA",
+      "GROUP",
+      "INSTITUTION",
+      "UNKNOWN"
+    ],
+    "expectation_sources": [
+      "SELF",
+      "OTHER_PERSON",
+      "GROUP",
+      "INSTITUTION",
+      "LAW",
+      "CULTURE",
+      "UNSPECIFIED",
+      "INTERNALIZED"
+    ],
+    "discourse_relations": [
+      "CONTRAST",
+      "CONCESSION",
+      "CAUSE",
+      "CONSEQUENCE",
+      "ADDITION",
+      "CONDITION",
+      "CORRECTION",
+      "DISCOUNTING"
+    ],
+    "actors": [
+      "SELF",
+      "OTHER_PERSON",
+      "GROUP_SELF",
+      "UNKNOWN"
+    ],
+    "modalities": [
+      "NONE",
+      "NECESSITY",
+      "POSSIBILITY",
+      "PERMISSION",
+      "EXPECTATION",
+      "INTENTION",
+      "PROBABILITY"
+    ],
+    "negation_scopes": [
+      "NONE",
+      "PROPOSITION",
+      "MODALITY",
+      "ACTOR",
+      "AMBIGUOUS"
+    ],
+    "sense_states": [
+      "HIGH",
+      "MEDIUM",
+      "AMBIGUOUS"
+    ],
+    "ambiguity_types": [
+      "SEMANTIC",
+      "PHONETIC",
+      "ORTHOGRAPHIC",
+      "PRAGMATIC",
+      "SYNTACTIC",
+      "REGISTER",
+      "RESONANCE"
+    ],
+    "rule_scopes": [
+      "TEXT",
+      "QUESTION_ANSWER",
+      "SPOKEN_DICTATION"
+    ],
+    "rule_statuses": [
+      "DRAFT",
+      "TESTING",
+      "APPROVED",
+      "PRODUCTION",
+      "ARCHIVED"
+    ],
+    "rule_action_types": [
+      "ADD_CONTRIBUTION",
+      "MULTIPLY_CONTRIBUTION",
+      "CAP_MIN",
+      "CAP_MAX",
+      "SET",
+      "INVERT",
+      "SUPPRESS",
+      "ADD_PATTERN",
+      "ADD_EXPLANATION",
+      "ADD_REFLECTION_PROMPT",
+      "ADD_ALTERNATIVE",
+      "MARK_NON_ASSESSABLE",
+      "SELECT_SENSE",
+      "ADD_RESONANCE_HINT",
+      "STOP_RULE_CHAIN"
+    ],
+    "constructs": [
+      "GENERALIZATION",
+      "MODALITY",
+      "NEGATION",
+      "CERTAINTY",
+      "SPECIFICITY",
+      "TEMPORAL_REFERENCE",
+      "PERSON_BEHAVIOR_LABELING",
+      "OPTION_COUNT",
+      "COMMITMENT_VERB",
+      "EMOTION_WORD",
+      "VALUE_WORD",
+      "NEED_WORD",
+      "CONTEXTUAL_AGENCY",
+      "PERCEIVED_INFLUENCE_SCOPE",
+      "PERCEIVED_OPTION_SPACE",
+      "VOLITION",
+      "COMPETENCE_EXPECTANCY",
+      "EXPLICIT_VALUES",
+      "EXPLICIT_NEEDS",
+      "ATTRIBUTED_MEANING",
+      "ARTICULATED_AMBIVALENCE",
+      "PERSPECTIVE_TAKING",
+      "RELATIONAL_ORIENTATION",
+      "BOUNDARY_CLARITY",
+      "ARTICULATED_LEARNING",
+      "OWNED_COMMITMENT",
+      "BELIEF_LIKE_PATTERN",
+      "INTERNALIZED_EXPECTATION",
+      "IDENTITY_FUSION",
+      "HYPOTHESIZED_NEED",
+      "CONTROL_PRESSURE_INTERPRETATION",
+      "SYSTEM_RULE_HYPOTHESIS",
+      "EXISTENTIAL_MEANING",
+      "RESONANCE",
+      "INNER_ALIGNMENT",
+      "SPIRITUAL_REFLECTION"
+    ]
+  },
+  "version_contract": {
+    "analysis_request": "0.1",
+    "analysis_result": "0.1",
+    "analysis_trace": "0.2",
+    "resolver_result": "0.2",
+    "resolver_catalogue": "0.1",
+    "rule": "0.5",
+    "parameter": "0.1",
+    "question_canonical": "0.1",
+    "question_rendering": "0.1",
+    "knowledge_base": "0.1",
+    "rule_set": "0.4",
+    "parameter_set": "0.1",
+    "presentation_bundle": "0.2",
+    "golden_suite": "0.2",
+    "construct_ontology": "0.2"
+  },
+  "privacy_defaults": {
+    "raw_text_retention": "DISCARD_AFTER_ANALYSIS",
+    "analysis_storage": false,
+    "raw_audio_storage": false,
+    "personal_history": "EXPLICIT_OPT_IN",
+    "manager_individual_access": false,
+    "employee_ranking": false,
+    "hr_selection_use": false
+  },
+  "feature_flags": [
+    {
+      "id": "AI_EXPLANATION",
+      "default": false,
+      "stage": "OPTIONAL_PREVIEW"
+    },
+    {
+      "id": "AI_REPHRASING",
+      "default": false,
+      "stage": "OPTIONAL_PREVIEW"
+    },
+    {
+      "id": "AI_ADAPTIVE_QUESTION",
+      "default": false,
+      "stage": "LATER"
+    },
+    {
+      "id": "LOCAL_LLM",
+      "default": false,
+      "stage": "LATER"
+    },
+    {
+      "id": "CLOUD_LLM",
+      "default": false,
+      "stage": "LATER"
+    },
+    {
+      "id": "LOCAL_ASR",
+      "default": false,
+      "stage": "LATER"
+    },
+    {
+      "id": "PROSODY_ANALYSIS",
+      "default": false,
+      "stage": "LATER"
+    },
+    {
+      "id": "STORE_RAW_TEXT",
+      "default": false,
+      "stage": "EXPLICIT_OPT_IN_ONLY"
+    },
+    {
+      "id": "STORE_AUDIO",
+      "default": false,
+      "stage": "EXPLICIT_OPT_IN_ONLY"
+    }
+  ],
+  "hard_guardrails": [
+    {
+      "id": "MISSING_EVIDENCE_IS_NULL",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "CONTRACT",
+        "GOLDEN"
+      ],
+      "description": "Fehlende Evidenz erzeugt NOT_ASSESSABLE und score null, niemals einen neutralen Scheinwert."
+    },
+    {
+      "id": "SCORE_IS_BOUNDED",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "CONTRACT"
+      ],
+      "description": "Öffentliche Dimensionsscores liegen zwischen 0 und 100."
+    },
+    {
+      "id": "CONFIDENCE_IS_BOUNDED",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "CONTRACT"
+      ],
+      "description": "Confidence und Assessability liegen zwischen 0 und 1."
+    },
+    {
+      "id": "CALCULATIONS_ARE_FINITE",
+      "editable": false,
+      "enforced_by": [
+        "CORE"
+      ],
+      "description": "NaN, Infinity und Division durch null sind unzulässig."
+    },
+    {
+      "id": "NO_CIRCULAR_RULE_CHAINS",
+      "editable": false,
+      "enforced_by": [
+        "IMPORT",
+        "PUBLISH"
+      ],
+      "description": "Regelabhängigkeiten dürfen keinen Zyklus bilden."
+    },
+    {
+      "id": "NO_INFINITE_MODIFIER_CHAINS",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "PUBLISH"
+      ],
+      "description": "Modifier-Ketten sind endlich und besitzen ein festes Ausführungslimit."
+    },
+    {
+      "id": "NO_SEMANTIC_HOMOPHONE_INHERITANCE",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "GOLDEN"
+      ],
+      "description": "Homophone Beziehungen übertragen keine Semantik und keinen Dimensionsbeitrag."
+    },
+    {
+      "id": "NO_PERSON_DIAGNOSIS",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "PRESENTATION",
+        "AI_ADAPTER"
+      ],
+      "description": "Die Engine erzeugt keine Diagnose über einen Menschen."
+    },
+    {
+      "id": "NO_TRAIT_CLAIMS",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "PRESENTATION",
+        "AI_ADAPTER"
+      ],
+      "description": "Textbeobachtungen werden nicht als stabile Persönlichkeitseigenschaften ausgegeben."
+    },
+    {
+      "id": "NO_EMPLOYEE_RANKING",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "CORPORATE",
+        "EXPORT"
+      ],
+      "description": "Individuelle Beschäftigte werden niemals gerankt."
+    },
+    {
+      "id": "QUESTION_SCORE_BIAS_IS_ZERO",
+      "editable": false,
+      "enforced_by": [
+        "Q_A_ENGINE",
+        "CONTRACT",
+        "GOLDEN"
+      ],
+      "description": "Eine Frage addiert oder subtrahiert selbst keinen Dimensionsscore."
+    },
+    {
+      "id": "QUESTION_ALONE_IS_NOT_ASSESSABLE",
+      "editable": false,
+      "enforced_by": [
+        "Q_A_ENGINE",
+        "GOLDEN"
+      ],
+      "description": "Fragekontext allein erzeugt keine Bewertbarkeit."
+    },
+    {
+      "id": "RESONANCE_DOES_NOT_SCORE_CORE",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "GOLDEN"
+      ],
+      "description": "Resonanzhinweise erzeugen im Standardmodus keinen semantischen Kernscore."
+    },
+    {
+      "id": "CORPORATE_HAS_NO_CANONICAL_FALLBACK",
+      "editable": false,
+      "enforced_by": [
+        "PRESENTATION",
+        "BUILD",
+        "GOLDEN"
+      ],
+      "description": "Corporate-Ausgaben fallen niemals auf interne oder private Canonical Labels zurück."
+    },
+    {
+      "id": "LLM_CANNOT_SCORE",
+      "editable": false,
+      "enforced_by": [
+        "AI_ADAPTER",
+        "CORE"
+      ],
+      "description": "Ein LLM darf keine Scores, Evidenzklassen oder Guardrails autonom verändern."
+    },
+    {
+      "id": "WING_SCORE_EVALUATES_TEXT",
+      "editable": false,
+      "enforced_by": [
+        "CORE",
+        "PRESENTATION"
+      ],
+      "description": "Ein WingScore beschreibt ausschließlich den analysierten Text, nie den Menschen."
+    },
+    {
+      "id": "RAW_TEXT_STORAGE_REQUIRES_OPT_IN",
+      "editable": false,
+      "enforced_by": [
+        "API",
+        "PERSISTENCE",
+        "CORPORATE"
+      ],
+      "description": "Rohtextspeicherung benötigt eine ausdrückliche, zweckgebundene Zustimmung."
+    },
+    {
+      "id": "RAW_AUDIO_STORAGE_REQUIRES_OPT_IN",
+      "editable": false,
+      "enforced_by": [
+        "API",
+        "PERSISTENCE"
+      ],
+      "description": "Audio wird nur nach ausdrücklicher, zweckgebundener Zustimmung gespeichert."
+    },
+    {
+      "id": "AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE",
+      "editable": false,
+      "enforced_by": [
+        "RESOLVER",
+        "CORE",
+        "GOLDEN"
+      ],
+      "description": "Ein als AMBIGUOUS markiertes Resolver-Merkmal darf keinen unverminderten harten Score erzeugen."
+    },
+    {
+      "id": "PROPOSITION_SPAN_MUST_MATCH_SOURCE",
+      "editable": false,
+      "enforced_by": [
+        "RESOLVER",
+        "CONTRACT",
+        "GOLDEN"
+      ],
+      "description": "Jede Proposition muss exakt auf ihren halb-offenen UTF-8-Bytebereich im Quelltext zurückführbar sein."
+    },
+    {
+      "id": "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES",
+      "editable": false,
+      "enforced_by": [
+        "RESOLVER",
+        "CORE",
+        "GOLDEN"
+      ],
+      "description": "Resolver-Kandidaten werden nicht ungeprüft zu aktiven Rule-Pattern oder Contributions."
+    },
+    {
+      "id": "CONSTRUCT_REQUIRES_EXPLICIT_EVIDENCE",
+      "editable": false,
+      "reason": "A construct requires versioned positive evidence and cannot be inferred from missing evidence."
+    },
+    {
+      "id": "WORKING_HYPOTHESIS_REQUIRES_HEDGING",
+      "editable": false,
+      "reason": "Working hypotheses may only be exposed as qualified hypotheses or reflection prompts."
+    },
+    {
+      "id": "REFLECTIVE_CONSTRUCT_CANNOT_SCORE",
+      "editable": false,
+      "reason": "Reflective and spiritual constructs never contribute to deterministic core scores."
+    }
+  ],
+  "soft_guardrails": [
+    {
+      "id": "WARN_BASE_CONTRIBUTION_ABOVE_50",
+      "parameter_key": "rule.base_contribution_abs",
+      "warn_above": 50,
+      "requires_approval": true
+    },
+    {
+      "id": "WARN_RESONANCE_FACTOR_ABOVE_0_6",
+      "parameter_key": "resonance.factor",
+      "warn_above": 0.6,
+      "requires_approval": true
+    },
+    {
+      "id": "WARN_FREQUENCY_ALPHA_ABOVE_0_5",
+      "parameter_key": "frequency.alpha",
+      "warn_above": 0.5,
+      "requires_approval": true
+    }
+  ]
+}
