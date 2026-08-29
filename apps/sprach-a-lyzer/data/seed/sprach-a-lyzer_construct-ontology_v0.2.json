@@ -1,0 +1,1065 @@
+{
+  "$schema": "../../schemas/constructs/sprach-a-lyzer_construct-ontology_v0.2.json",
+  "ontology_version": "0.2",
+  "status": "APPROVED",
+  "locale": "de-DE",
+  "policy_registry": "0.6",
+  "constructs": [
+    {
+      "id": "GENERALIZATION",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für generalization im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für generalization."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für generalization erkennbar.",
+      "prohibited_claims": [
+        "generalization als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY",
+        "OPENNESS"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "MODALITY",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für modality im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für modality."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für modality erkennbar.",
+      "prohibited_claims": [
+        "modality als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "NEGATION",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für negation im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für negation."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für negation erkennbar.",
+      "prohibited_claims": [
+        "negation als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "CERTAINTY",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für certainty im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für certainty."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für certainty erkennbar.",
+      "prohibited_claims": [
+        "certainty als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "SPECIFICITY",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für specificity im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für specificity."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für specificity erkennbar.",
+      "prohibited_claims": [
+        "specificity als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "TEMPORAL_REFERENCE",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für temporal reference im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für temporal reference."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für temporal reference erkennbar.",
+      "prohibited_claims": [
+        "temporal reference als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "PERSON_BEHAVIOR_LABELING",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für person behavior labeling im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für person behavior labeling."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für person behavior labeling erkennbar.",
+      "prohibited_claims": [
+        "person behavior labeling als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "APPRECIATION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "phrases_any": [
+            "ich bin ein fehler",
+            "du bist das problem",
+            "du bist ein fehler"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OPTION_COUNT",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für option count im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für option count."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für option count erkennbar.",
+      "prohibited_claims": [
+        "option count als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "OPENNESS"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "COMMITMENT_VERB",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für commitment verb im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für commitment verb."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für commitment verb erkennbar.",
+      "prohibited_claims": [
+        "commitment verb als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY",
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "EMOTION_WORD",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für emotion word im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für emotion word."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für emotion word erkennbar.",
+      "prohibited_claims": [
+        "emotion word als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "VALUE_WORD",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für value word im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für value word."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für value word erkennbar.",
+      "prohibited_claims": [
+        "value word als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "APPRECIATION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "NEED_WORD",
+      "layer": "LANGUAGE_FEATURE",
+      "inference_class": "OBSERVABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für need word im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für need word."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für need word erkennbar.",
+      "prohibited_claims": [
+        "need word als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "DIRECT_OBSERVATION",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "CONTEXTUAL_AGENCY",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für contextual agency im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für contextual agency."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für contextual agency erkennbar.",
+      "prohibited_claims": [
+        "contextual agency als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "phrases_any": [
+            "ich kann",
+            "ich entscheide",
+            "ich werde"
+          ],
+          "actors": [
+            "SELF"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PERCEIVED_INFLUENCE_SCOPE",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für perceived influence scope im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für perceived influence scope."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für perceived influence scope erkennbar.",
+      "prohibited_claims": [
+        "perceived influence scope als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "PERCEIVED_OPTION_SPACE",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für perceived option space im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für perceived option space."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für perceived option space erkennbar.",
+      "prohibited_claims": [
+        "perceived option space als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "OPENNESS"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "VOLITION",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für volition im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für volition."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für volition erkennbar.",
+      "prohibited_claims": [
+        "volition als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "COMPETENCE_EXPECTANCY",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für competence expectancy im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für competence expectancy."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für competence expectancy erkennbar.",
+      "prohibited_claims": [
+        "competence expectancy als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "EXPLICIT_VALUES",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für explicit values im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für explicit values."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für explicit values erkennbar.",
+      "prohibited_claims": [
+        "explicit values als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "APPRECIATION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "EXPLICIT_NEEDS",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für explicit needs im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für explicit needs."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für explicit needs erkennbar.",
+      "prohibited_claims": [
+        "explicit needs als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "ATTRIBUTED_MEANING",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für attributed meaning im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für attributed meaning."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für attributed meaning erkennbar.",
+      "prohibited_claims": [
+        "attributed meaning als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "ARTICULATED_AMBIVALENCE",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für articulated ambivalence im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für articulated ambivalence."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für articulated ambivalence erkennbar.",
+      "prohibited_claims": [
+        "articulated ambivalence als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "OPENNESS"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "PERSPECTIVE_TAKING",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für perspective taking im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für perspective taking."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für perspective taking erkennbar.",
+      "prohibited_claims": [
+        "perspective taking als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "phrases_all": [
+            "ich verstehe",
+            "wichtig"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "RELATIONAL_ORIENTATION",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für relational orientation im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für relational orientation."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für relational orientation erkennbar.",
+      "prohibited_claims": [
+        "relational orientation als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "BOUNDARY_CLARITY",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für boundary clarity im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für boundary clarity."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für boundary clarity erkennbar.",
+      "prohibited_claims": [
+        "boundary clarity als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY",
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "proposition_features_all": [
+            "BOUNDARY"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ARTICULATED_LEARNING",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für articulated learning im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für articulated learning."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für articulated learning erkennbar.",
+      "prohibited_claims": [
+        "articulated learning als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "OPENNESS"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "selected_senses_any": [
+            "LEARNING_EVENT"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OWNED_COMMITMENT",
+      "layer": "CONTEXTUAL_CONSTRUCT",
+      "inference_class": "INFERABLE",
+      "definition": "Versionierte sprachliche Abgrenzung für owned commitment im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für owned commitment."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für owned commitment erkennbar.",
+      "prohibited_claims": [
+        "owned commitment als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "QUALIFIED_INFERENCE",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY",
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "BELIEF_LIKE_PATTERN",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für belief like pattern im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für belief like pattern."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für belief like pattern erkennbar.",
+      "prohibited_claims": [
+        "belief like pattern als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CLARITY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "INTERNALIZED_EXPECTATION",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für internalized expectation im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für internalized expectation."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für internalized expectation erkennbar.",
+      "prohibited_claims": [
+        "internalized expectation als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "IDENTITY_FUSION",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für identity fusion im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für identity fusion."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für identity fusion erkennbar.",
+      "prohibited_claims": [
+        "identity fusion als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "APPRECIATION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "HYPOTHESIZED_NEED",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für hypothesized need im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für hypothesized need."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für hypothesized need erkennbar.",
+      "prohibited_claims": [
+        "hypothesized need als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "CONNECTION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "CONTROL_PRESSURE_INTERPRETATION",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für control pressure interpretation im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für control pressure interpretation."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für control pressure interpretation erkennbar.",
+      "prohibited_claims": [
+        "control pressure interpretation als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "VOLITION"
+      ],
+      "core_scoring": false,
+      "runtime_signals": [
+        {
+          "selected_senses_any": [
+            "INTERNAL_PRESSURE",
+            "INTERNALIZED_EXPECTATION"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SYSTEM_RULE_HYPOTHESIS",
+      "layer": "WORKING_HYPOTHESIS",
+      "inference_class": "WORKING_HYPOTHESIS",
+      "definition": "Versionierte sprachliche Abgrenzung für system rule hypothesis im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite positive Sprachmarker oder proposition-lokale Fakten für system rule hypothesis."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Im vorliegenden Text ist sprachliche Evidenz für system rule hypothesis erkennbar.",
+      "prohibited_claims": [
+        "system rule hypothesis als dauerhafte Persönlichkeitseigenschaft oder Diagnose behaupten."
+      ],
+      "claim_mode": "HYPOTHESIS_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": false,
+        "longitudinal_required": false
+      },
+      "dimension_links": [
+        "AGENCY"
+      ],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "EXISTENTIAL_MEANING",
+      "layer": "REFLECTIVE",
+      "inference_class": "REFLECTIVE_ONLY",
+      "definition": "Versionierte sprachliche Abgrenzung für existential meaning im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite, freiwillige Reflexion zu existential meaning."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Als freiwillige Reflexionsfrage zu existential meaning anbieten.",
+      "prohibited_claims": [
+        "Aus existential meaning einen Core Score oder eine Tatsachenbehauptung ableiten."
+      ],
+      "claim_mode": "REFLECTION_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": true,
+        "longitudinal_required": false
+      },
+      "dimension_links": [],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "RESONANCE",
+      "layer": "REFLECTIVE",
+      "inference_class": "REFLECTIVE_ONLY",
+      "definition": "Versionierte sprachliche Abgrenzung für resonance im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite, freiwillige Reflexion zu resonance."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Als freiwillige Reflexionsfrage zu resonance anbieten.",
+      "prohibited_claims": [
+        "Aus resonance einen Core Score oder eine Tatsachenbehauptung ableiten."
+      ],
+      "claim_mode": "REFLECTION_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": true,
+        "longitudinal_required": false
+      },
+      "dimension_links": [],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "INNER_ALIGNMENT",
+      "layer": "REFLECTIVE",
+      "inference_class": "REFLECTIVE_ONLY",
+      "definition": "Versionierte sprachliche Abgrenzung für inner alignment im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite, freiwillige Reflexion zu inner alignment."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Als freiwillige Reflexionsfrage zu inner alignment anbieten.",
+      "prohibited_claims": [
+        "Aus inner alignment einen Core Score oder eine Tatsachenbehauptung ableiten."
+      ],
+      "claim_mode": "REFLECTION_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": true,
+        "longitudinal_required": false
+      },
+      "dimension_links": [],
+      "core_scoring": false,
+      "runtime_signals": []
+    },
+    {
+      "id": "SPIRITUAL_REFLECTION",
+      "layer": "REFLECTIVE",
+      "inference_class": "REFLECTIVE_ONLY",
+      "definition": "Versionierte sprachliche Abgrenzung für spiritual reflection im aktuellen Äußerungs- und Proposition-Kontext.",
+      "evidence": [
+        "Explizite, freiwillige Reflexion zu spiritual reflection."
+      ],
+      "non_evidence": [
+        "Fehlende Marker, bloße Fragevorgaben oder Schweigen sind keine Evidenz."
+      ],
+      "allowed_claim": "Als freiwillige Reflexionsfrage zu spiritual reflection anbieten.",
+      "prohibited_claims": [
+        "Aus spiritual reflection einen Core Score oder eine Tatsachenbehauptung ableiten."
+      ],
+      "claim_mode": "REFLECTION_ONLY",
+      "assessability": {
+        "minimum_distinct_evidence": 1,
+        "question_context_required": true,
+        "longitudinal_required": false
+      },
+      "dimension_links": [],
+      "core_scoring": false,
+      "runtime_signals": []
+    }
+  ],
+  "compositions": [
+    {
+      "output_pattern": "RESPECTFUL_BOUNDARY",
+      "required_constructs": [
+        "PERSPECTIVE_TAKING",
+        "BOUNDARY_CLARITY"
+      ],
+      "ordered": true,
+      "relations_any": [],
+      "maximum_proposition_gap": 1
+    },
+    {
+      "output_pattern": "AGENCY_RECOVERY",
+      "required_constructs": [
+        "CONTROL_PRESSURE_INTERPRETATION",
+        "CONTEXTUAL_AGENCY"
+      ],
+      "ordered": true,
+      "relations_any": [
+        "CONTRAST",
+        "CORRECTION"
+      ],
+      "maximum_proposition_gap": 1
+    },
+    {
+      "output_pattern": "LEARNING_RECOVERY",
+      "required_constructs": [
+        "PERSON_BEHAVIOR_LABELING",
+        "ARTICULATED_LEARNING"
+      ],
+      "ordered": true,
+      "relations_any": [
+        "CONTRAST",
+        "CORRECTION"
+      ],
+      "maximum_proposition_gap": 1
+    }
+  ],
+  "hard_guardrails": [
+    "CONSTRUCT_REQUIRES_EXPLICIT_EVIDENCE",
+    "WORKING_HYPOTHESIS_REQUIRES_HEDGING",
+    "REFLECTIVE_CONSTRUCT_CANNOT_SCORE"
+  ]
+}

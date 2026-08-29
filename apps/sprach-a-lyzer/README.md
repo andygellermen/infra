@@ -26,6 +26,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 18. [Resolver Catalogue Runtime Binding v0.1](docs/00-start/RESOLVER-CATALOGUE-RUNTIME-BINDING-v0.1.md)
 19. [Resolver Relations & Scope Expansion v0.1](docs/00-start/RESOLVER-RELATIONS-SCOPE-EXPANSION-v0.1.md)
 20. [Proposition-local Trace Binding v0.1](docs/00-start/PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md)
+21. [Construct Ontology Contracts v0.2](docs/00-start/CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md)
 
 ## Repository-Struktur
 
@@ -47,6 +48,7 @@ data/
 
 schemas/
   analysis/          Versionierte Analyse- und Trace-Verträge
+  constructs/        Construct-Ontologie und Kompositionsverträge
   questions/         Q/A-Verträge
   imports/           Importverträge
   rules/             Regel-, Policy- und Guardrail-Verträge

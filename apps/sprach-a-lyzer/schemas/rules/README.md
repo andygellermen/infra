@@ -17,5 +17,8 @@
   IDs, Resolver Catalogue v0.1 und drei nicht editierbare Resolver-Guardrails.
 - `sprach-a-lyzer_policy-registry_v0.5.json` registriert den additiven Analysis
   Trace v0.2; alle übrigen kanonischen IDs und Guardrails bleiben unverändert.
+- `sprach-a-lyzer_policy-registry_v0.6.json` registriert Construct Ontology
+  v0.2, 36 kanonische Construct IDs und drei nicht editierbare Construct-
+  Guardrails.
 
 Hard Guardrails gehören nicht in editierbare Rule- oder Parameter-Sets.

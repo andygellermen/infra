@@ -5,7 +5,7 @@
 // override them.
 package policy
 
-const RegistryVersion = "0.5"
+const RegistryVersion = "0.6"
 
 type PrivacyDefaults struct {
 	RawTextRetention        string
@@ -248,6 +248,9 @@ const (
 	AmbiguousFeatureCannotHardScore    GuardrailID = "AMBIGUOUS_FEATURE_CANNOT_HARD_SCORE"
 	PropositionSpanMustMatchSource     GuardrailID = "PROPOSITION_SPAN_MUST_MATCH_SOURCE"
 	ResolverCandidateCannotBypassRules GuardrailID = "RESOLVER_CANDIDATE_CANNOT_BYPASS_RULES"
+	ConstructRequiresExplicitEvidence  GuardrailID = "CONSTRUCT_REQUIRES_EXPLICIT_EVIDENCE"
+	WorkingHypothesisRequiresHedging   GuardrailID = "WORKING_HYPOTHESIS_REQUIRES_HEDGING"
+	ReflectiveConstructCannotScore     GuardrailID = "REFLECTIVE_CONSTRUCT_CANNOT_SCORE"
 )
 
 func HardGuardrails() []GuardrailID {
@@ -261,6 +264,8 @@ func HardGuardrails() []GuardrailID {
 		RawAudioStorageRequiresOptIn,
 		AmbiguousFeatureCannotHardScore, PropositionSpanMustMatchSource,
 		ResolverCandidateCannotBypassRules,
+		ConstructRequiresExplicitEvidence, WorkingHypothesisRequiresHedging,
+		ReflectiveConstructCannotScore,
 	}
 }
 

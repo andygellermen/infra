@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/construct-ontology-v0.2.json",
+  "title": "Sprach-A-Lyzer Construct Ontology v0.2",
+  "description": "Strict non-scoring ontology with evidence, claim and proposition-composition boundaries.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "ontology_version",
+    "status",
+    "locale",
+    "policy_registry",
+    "constructs",
+    "compositions",
+    "hard_guardrails"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "ontology_version": {
+      "const": "0.2"
+    },
+    "status": {
+      "const": "APPROVED"
+    },
+    "locale": {
+      "const": "de-DE"
+    },
+    "policy_registry": {
+      "const": "0.6"
+    },
+    "constructs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/construct"
+      },
+      "minItems": 36,
+      "maxItems": 36
+    },
+    "compositions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/composition"
+      },
+      "minItems": 3
+    },
+    "hard_guardrails": {
+      "const": [
+        "CONSTRUCT_REQUIRES_EXPLICIT_EVIDENCE",
+        "WORKING_HYPOTHESIS_REQUIRES_HEDGING",
+        "REFLECTIVE_CONSTRUCT_CANNOT_SCORE"
+      ]
+    }
+  },
+  "$defs": {
+    "constructID": {
+      "enum": [
+        "GENERALIZATION",
+        "MODALITY",
+        "NEGATION",
+        "CERTAINTY",
+        "SPECIFICITY",
+        "TEMPORAL_REFERENCE",
+        "PERSON_BEHAVIOR_LABELING",
+        "OPTION_COUNT",
+        "COMMITMENT_VERB",
+        "EMOTION_WORD",
+        "VALUE_WORD",
+        "NEED_WORD",
+        "CONTEXTUAL_AGENCY",
+        "PERCEIVED_INFLUENCE_SCOPE",
+        "PERCEIVED_OPTION_SPACE",
+        "VOLITION",
+        "COMPETENCE_EXPECTANCY",
+        "EXPLICIT_VALUES",
+        "EXPLICIT_NEEDS",
+        "ATTRIBUTED_MEANING",
+        "ARTICULATED_AMBIVALENCE",
+        "PERSPECTIVE_TAKING",
+        "RELATIONAL_ORIENTATION",
+        "BOUNDARY_CLARITY",
+        "ARTICULATED_LEARNING",
+        "OWNED_COMMITMENT",
+        "BELIEF_LIKE_PATTERN",
+        "INTERNALIZED_EXPECTATION",
+        "IDENTITY_FUSION",
+        "HYPOTHESIZED_NEED",
+        "CONTROL_PRESSURE_INTERPRETATION",
+        "SYSTEM_RULE_HYPOTHESIS",
+        "EXISTENTIAL_MEANING",
+        "RESONANCE",
+        "INNER_ALIGNMENT",
+        "SPIRITUAL_REFLECTION"
+      ]
+    },
+    "dimensionID": {
+      "enum": [
+        "AGENCY",
+        "CONNECTION",
+        "APPRECIATION",
+        "CLARITY",
+        "VOLITION",
+        "OPENNESS"
+      ]
+    },
+    "construct": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "layer",
+        "inference_class",
+        "definition",
+        "evidence",
+        "non_evidence",
+        "allowed_claim",
+        "prohibited_claims",
+        "claim_mode",
+        "assessability",
+        "dimension_links",
+        "core_scoring",
+        "runtime_signals"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/constructID"
+        },
+        "layer": {
+          "enum": [
+            "LANGUAGE_FEATURE",
+            "CONTEXTUAL_CONSTRUCT",
+            "WORKING_HYPOTHESIS",
+            "REFLECTIVE"
+          ]
+        },
+        "inference_class": {
+          "enum": [
+            "OBSERVABLE",
+            "INFERABLE",
+            "WORKING_HYPOTHESIS",
+            "REFLECTIVE_ONLY"
+          ]
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "non_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "allowed_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prohibited_claims": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "claim_mode": {
+          "enum": [
+            "DIRECT_OBSERVATION",
+            "QUALIFIED_INFERENCE",
+            "HYPOTHESIS_ONLY",
+            "REFLECTION_ONLY"
+          ]
+        },
+        "assessability": {
+          "$ref": "#/$defs/assessability"
+        },
+        "dimension_links": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "AGENCY",
+              "CONNECTION",
+              "APPRECIATION",
+              "CLARITY",
+              "VOLITION",
+              "OPENNESS"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "core_scoring": {
+          "const": false
+        },
+        "runtime_signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeSignal"
+          }
+        }
+      }
+    },
+    "assessability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_distinct_evidence",
+        "question_context_required",
+        "longitudinal_required"
+      ],
+      "properties": {
+        "minimum_distinct_evidence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_context_required": {
+          "type": "boolean"
+        },
+        "longitudinal_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runtimeSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "phrases_all": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "phrases_any": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "actors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "SELF",
+              "OTHER_PERSON",
+              "GROUP_SELF",
+              "UNKNOWN"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "modalities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "NECESSITY",
+              "POSSIBILITY",
+              "PERMISSION",
+              "EXPECTATION",
+              "INTENTION",
+              "PROBABILITY"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "target_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "PERSON",
+              "SELF",
+              "BEHAVIOR",
+              "PROCESS",
+              "EVENT",
+              "OBJECT",
+              "IDEA",
+              "GROUP",
+              "INSTITUTION",
+              "UNKNOWN"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "expectation_sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "SELF",
+              "OTHER_PERSON",
+              "GROUP",
+              "INSTITUTION",
+              "LAW",
+              "CULTURE",
+              "UNSPECIFIED",
+              "INTERNALIZED"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "proposition_features_all": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "uniqueItems": true
+        },
+        "selected_senses_any": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_pattern",
+        "required_constructs",
+        "ordered",
+        "relations_any",
+        "maximum_proposition_gap"
+      ],
+      "properties": {
+        "output_pattern": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "required_constructs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/constructID"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "ordered": {
+          "type": "boolean"
+        },
+        "relations_any": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "CONTRAST",
+              "CONCESSION",
+              "CAUSE",
+              "CONSEQUENCE",
+              "ADDITION",
+              "CONDITION",
+              "CORRECTION",
+              "DISCOUNTING"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "maximum_proposition_gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        }
+      }
+    }
+  }
+}

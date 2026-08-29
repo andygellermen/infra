@@ -40,6 +40,10 @@ TargetType und ExpectationSource sind inzwischen proposition-lokal aufgelöst;
 Resolver-Fakten sind über Analysis Trace v0.2 mit den Contribution-Einträgen
 verknüpft; siehe
 [`PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md`](PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md).
+Die nicht-scoring Construct Ontology v0.2 fixiert 36 kanonische Constructs,
+ihre Evidenz- und Aussagegrenzen sowie drei vorbereitete Proposition-
+Kompositionen; siehe
+[`CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md`](CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md).
 
 ## v0.3 – Question / Answer MVP
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.

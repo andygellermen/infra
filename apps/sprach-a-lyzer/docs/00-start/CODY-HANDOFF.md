@@ -1,7 +1,7 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
 **Status:** MVP Initiation Package  
-**Stand:** 28. August 2026
+**Stand:** 29. August 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -279,3 +279,14 @@ Resolver- und Regelfakten tragen ihre Proposition IDs bis in jede wirksame
 Contribution. Der additive Analysis Trace v0.2 veröffentlicht diese Referenzen
 und ist in Policy Registry v0.5 registriert. Analysis Result v0.1, Trace v0.1
 und Resolver Result v0.2 bleiben serialisiert unverändert.
+
+## 16. Construct Ontology Contracts – Sprint v0.2C-B
+
+Die in
+[`CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md`](CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md)
+festgeschriebene Ontology v0.2 registriert 36 Constructs in vier
+Inferenzebenen. Evidenz, Nicht-Evidenz, Claim Modes, Assessability und
+zulässige/verbotene Aussagen sind maschinenlesbar. Kein Construct scoret
+direkt. Policy Registry v0.6 schützt die Ontology mit drei neuen Hard
+Guardrails. Die vorbereiteten Runtime-Signale und Kompositionen werden erst in
+v0.2C-C ausführbar gebunden.

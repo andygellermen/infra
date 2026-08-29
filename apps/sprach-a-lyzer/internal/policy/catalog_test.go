@@ -13,6 +13,7 @@ type registryFixture struct {
 		AnalysisTrace     string `json:"analysis_trace"`
 		ResolverResult    string `json:"resolver_result"`
 		ResolverCatalogue string `json:"resolver_catalogue"`
+		ConstructOntology string `json:"construct_ontology"`
 	} `json:"version_contract"`
 	CanonicalIDs struct {
 		AnalysisContexts   []AnalysisContextID   `json:"analysis_contexts"`
@@ -26,6 +27,7 @@ type registryFixture struct {
 		NegationScopes     []NegationScopeID     `json:"negation_scopes"`
 		SenseStates        []SenseStateID        `json:"sense_states"`
 		AmbiguityTypes     []AmbiguityTypeID     `json:"ambiguity_types"`
+		Constructs         []ConstructID         `json:"constructs"`
 	} `json:"canonical_ids"`
 	PrivacyDefaults struct {
 		RawTextRetention        string `json:"raw_text_retention"`
@@ -49,7 +51,7 @@ type registryFixture struct {
 func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.5.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.6.json")
 	if err != nil {
 		t.Fatalf("read policy registry: %v", err)
 	}
@@ -65,6 +67,9 @@ func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	}
 	if fixture.VersionContract.AnalysisTrace != "0.2" {
 		t.Fatalf("analysis trace version = %q; want 0.2", fixture.VersionContract.AnalysisTrace)
+	}
+	if fixture.VersionContract.ConstructOntology != "0.2" {
+		t.Fatalf("construct ontology version = %q; want 0.2", fixture.VersionContract.ConstructOntology)
 	}
 	if !slices.Equal(fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes()) {
 		t.Errorf("rule action IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.RuleActionTypes, RuleActionTypes())
@@ -98,6 +103,9 @@ func TestCanonicalRegistryMatchesCodeContracts(t *testing.T) {
 	}
 	if !slices.Equal(fixture.CanonicalIDs.AmbiguityTypes, AmbiguityTypes()) {
 		t.Errorf("ambiguity type IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.AmbiguityTypes, AmbiguityTypes())
+	}
+	if !slices.Equal(fixture.CanonicalIDs.Constructs, Constructs()) {
+		t.Errorf("construct IDs drifted: registry=%v code=%v", fixture.CanonicalIDs.Constructs, Constructs())
 	}
 
 	flags := DefaultFeatureFlags()
@@ -150,6 +158,7 @@ func TestCanonicalIDsAreUnique(t *testing.T) {
 	assertUnique(t, NegationScopes())
 	assertUnique(t, SenseStates())
 	assertUnique(t, AmbiguityTypes())
+	assertUnique(t, Constructs())
 	assertUnique(t, HardGuardrails())
 	assertUnique(t, RuleActionTypes())
 }
@@ -197,6 +206,30 @@ func TestPolicyRegistryV04RemainsHistorical(t *testing.T) {
 	}
 	if historical.RegistryVersion != "0.4" || historical.VersionContract.AnalysisTrace != "0.1" || len(historical.HardGuardrails) != 21 {
 		t.Fatalf("historical registry v0.4 changed: version=%q trace=%q guardrails=%d", historical.RegistryVersion, historical.VersionContract.AnalysisTrace, len(historical.HardGuardrails))
+	}
+}
+
+func TestPolicyRegistryV05RemainsHistorical(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_policy-registry_v0.5.json")
+	if err != nil {
+		t.Fatalf("read policy registry v0.5: %v", err)
+	}
+	var historical struct {
+		RegistryVersion string `json:"registry_version"`
+		VersionContract struct {
+			AnalysisTrace     string `json:"analysis_trace"`
+			ConstructOntology string `json:"construct_ontology"`
+		} `json:"version_contract"`
+		HardGuardrails []struct {
+			ID GuardrailID `json:"id"`
+		} `json:"hard_guardrails"`
+	}
+	if err := json.Unmarshal(data, &historical); err != nil {
+		t.Fatalf("decode policy registry v0.5: %v", err)
+	}
+	if historical.RegistryVersion != "0.5" || historical.VersionContract.AnalysisTrace != "0.2" || historical.VersionContract.ConstructOntology != "" || len(historical.HardGuardrails) != 21 {
+		t.Fatalf("historical registry v0.5 changed: version=%q trace=%q ontology=%q guardrails=%d", historical.RegistryVersion, historical.VersionContract.AnalysisTrace, historical.VersionContract.ConstructOntology, len(historical.HardGuardrails))
 	}
 }
 

@@ -12,3 +12,8 @@ var FoundationV03 []byte
 //
 //go:embed data/seed/sprach-a-lyzer_resolver-catalogue_v0.1.json
 var ResolverCatalogueV01 []byte
+
+// ConstructOntologyV02 is the canonical non-scoring construct catalogue.
+//
+//go:embed data/seed/sprach-a-lyzer_construct-ontology_v0.2.json
+var ConstructOntologyV02 []byte
