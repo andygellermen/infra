@@ -47,7 +47,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
-      - name: Golden vertical-slice release gate
-        run: go test ./internal/golden -run '^TestVerticalSliceGolden$' -count=1
+      - name: v0.2 closure release gate
+        run: bash ./scripts/verify-v0.2-closure.sh
       - name: Test with race detector
         run: go test -race ./...

@@ -22,7 +22,10 @@ Proposition Graph, TargetType, ExpectationSource, Syntactic Scope, Negation/Moda
 
 **Exit:** kontextabhängige Golden Cases bestehen ohne grobe Over-Assessment-Fehler.
 
-**Status:** in Arbeit. Der erste additive Resolver-Vertikalschnitt ist mit
+**Status:** abgeschlossen am 1. September 2026; Release-Manifest und
+annotierter Tag `v0.2.0`, siehe
+[`CORE-CLOSURE-v0.2.0.md`](CORE-CLOSURE-v0.2.0.md). Der erste additive
+Resolver-Vertikalschnitt ist mit
 Proposition Graph, Source Ranges, ersten Relations-, Target-, Expectation-,
 Modalitäts-, Negations- und Ambiguitätsfällen implementiert; siehe
 [`CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md`](CONTEXT-PROPOSITION-VERTICAL-SLICE-v0.1.md).

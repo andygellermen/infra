@@ -28,6 +28,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 20. [Proposition-local Trace Binding v0.1](docs/00-start/PROPOSITION-LOCAL-TRACE-BINDING-v0.1.md)
 21. [Construct Ontology Contracts v0.2](docs/00-start/CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md)
 22. [Construct Runtime & Proposition Composition v0.1](docs/00-start/CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md)
+23. [Context & Proposition Closure v0.2.0](docs/00-start/CORE-CLOSURE-v0.2.0.md)
 
 ## Repository-Struktur
 
@@ -117,9 +118,9 @@ unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
 Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
-Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Der
-geschlossene Core-Stand ist durch das Release-Manifest v0.1.0 und den
-annotierten Git-Tag `v0.1.0` fixiert.
+Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Die
+geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 und v0.2.0
+sowie die zugehörigen annotierten Git-Tags fixiert.
 
 Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
 eingebettetes, strikt validiertes Runtime-Artefakt. `AMBIGUOUS`-Senses und
@@ -150,6 +151,16 @@ curl --fail-with-body \
   -H 'Content-Type: application/json' \
   -d '{"text":"Ich muss das heute unbedingt noch schaffen.","context":"SELF_TALK"}' \
   http://localhost:8080/api/v1/analyze
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Eigentlich wollte ich absagen, aber ich bin noch unsicher.","context":"PRIVATE_CONVERSATION"}' \
+  http://localhost:8080/api/v2/resolve
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.","context":"PRIVATE_CONVERSATION"}' \
+  http://localhost:8080/api/v2/trace
 ```
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,

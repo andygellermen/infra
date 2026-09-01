@@ -17,6 +17,7 @@ const maxTextRunes = 10_000
 
 type Analyzer interface {
 	Analyze(analysis.Request) (analysis.Result, error)
+	Resolve(analysis.Request) (analysis.ResolverResult, error)
 }
 
 type Pinger interface {
@@ -36,6 +37,8 @@ func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
 	mux.HandleFunc("GET /health/live", app.live)
 	mux.HandleFunc("GET /health/ready", app.ready)
 	mux.HandleFunc("POST /api/v1/analyze", app.analyze)
+	mux.HandleFunc("POST /api/v2/resolve", app.resolve)
+	mux.HandleFunc("POST /api/v2/trace", app.trace)
 	app.handler = securityHeaders(mux)
 	return app
 }
@@ -57,6 +60,50 @@ func (a *App) ready(response http.ResponseWriter, request *http.Request) {
 }
 
 func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
+	input, ok := a.decodeRequest(response, request)
+	if !ok {
+		return
+	}
+
+	result, err := a.analyzer.Analyze(input)
+	if err != nil {
+		a.writeAnalysisError(response, err)
+		return
+	}
+	response.Header().Set("X-Sprach-A-Lyzer-Version", version.Core)
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (a *App) resolve(response http.ResponseWriter, request *http.Request) {
+	input, ok := a.decodeRequest(response, request)
+	if !ok {
+		return
+	}
+
+	result, err := a.analyzer.Resolve(input)
+	if err != nil {
+		a.writeAnalysisError(response, err)
+		return
+	}
+	writeVersionedJSON(response, "resolver-result", result.ContractVersion, result)
+}
+
+func (a *App) trace(response http.ResponseWriter, request *http.Request) {
+	input, ok := a.decodeRequest(response, request)
+	if !ok {
+		return
+	}
+
+	result, err := a.analyzer.Analyze(input)
+	if err != nil {
+		a.writeAnalysisError(response, err)
+		return
+	}
+	trace := result.TraceV02()
+	writeVersionedJSON(response, "analysis-trace", trace.ContractVersion, trace)
+}
+
+func (a *App) decodeRequest(response http.ResponseWriter, request *http.Request) (analysis.Request, bool) {
 	request.Body = http.MaxBytesReader(response, request.Body, a.maxRequestBytes)
 	decoder := json.NewDecoder(request.Body)
 	decoder.DisallowUnknownFields()
@@ -68,29 +115,26 @@ func (a *App) analyze(response http.ResponseWriter, request *http.Request) {
 			status = http.StatusRequestEntityTooLarge
 		}
 		writeError(response, status, "INVALID_REQUEST", "Der Request enthält kein gültiges Analyseobjekt.")
-		return
+		return analysis.Request{}, false
 	}
 	if err := ensureEOF(decoder); err != nil {
 		writeError(response, http.StatusBadRequest, "INVALID_REQUEST", "Der Request darf nur ein JSON-Objekt enthalten.")
-		return
+		return analysis.Request{}, false
 	}
 	applyRequestDefaults(&input)
 	if validationCode, message := validateRequest(input); validationCode != "" {
 		writeError(response, http.StatusUnprocessableEntity, validationCode, message)
-		return
+		return analysis.Request{}, false
 	}
+	return input, true
+}
 
-	result, err := a.analyzer.Analyze(input)
-	if err != nil {
-		if errors.Is(err, analysis.ErrEmptyText) {
-			writeError(response, http.StatusUnprocessableEntity, "EMPTY_TEXT", "Der Analysetext darf nicht leer sein.")
-			return
-		}
-		writeError(response, http.StatusInternalServerError, "ANALYSIS_FAILED", "Die Analyse konnte nicht ausgeführt werden.")
+func (a *App) writeAnalysisError(response http.ResponseWriter, err error) {
+	if errors.Is(err, analysis.ErrEmptyText) {
+		writeError(response, http.StatusUnprocessableEntity, "EMPTY_TEXT", "Der Analysetext darf nicht leer sein.")
 		return
 	}
-	response.Header().Set("X-Sprach-A-Lyzer-Version", version.Core)
-	writeJSON(response, http.StatusOK, result)
+	writeError(response, http.StatusInternalServerError, "ANALYSIS_FAILED", "Die Analyse konnte nicht ausgeführt werden.")
 }
 
 func applyRequestDefaults(input *analysis.Request) {
@@ -161,4 +205,11 @@ func writeError(response http.ResponseWriter, status int, code, message string) 
 func writeJSON(response http.ResponseWriter, status int, value any) {
 	response.WriteHeader(status)
 	_ = json.NewEncoder(response).Encode(value)
+}
+
+func writeVersionedJSON(response http.ResponseWriter, contract, contractVersion string, value any) {
+	response.Header().Set("X-Sprach-A-Lyzer-Version", version.Core)
+	response.Header().Set("X-Sprach-A-Lyzer-Contract", contract)
+	response.Header().Set("X-Sprach-A-Lyzer-Contract-Version", contractVersion)
+	writeJSON(response, http.StatusOK, value)
 }

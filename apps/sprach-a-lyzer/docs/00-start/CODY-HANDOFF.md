@@ -302,3 +302,15 @@ Fakten von Rule v0.5 konsumiert. Foundation v0.4 erkennt
 propositional. Nur die bereits Golden-kalibrierte respektvolle Grenze trägt
 weiterhin bei; die neuen Recovery-Pattern bleiben nicht-scoring. Policy
 Registry v0.7 fixiert den Laufzeitvektor.
+
+## 18. Context & Proposition Closure v0.2.0
+
+Der Roadmap-Meilenstein ist mit
+[`CORE-CLOSURE-v0.2.0.md`](CORE-CLOSURE-v0.2.0.md) geschlossen. Die additiven
+Routen `POST /api/v2/resolve` und `POST /api/v2/trace` veröffentlichen Resolver
+Result beziehungsweise Analysis Trace v0.2, während `/api/v1/analyze`
+kompatibel bleibt. Das Release-Manifest v0.2.0 fixiert den vollständigen
+Laufzeit- und Golden-Vektor. `scripts/verify-v0.2-closure.sh` bündelt
+Contract-, HTTP-, Golden-, Aktivierungs- und Migrationsnachweise zu einem
+einzigen Release-Gate. Nächster Roadmap-Meilenstein ist v0.3 Question / Answer
+MVP.

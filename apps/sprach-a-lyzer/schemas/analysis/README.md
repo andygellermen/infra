@@ -9,10 +9,12 @@
   Indizes sind nullbasiert.
 - `sprach-a-lyzer_analysis-trace_v0.2.json` ergänzt proposition-lokale
   Target-/Expectation-Referenzen und verknüpft Contributions über stabile
-  `proposition_ids`; Trace v0.1 bleibt unverändert.
-- `sprach-a-lyzer_resolver-result_v0.2.json` beschreibt den additive aufgebauten
+  `proposition_ids`; Trace v0.1 bleibt unverändert. Der Vertrag wird über
+  `POST /api/v2/trace` veröffentlicht.
+- `sprach-a-lyzer_resolver-result_v0.2.json` beschreibt den additiv aufgebauten
   Context-/Proposition-Resolver vor dem Scoring. Der veröffentlichte v0.1-
-  Analysevertrag bleibt dadurch unverändert.
+  Analysevertrag bleibt dadurch unverändert. Der Vertrag wird über
+  `POST /api/v2/resolve` veröffentlicht.
 - `sprach-a-lyzer_resolver-catalogue_v0.1.json` beschreibt den strikten Vertrag
   für Lexeme, Sense-Kandidaten, Konnektoren, Scope-Regeln und Sense-Schwellen.
 - Neue Verträge verwenden ausschließlich die kanonische Dimension
