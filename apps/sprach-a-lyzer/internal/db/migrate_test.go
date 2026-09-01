@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	migrationfiles "github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db/migrations"
 )
 
 func TestLoadMigrationsSortsAndChecksums(t *testing.T) {
@@ -34,5 +36,21 @@ func TestLoadMigrationsRejectsDuplicateVersion(t *testing.T) {
 	}, ".")
 	if err == nil || !strings.Contains(err.Error(), "duplicate migration version") {
 		t.Fatalf("loadMigrations() error = %v; want duplicate version", err)
+	}
+}
+
+func TestEmbeddedMigrationsReachRequiredSchemaVersion(t *testing.T) {
+	t.Parallel()
+
+	migrations, err := loadMigrations(migrationfiles.Files, ".")
+	if err != nil {
+		t.Fatalf("load embedded migrations: %v", err)
+	}
+	if len(migrations) == 0 {
+		t.Fatal("no embedded migrations")
+	}
+	got := migrations[len(migrations)-1].Version
+	if got != RequiredSchemaVersion {
+		t.Fatalf("latest migration version = %d; required schema version = %d", got, RequiredSchemaVersion)
 	}
 }

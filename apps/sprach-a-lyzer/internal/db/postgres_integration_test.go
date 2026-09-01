@@ -33,8 +33,8 @@ func TestPostgresFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first migration run: %v", err)
 	}
-	if first.Total != 3 {
-		t.Fatalf("migration total = %d; want 3", first.Total)
+	if first.Total != 4 {
+		t.Fatalf("migration total = %d; want 4", first.Total)
 	}
 	second, err := migrator.Up(ctx)
 	if err != nil {
@@ -89,7 +89,7 @@ func TestPostgresFoundation(t *testing.T) {
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE actions::text LIKE '%FREE_WILL%'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE contract_version = '0.5'`, 11)
 	assertScalar(t, database, `SELECT COUNT(*) FROM rules WHERE jsonb_array_length(source_keys) > 0`, 11)
-	assertScalar(t, database, `SELECT COUNT(*) FROM presentation_entries WHERE canonical_key = 'FREE_WILL'`, 0)
+	assertScalar(t, database, `SELECT COUNT(*) FROM presentation_entries WHERE canonical_key LIKE '%FREE_WILL%'`, 0)
 	assertScalar(t, database, `SELECT COUNT(*) FROM audit_events WHERE event_type = 'LEGACY_DIMENSION_MAPPED'`, 1)
 
 	var rawAnalysisTableAbsent bool
@@ -108,7 +108,7 @@ func TestPostgresFoundation(t *testing.T) {
 		t.Fatalf("knowledge module snapshot = %+v, %v", knowledgeSnapshot, err)
 	}
 	ruleCatalogue, err := application.Rules.Active(ctx)
-	if err != nil || ruleCatalogue.Version != "0.3" || len(ruleCatalogue.Rules) != 9 {
+	if err != nil || ruleCatalogue.Version != "0.4" || len(ruleCatalogue.Rules) != 11 {
 		t.Fatalf("rules module catalogue = %+v, %v", ruleCatalogue, err)
 	}
 	runtimeResult, err := application.Analysis.Analyze(analysis.Request{

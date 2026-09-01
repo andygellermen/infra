@@ -6,11 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 )
-
-var legacyTokenPattern = regexp.MustCompile(`\bFREE_WILL\b`)
 
 var dimensionFields = map[string]bool{
 	"dimension":                    true,
@@ -24,6 +21,7 @@ var dimensionFields = map[string]bool{
 	"secondary_dimensions":         true,
 	"primary_construct":            true,
 	"secondary_constructs":         true,
+	"reason_key":                   true,
 }
 
 type CompatibilityReport struct {
@@ -115,11 +113,42 @@ func NormalizeCSV(reader io.Reader) ([]byte, CompatibilityReport, error) {
 // NormalizeExpression supports scalar, comma-separated and directional legacy
 // forms such as FREE_WILL or AGENCY:+;FREE_WILL:-.
 func NormalizeExpression(value string) (string, int) {
-	matches := legacyTokenPattern.FindAllStringIndex(value, -1)
-	if len(matches) == 0 {
+	var normalized strings.Builder
+	count := 0
+	cursor := 0
+	searchFrom := 0
+	for searchFrom < len(value) {
+		relative := strings.Index(value[searchFrom:], LegacyFreeWill)
+		if relative < 0 {
+			break
+		}
+		start := searchFrom + relative
+		end := start + len(LegacyFreeWill)
+		if expressionBoundary(value, start-1) && expressionBoundary(value, end) {
+			normalized.WriteString(value[cursor:start])
+			normalized.WriteString(string(Volition))
+			cursor = end
+			searchFrom = end
+			count++
+			continue
+		}
+		searchFrom = start + 1
+	}
+	if count == 0 {
 		return value, 0
 	}
-	return legacyTokenPattern.ReplaceAllString(value, string(Volition)), len(matches)
+	normalized.WriteString(value[cursor:])
+	return normalized.String(), count
+}
+
+func expressionBoundary(value string, index int) bool {
+	if index < 0 || index >= len(value) {
+		return true
+	}
+	character := value[index]
+	return !(character >= 'a' && character <= 'z') &&
+		!(character >= 'A' && character <= 'Z') &&
+		!(character >= '0' && character <= '9')
 }
 
 func normalizeValue(value any, path, parentKey string, dimensionContext bool, report *CompatibilityReport) (any, error) {
@@ -130,14 +159,19 @@ func normalizeValue(value any, path, parentKey string, dimensionContext bool, re
 			parentKey == "scores" || parentKey == "entries"
 		for key, child := range typed {
 			normalizedKey := key
-			if keyContext && key == LegacyFreeWill {
-				normalizedKey = string(Volition)
+			keyMappings := 0
+			if keyContext {
+				normalizedKey, keyMappings = NormalizeExpression(key)
+			}
+			if keyMappings > 0 {
 				if _, collision := typed[normalizedKey]; collision {
 					return nil, fmt.Errorf("dimension compatibility collision at %s: %s and %s", path, key, normalizedKey)
 				}
-				report.Mappings = append(report.Mappings, Mapping{
-					Input: key, Canonical: Volition, Legacy: true, Path: path + "." + key,
-				})
+				for range keyMappings {
+					report.Mappings = append(report.Mappings, Mapping{
+						Input: LegacyFreeWill, Canonical: Volition, Legacy: true, Path: path + "." + key,
+					})
+				}
 			}
 			childPath := path + "." + normalizedKey
 			childDimensionContext := dimensionFields[key] || (dimensionContext && key == "id")

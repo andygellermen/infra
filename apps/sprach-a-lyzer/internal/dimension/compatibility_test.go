@@ -98,6 +98,10 @@ func TestNormalizeExpression(t *testing.T) {
 	if got != "AGENCY:+;VOLITION:-" || count != 1 {
 		t.Fatalf("NormalizeExpression() = %q, %d", got, count)
 	}
+	got, count = NormalizeExpression("FREE_WILLING")
+	if got != "FREE_WILLING" || count != 0 {
+		t.Fatalf("NormalizeExpression() rewrote unrelated identifier: %q, %d", got, count)
+	}
 }
 
 func TestNormalizeJSONProducesValidJSON(t *testing.T) {
@@ -109,5 +113,33 @@ func TestNormalizeJSONProducesValidJSON(t *testing.T) {
 	}
 	if !json.Valid(got) {
 		t.Fatalf("NormalizeJSON() returned invalid JSON: %s", got)
+	}
+}
+
+func TestNormalizeJSONMapsDimensionReferenceKeys(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`{
+  "rules":[{"actions":[{
+    "dimension":"FREE_WILL",
+    "reason_key":"REASON_INTERNAL_PRESSURE_FREE_WILL"
+  }]}],
+  "presentation_bundles":[{"entries":{
+    "REASON_INTERNAL_PRESSURE_FREE_WILL":"Documentation keeps FREE_WILL wording"
+  }}]
+}`)
+	normalized, report, err := NormalizeJSON(input)
+	if err != nil {
+		t.Fatalf("NormalizeJSON() error: %v", err)
+	}
+	if report.LegacyCount() != 3 {
+		t.Fatalf("legacy mappings = %d; want 3 (%+v)", report.LegacyCount(), report)
+	}
+	if bytes.Contains(normalized, []byte(`"reason_key":"REASON_INTERNAL_PRESSURE_FREE_WILL"`)) ||
+		bytes.Contains(normalized, []byte(`"REASON_INTERNAL_PRESSURE_FREE_WILL":`)) {
+		t.Fatalf("dimension reference key was not canonicalized: %s", normalized)
+	}
+	if !bytes.Contains(normalized, []byte(`Documentation keeps FREE_WILL wording`)) {
+		t.Fatalf("presentation text was unexpectedly rewritten: %s", normalized)
 	}
 }
