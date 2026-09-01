@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-catalogue-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Catalogue v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "catalogue_version", "status", "locale", "version_contract", "questions", "renderings", "composition_rules", "question_priorities", "selection_weights", "hard_guardrails"],
+  "properties": {
+    "$schema": {"type": "string", "minLength": 1},
+    "catalogue_version": {"const": "0.1"},
+    "status": {"const": "APPROVED"},
+    "locale": {"const": "de-DE"},
+    "version_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_question", "question_rendering", "qa_observation", "question_selection", "question_session", "policy_registry"],
+      "properties": {
+        "canonical_question": {"const": "0.1"},
+        "question_rendering": {"const": "0.1"},
+        "qa_observation": {"const": "0.1"},
+        "question_selection": {"const": "0.1"},
+        "question_session": {"const": "0.1"},
+        "policy_registry": {"const": "0.7"}
+      }
+    },
+    "questions": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "sprach-a-lyzer_question-canonical_v0.1.json"}},
+    "renderings": {"type": "array", "minItems": 16, "maxItems": 16, "items": {"$ref": "sprach-a-lyzer_question-rendering_v0.1.json"}},
+    "composition_rules": {"type": "array", "minItems": 16, "maxItems": 16, "items": {"$ref": "#/$defs/compositionRule"}},
+    "question_priorities": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "#/$defs/questionPriority"}},
+    "selection_weights": {"$ref": "#/$defs/selectionWeights"},
+    "hard_guardrails": {
+      "const": ["QUESTION_SCORE_BIAS_IS_ZERO", "QUESTION_ALONE_IS_NOT_ASSESSABLE", "NO_PERSON_DIAGNOSIS", "NO_TRAIT_CLAIMS", "NO_EMPLOYEE_RANKING"]
+    }
+  },
+  "$defs": {
+    "dimensionID": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+    "dimensionDirection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "direction"],
+      "properties": {
+        "dimension": {"$ref": "#/$defs/dimensionID"},
+        "direction": {"enum": ["POSITIVE", "NEGATIVE"]}
+      }
+    },
+    "compositionRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "output_pattern", "answer_relevance", "construct_fit", "base_confidence", "dimension_directions"],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+        "output_pattern": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "phrases_all": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "phrases_any": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "answer_relevance": {"type": "number", "minimum": 0.55, "maximum": 1},
+        "construct_fit": {"type": "number", "minimum": 0, "maximum": 1},
+        "base_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "dimension_directions": {"type": "array", "items": {"$ref": "#/$defs/dimensionDirection"}, "uniqueItems": true}
+      },
+      "anyOf": [{"required": ["phrases_all"]}, {"required": ["phrases_any"]}]
+    },
+    "questionPriority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "information_gain"],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+        "information_gain": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "selectionWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["information_gain", "construct_gap", "answer_relevance_history", "phase_fit", "user_preference_fit", "redundancy_penalty", "leadingness_penalty", "risk_without_opt_in_penalty"],
+      "properties": {
+        "information_gain": {"type": "number", "minimum": 0, "maximum": 1},
+        "construct_gap": {"type": "number", "minimum": 0, "maximum": 1},
+        "answer_relevance_history": {"type": "number", "minimum": 0, "maximum": 1},
+        "phase_fit": {"type": "number", "minimum": 0, "maximum": 1},
+        "user_preference_fit": {"type": "number", "minimum": 0, "maximum": 1},
+        "redundancy_penalty": {"type": "number", "minimum": 0, "maximum": 1},
+        "leadingness_penalty": {"type": "number", "minimum": 0, "maximum": 1},
+        "risk_without_opt_in_penalty": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

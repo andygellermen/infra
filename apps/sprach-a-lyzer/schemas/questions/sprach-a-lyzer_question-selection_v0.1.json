@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-selection-v0.1.json",
+  "title": "Sprach-A-Lyzer Adaptive Question Selection v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "candidates"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "candidates": {"type": "array", "minItems": 0, "maxItems": 8, "items": {"$ref": "#/$defs/candidate"}}
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "text", "primary_construct", "phase", "risk_level", "expected_dimensions", "selection_score", "offered"],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+        "text": {"type": "string", "minLength": 1},
+        "primary_construct": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "phase": {"enum": ["P1_ENTRY", "P2_FOLLOWUP_1_10", "P3_ADVANCED_10_20", "P4_INTEGRATION"]},
+        "risk_level": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "expected_dimensions": {"type": "array", "items": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]}, "uniqueItems": true},
+        "selection_score": {"type": "number"},
+        "offered": {"const": true}
+      }
+    }
+  }
+}

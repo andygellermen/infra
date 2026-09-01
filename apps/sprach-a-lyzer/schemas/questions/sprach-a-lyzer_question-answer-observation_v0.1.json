@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-answer-observation-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Answer Observation v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "question_id", "answer", "primary_construct", "answer_relevance", "relevance_band", "construct_fit", "response_independence", "context_gain", "question_score_bias", "qa_patterns", "dimension_evidence", "assessability", "inference_level", "explanation_key", "analysis_result"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+    "answer": {"type": "string", "minLength": 1},
+    "primary_construct": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "answer_relevance": {"type": "number", "minimum": 0, "maximum": 1},
+    "relevance_band": {"enum": ["OFF_TOPIC", "WEAK", "RELEVANT", "STRONGLY_RELEVANT"]},
+    "construct_fit": {"type": "number", "minimum": 0, "maximum": 1},
+    "response_independence": {"type": "number", "minimum": 0, "maximum": 1},
+    "context_gain": {"type": "number", "minimum": 0, "maximum": 0.15},
+    "question_score_bias": {"const": 0},
+    "qa_patterns": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "uniqueItems": true},
+    "dimension_evidence": {"type": "array", "items": {"$ref": "#/$defs/dimensionEvidence"}},
+    "assessability": {"enum": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE"]},
+    "inference_level": {"enum": ["C0", "C1"]},
+    "explanation_key": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "analysis_result": {"$ref": "../analysis/sprach-a-lyzer_analysis-result_v0.1.json"}
+  },
+  "$defs": {
+    "dimensionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "direction", "confidence", "scoring"],
+      "properties": {
+        "dimension": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+        "direction": {"enum": ["POSITIVE", "NEGATIVE"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "scoring": {"const": false}
+      }
+    }
+  }
+}

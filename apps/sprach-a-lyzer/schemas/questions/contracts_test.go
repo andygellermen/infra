@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"reflect"
+	"sort"
 	"testing"
+
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/questions"
 )
 
 type questionFixture struct {
@@ -56,6 +60,10 @@ func TestQuestionSchemasAreStrictAndDoNotContainLegacyDimension(t *testing.T) {
 	for _, filename := range []string{
 		"sprach-a-lyzer_question-canonical_v0.1.json",
 		"sprach-a-lyzer_question-rendering_v0.1.json",
+		"sprach-a-lyzer_question-catalogue_v0.1.json",
+		"sprach-a-lyzer_question-answer-observation_v0.1.json",
+		"sprach-a-lyzer_question-selection_v0.1.json",
+		"sprach-a-lyzer_question-session_v0.1.json",
 	} {
 		data, err := os.ReadFile(filename)
 		if err != nil {
@@ -72,4 +80,82 @@ func TestQuestionSchemasAreStrictAndDoNotContainLegacyDimension(t *testing.T) {
 			t.Errorf("%s contains legacy dimension ID", filename)
 		}
 	}
+}
+
+func TestQuestionRuntimeTopLevelShapesMatchSchemas(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		filename string
+		value    any
+	}{
+		{"sprach-a-lyzer_question-catalogue_v0.1.json", questions.Catalogue{}},
+		{"sprach-a-lyzer_question-answer-observation_v0.1.json", questions.Observation{}},
+		{"sprach-a-lyzer_question-selection_v0.1.json", questions.Selection{}},
+		{"sprach-a-lyzer_question-session_v0.1.json", questions.Session{}},
+	}
+	for _, test := range tests {
+		t.Run(test.filename, func(t *testing.T) {
+			schemaKeys := schemaPropertyKeys(t, test.filename)
+			runtimeKeys := jsonFieldKeys(reflect.TypeOf(test.value))
+			if !reflect.DeepEqual(runtimeKeys, schemaKeys) {
+				t.Fatalf("runtime fields = %v; schema fields = %v", runtimeKeys, schemaKeys)
+			}
+		})
+	}
+}
+
+func TestApprovedCatalogueUsesCanonicalAndRenderingShapes(t *testing.T) {
+	t.Parallel()
+	data, err := os.Open("../../data/seed/sprach-a-lyzer_question-catalogue_v0.1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Close()
+	catalogue, err := questions.DecodeCatalogue(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalKeys := schemaPropertyKeys(t, "sprach-a-lyzer_question-canonical_v0.1.json")
+	renderingKeys := schemaPropertyKeys(t, "sprach-a-lyzer_question-rendering_v0.1.json")
+	if got := jsonFieldKeys(reflect.TypeOf(catalogue.Questions[0])); !reflect.DeepEqual(got, canonicalKeys) {
+		t.Fatalf("canonical runtime fields = %v; schema fields = %v", got, canonicalKeys)
+	}
+	if got := jsonFieldKeys(reflect.TypeOf(catalogue.Renderings[0])); !reflect.DeepEqual(got, renderingKeys) {
+		t.Fatalf("rendering runtime fields = %v; schema fields = %v", got, renderingKeys)
+	}
+}
+
+func schemaPropertyKeys(t *testing.T, filename string) []string {
+	t.Helper()
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		Properties map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	keys := make([]string, 0, len(schema.Properties))
+	for key := range schema.Properties {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func jsonFieldKeys(value reflect.Type) []string {
+	keys := make([]string, 0, value.NumField())
+	for index := 0; index < value.NumField(); index++ {
+		name := value.Field(index).Tag.Get("json")
+		if comma := bytes.IndexByte([]byte(name), ','); comma >= 0 {
+			name = name[:comma]
+		}
+		if name != "" && name != "-" {
+			keys = append(keys, name)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }

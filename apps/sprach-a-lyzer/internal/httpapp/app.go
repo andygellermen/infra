@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/questions"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/version"
 )
 
@@ -26,19 +27,23 @@ type Pinger interface {
 
 type App struct {
 	analyzer        Analyzer
+	questions       *questions.Service
 	database        Pinger
 	maxRequestBytes int64
 	handler         http.Handler
 }
 
 func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
-	app := &App{analyzer: analyzer, database: database, maxRequestBytes: maxRequestBytes}
+	app := &App{analyzer: analyzer, questions: questions.New(analyzer), database: database, maxRequestBytes: maxRequestBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", app.live)
 	mux.HandleFunc("GET /health/ready", app.ready)
 	mux.HandleFunc("POST /api/v1/analyze", app.analyze)
 	mux.HandleFunc("POST /api/v2/resolve", app.resolve)
 	mux.HandleFunc("POST /api/v2/trace", app.trace)
+	mux.HandleFunc("POST /api/v3/questions/select", app.selectQuestions)
+	mux.HandleFunc("POST /api/v3/answers/analyze", app.analyzeAnswer)
+	mux.HandleFunc("POST /api/v3/sessions/compose", app.composeSession)
 	app.handler = securityHeaders(mux)
 	return app
 }

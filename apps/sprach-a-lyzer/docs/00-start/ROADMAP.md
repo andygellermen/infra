@@ -1,7 +1,7 @@
 # Sprachkompass – Product & Engineering Roadmap
 
 **Status:** strategische Grobplanung  
-**Stand:** 30. August 2026
+**Stand:** 1. September 2026
 **Prinzip:** Versionen markieren Fähigkeitspakete, keine festen Kalenderzusagen.
 
 ## v0.0 – Foundation
@@ -56,6 +56,13 @@ im bereits kalibrierten Respectful-Boundary-Fall scoring; siehe
 Canonical Questions, MVP Core Questions, Question Context, Answer Relevance, Q/A Composition, C0–C3 Inference Levels, Question Golden Corpus, adaptive Auswahl.
 
 **Exit:** 5–8 Fragen können eine erklärbare Session bilden.
+
+**Status:** abgeschlossen am 1. September 2026; Release-Manifest und
+annotierter Tag `v0.3.0`, siehe
+[`QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md`](QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md).
+Der kataloggestützte Acht-Fragen-MVP, die nicht-scorende Antwortkomposition,
+adaptive Auswahl, C0–C3-Sessions, 25 kohärente Runtime-Goldens sowie drei
+öffentliche HTTP-v3-Verträge sind ausführbar und fail-closed abgesichert.
 
 ## v0.4 – Rendering & Corporate/Private Profiles
 Corporate/Private Standard/Easy, Deep Reflective optional, Simplify/Rephrase, Leadingness/Risk/Intimacy, Presentation Bundle Isolation.

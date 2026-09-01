@@ -22,3 +22,8 @@ var ResolverCatalogueV01 []byte
 //
 //go:embed data/seed/sprach-a-lyzer_construct-ontology_v0.2.json
 var ConstructOntologyV02 []byte
+
+// QuestionCatalogueV01 is the approved eight-question Q/A MVP catalogue.
+//
+//go:embed data/seed/sprach-a-lyzer_question-catalogue_v0.1.json
+var QuestionCatalogueV01 []byte

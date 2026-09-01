@@ -1,7 +1,7 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
-**Status:** MVP Initiation Package  
-**Stand:** 30. August 2026
+**Status:** REFERENCE – umgesetzt bis v0.3
+**Stand:** 1. September 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -314,3 +314,14 @@ Laufzeit- und Golden-Vektor. `scripts/verify-v0.2-closure.sh` bündelt
 Contract-, HTTP-, Golden-, Aktivierungs- und Migrationsnachweise zu einem
 einzigen Release-Gate. Nächster Roadmap-Meilenstein ist v0.3 Question / Answer
 MVP.
+
+## 19. Question / Answer MVP Closure v0.3.0
+
+Der Roadmap-Meilenstein ist mit
+[`QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md`](QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md)
+geschlossen. Acht kanonische Fragen sind über einen fail-closed Katalog an
+Antwortkomposition, adaptive Auswahl und progressive C0–C3-Sessions gebunden.
+Die Frage bleibt score-neutral, Q/A-Evidenz nicht-scoring und der darunter
+liegende Analysis Result bitgleich zur direkten Core-Analyse. HTTP v3 und der
+lokale `qa`-Befehl stellen den MVP bereit. Nächster Roadmap-Meilenstein ist
+v0.4 Rendering & Corporate/Private Profiles.

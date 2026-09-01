@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-session-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Session v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "session_id", "observations", "trajectories", "inference_level", "inference_claims", "next_questions"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "session_id": {"type": "string", "minLength": 1},
+    "observations": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "sprach-a-lyzer_question-answer-observation_v0.1.json"}},
+    "trajectories": {"type": "array", "items": {"$ref": "#/$defs/trajectory"}},
+    "inference_level": {"enum": ["C0", "C1", "C2", "C3"]},
+    "inference_claims": {"type": "array", "items": {"$ref": "#/$defs/inferenceClaim"}},
+    "next_questions": {"type": "array", "maxItems": 8, "items": {"$ref": "sprach-a-lyzer_question-selection_v0.1.json#/$defs/candidate"}}
+  },
+  "$defs": {
+    "trajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "observation_indexes", "language_pattern_change", "confidence", "inference_level"],
+      "properties": {
+        "dimension": {"enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+        "observation_indexes": {"type": "array", "minItems": 2, "items": {"type": "integer", "minimum": 0}, "uniqueItems": true},
+        "language_pattern_change": {"enum": ["POSITIVE_TO_NEGATIVE", "NEGATIVE_TO_POSITIVE"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "inference_level": {"const": "C3"}
+      }
+    },
+    "inferenceClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "explanation_key"],
+      "properties": {
+        "level": {"enum": ["C0", "C1", "C2", "C3"]},
+        "explanation_key": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}
+      }
+    }
+  }
+}

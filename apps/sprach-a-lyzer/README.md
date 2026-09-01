@@ -29,6 +29,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 21. [Construct Ontology Contracts v0.2](docs/00-start/CONSTRUCT-ONTOLOGY-CONTRACTS-v0.2.md)
 22. [Construct Runtime & Proposition Composition v0.1](docs/00-start/CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md)
 23. [Context & Proposition Closure v0.2.0](docs/00-start/CORE-CLOSURE-v0.2.0.md)
+24. [Question / Answer MVP Closure v0.3.0](docs/00-start/QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md)
 
 ## Repository-Struktur
 
@@ -119,7 +120,7 @@ unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
 Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
 Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Die
-geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 und v0.2.0
+geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0, v0.2.0 und v0.3.0
 sowie die zugehörigen annotierten Git-Tags fixiert.
 
 Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
@@ -132,6 +133,19 @@ Construct Ontology v0.2 wird ebenfalls als eingebettetes, strikt validiertes
 Runtime-Artefakt geladen. Sie erzeugt proposition-lokale Construct-Evidenz und
 die Pattern `RESPECTFUL_BOUNDARY`, `AGENCY_RECOVERY` und `LEARNING_RECOVERY`;
 die beiden neuen Recovery-Pattern sind bewusst nicht-scoring.
+
+Question Catalogue v0.1 stellt acht kanonische Fragen mit getrennten Private-
+und Corporate-Renderings bereit. Die Q/A-Runtime analysiert Antworten,
+offeriert adaptiv fünf bis acht Fragen und komponiert progressive C0–C3-
+Sessions. Frage- und Q/A-Evidenz bleiben vollständig nicht-scoring.
+
+```bash
+go run ./cmd/qa -select -profile CORPORATE -gaps OPTIONS -limit 5
+
+go run ./cmd/qa \
+  -question CQ007 \
+  -answer 'Ich kann die Entscheidung nicht beeinflussen, aber ich kann morgen nachfragen.'
+```
 
 ## PostgreSQL und HTTP-API
 
@@ -161,6 +175,16 @@ curl --fail-with-body \
   -H 'Content-Type: application/json' \
   -d '{"text":"Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.","context":"PRIVATE_CONVERSATION"}' \
   http://localhost:8080/api/v2/trace
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"profile":"CORPORATE","construct_gaps":["OPTIONS"],"limit":5}' \
+  http://localhost:8080/api/v3/questions/select
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"question_id":"CQ007","answer":"Ich kann morgen nachfragen."}' \
+  http://localhost:8080/api/v3/answers/analyze
 ```
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
@@ -179,6 +203,7 @@ internal/resolver/      Context-, Proposition-, Sense- und Scope-Auflösung
 internal/knowledge/     kanonischer Wissensbestand
 internal/rules/         Rule Sets und Regelkatalog
 internal/presentation/  Profile, Labels und sichere Fallbacks
+internal/questions/     kanonische Fragen, Q/A-Auswertung und Sessions
 internal/dimension/     kanonischer Shared Kernel und Legacy-Mapping
 internal/httpapp/       HTTP-Adapter
 internal/db/            PostgreSQL-Adapter
