@@ -19,7 +19,7 @@ CREATE TABLE managed_knowledge_records (
   entity_type TEXT NOT NULL,
   natural_key TEXT NOT NULL,
   payload JSONB NOT NULL,
-  references JSONB NOT NULL DEFAULT '[]'::jsonb,
+  dependency_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
   version INTEGER NOT NULL CHECK (version > 0),
   status TEXT NOT NULL CHECK (status IN ('DRAFT', 'REVIEW', 'APPROVED', 'PRODUCTION', 'ARCHIVED')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

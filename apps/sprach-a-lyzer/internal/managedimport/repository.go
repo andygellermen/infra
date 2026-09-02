@@ -166,7 +166,7 @@ func (r *PostgresRepository) Existing(ctx context.Context, entity string) (map[s
 	if r.database == nil {
 		return nil, fmt.Errorf("managed import database is nil")
 	}
-	rows, err := r.database.QueryContext(ctx, `SELECT natural_key,payload,references,version,status FROM managed_knowledge_records WHERE entity_type=$1`, entity)
+	rows, err := r.database.QueryContext(ctx, `SELECT natural_key,payload,dependency_refs,version,status FROM managed_knowledge_records WHERE entity_type=$1`, entity)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (r *PostgresRepository) Commit(ctx context.Context, plan Plan, actor string
 		var beforePayload, beforeReferences []byte
 		var beforeVersion int
 		var beforeStatus string
-		scanErr := tx.QueryRowContext(ctx, `SELECT payload,references,version,status FROM managed_knowledge_records WHERE entity_type=$1 AND natural_key=$2 FOR UPDATE`, plan.TargetEntity, row.MatchedKey).Scan(&beforePayload, &beforeReferences, &beforeVersion, &beforeStatus)
+		scanErr := tx.QueryRowContext(ctx, `SELECT payload,dependency_refs,version,status FROM managed_knowledge_records WHERE entity_type=$1 AND natural_key=$2 FOR UPDATE`, plan.TargetEntity, row.MatchedKey).Scan(&beforePayload, &beforeReferences, &beforeVersion, &beforeStatus)
 		operation := "INSERT"
 		var before any
 		if scanErr == nil {
@@ -279,7 +279,7 @@ func (r *PostgresRepository) Commit(ctx context.Context, plan Plan, actor string
 		}
 		payload, _ := json.Marshal(record.Payload)
 		references, _ := json.Marshal(record.References)
-		_, err = tx.ExecContext(ctx, `INSERT INTO managed_knowledge_records(entity_type,natural_key,payload,references,version,status) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(entity_type,natural_key) DO UPDATE SET payload=EXCLUDED.payload,references=EXCLUDED.references,version=EXCLUDED.version,status=EXCLUDED.status,updated_at=now()`, plan.TargetEntity, record.NaturalKey, payload, references, record.Version, record.Status)
+		_, err = tx.ExecContext(ctx, `INSERT INTO managed_knowledge_records(entity_type,natural_key,payload,dependency_refs,version,status) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(entity_type,natural_key) DO UPDATE SET payload=EXCLUDED.payload,dependency_refs=EXCLUDED.dependency_refs,version=EXCLUDED.version,status=EXCLUDED.status,updated_at=now()`, plan.TargetEntity, record.NaturalKey, payload, references, record.Version, record.Status)
 		if err != nil {
 			return 0, err
 		}
@@ -337,7 +337,7 @@ func (r *PostgresRepository) Rollback(ctx context.Context, plan Plan, actor stri
 			if err = json.Unmarshal(value.before, &before); err == nil {
 				payload, _ := json.Marshal(before.Payload)
 				references, _ := json.Marshal(before.References)
-				_, err = tx.ExecContext(ctx, `UPDATE managed_knowledge_records SET payload=$3,references=$4,version=$5,status=$6,updated_at=now() WHERE entity_type=$1 AND natural_key=$2`, value.entity, value.key, payload, references, before.Version, before.Status)
+				_, err = tx.ExecContext(ctx, `UPDATE managed_knowledge_records SET payload=$3,dependency_refs=$4,version=$5,status=$6,updated_at=now() WHERE entity_type=$1 AND natural_key=$2`, value.entity, value.key, payload, references, before.Version, before.Status)
 			}
 		}
 		if err != nil {
