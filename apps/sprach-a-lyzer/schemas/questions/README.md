@@ -17,3 +17,19 @@
   Session mit C0–C3-Inferenz und schließt C4 aus.
 
 Eine Frage erzeugt selbst keinen Dimensionsbeitrag. Ihr Score Bias bleibt null.
+
+## Rendering v0.4
+
+- `sprach-a-lyzer_question-rendering_v0.2.json` trennt Profil,
+  Präsentationsmodus und Formulierungsvariante und markiert jedes Rendering
+  als nicht-scoring.
+- `sprach-a-lyzer_question-rendering-catalogue_v0.1.json` bindet die 40
+  freigegebenen Varianten samt Qualitätsgrenzen und Guardrails.
+- `sprach-a-lyzer_question-rendering-request_v0.1.json` beschreibt die
+  Aktionen `DEFAULT`, `SIMPLIFY` und `REPHRASE`.
+- `sprach-a-lyzer_question-rendering-result_v0.1.json` veröffentlicht
+  Qualitätsdeltas und sichere Fallbacks.
+
+Corporate-Renderings dürfen keine spirituelle Explizitheit oder
+Deep-Reflective-Variante enthalten. Deep Reflective ist privat und erfordert
+ein explizites Opt-in.

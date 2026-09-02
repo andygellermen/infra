@@ -47,7 +47,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
-      - name: v0.3 closure release gate
-        run: bash ./scripts/verify-v0.3-closure.sh
+      - name: v0.4 closure release gate
+        run: bash ./scripts/verify-v0.4-closure.sh
       - name: Test with race detector
         run: go test -race ./...

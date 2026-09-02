@@ -16,6 +16,9 @@ func main() {
 	answer := flag.String("answer", "", "answer to analyze")
 	profile := flag.String("profile", "PRIVATE", "PRIVATE or CORPORATE presentation profile")
 	selectQuestions := flag.Bool("select", false, "offer an adaptive question set instead of analyzing an answer")
+	renderQuestion := flag.Bool("render", false, "render a profile-specific question variant")
+	action := flag.String("action", "DEFAULT", "render action: DEFAULT, SIMPLIFY or REPHRASE")
+	deepOptIn := flag.Bool("deep-reflection-opt-in", false, "explicitly opt in to a private Deep Reflective rephrase")
 	gaps := flag.String("gaps", "", "comma-separated construct gaps used by adaptive selection")
 	limit := flag.Int("limit", 8, "number of offered questions (5 to 8)")
 	flag.Parse()
@@ -23,7 +26,11 @@ func main() {
 	service := questions.NewDefault()
 	var output any
 	var err error
-	if *selectQuestions {
+	if *renderQuestion {
+		output, err = service.Render(questions.RenderRequest{
+			QuestionID: *questionID, Profile: *profile, Action: *action, DeepReflectionOptIn: *deepOptIn,
+		})
+	} else if *selectQuestions {
 		output, err = service.Select(questions.SelectionRequest{
 			Profile: *profile, ConstructGaps: splitList(*gaps), Limit: *limit,
 		})

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-rendering-catalogue-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Rendering Catalogue v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "catalogue_version", "status", "locale", "canonical_question_contract", "rendering_contract", "canonical_intents", "quality_limits", "renderings", "hard_guardrails"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "catalogue_version": {"const": "0.1"},
+    "status": {"const": "APPROVED"},
+    "locale": {"const": "de-DE"},
+    "canonical_question_contract": {"const": "0.1"},
+    "rendering_contract": {"const": "0.2"},
+    "canonical_intents": {"type": "object", "minProperties": 8, "maxProperties": 8, "propertyNames": {"pattern": "^CQ[0-9]{3}$"}, "additionalProperties": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}},
+    "quality_limits": {
+      "type": "object", "additionalProperties": false,
+      "required": ["leadingness_delta", "intimacy_delta", "spiritual_explicitness_delta"],
+      "properties": {
+        "leadingness_delta": {"type": "number", "minimum": 0, "maximum": 1},
+        "intimacy_delta": {"type": "number", "minimum": 0, "maximum": 1},
+        "spiritual_explicitness_delta": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "renderings": {"type": "array", "minItems": 40, "items": {"$ref": "sprach-a-lyzer_question-rendering_v0.2.json"}},
+    "hard_guardrails": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

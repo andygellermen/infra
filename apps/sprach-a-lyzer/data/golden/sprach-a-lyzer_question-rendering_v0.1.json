@@ -1,0 +1,16 @@
+{
+  "version": "0.1",
+  "rendering_catalogue": "0.1",
+  "rendering_contract": "0.2",
+  "result_contract": "0.1",
+  "cases": [
+    {"case_id":"QR001","request":{"question_id":"CQ007","profile":"PRIVATE"},"expected_rendering_id":"CQ007:PRIVATE:STANDARD:CANONICAL:v1","expected_fallback":false,"expected_reason":""},
+    {"case_id":"QR002","request":{"question_id":"CQ007","profile":"PRIVATE","action":"SIMPLIFY"},"expected_rendering_id":"CQ007:PRIVATE:EASY:SIMPLIFY:v1","expected_fallback":false,"expected_reason":""},
+    {"case_id":"QR003","request":{"question_id":"CQ009","profile":"CORPORATE"},"expected_rendering_id":"CQ009:CORPORATE:STANDARD:CANONICAL:v1","expected_fallback":false,"expected_reason":""},
+    {"case_id":"QR004","request":{"question_id":"CQ013","profile":"CORPORATE","action":"SIMPLIFY"},"expected_rendering_id":"CQ013:CORPORATE:EASY:SIMPLIFY:v1","expected_fallback":false,"expected_reason":""},
+    {"case_id":"QR005","request":{"question_id":"CQ021","profile":"PRIVATE","action":"REPHRASE"},"expected_rendering_id":"CQ021:PRIVATE:STANDARD:CANONICAL:v1","expected_fallback":true,"expected_reason":"DEEP_REFLECTION_OPT_IN_REQUIRED"},
+    {"case_id":"QR006","request":{"question_id":"CQ023","profile":"PRIVATE","action":"REPHRASE","deep_reflection_opt_in":true},"expected_rendering_id":"CQ023:PRIVATE:DEEP_REFLECTIVE:ALTERNATIVE_PERSPECTIVE:v1","expected_fallback":false,"expected_reason":""},
+    {"case_id":"QR007","request":{"question_id":"CQ024","profile":"CORPORATE","action":"REPHRASE","deep_reflection_opt_in":true},"expected_rendering_id":"CQ024:CORPORATE:STANDARD:CANONICAL:v1","expected_fallback":true,"expected_reason":"NO_APPROVED_SAFE_VARIANT"},
+    {"case_id":"QR008","request":{"question_id":"CQ034","profile":"PRIVATE","action":"SIMPLIFY"},"expected_rendering_id":"CQ034:PRIVATE:EASY:SIMPLIFY:v1","expected_fallback":false,"expected_reason":""}
+  ]
+}

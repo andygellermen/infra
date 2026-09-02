@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-rendering-request-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Rendering Request v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question_id"],
+  "properties": {
+    "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+    "profile": {"enum": ["PRIVATE", "CORPORATE"]},
+    "action": {"enum": ["DEFAULT", "SIMPLIFY", "REPHRASE"]},
+    "deep_reflection_opt_in": {"type": "boolean"}
+  }
+}

@@ -53,6 +53,24 @@ func (a *App) composeSession(response http.ResponseWriter, request *http.Request
 	writeVersionedJSON(response, "question-session", result.ContractVersion, result)
 }
 
+func (a *App) renderQuestion(response http.ResponseWriter, request *http.Request) {
+	input, ok := decodeStrictJSON[questions.RenderRequest](a, response, request)
+	if !ok {
+		return
+	}
+	result, err := a.questions.Render(input)
+	if err != nil {
+		if errors.Is(err, questions.ErrUnknownQuestion) || errors.Is(err, questions.ErrInvalidProfile) ||
+			errors.Is(err, questions.ErrInvalidRenderAction) {
+			writeError(response, http.StatusUnprocessableEntity, "INVALID_RENDER_REQUEST", err.Error())
+			return
+		}
+		writeError(response, http.StatusInternalServerError, "QUESTION_RENDERING_FAILED", "Die Fragenformulierung konnte nicht sicher aufgelöst werden.")
+		return
+	}
+	writeVersionedJSON(response, "question-rendering-result", result.ContractVersion, result)
+}
+
 func decodeStrictJSON[T any](a *App, response http.ResponseWriter, request *http.Request) (T, bool) {
 	var input T
 	request.Body = http.MaxBytesReader(response, request.Body, a.maxRequestBytes)

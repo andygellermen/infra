@@ -1,7 +1,7 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
-**Status:** REFERENCE – umgesetzt bis v0.3
-**Stand:** 1. September 2026
+**Status:** REFERENCE – umgesetzt bis v0.4
+**Stand:** 2. September 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
 ## 1. START HERE
@@ -325,3 +325,14 @@ Die Frage bleibt score-neutral, Q/A-Evidenz nicht-scoring und der darunter
 liegende Analysis Result bitgleich zur direkten Core-Analyse. HTTP v3 und der
 lokale `qa`-Befehl stellen den MVP bereit. Nächster Roadmap-Meilenstein ist
 v0.4 Rendering & Corporate/Private Profiles.
+
+## 20. Rendering & Corporate/Private Profiles Closure v0.4.0
+
+Der Roadmap-Meilenstein ist mit
+[`RENDERING-PROFILES-CLOSURE-v0.4.0.md`](RENDERING-PROFILES-CLOSURE-v0.4.0.md)
+geschlossen. Ein fail-closed Katalog bindet 40 profilisolierte Standard-,
+Easy- und private Deep-Reflective-Renderings an die unveränderten kanonischen
+Question IDs und Construct Intents. Simplify/Rephrase, Qualitätsdeltas,
+sichere Fallbacks, Deep-Opt-in sowie Corporate-Leakage- und Core-Score-
+Paritätsgates sind ausführbar. Nächster Roadmap-Meilenstein ist v0.5 Managed
+Knowledge Operations.

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-rendering-result-v0.1.json",
+  "title": "Sprach-A-Lyzer Question Rendering Result v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "canonical_question_version", "rendering", "quality", "fallback_applied"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "canonical_question_version": {"const": "0.1"},
+    "rendering": {"$ref": "sprach-a-lyzer_question-rendering_v0.2.json"},
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["intent_preserved", "leadingness_delta", "intimacy_delta", "spiritual_explicitness_delta", "within_limits", "scoring"],
+      "properties": {
+        "intent_preserved": {"const": true},
+        "leadingness_delta": {"type": "number", "minimum": 0},
+        "intimacy_delta": {"type": "number", "minimum": 0},
+        "spiritual_explicitness_delta": {"type": "number", "minimum": 0},
+        "within_limits": {"const": true},
+        "scoring": {"const": false}
+      }
+    },
+    "fallback_applied": {"type": "boolean"},
+    "fallback_reason": {"type": "string"}
+  }
+}

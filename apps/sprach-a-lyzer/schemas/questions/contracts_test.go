@@ -64,6 +64,10 @@ func TestQuestionSchemasAreStrictAndDoNotContainLegacyDimension(t *testing.T) {
 		"sprach-a-lyzer_question-answer-observation_v0.1.json",
 		"sprach-a-lyzer_question-selection_v0.1.json",
 		"sprach-a-lyzer_question-session_v0.1.json",
+		"sprach-a-lyzer_question-rendering_v0.2.json",
+		"sprach-a-lyzer_question-rendering-catalogue_v0.1.json",
+		"sprach-a-lyzer_question-rendering-request_v0.1.json",
+		"sprach-a-lyzer_question-rendering-result_v0.1.json",
 	} {
 		data, err := os.ReadFile(filename)
 		if err != nil {
@@ -92,6 +96,9 @@ func TestQuestionRuntimeTopLevelShapesMatchSchemas(t *testing.T) {
 		{"sprach-a-lyzer_question-answer-observation_v0.1.json", questions.Observation{}},
 		{"sprach-a-lyzer_question-selection_v0.1.json", questions.Selection{}},
 		{"sprach-a-lyzer_question-session_v0.1.json", questions.Session{}},
+		{"sprach-a-lyzer_question-rendering-catalogue_v0.1.json", questions.RenderingCatalogue{}},
+		{"sprach-a-lyzer_question-rendering-request_v0.1.json", questions.RenderRequest{}},
+		{"sprach-a-lyzer_question-rendering-result_v0.1.json", questions.RenderedQuestion{}},
 	}
 	for _, test := range tests {
 		t.Run(test.filename, func(t *testing.T) {
@@ -122,6 +129,23 @@ func TestApprovedCatalogueUsesCanonicalAndRenderingShapes(t *testing.T) {
 	}
 	if got := jsonFieldKeys(reflect.TypeOf(catalogue.Renderings[0])); !reflect.DeepEqual(got, renderingKeys) {
 		t.Fatalf("rendering runtime fields = %v; schema fields = %v", got, renderingKeys)
+	}
+}
+
+func TestApprovedV04RenderingCatalogueMatchesV02Shape(t *testing.T) {
+	t.Parallel()
+	data, err := os.Open("../../data/seed/sprach-a-lyzer_question-rendering-catalogue_v0.1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Close()
+	catalogue, err := questions.DecodeRenderingCatalogue(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := schemaPropertyKeys(t, "sprach-a-lyzer_question-rendering_v0.2.json")
+	if got := jsonFieldKeys(reflect.TypeOf(catalogue.Renderings[0])); !reflect.DeepEqual(got, want) {
+		t.Fatalf("rendering v0.2 runtime fields = %v; schema fields = %v", got, want)
 	}
 }
 

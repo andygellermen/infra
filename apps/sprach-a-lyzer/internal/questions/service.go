@@ -25,8 +25,9 @@ type LanguageAnalyzer interface {
 }
 
 type Service struct {
-	provider CatalogueProvider
-	analyzer LanguageAnalyzer
+	provider          CatalogueProvider
+	renderingProvider RenderingCatalogueProvider
+	analyzer          LanguageAnalyzer
 }
 
 func New(analyzer LanguageAnalyzer) *Service {
@@ -36,7 +37,11 @@ func New(analyzer LanguageAnalyzer) *Service {
 func NewDefault() *Service { return New(analysis.NewDefault()) }
 
 func NewWithCatalogue(analyzer LanguageAnalyzer, provider CatalogueProvider) *Service {
-	return &Service{provider: provider, analyzer: analyzer}
+	return NewWithCatalogues(analyzer, provider, embeddedRenderingProvider{})
+}
+
+func NewWithCatalogues(analyzer LanguageAnalyzer, provider CatalogueProvider, renderingProvider RenderingCatalogueProvider) *Service {
+	return &Service{provider: provider, renderingProvider: renderingProvider, analyzer: analyzer}
 }
 
 type AnswerRequest struct {

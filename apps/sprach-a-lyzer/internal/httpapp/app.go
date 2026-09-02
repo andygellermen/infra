@@ -44,6 +44,7 @@ func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
 	mux.HandleFunc("POST /api/v3/questions/select", app.selectQuestions)
 	mux.HandleFunc("POST /api/v3/answers/analyze", app.analyzeAnswer)
 	mux.HandleFunc("POST /api/v3/sessions/compose", app.composeSession)
+	mux.HandleFunc("POST /api/v4/questions/render", app.renderQuestion)
 	app.handler = securityHeaders(mux)
 	return app
 }

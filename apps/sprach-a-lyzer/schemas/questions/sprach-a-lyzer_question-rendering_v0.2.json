@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer/question-rendering-v0.2.json",
+  "title": "Sprach-A-Lyzer Question Rendering v0.2",
+  "description": "Approved profile and action variant preserving one canonical question intent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "rendering_id", "question_id", "construct_intent", "profile", "presentation_mode", "variant", "language_level", "locale", "text", "leadingness", "specificity", "intimacy_level", "spiritual_explicitness", "relational_warmth", "requires_opt_in", "semantic_equivalence", "scoring", "status", "version"],
+  "properties": {
+    "contract_version": {"const": "0.2"},
+    "rendering_id": {"type": "string", "pattern": "^CQ[0-9]{3}:(?:PRIVATE|CORPORATE):(?:STANDARD|EASY|DEEP_REFLECTIVE):(?:CANONICAL|SIMPLIFY|ALTERNATIVE_PERSPECTIVE):v[1-9][0-9]*$"},
+    "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"},
+    "construct_intent": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "profile": {"enum": ["PRIVATE", "CORPORATE"]},
+    "presentation_mode": {"enum": ["STANDARD", "EASY", "DEEP_REFLECTIVE"]},
+    "variant": {"enum": ["CANONICAL", "SIMPLIFY", "ALTERNATIVE_PERSPECTIVE"]},
+    "language_level": {"enum": ["STANDARD", "EASY"]},
+    "locale": {"const": "de-DE"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 280},
+    "leadingness": {"type": "number", "minimum": 0, "maximum": 1},
+    "specificity": {"type": "number", "minimum": 0, "maximum": 1},
+    "intimacy_level": {"type": "number", "minimum": 0, "maximum": 1},
+    "spiritual_explicitness": {"type": "number", "minimum": 0, "maximum": 1},
+    "relational_warmth": {"type": "number", "minimum": 0, "maximum": 1},
+    "requires_opt_in": {"type": "boolean"},
+    "semantic_equivalence": {"const": true},
+    "scoring": {"const": false},
+    "status": {"enum": ["APPROVED", "ARCHIVED"]},
+    "version": {"type": "integer", "minimum": 1}
+  },
+  "allOf": [
+    {"if": {"properties": {"presentation_mode": {"const": "DEEP_REFLECTIVE"}}, "required": ["presentation_mode"]}, "then": {"properties": {"profile": {"const": "PRIVATE"}, "requires_opt_in": {"const": true}}}},
+    {"if": {"properties": {"profile": {"const": "CORPORATE"}}, "required": ["profile"]}, "then": {"properties": {"spiritual_explicitness": {"const": 0}, "intimacy_level": {"maximum": 0.4}}}}
+  ]
+}

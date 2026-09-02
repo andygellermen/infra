@@ -11,7 +11,7 @@ import (
 
 func TestCoreMatchesReleaseManifest(t *testing.T) {
 	t.Parallel()
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.3.0.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.4.0.json")
 	if err != nil {
 		t.Fatalf("read release manifest: %v", err)
 	}
@@ -34,6 +34,8 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 			CanonicalQuestion          string `json:"canonical_question"`
 			QuestionRendering          string `json:"question_rendering"`
 			QuestionCatalogue          string `json:"question_catalogue"`
+			QuestionRenderingCatalogue string `json:"question_rendering_catalogue"`
+			QuestionRenderingResult    string `json:"question_rendering_result"`
 			QAObservation              string `json:"qa_observation"`
 			QuestionSelection          string `json:"question_selection"`
 			QuestionSession            string `json:"question_session"`
@@ -48,6 +50,7 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 			PropositionTraceGolden     string `json:"proposition_trace_golden"`
 			ConstructCompositionGolden string `json:"construct_composition_golden"`
 			QARuntimeGolden            string `json:"qa_runtime_golden"`
+			QuestionRenderingGolden    string `json:"question_rendering_golden"`
 			DatabaseSchema             int    `json:"database_schema"`
 		} `json:"version_vector"`
 		ClosureEvidence []string `json:"closure_evidence"`
@@ -61,9 +64,9 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 	if err := decoder.Decode(&extra); err != io.EOF {
 		t.Fatalf("release manifest contains trailing JSON: %v", err)
 	}
-	if manifest.ManifestVersion != "0.3" || manifest.Product != "sprach-a-lyzer-core" ||
+	if manifest.ManifestVersion != "0.4" || manifest.Product != "sprach-a-lyzer-core" ||
 		manifest.ReleaseVersion != Core || manifest.GitTag != "v"+Core || manifest.Status != "RELEASED" ||
-		manifest.Capability != "QUESTION_ANSWER_MVP" || manifest.ReleaseDate != "2026-09-01" {
+		manifest.Capability != "PROFILE_ISOLATED_QUESTION_RENDERING" || manifest.ReleaseDate != "2026-09-02" {
 		t.Fatalf("release manifest envelope = %+v; core = %s", manifest, Core)
 	}
 	wantVector := struct {
@@ -77,6 +80,8 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 		CanonicalQuestion          string `json:"canonical_question"`
 		QuestionRendering          string `json:"question_rendering"`
 		QuestionCatalogue          string `json:"question_catalogue"`
+		QuestionRenderingCatalogue string `json:"question_rendering_catalogue"`
+		QuestionRenderingResult    string `json:"question_rendering_result"`
 		QAObservation              string `json:"qa_observation"`
 		QuestionSelection          string `json:"question_selection"`
 		QuestionSession            string `json:"question_session"`
@@ -91,34 +96,66 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 		PropositionTraceGolden     string `json:"proposition_trace_golden"`
 		ConstructCompositionGolden string `json:"construct_composition_golden"`
 		QARuntimeGolden            string `json:"qa_runtime_golden"`
+		QuestionRenderingGolden    string `json:"question_rendering_golden"`
 		DatabaseSchema             int    `json:"database_schema"`
 	}{
-		HTTPAPI: "3", AnalysisRequest: "0.1", AnalysisResult: "0.1", AnalysisTrace: "0.2",
+		HTTPAPI: "4", AnalysisRequest: "0.1", AnalysisResult: "0.1", AnalysisTrace: "0.2",
 		ResolverResult: "0.2", ResolverCatalogue: "0.1", ConstructOntology: "0.2",
-		CanonicalQuestion: "0.1", QuestionRendering: "0.1", QuestionCatalogue: "0.1",
+		CanonicalQuestion: "0.1", QuestionRendering: "0.2", QuestionCatalogue: "0.1",
+		QuestionRenderingCatalogue: "0.1", QuestionRenderingResult: "0.1",
 		QAObservation: "0.1", QuestionSelection: "0.1", QuestionSession: "0.1",
 		RuleContract: "0.5", RuleSet: "0.4", PolicyRegistry: "0.7",
 		ParameterContract: "0.1", ParameterSet: "0.1", PresentationBundle: "0.2",
 		CoreGoldenSuite: "0.2", ResolverGoldenSuite: "0.3", PropositionTraceGolden: "0.1",
-		ConstructCompositionGolden: "0.1", QARuntimeGolden: "0.2", DatabaseSchema: 4,
+		ConstructCompositionGolden: "0.1", QARuntimeGolden: "0.2", QuestionRenderingGolden: "0.1", DatabaseSchema: 4,
 	}
 	if !reflect.DeepEqual(manifest.VersionVector, wantVector) {
 		t.Fatalf("release version vector = %+v; want %+v", manifest.VersionVector, wantVector)
 	}
 	wantEvidence := []string{
-		"CORE_V0_2_BACKWARD_PARITY",
-		"QA_RUNTIME_GOLDEN_V0_2_PARITY",
-		"ADAPTIVE_QUESTION_SELECTION_5_TO_8",
-		"QUESTION_SESSION_C0_TO_C3",
-		"NO_CAUSAL_C4_CLAIMS",
-		"QUESTION_SCORE_BIAS_ZERO",
-		"QA_EVIDENCE_NON_SCORING",
-		"QUESTION_CATALOGUE_ACTIVATION_REACTIVATION_SMOKE",
-		"PUBLIC_QUESTION_API_V0_3",
+		"V0_3_BACKWARD_PARITY",
+		"QUESTION_RENDERING_GOLDEN_V0_1_PARITY",
+		"PRIVATE_CORPORATE_STANDARD_EASY_COVERAGE",
+		"DEEP_REFLECTIVE_EXPLICIT_OPT_IN",
+		"SIMPLIFY_REPHRASE_SAFE_FALLBACK",
+		"CANONICAL_INTENT_PRESERVED",
+		"QUESTION_RENDERING_NON_SCORING",
+		"CORPORATE_PRIVATE_CORE_SCORE_PARITY",
+		"CORPORATE_PROFILE_LEAKAGE_GATE",
+		"RENDERING_ACTIVATION_DEACTIVATION_SMOKE",
+		"PUBLIC_QUESTION_RENDERING_API_V0_4",
 		"DATABASE_SCHEMA_READINESS",
 	}
 	if !reflect.DeepEqual(manifest.ClosureEvidence, wantEvidence) {
 		t.Fatalf("closure evidence = %v; want %v", manifest.ClosureEvidence, wantEvidence)
+	}
+}
+
+func TestHistoricalV030ReleaseManifestRemainsImmutable(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.3.0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		ManifestVersion string `json:"manifest_version"`
+		ReleaseVersion  string `json:"release_version"`
+		GitTag          string `json:"git_tag"`
+		Capability      string `json:"capability"`
+		VersionVector   struct {
+			HTTPAPI           string `json:"http_api"`
+			QuestionRendering string `json:"question_rendering"`
+			QARuntimeGolden   string `json:"qa_runtime_golden"`
+			DatabaseSchema    int    `json:"database_schema"`
+		} `json:"version_vector"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.ManifestVersion != "0.3" || manifest.ReleaseVersion != "0.3.0" || manifest.GitTag != "v0.3.0" ||
+		manifest.Capability != "QUESTION_ANSWER_MVP" || manifest.VersionVector.HTTPAPI != "3" ||
+		manifest.VersionVector.QuestionRendering != "0.1" || manifest.VersionVector.QARuntimeGolden != "0.2" || manifest.VersionVector.DatabaseSchema != 4 {
+		t.Fatalf("historical v0.3.0 manifest drifted: %+v", manifest)
 	}
 }
 

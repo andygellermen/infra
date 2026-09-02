@@ -30,6 +30,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 22. [Construct Runtime & Proposition Composition v0.1](docs/00-start/CONSTRUCT-RUNTIME-PROPOSITION-COMPOSITION-v0.1.md)
 23. [Context & Proposition Closure v0.2.0](docs/00-start/CORE-CLOSURE-v0.2.0.md)
 24. [Question / Answer MVP Closure v0.3.0](docs/00-start/QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md)
+25. [Rendering & Profiles Closure v0.4.0](docs/00-start/RENDERING-PROFILES-CLOSURE-v0.4.0.md)
 
 ## Repository-Struktur
 
@@ -120,7 +121,7 @@ unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
 Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
 Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Die
-geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0, v0.2.0 und v0.3.0
+geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 bis v0.4.0
 sowie die zugehörigen annotierten Git-Tags fixiert.
 
 Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
@@ -145,6 +146,13 @@ go run ./cmd/qa -select -profile CORPORATE -gaps OPTIONS -limit 5
 go run ./cmd/qa \
   -question CQ007 \
   -answer 'Ich kann die Entscheidung nicht beeinflussen, aber ich kann morgen nachfragen.'
+
+go run ./cmd/qa \
+  -render -question CQ009 -profile CORPORATE -action SIMPLIFY
+
+go run ./cmd/qa \
+  -render -question CQ009 -profile PRIVATE -action REPHRASE \
+  -deep-reflection-opt-in
 ```
 
 ## PostgreSQL und HTTP-API
@@ -185,6 +193,11 @@ curl --fail-with-body \
   -H 'Content-Type: application/json' \
   -d '{"question_id":"CQ007","answer":"Ich kann morgen nachfragen."}' \
   http://localhost:8080/api/v3/answers/analyze
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"question_id":"CQ009","profile":"CORPORATE","action":"SIMPLIFY"}' \
+  http://localhost:8080/api/v4/questions/render
 ```
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,

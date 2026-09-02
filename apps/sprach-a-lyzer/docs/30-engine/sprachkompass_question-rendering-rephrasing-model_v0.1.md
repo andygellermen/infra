@@ -328,3 +328,12 @@ CQ001:PRIVATE_STANDARD:v1
 ## 20. North Star
 
 > **Eine Frage darf einfacher oder anders werden – aber sie darf dabei nicht heimlich etwas anderes fragen.**
+
+## 21. Implementierungsstand v0.4.0
+
+Die Runtime-Teile dieses Referenzmodells sind mit
+[`RENDERING-PROFILES-CLOSURE-v0.4.0.md`](../00-start/RENDERING-PROFILES-CLOSURE-v0.4.0.md)
+geschlossen: Canonical/Rendering-Trennung, Standard/Easy, sicheres
+Simplify/Rephrase, Leadingness-/Intimacy-/Spiritual-Deltas, Deep-Opt-in,
+Q/A-ID-Bindung und semantische Golden-Fälle. Managed Import folgt in v0.5;
+persistierte Events, Admin-Metriken und Variant Analytics folgen in v0.9.

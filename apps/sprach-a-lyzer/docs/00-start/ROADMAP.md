@@ -69,6 +69,13 @@ Corporate/Private Standard/Easy, Deep Reflective optional, Simplify/Rephrase, Le
 
 **Exit:** gleicher Canonical Core ohne ungewolltes Profile-Leakage.
 
+**Status:** abgeschlossen am 2. September 2026; Release-Manifest und
+annotierter Tag `v0.4.0`, siehe
+[`RENDERING-PROFILES-CLOSURE-v0.4.0.md`](RENDERING-PROFILES-CLOSURE-v0.4.0.md).
+Vierzig freigegebene Standard-, Easy- und opt-in-pflichtige Deep-Reflective-
+Renderings, sichere Rephrase-Fallbacks und ein Core-Score-Paritätsgate
+schließen unbeabsichtigtes Profile-Leakage aus.
+
 ## v0.5 – Managed Knowledge Operations
 XLSX/CSV/JSON Import, Mapping, Matching, Diff, Conflicts, Validation, Presets, Golden Dry Run, Commit/Rollback, Audit.
 

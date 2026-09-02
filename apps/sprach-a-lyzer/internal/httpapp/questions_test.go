@@ -89,3 +89,51 @@ func TestPublicV03QuestionRoutesAreStrictAndFailClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicV04ProfileRenderingContract(t *testing.T) {
+	t.Parallel()
+	handler := New(analysis.NewDefault(), pingerStub{}, 64<<10).Handler()
+	tests := []struct {
+		name     string
+		payload  string
+		wantID   string
+		fallback bool
+	}{
+		{"corporate easy", `{"question_id":"CQ009","profile":"CORPORATE","action":"SIMPLIFY"}`, "CQ009:CORPORATE:EASY:SIMPLIFY:v1", false},
+		{"private deep", `{"question_id":"CQ009","profile":"PRIVATE","action":"REPHRASE","deep_reflection_opt_in":true}`, "CQ009:PRIVATE:DEEP_REFLECTIVE:ALTERNATIVE_PERSPECTIVE:v1", false},
+		{"safe rephrase fallback", `{"question_id":"CQ009","profile":"PRIVATE","action":"REPHRASE"}`, "CQ009:PRIVATE:STANDARD:CANONICAL:v1", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v4/questions/render", strings.NewReader(test.payload)))
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+			}
+			var result questions.RenderedQuestion
+			if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+				t.Fatal(err)
+			}
+			assertVersionHeaders(t, response, "question-rendering-result", questions.RenderingResultContract)
+			if result.Rendering.ID != test.wantID || result.FallbackApplied != test.fallback || result.Rendering.Scoring || !result.Quality.WithinLimits {
+				t.Fatalf("rendering result = %+v", result)
+			}
+		})
+	}
+}
+
+func TestPublicV04RenderingRequestIsStrict(t *testing.T) {
+	t.Parallel()
+	handler := New(analysis.NewDefault(), pingerStub{}, 64<<10).Handler()
+	for _, payload := range []string{
+		`{"question_id":"CQ007","profile":"PRIVATE","person_id":"42"}`,
+		`{"question_id":"CQ007","profile":"UNKNOWN"}`,
+		`{"question_id":"CQ007","action":"GENERATE"}`,
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v4/questions/render", strings.NewReader(payload)))
+		if response.Code != http.StatusBadRequest && response.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+		}
+	}
+}

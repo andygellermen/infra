@@ -27,3 +27,8 @@ var ConstructOntologyV02 []byte
 //
 //go:embed data/seed/sprach-a-lyzer_question-catalogue_v0.1.json
 var QuestionCatalogueV01 []byte
+
+// QuestionRenderingCatalogueV01 contains approved profile-isolated v0.4 variants.
+//
+//go:embed data/seed/sprach-a-lyzer_question-rendering-catalogue_v0.1.json
+var QuestionRenderingCatalogueV01 []byte
