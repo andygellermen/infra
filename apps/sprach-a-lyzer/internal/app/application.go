@@ -7,6 +7,7 @@ import (
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/db"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/knowledge"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/managedimport"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/presentation"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/questions"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/rules"
@@ -15,6 +16,7 @@ import (
 type Application struct {
 	Analysis     *analysis.Service
 	Knowledge    *knowledge.Service
+	Imports      *managedimport.Service
 	Rules        *rules.Service
 	Presentation *presentation.Service
 	Questions    *questions.Service
@@ -28,6 +30,7 @@ func New(database *sql.DB) *Application {
 	return &Application{
 		Analysis:     analysisService,
 		Knowledge:    knowledge.New(knowledge.NewPostgresRepository(database)),
+		Imports:      managedimport.New(managedimport.NewPostgresRepository(database)),
 		Rules:        rules.New(ruleRepository),
 		Presentation: presentationService,
 		Questions:    questions.New(analysisService),

@@ -1,0 +1,15 @@
+{
+  "manifest_version":"0.5","product":"sprach-a-lyzer-core","release_version":"0.5.0","release_date":"2026-09-02","status":"RELEASED","git_tag":"v0.5.0","capability":"MANAGED_KNOWLEDGE_OPERATIONS",
+  "version_vector":{
+    "http_api":"5","analysis_request":"0.1","analysis_result":"0.1","analysis_trace":"0.2","resolver_result":"0.2","resolver_catalogue":"0.1","construct_ontology":"0.2",
+    "canonical_question":"0.1","question_rendering":"0.2","question_catalogue":"0.1","question_rendering_catalogue":"0.1","question_rendering_result":"0.1","qa_observation":"0.1","question_selection":"0.1","question_session":"0.1",
+    "managed_import_request":"0.1","managed_import_plan":"0.1","managed_import_operation":"0.1",
+    "rule_contract":"0.5","rule_set":"0.4","policy_registry":"0.7","parameter_contract":"0.1","parameter_set":"0.1","presentation_bundle":"0.2",
+    "core_golden_suite":"0.2","resolver_golden_suite":"0.3","proposition_trace_golden":"0.1","construct_composition_golden":"0.1","qa_runtime_golden":"0.2","question_rendering_golden":"0.1","database_schema":5
+  },
+  "closure_evidence":[
+    "V0_4_BACKWARD_PARITY","JSON_CSV_XLSX_PARSING","AUTOMATIC_AND_MANUAL_FIELD_MAPPING","NATURAL_AND_SECONDARY_MATCHING","FIELD_LEVEL_DIFF_PREVIEW",
+    "CONFLICT_AND_CRITICAL_FIELD_REVIEW","REFERENCE_AND_DEPENDENCY_GRAPH_VALIDATION","CORE_GOLDEN_DRY_RUN","DUPLICATE_SOURCE_SHA256","VALIDATE_ONLY_WRITE_PROTECTION",
+    "ROLE_GUARDED_TRANSACTIONAL_COMMIT","REVERSIBLE_CHANGE_LOG","IMMUTABLE_AUDIT_LOG","PUBLIC_MANAGED_IMPORT_API_V0_5","DATABASE_SCHEMA_READINESS"
+  ]
+}

@@ -989,3 +989,12 @@ Remote Sources
 > **Ein guter Bulk-Import spart Zeit, ohne Transparenz gegen Geschwindigkeit einzutauschen.**
 
 > **Importierte Fachinformationen werden nicht allein deshalb wahr, weil sie in einer Datei stehen. Sie durchlaufen dieselben Evidenz-, Kontext- und Guardrail-Prinzipien wie alle anderen Wissensbestandteile des Sprachkompasses.**
+
+# 37. Implementierungsstand v0.5.0
+
+Die ausführbare Operations-Pipeline ist in
+[`MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md`](../00-start/MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md)
+dokumentiert. JSON/CSV/XLSX, Mapping, Matching, Diff, Konflikte,
+Referenz-/Zyklusprüfung, Golden Dry Run, PostgreSQL-Commit, Rollback, History
+und Audit sind geschlossen. `SYNC` und Remote Sources bleiben deaktiviert;
+die visuelle Admin-Oberfläche und Preset-Verwaltung folgen im MVP Candidate.

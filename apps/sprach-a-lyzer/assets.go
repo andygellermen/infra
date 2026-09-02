@@ -32,3 +32,8 @@ var QuestionCatalogueV01 []byte
 //
 //go:embed data/seed/sprach-a-lyzer_question-rendering-catalogue_v0.1.json
 var QuestionRenderingCatalogueV01 []byte
+
+// VerticalSliceGoldenV02 is the immutable core parity suite used by dry runs.
+//
+//go:embed data/golden/sprach-a-lyzer_vertical-slice_v0.2.json
+var VerticalSliceGoldenV02 []byte

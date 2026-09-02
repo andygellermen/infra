@@ -33,8 +33,8 @@ func TestPostgresFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first migration run: %v", err)
 	}
-	if first.Total != 4 {
-		t.Fatalf("migration total = %d; want 4", first.Total)
+	if first.Total != 5 {
+		t.Fatalf("migration total = %d; want 5", first.Total)
 	}
 	second, err := migrator.Up(ctx)
 	if err != nil {

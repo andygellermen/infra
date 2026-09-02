@@ -11,7 +11,7 @@ import (
 
 func TestCoreMatchesReleaseManifest(t *testing.T) {
 	t.Parallel()
-	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.4.0.json")
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.5.0.json")
 	if err != nil {
 		t.Fatalf("read release manifest: %v", err)
 	}
@@ -39,6 +39,9 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 			QAObservation              string `json:"qa_observation"`
 			QuestionSelection          string `json:"question_selection"`
 			QuestionSession            string `json:"question_session"`
+			ManagedImportRequest       string `json:"managed_import_request"`
+			ManagedImportPlan          string `json:"managed_import_plan"`
+			ManagedImportOperation     string `json:"managed_import_operation"`
 			RuleContract               string `json:"rule_contract"`
 			RuleSet                    string `json:"rule_set"`
 			PolicyRegistry             string `json:"policy_registry"`
@@ -64,9 +67,9 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 	if err := decoder.Decode(&extra); err != io.EOF {
 		t.Fatalf("release manifest contains trailing JSON: %v", err)
 	}
-	if manifest.ManifestVersion != "0.4" || manifest.Product != "sprach-a-lyzer-core" ||
+	if manifest.ManifestVersion != "0.5" || manifest.Product != "sprach-a-lyzer-core" ||
 		manifest.ReleaseVersion != Core || manifest.GitTag != "v"+Core || manifest.Status != "RELEASED" ||
-		manifest.Capability != "PROFILE_ISOLATED_QUESTION_RENDERING" || manifest.ReleaseDate != "2026-09-02" {
+		manifest.Capability != "MANAGED_KNOWLEDGE_OPERATIONS" || manifest.ReleaseDate != "2026-09-02" {
 		t.Fatalf("release manifest envelope = %+v; core = %s", manifest, Core)
 	}
 	wantVector := struct {
@@ -85,6 +88,9 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 		QAObservation              string `json:"qa_observation"`
 		QuestionSelection          string `json:"question_selection"`
 		QuestionSession            string `json:"question_session"`
+		ManagedImportRequest       string `json:"managed_import_request"`
+		ManagedImportPlan          string `json:"managed_import_plan"`
+		ManagedImportOperation     string `json:"managed_import_operation"`
 		RuleContract               string `json:"rule_contract"`
 		RuleSet                    string `json:"rule_set"`
 		PolicyRegistry             string `json:"policy_registry"`
@@ -99,35 +105,53 @@ func TestCoreMatchesReleaseManifest(t *testing.T) {
 		QuestionRenderingGolden    string `json:"question_rendering_golden"`
 		DatabaseSchema             int    `json:"database_schema"`
 	}{
-		HTTPAPI: "4", AnalysisRequest: "0.1", AnalysisResult: "0.1", AnalysisTrace: "0.2",
+		HTTPAPI: "5", AnalysisRequest: "0.1", AnalysisResult: "0.1", AnalysisTrace: "0.2",
 		ResolverResult: "0.2", ResolverCatalogue: "0.1", ConstructOntology: "0.2",
 		CanonicalQuestion: "0.1", QuestionRendering: "0.2", QuestionCatalogue: "0.1",
 		QuestionRenderingCatalogue: "0.1", QuestionRenderingResult: "0.1",
 		QAObservation: "0.1", QuestionSelection: "0.1", QuestionSession: "0.1",
+		ManagedImportRequest: "0.1", ManagedImportPlan: "0.1", ManagedImportOperation: "0.1",
 		RuleContract: "0.5", RuleSet: "0.4", PolicyRegistry: "0.7",
 		ParameterContract: "0.1", ParameterSet: "0.1", PresentationBundle: "0.2",
 		CoreGoldenSuite: "0.2", ResolverGoldenSuite: "0.3", PropositionTraceGolden: "0.1",
-		ConstructCompositionGolden: "0.1", QARuntimeGolden: "0.2", QuestionRenderingGolden: "0.1", DatabaseSchema: 4,
+		ConstructCompositionGolden: "0.1", QARuntimeGolden: "0.2", QuestionRenderingGolden: "0.1", DatabaseSchema: 5,
 	}
 	if !reflect.DeepEqual(manifest.VersionVector, wantVector) {
 		t.Fatalf("release version vector = %+v; want %+v", manifest.VersionVector, wantVector)
 	}
 	wantEvidence := []string{
-		"V0_3_BACKWARD_PARITY",
-		"QUESTION_RENDERING_GOLDEN_V0_1_PARITY",
-		"PRIVATE_CORPORATE_STANDARD_EASY_COVERAGE",
-		"DEEP_REFLECTIVE_EXPLICIT_OPT_IN",
-		"SIMPLIFY_REPHRASE_SAFE_FALLBACK",
-		"CANONICAL_INTENT_PRESERVED",
-		"QUESTION_RENDERING_NON_SCORING",
-		"CORPORATE_PRIVATE_CORE_SCORE_PARITY",
-		"CORPORATE_PROFILE_LEAKAGE_GATE",
-		"RENDERING_ACTIVATION_DEACTIVATION_SMOKE",
-		"PUBLIC_QUESTION_RENDERING_API_V0_4",
+		"V0_4_BACKWARD_PARITY", "JSON_CSV_XLSX_PARSING", "AUTOMATIC_AND_MANUAL_FIELD_MAPPING", "NATURAL_AND_SECONDARY_MATCHING", "FIELD_LEVEL_DIFF_PREVIEW",
+		"CONFLICT_AND_CRITICAL_FIELD_REVIEW", "REFERENCE_AND_DEPENDENCY_GRAPH_VALIDATION", "CORE_GOLDEN_DRY_RUN", "DUPLICATE_SOURCE_SHA256", "VALIDATE_ONLY_WRITE_PROTECTION",
+		"ROLE_GUARDED_TRANSACTIONAL_COMMIT", "REVERSIBLE_CHANGE_LOG", "IMMUTABLE_AUDIT_LOG", "PUBLIC_MANAGED_IMPORT_API_V0_5",
 		"DATABASE_SCHEMA_READINESS",
 	}
 	if !reflect.DeepEqual(manifest.ClosureEvidence, wantEvidence) {
 		t.Fatalf("closure evidence = %v; want %v", manifest.ClosureEvidence, wantEvidence)
+	}
+}
+
+func TestHistoricalV040ReleaseManifestRemainsImmutable(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("../../data/seed/sprach-a-lyzer_release-manifest_v0.4.0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		ManifestVersion string `json:"manifest_version"`
+		ReleaseVersion  string `json:"release_version"`
+		GitTag          string `json:"git_tag"`
+		Capability      string `json:"capability"`
+		VersionVector   struct {
+			HTTPAPI           string `json:"http_api"`
+			QuestionRendering string `json:"question_rendering"`
+			DatabaseSchema    int    `json:"database_schema"`
+		} `json:"version_vector"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.ManifestVersion != "0.4" || manifest.ReleaseVersion != "0.4.0" || manifest.GitTag != "v0.4.0" || manifest.Capability != "PROFILE_ISOLATED_QUESTION_RENDERING" || manifest.VersionVector.HTTPAPI != "4" || manifest.VersionVector.QuestionRendering != "0.2" || manifest.VersionVector.DatabaseSchema != 4 {
+		t.Fatalf("historical v0.4.0 manifest drifted: %+v", manifest)
 	}
 }
 

@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://meinesprache.org/schemas/sprach-a-lyzer/managed-import-operation-v0.1.json",
+  "title":"Sprach-A-Lyzer Managed Import Operation v0.1",
+  "type":"object","additionalProperties":false,
+  "required":["contract_version","batch_id","status","changed_records","occurred_at"],
+  "properties":{"contract_version":{"const":"0.1"},"batch_id":{"type":"string","format":"uuid"},"status":{"enum":["COMPLETED","ROLLED_BACK"]},"changed_records":{"type":"integer","minimum":0},"occurred_at":{"type":"string","format":"date-time"}}
+}

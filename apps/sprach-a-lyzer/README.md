@@ -31,6 +31,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 23. [Context & Proposition Closure v0.2.0](docs/00-start/CORE-CLOSURE-v0.2.0.md)
 24. [Question / Answer MVP Closure v0.3.0](docs/00-start/QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md)
 25. [Rendering & Profiles Closure v0.4.0](docs/00-start/RENDERING-PROFILES-CLOSURE-v0.4.0.md)
+26. [Managed Knowledge Operations Closure v0.5.0](docs/00-start/MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md)
 
 ## Repository-Struktur
 
@@ -121,7 +122,7 @@ unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
 Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
 Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Die
-geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 bis v0.4.0
+geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 bis v0.5.0
 sowie die zugehörigen annotierten Git-Tags fixiert.
 
 Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
@@ -153,6 +154,10 @@ go run ./cmd/qa \
 go run ./cmd/qa \
   -render -question CQ009 -profile PRIVATE -action REPHRASE \
   -deep-reflection-opt-in
+
+go run ./cmd/importctl \
+  -file data/import-examples/sprachkompass_bulk-import-example_v0.1.json \
+  -collection lexemes -entity LEXEME
 ```
 
 ## PostgreSQL und HTTP-API
@@ -198,6 +203,11 @@ curl --fail-with-body \
   -H 'Content-Type: application/json' \
   -d '{"question_id":"CQ009","profile":"CORPORATE","action":"SIMPLIFY"}' \
   http://localhost:8080/api/v4/questions/render
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"batch_key":"demo-1","operation_type":"VALIDATE_ONLY","source_type":"JSON","source_name":"demo.json","source_content":"[{\"source_key\":\"src_demo\",\"version\":1,\"status\":\"REVIEW\"}]","target_entity":"SOURCE","actor_id":"editor","actor_role":"CONTRIBUTOR"}' \
+  http://localhost:8080/api/v5/admin/imports/prepare
 ```
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
@@ -214,6 +224,7 @@ internal/app/           Composition Root
 internal/analysis/      öffentliche Analyse-Fassade
 internal/resolver/      Context-, Proposition-, Sense- und Scope-Auflösung
 internal/knowledge/     kanonischer Wissensbestand
+internal/managedimport/ sichere Import-, Diff-, Commit- und Rollback-Pipeline
 internal/rules/         Rule Sets und Regelkatalog
 internal/presentation/  Profile, Labels und sichere Fallbacks
 internal/questions/     kanonische Fragen, Q/A-Auswertung und Sessions

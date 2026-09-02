@@ -1,6 +1,6 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
-**Status:** REFERENCE – umgesetzt bis v0.4
+**Status:** REFERENCE – umgesetzt bis v0.5
 **Stand:** 2. September 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
@@ -336,3 +336,13 @@ Question IDs und Construct Intents. Simplify/Rephrase, Qualitätsdeltas,
 sichere Fallbacks, Deep-Opt-in sowie Corporate-Leakage- und Core-Score-
 Paritätsgates sind ausführbar. Nächster Roadmap-Meilenstein ist v0.5 Managed
 Knowledge Operations.
+
+## 21. Managed Knowledge Operations Closure v0.5.0
+
+Der Roadmap-Meilenstein ist mit
+[`MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md`](MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md)
+geschlossen. JSON, CSV und XLSX durchlaufen dieselbe Mapping-, Matching-,
+Diff-, Konflikt-, Referenz-, Dependency- und Golden-Pipeline. Schema 5 bindet
+Staging, Managed Knowledge, Change Log, Presets und Mapping-Profile. Commit
+und Rollback sind atomar und rollengebunden; das Audit ist auf Datenbankebene
+unveränderlich. Nächster Roadmap-Meilenstein ist v0.6 MVP Candidate.

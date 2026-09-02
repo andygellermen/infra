@@ -81,6 +81,13 @@ XLSX/CSV/JSON Import, Mapping, Matching, Diff, Conflicts, Validation, Presets, G
 
 **Exit:** Fachdaten können sicher ohne direkte DB-Manipulation gepflegt werden.
 
+**Status:** abgeschlossen am 2. September 2026; Release-Manifest und
+annotierter Tag `v0.5.0`, siehe
+[`MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md`](MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md).
+JSON/CSV/XLSX, Mapping, Matching, Diff, Konflikte, Referenz-/Zyklusprüfung,
+Golden Dry Run, transaktionaler Commit, Rollback und unveränderliches Audit
+sind ausführbar und PostgreSQL-integriert.
+
 ## v0.6 – MVP Candidate
 End-to-End UI, Privacy Defaults, no-AI Core Experience, Session Flow, Result Explanation, Feedback/Alternatives, Admin Basis.
 

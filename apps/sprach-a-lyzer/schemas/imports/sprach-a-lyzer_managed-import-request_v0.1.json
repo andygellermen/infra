@@ -1,0 +1,26 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://meinesprache.org/schemas/sprach-a-lyzer/managed-import-request-v0.1.json",
+  "title":"Sprach-A-Lyzer Managed Import Request v0.1",
+  "type":"object","additionalProperties":false,
+  "required":["batch_key","operation_type","source_type","source_name","target_entity","actor_id","actor_role"],
+  "properties":{
+    "batch_key":{"type":"string","minLength":1},
+    "operation_type":{"enum":["IMPORT","UPDATE","VALIDATE_ONLY"]},
+    "source_type":{"enum":["JSON","CSV","XLSX"]},
+    "source_name":{"type":"string","minLength":1},
+    "source_content":{"type":"string"},
+    "source_base64":{"type":"string"},
+    "source_collection":{"type":"string"},
+    "source_sheet":{"type":"string"},
+    "target_entity":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"},
+    "column_mapping":{"type":"object","additionalProperties":{"type":"string"}},
+    "secondary_match_fields":{"type":"array","uniqueItems":true,"items":{"type":"string"}},
+    "conflict_policy":{"enum":["KEEP_DATABASE","USE_IMPORT","REQUIRE_MANUAL","KEEP_NEWER_VERSION","KEEP_HIGHER_EVIDENCE"]},
+    "resolutions":{"type":"object","additionalProperties":{"enum":["KEEP_DATABASE","USE_IMPORT"]}},
+    "allow_insert":{"type":"boolean"},"allow_update":{"type":"boolean"},
+    "actor_id":{"type":"string","minLength":1},
+    "actor_role":{"enum":["CONTRIBUTOR","REVIEWER","PUBLISHER","ADMIN"]}
+  },
+  "oneOf":[{"required":["source_content"]},{"required":["source_base64"]}]
+}

@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/managedimport"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/questions"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/version"
 )
@@ -28,13 +29,18 @@ type Pinger interface {
 type App struct {
 	analyzer        Analyzer
 	questions       *questions.Service
+	imports         *managedimport.Service
 	database        Pinger
 	maxRequestBytes int64
 	handler         http.Handler
 }
 
 func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
-	app := &App{analyzer: analyzer, questions: questions.New(analyzer), database: database, maxRequestBytes: maxRequestBytes}
+	return NewWithImports(analyzer, database, maxRequestBytes, managedimport.New(managedimport.NewMemoryRepository()))
+}
+
+func NewWithImports(analyzer Analyzer, database Pinger, maxRequestBytes int64, imports *managedimport.Service) *App {
+	app := &App{analyzer: analyzer, questions: questions.New(analyzer), imports: imports, database: database, maxRequestBytes: maxRequestBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", app.live)
 	mux.HandleFunc("GET /health/ready", app.ready)
@@ -45,6 +51,11 @@ func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
 	mux.HandleFunc("POST /api/v3/answers/analyze", app.analyzeAnswer)
 	mux.HandleFunc("POST /api/v3/sessions/compose", app.composeSession)
 	mux.HandleFunc("POST /api/v4/questions/render", app.renderQuestion)
+	mux.HandleFunc("POST /api/v5/admin/imports/prepare", app.prepareImport)
+	mux.HandleFunc("POST /api/v5/admin/imports/commit", app.commitImport)
+	mux.HandleFunc("POST /api/v5/admin/imports/rollback", app.rollbackImport)
+	mux.HandleFunc("GET /api/v5/admin/imports", app.importHistory)
+	mux.HandleFunc("GET /api/v5/admin/imports/{batch_id}/audit", app.importAudit)
 	app.handler = securityHeaders(mux)
 	return app
 }

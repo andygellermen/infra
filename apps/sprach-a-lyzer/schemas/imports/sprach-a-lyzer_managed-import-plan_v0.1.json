@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://meinesprache.org/schemas/sprach-a-lyzer/managed-import-plan-v0.1.json",
+  "title":"Sprach-A-Lyzer Managed Import Plan v0.1",
+  "type":"object","additionalProperties":false,
+  "required":["contract_version","batch_id","batch_key","operation_type","status","source_type","source_name","source_fingerprint","duplicate_source","target_entity","actor_id","rows","summary","golden_dry_run","created_at"],
+  "properties":{
+    "contract_version":{"const":"0.1"},"batch_id":{"type":"string","format":"uuid"},"batch_key":{"type":"string"},
+    "operation_type":{"enum":["IMPORT","UPDATE","VALIDATE_ONLY"]},"status":{"enum":["READY","VALIDATED","FAILED","COMPLETED","ROLLED_BACK"]},
+    "source_type":{"enum":["JSON","CSV","XLSX"]},"source_name":{"type":"string"},"source_fingerprint":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "duplicate_source":{"type":"boolean"},"target_entity":{"type":"string"},"actor_id":{"type":"string"},
+    "rows":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["row_number","match_confidence","status","raw","diff","errors","warnings"],"properties":{
+      "row_number":{"type":"integer","minimum":1},"natural_key":{"type":"string"},"raw":{"type":"object"},"normalized":{"type":"object"},"matched_natural_key":{"type":"string"},
+      "match_confidence":{"enum":["EXACT","PROBABLE","AMBIGUOUS","NONE"]},"status":{"enum":["NEW","UNCHANGED","CHANGED","CONFLICT","INVALID","SKIPPED","REFERENCE_MISSING"]},
+      "diff":{"type":"array"},"errors":{"type":"array","items":{"type":"string"}},"warnings":{"type":"array","items":{"type":"string"}},"resolution":{"enum":["KEEP_DATABASE","USE_IMPORT","REQUIRE_MANUAL"]}
+    }}},
+    "summary":{"type":"object","additionalProperties":false,"required":["total","new","changed","unchanged","conflicts","invalid","reference_missing"],"properties":{"total":{"type":"integer"},"new":{"type":"integer"},"changed":{"type":"integer"},"unchanged":{"type":"integer"},"conflicts":{"type":"integer"},"invalid":{"type":"integer"},"reference_missing":{"type":"integer"}}},
+    "golden_dry_run":{"type":"object","additionalProperties":false,"required":["passed","cases","errors"],"properties":{"passed":{"type":"boolean"},"cases":{"type":"integer"},"errors":{"type":"array","items":{"type":"string"}}}},
+    "created_at":{"type":"string","format":"date-time"}
+  }
+}

@@ -32,7 +32,7 @@ func main() {
 	defer database.Close()
 
 	application := app.New(database)
-	httpAPI := httpapp.New(application.Analysis, application.Readiness, cfg.MaxRequestBytes)
+	httpAPI := httpapp.NewWithImports(application.Analysis, application.Readiness, cfg.MaxRequestBytes, application.Imports)
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
 		Handler:      httpAPI.Handler(),
