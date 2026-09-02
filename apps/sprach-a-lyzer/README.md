@@ -32,6 +32,8 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 24. [Question / Answer MVP Closure v0.3.0](docs/00-start/QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md)
 25. [Rendering & Profiles Closure v0.4.0](docs/00-start/RENDERING-PROFILES-CLOSURE-v0.4.0.md)
 26. [Managed Knowledge Operations Closure v0.5.0](docs/00-start/MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md)
+27. [MVP Candidate Experience v0.1](docs/60-ux/sprach-a-lyzer_mvp-candidate-experience_v0.1.md)
+28. [MVP Candidate Closure v0.6.0](docs/00-start/MVP-CANDIDATE-CLOSURE-v0.6.0.md)
 
 ## Repository-Struktur
 
@@ -54,6 +56,7 @@ data/
 schemas/
   analysis/          Versionierte Analyse- und Trace-Verträge
   constructs/        Construct-Ontologie und Kompositionsverträge
+  experience/        MVP-Experience-Verträge und Privacy-Guardrails
   questions/         Q/A-Verträge
   imports/           Importverträge
   rules/             Regel-, Policy- und Guardrail-Verträge
@@ -122,7 +125,7 @@ unbekannte Felder und nicht registrierte Conditions oder Aktionen.
 Im Serverpfad liest die Engine den aktiven `PRODUCTION` Rule Set aus PostgreSQL.
 Standalone-CLI und Tests verwenden denselben Foundation Seed als eingebettetes
 Build-Artefakt; dadurch benötigen lokale Smoke-Tests keine Datenbank. Die
-geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 bis v0.5.0
+geschlossenen Core-Stände sind durch die Release-Manifeste v0.1.0 bis v0.6.0
 sowie die zugehörigen annotierten Git-Tags fixiert.
 
 Der Context-/Proposition-Resolver lädt Resolver Catalogue v0.1 als
@@ -208,7 +211,16 @@ curl --fail-with-body \
   -H 'Content-Type: application/json' \
   -d '{"batch_key":"demo-1","operation_type":"VALIDATE_ONLY","source_type":"JSON","source_name":"demo.json","source_content":"[{\"source_key\":\"src_demo\",\"version\":1,\"status\":\"REVIEW\"}]","target_entity":"SOURCE","actor_id":"editor","actor_role":"CONTRIBUTOR"}' \
   http://localhost:8080/api/v5/admin/imports/prepare
+
+curl --fail-with-body \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Ich muss das heute unbedingt noch schaffen.","context":"SELF_TALK","profile":"PRIVATE","language_level":"STANDARD"}' \
+  http://localhost:8080/api/v6/experience/analyze
 ```
+
+Die sichtbare MeineSprache-/Sprachkompass-Oberfläche ist danach unter
+`http://localhost:8080/` erreichbar. `/admin` stellt die bewusst read-only
+gehaltene Betriebsbasis bereit.
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
 Seed-Daten und Betriebsdetails sind in `docs/00-start/FOUNDATION-v0.0.md`
@@ -228,6 +240,7 @@ internal/managedimport/ sichere Import-, Diff-, Commit- und Rollback-Pipeline
 internal/rules/         Rule Sets und Regelkatalog
 internal/presentation/  Profile, Labels und sichere Fallbacks
 internal/questions/     kanonische Fragen, Q/A-Auswertung und Sessions
+internal/experience/    transiente No-AI-Produktkomposition und Erklärung
 internal/dimension/     kanonischer Shared Kernel und Legacy-Mapping
 internal/httpapp/       HTTP-Adapter
 internal/db/            PostgreSQL-Adapter

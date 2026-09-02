@@ -1,0 +1,15 @@
+{
+  "manifest_version":"0.6","product":"sprach-a-lyzer-core","release_version":"0.6.0","release_date":"2026-09-03","status":"RELEASED","git_tag":"v0.6.0","capability":"MVP_CANDIDATE",
+  "version_vector":{
+    "http_api":"6","analysis_request":"0.1","analysis_result":"0.1","analysis_trace":"0.2","resolver_result":"0.2","resolver_catalogue":"0.1","construct_ontology":"0.2",
+    "canonical_question":"0.1","question_rendering":"0.2","question_catalogue":"0.1","question_rendering_catalogue":"0.1","question_rendering_result":"0.1","qa_observation":"0.1","question_selection":"0.1","question_session":"0.1",
+    "managed_import_request":"0.1","managed_import_plan":"0.1","managed_import_operation":"0.1","mvp_experience_request":"0.1","mvp_experience_result":"0.1",
+    "rule_contract":"0.5","rule_set":"0.4","policy_registry":"0.7","parameter_contract":"0.1","parameter_set":"0.1","presentation_bundle":"0.2",
+    "core_golden_suite":"0.2","resolver_golden_suite":"0.3","proposition_trace_golden":"0.1","construct_composition_golden":"0.1","qa_runtime_golden":"0.2","question_rendering_golden":"0.1","database_schema":5
+  },
+  "closure_evidence":[
+    "V0_5_BACKWARD_PARITY","END_TO_END_PRODUCT_UI","PRIVATE_CORPORATE_ENTRY","TRANSIENT_RAW_TEXT_DEFAULT","NO_AI_CORE_EXPERIENCE",
+    "SIX_DIMENSION_EXPLANATION","CONTRIBUTION_TRACE_EXPLANATION","TEMPLATE_REFLECTION_AND_ALTERNATIVES","ADAPTIVE_QUESTION_SESSION",
+    "LOCAL_ONLY_FEEDBACK","READ_ONLY_ADMIN_BASIS","PROFILE_CORE_SCORE_PARITY","PUBLIC_MVP_EXPERIENCE_API_V0_6","SECURITY_HEADER_GATE","DATABASE_SCHEMA_READINESS"
+  ]
+}

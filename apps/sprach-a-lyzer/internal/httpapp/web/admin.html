@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Sprachkompass Admin · Basis</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body data-page="admin">
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">S</span><span><strong>Sprachkompass Admin</strong><small>MVP Candidate · Read only</small></span></a>
+    <div class="top-actions"><span class="status-pill"><i></i> Core v0.6</span><a class="text-link" href="/">Produktansicht</a></div>
+  </header>
+  <main class="admin-main">
+    <section class="hero compact"><div class="hero-copy"><p class="eyebrow">Sichere Betriebsbasis</p><h1>Transparenz vor Veränderung.</h1><p class="lead">Der erste Admin-Schnitt zeigt Systemgrenzen und Betriebszustand. Fachliche Writes bleiben in den rollengeschützten Managed-Knowledge-Operationen.</p></div></section>
+    <div class="admin-layout">
+      <nav class="admin-nav" aria-label="Admin Bereiche">
+        <strong>Arbeitsbereiche</strong>
+        <a class="active" href="#overview">Übersicht</a><a href="#knowledge">Knowledge</a><a href="#testlab">Test Lab</a><a href="#imports">Importe</a><a href="#audit">Audit</a>
+        <span>Rules</span><span>Parameters</span><span>Publish</span>
+      </nav>
+      <section class="admin-content" id="overview">
+        <div class="section-heading"><div><p class="step">Systemübersicht</p><h2>MVP Candidate</h2></div><button id="refresh-status" class="quiet-button">Status prüfen</button></div>
+        <div class="metric-grid">
+          <article><small>API</small><strong id="api-status">Prüfung …</strong><span>Readiness</span></article>
+          <article><small>Analysemodus</small><strong>CORE</strong><span>Keine KI aktiv</span></article>
+          <article><small>Rohtextspeicherung</small><strong>OFF</strong><span>Privacy Default</span></article>
+          <article><small>Managed Import</small><strong>v0.5</strong><span>Commit + Rollback</span></article>
+        </div>
+        <div class="admin-cards">
+          <article id="knowledge" class="panel"><div class="panel-title"><span>Knowledge Operations</span><small>gesichert</small></div><p>JSON, CSV und XLSX durchlaufen Mapping, Diff, Konfliktprüfung und Golden Dry Run.</p><span class="guardrail">Kein direkter Produktionswrite</span></article>
+          <article id="testlab" class="panel"><div class="panel-title"><span>Test Lab</span><small>verfügbar</small></div><p>Die Produktansicht nutzt denselben deterministischen Core und dieselben Golden-gesicherten Verträge.</p><a class="secondary-button inline" href="/">Analyse öffnen</a></article>
+          <article id="imports" class="panel"><div class="panel-title"><span>Import & Publish</span><small>Auth-Grenze</small></div><p>Commit und Rollback werden hier bewusst nicht angeboten. Die Admin-Authentisierung muss vor einer öffentlichen Operations-UI angebunden sein.</p><span class="guardrail amber">Fail closed</span></article>
+          <article id="audit" class="panel"><div class="panel-title"><span>Audit</span><small>unveränderlich</small></div><p>Importereignisse sind auf Datenbankebene gegen Änderung und Löschung geschützt.</p><span class="guardrail">Rollback nachvollziehbar</span></article>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><span>Sprachkompass Admin Basis v0.6</span><span>Keine personenbezogene Leistungsbewertung.</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

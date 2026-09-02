@@ -1,6 +1,6 @@
 # Sprachkompass – Repository Documentation Manifest
 
-**Stand:** 1. September 2026
+**Stand:** 3. September 2026
 
 ## Root-Einstieg
 
@@ -24,11 +24,15 @@ docs/00-start/CORE-CLOSURE-v0.2.0.md
 docs/00-start/QUESTION-ANSWER-MVP-CLOSURE-v0.3.0.md
 docs/00-start/RENDERING-PROFILES-CLOSURE-v0.4.0.md
 docs/00-start/MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md
+docs/00-start/MVP-CANDIDATE-CLOSURE-v0.6.0.md
 docs/00-start/ROADMAP.md
 docs/00-start/NEXT-STEPS-AND-IDEAS.md
 ```
 
 Alle Pfade sind relativ zum App-Root `apps/sprach-a-lyzer/` angegeben.
+
+Die freigegebene v0.6-Produktsicht ist zusätzlich unter
+`docs/60-ux/sprach-a-lyzer_mvp-candidate-experience_v0.1.md` beschrieben.
 
 ## Dokumentstatus
 

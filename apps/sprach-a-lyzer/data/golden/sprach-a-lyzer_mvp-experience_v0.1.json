@@ -1,0 +1,27 @@
+{
+  "suite_version": "0.1",
+  "experience_contract": "0.1",
+  "cases": [
+    {
+      "id": "MVP-PRIVATE-INTERNAL-PRESSURE",
+      "request": {"text": "Ich muss das heute unbedingt noch schaffen.", "context": "SELF_TALK", "profile": "PRIVATE", "language_level": "STANDARD"},
+      "expected_patterns": ["INTERNAL_PRESSURE", "URGENCY"],
+      "expected_assessable_dimensions": ["CLARITY", "VOLITION", "OPENNESS"],
+      "expected_alternatives": 2
+    },
+    {
+      "id": "MVP-CORPORATE-SAFETY",
+      "request": {"text": "Du musst sofort das Gebäude verlassen!", "context": "SAFETY", "profile": "CORPORATE", "language_level": "EASY"},
+      "expected_patterns": ["SAFETY_DIRECTIVE", "URGENCY"],
+      "expected_assessable_dimensions": ["AGENCY", "CLARITY"],
+      "expected_alternatives": 0
+    },
+    {
+      "id": "MVP-PRIVATE-RESPECTFUL-BOUNDARY",
+      "request": {"text": "Ich verstehe, dass dir das wichtig ist. Für mich kommt diese Lösung trotzdem nicht infrage.", "context": "PRIVATE_CONVERSATION", "profile": "PRIVATE", "language_level": "STANDARD"},
+      "expected_patterns": ["ACKNOWLEDGEMENT", "CLEAR_BOUNDARY", "RESPECTFUL_BOUNDARY"],
+      "expected_assessable_dimensions": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"],
+      "expected_alternatives": 2
+    }
+  ]
+}

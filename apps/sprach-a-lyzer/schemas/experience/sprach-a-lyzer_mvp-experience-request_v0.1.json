@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer_mvp-experience-request_v0.1.json",
+  "title": "Sprach-A-Lyzer MVP Experience Request v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text"],
+  "properties": {
+    "text": {"type": "string", "minLength": 1, "maxLength": 10000},
+    "context": {"type": "string", "enum": ["UNSPECIFIED", "SELF_TALK", "SAFETY", "LEGAL_ADMINISTRATIVE", "WORKPLACE", "PRIVATE_CONVERSATION", "FAMILY", "COACHING", "MODERATION", "WEBSITE", "PUBLIC_INFORMATION"]},
+    "profile": {"type": "string", "enum": ["PRIVATE", "CORPORATE"]},
+    "language_level": {"type": "string", "enum": ["STANDARD", "EASY"]}
+  }
+}

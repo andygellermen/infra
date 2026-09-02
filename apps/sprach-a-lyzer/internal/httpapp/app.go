@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/analysis"
+	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/experience"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/managedimport"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/questions"
 	"github.com/andygellermann/infra/apps/sprach-a-lyzer/internal/version"
@@ -29,6 +30,7 @@ type Pinger interface {
 type App struct {
 	analyzer        Analyzer
 	questions       *questions.Service
+	experience      *experience.Service
 	imports         *managedimport.Service
 	database        Pinger
 	maxRequestBytes int64
@@ -40,7 +42,8 @@ func New(analyzer Analyzer, database Pinger, maxRequestBytes int64) *App {
 }
 
 func NewWithImports(analyzer Analyzer, database Pinger, maxRequestBytes int64, imports *managedimport.Service) *App {
-	app := &App{analyzer: analyzer, questions: questions.New(analyzer), imports: imports, database: database, maxRequestBytes: maxRequestBytes}
+	questionService := questions.New(analyzer)
+	app := &App{analyzer: analyzer, questions: questionService, experience: experience.New(analyzer, questionService), imports: imports, database: database, maxRequestBytes: maxRequestBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", app.live)
 	mux.HandleFunc("GET /health/ready", app.ready)
@@ -56,6 +59,11 @@ func NewWithImports(analyzer Analyzer, database Pinger, maxRequestBytes int64, i
 	mux.HandleFunc("POST /api/v5/admin/imports/rollback", app.rollbackImport)
 	mux.HandleFunc("GET /api/v5/admin/imports", app.importHistory)
 	mux.HandleFunc("GET /api/v5/admin/imports/{batch_id}/audit", app.importAudit)
+	mux.HandleFunc("POST /api/v6/experience/analyze", app.analyzeExperience)
+	mux.HandleFunc("GET /{$}", app.productUI)
+	mux.HandleFunc("GET /admin", app.adminUI)
+	mux.HandleFunc("GET /app.css", app.productAsset)
+	mux.HandleFunc("GET /app.js", app.productAsset)
 	app.handler = securityHeaders(mux)
 	return app
 }
@@ -209,6 +217,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		response.Header().Set("Content-Type", "application/json; charset=utf-8")
 		response.Header().Set("Cache-Control", "no-store")
 		response.Header().Set("X-Content-Type-Options", "nosniff")
+		response.Header().Set("X-Frame-Options", "DENY")
+		response.Header().Set("Referrer-Policy", "no-referrer")
+		response.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		response.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		next.ServeHTTP(response, request)
 	})
 }

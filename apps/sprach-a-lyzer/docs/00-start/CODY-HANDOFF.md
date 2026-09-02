@@ -1,6 +1,6 @@
 # Sprachkompass / Sprach-A-Lyzer – Cody Handoff v0.3
 
-**Status:** REFERENCE – umgesetzt bis v0.5
+**Status:** REFERENCE – umgesetzt bis v0.6
 **Stand:** 2. September 2026
 **Zweck:** Verbindliche Orientierung für die technische Initiierung des ersten MVP.
 
@@ -346,3 +346,15 @@ Diff-, Konflikt-, Referenz-, Dependency- und Golden-Pipeline. Schema 5 bindet
 Staging, Managed Knowledge, Change Log, Presets und Mapping-Profile. Commit
 und Rollback sind atomar und rollengebunden; das Audit ist auf Datenbankebene
 unveränderlich. Nächster Roadmap-Meilenstein ist v0.6 MVP Candidate.
+
+## 22. MVP Candidate Closure v0.6.0
+
+Der Roadmap-Meilenstein ist mit
+[`MVP-CANDIDATE-CLOSURE-v0.6.0.md`](MVP-CANDIDATE-CLOSURE-v0.6.0.md)
+geschlossen. Die eingebettete Produktoberfläche verbindet transiente
+Core-Analyse, sechs erklärbare Dimensionen, Contribution Trace, freigegebene
+Alternativen und adaptive Fragen ohne KI oder Speicherung. Private und
+Corporate bleiben score-paritätisch. `/admin` ist eine read-only Betriebsbasis
+ohne Publish-/Rollback-Aktionen. Nächster Roadmap-Meilenstein ist v0.7
+Optional AI Enhancement; zuvor soll der eigenständige No-AI-Nutzen praktisch
+erprobt werden.

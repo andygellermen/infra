@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meinesprache.org/schemas/sprach-a-lyzer_mvp-experience-result_v0.1.json",
+  "title": "Sprach-A-Lyzer MVP Experience Result v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "product_profile", "experience_mode", "core_result", "headline", "summary", "dimensions", "explanation_trace", "reflection_question", "alternatives", "suggested_questions", "notices", "privacy"],
+  "properties": {
+    "contract_version": {"const": "0.1"},
+    "product_profile": {"type": "string", "enum": ["PRIVATE", "CORPORATE"]},
+    "experience_mode": {"const": "CORE_NO_AI"},
+    "core_result": {"$ref": "../analysis/sprach-a-lyzer_analysis-result_v0.1.json"},
+    "headline": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "dimensions": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/dimension"}},
+    "explanation_trace": {"type": "array", "items": {"$ref": "#/$defs/trace"}},
+    "reflection_question": {"type": ["string", "null"]},
+    "alternatives": {"type": "array", "items": {"type": "string"}},
+    "suggested_questions": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/question"}},
+    "notices": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+    "privacy": {"$ref": "#/$defs/privacy"}
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "label", "state", "score", "confidence", "assessability"],
+      "properties": {
+        "id": {"type": "string", "enum": ["AGENCY", "CONNECTION", "APPRECIATION", "CLARITY", "VOLITION", "OPENNESS"]},
+        "label": {"type": "string", "minLength": 1},
+        "state": {"type": "string", "enum": ["NOT_ASSESSABLE", "WEAK", "ASSESSABLE", "STRONG"]},
+        "score": {"type": ["number", "null"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "assessability": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "trace": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rule_id", "dimension", "label", "evidence", "reason", "delta"],
+      "properties": {
+        "rule_id": {"type": "string"}, "dimension": {"type": "string"}, "label": {"type": "string"},
+        "evidence": {"type": "string"}, "reason": {"type": "string"}, "delta": {"type": "number"}
+      }
+    },
+    "question": {
+      "type": "object", "additionalProperties": false,
+      "required": ["question_id", "text", "primary_construct", "phase", "risk_level", "expected_dimensions", "selection_score", "offered"],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^CQ[0-9]{3}$"}, "text": {"type": "string"},
+        "primary_construct": {"type": "string"}, "phase": {"type": "string"}, "risk_level": {"type": "string"},
+        "expected_dimensions": {"type": "array", "items": {"type": "string"}},
+        "selection_score": {"type": "number"}, "offered": {"const": true}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "raw_text_stored", "analysis_stored", "external_transfer", "ai_used"],
+      "properties": {
+        "mode": {"type": "string", "enum": ["PRIVATE_TRANSIENT", "CORPORATE_TRANSIENT"]},
+        "raw_text_stored": {"const": false}, "analysis_stored": {"const": false},
+        "external_transfer": {"const": false}, "ai_used": {"const": false}
+      }
+    }
+  }
+}

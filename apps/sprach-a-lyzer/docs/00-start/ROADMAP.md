@@ -93,6 +93,14 @@ End-to-End UI, Privacy Defaults, no-AI Core Experience, Session Flow, Result Exp
 
 **Exit:** Nutzer würden den Sprach-A-Lyzer auch ohne KI erneut verwenden wollen.
 
+**Status:** abgeschlossen am 3. September 2026; Release-Manifest und
+annotierter Tag `v0.6.0`, siehe
+[`MVP-CANDIDATE-CLOSURE-v0.6.0.md`](MVP-CANDIDATE-CLOSURE-v0.6.0.md).
+Die eingebettete MeineSprache-/Sprachkompass-Oberfläche verbindet Core,
+Erklärung, freigegebene Alternativen und adaptive C0–C3-Fragen in einem
+transienten No-AI-Pfad. Privacy Receipt, profilgleiche Scores und die
+read-only Admin-Basis sind Golden- und HTTP-gesichert.
+
 ## v0.7 – Optional AI Enhancement
 AI Adapter, Consent, KI-Erklärung, individuelle Rephrasing-Vorschläge, Core-Trace-Validierung, ggf. Local LLM Pilot.
 
