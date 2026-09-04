@@ -1,0 +1,20 @@
+# Hostvars fuer {{ domain }} (Sprach-A-Lyzer protected MVP)
+domain: {{ domain }}
+
+traefik:
+  domain: {{ domain }}
+  aliases: []
+
+sal_enabled: true
+sal_image: "sprach-a-lyzer:latest"
+sal_postgres_image: "postgres:17-alpine"
+sal_postgres_password: "GENERATE_64_HEX_CHARACTERS"
+sal_max_request_bytes: 65536
+
+sal_basic_auth_username: "andy"
+sal_basic_auth_password_hash: "GENERATE_BCRYPT_HASH"
+sal_basic_auth_realm: "Sprach-A-Lyzer MVP"
+sal_traefik_middleware_default: ""
+
+sal_smoke_retries: 20
+sal_smoke_delay_seconds: 3

@@ -1,5 +1,29 @@
 # 📘 Dokumentation der Ghost-Infra-Skripte
 
+## Sprach-A-Lyzer – geschützter MVP
+
+Der v0.6-MVP wird über Traefik ausschließlich per HTTPS und mit Basic Auth
+bereitgestellt. API und PostgreSQL veröffentlichen keine Host-Ports.
+
+Einmalige Einrichtung auf dem Infra-Server:
+
+```bash
+sudo apt-get install -y apache2-utils
+./scripts/sal-add.sh sal.geller.men --username=andy
+./scripts/sal-redeploy.sh sal.geller.men
+```
+
+Regulärer Redeploy und separater Smoke-Test:
+
+```bash
+./scripts/sal-redeploy.sh sal.geller.men
+./scripts/sal-smoke-check.sh sal.geller.men --username=andy
+```
+
+Die Kennworteingabe erfolgt verdeckt. Das Klartext-Zugriffskennwort wird weder
+in Git noch in den Hostvars gespeichert. Das vollständige Runbook liegt unter
+`apps/sprach-a-lyzer/docs/00-start/PROTECTED-MVP-DEPLOYMENT-v0.1.md`.
+
 ### ghost-add.sh
 
 **Beschreibung:**

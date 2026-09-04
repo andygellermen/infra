@@ -358,3 +358,12 @@ Corporate bleiben score-paritätisch. `/admin` ist eine read-only Betriebsbasis
 ohne Publish-/Rollback-Aktionen. Nächster Roadmap-Meilenstein ist v0.7
 Optional AI Enhancement; zuvor soll der eigenständige No-AI-Nutzen praktisch
 erprobt werden.
+
+## 23. Geschütztes MVP-Deployment
+
+Der betriebliche Smoke-Test ist mit
+[`PROTECTED-MVP-DEPLOYMENT-v0.1.md`](PROTECTED-MVP-DEPLOYMENT-v0.1.md)
+festgeschrieben. Die Infra-Rolle veröffentlicht den MVP ausschließlich über
+Traefik/HTTPS und schützt die vollständige Domain per Basic Auth. API und
+PostgreSQL besitzen keinen Host-Port; Migration und Seed laufen vor jedem
+App-Recreate. Referenzdomain ist `sal.geller.men`.

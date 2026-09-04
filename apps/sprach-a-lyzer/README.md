@@ -34,6 +34,7 @@ Analyse-Core für die Produktprofile **Sprachkompass** (Corporate) und
 26. [Managed Knowledge Operations Closure v0.5.0](docs/00-start/MANAGED-KNOWLEDGE-OPERATIONS-CLOSURE-v0.5.0.md)
 27. [MVP Candidate Experience v0.1](docs/60-ux/sprach-a-lyzer_mvp-candidate-experience_v0.1.md)
 28. [MVP Candidate Closure v0.6.0](docs/00-start/MVP-CANDIDATE-CLOSURE-v0.6.0.md)
+29. [Geschütztes MVP-Deployment v0.1](docs/00-start/PROTECTED-MVP-DEPLOYMENT-v0.1.md)
 
 ## Repository-Struktur
 
@@ -221,6 +222,12 @@ curl --fail-with-body \
 Die sichtbare MeineSprache-/Sprachkompass-Oberfläche ist danach unter
 `http://localhost:8080/` erreichbar. `/admin` stellt die bewusst read-only
 gehaltene Betriebsbasis bereit.
+
+Der passwortgeschützte Betrieb hinter der gemeinsamen Infra-Traefik-Instanz
+ist in
+[`PROTECTED-MVP-DEPLOYMENT-v0.1.md`](docs/00-start/PROTECTED-MVP-DEPLOYMENT-v0.1.md)
+dokumentiert. Er veröffentlicht weder den API- noch den PostgreSQL-Port direkt
+am Host.
 
 Der Analyse-Request wird standardmäßig nicht persistiert. Migrationen,
 Seed-Daten und Betriebsdetails sind in `docs/00-start/FOUNDATION-v0.0.md`

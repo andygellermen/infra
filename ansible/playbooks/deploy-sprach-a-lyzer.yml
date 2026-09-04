@@ -1,0 +1,9 @@
+---
+- name: Deploy Sprach-A-Lyzer
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  roles:
+    - sprach-a-lyzer

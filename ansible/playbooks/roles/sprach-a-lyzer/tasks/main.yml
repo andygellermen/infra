@@ -1,0 +1,235 @@
+---
+- name: Collect Sprach-A-Lyzer hostvars files
+  ansible.builtin.set_fact:
+    sal_hostvar_files: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+    sal_sites: []
+
+- name: Build Sprach-A-Lyzer sites list
+  ansible.builtin.set_fact:
+    sal_sites: "{{ sal_sites + [sal_site_vars] }}"
+  vars:
+    sal_site_vars: "{{ lookup('file', item) | from_yaml }}"
+  loop: "{{ sal_hostvar_files }}"
+  when: (lookup('file', item) | from_yaml).sal_enabled | default(false)
+
+- name: Validate requested Sprach-A-Lyzer domain exists
+  ansible.builtin.assert:
+    that:
+      - target_domain in (sal_sites | map(attribute='domain') | list)
+    fail_msg: "Keine Sprach-A-Lyzer-Instanz fuer {{ target_domain }} in ansible/hostvars gefunden."
+  when:
+    - target_domain is defined
+    - target_domain | length > 0
+
+- name: Build effective Sprach-A-Lyzer site list
+  ansible.builtin.set_fact:
+    sal_sites_effective: >-
+      {{
+        sal_sites
+        if not (target_domain is defined and (target_domain | length) > 0)
+        else (sal_sites | selectattr('domain', 'equalto', target_domain) | list)
+      }}
+
+- name: Validate Sprach-A-Lyzer production settings
+  ansible.builtin.assert:
+    that:
+      - item.domain is match('^[a-z0-9.-]+$')
+      - item.sal_image | default('', true) | length > 0
+      - item.sal_postgres_password is match('^[a-f0-9]{64}$')
+      - item.sal_basic_auth_username is match('^[A-Za-z0-9._-]+$')
+      - item.sal_basic_auth_password_hash is match('^[$]2[aby][$]')
+    fail_msg: "Unvollstaendige oder unsichere Sprach-A-Lyzer-Konfiguration fuer {{ item.domain }}."
+  loop: "{{ sal_sites_effective }}"
+  no_log: true
+
+- name: Ensure shared Traefik network exists for Sprach-A-Lyzer
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+  when: sal_sites_effective | length > 0
+
+- name: Ensure private Sprach-A-Lyzer networks exist
+  community.docker.docker_network:
+    name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-internal"
+    driver: bridge
+    internal: true
+    state: present
+  loop: "{{ sal_sites_effective }}"
+
+- name: Ensure Sprach-A-Lyzer runtime directories exist
+  ansible.builtin.file:
+    path: "/srv/sprach-a-lyzer/{{ item.domain }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ sal_sites_effective }}"
+
+- name: Render protected Sprach-A-Lyzer environment files
+  ansible.builtin.copy:
+    dest: "/srv/sprach-a-lyzer/{{ item.domain }}/sprach-a-lyzer.env"
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      SAL_ENV=production
+      SAL_HTTP_ADDR=:8080
+      SAL_MAX_REQUEST_BYTES={{ item.sal_max_request_bytes | default(65536, true) }}
+      SAL_DATABASE_URL=postgres://sprachalyzer:{{ item.sal_postgres_password }}@sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres:5432/sprachalyzer?sslmode=disable
+  loop: "{{ sal_sites_effective }}"
+  no_log: true
+
+- name: Ensure Sprach-A-Lyzer PostgreSQL volumes exist
+  community.docker.docker_volume:
+    name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres"
+    state: present
+  loop: "{{ sal_sites_effective }}"
+
+- name: Deploy internal Sprach-A-Lyzer PostgreSQL containers
+  community.docker.docker_container:
+    name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres"
+    image: "{{ item.sal_postgres_image | default('postgres:17-alpine', true) }}"
+    pull: true
+    restart_policy: unless-stopped
+    recreate: false
+    networks:
+      - name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-internal"
+    networks_cli_compatible: true
+    purge_networks: true
+    volumes:
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres:/var/lib/postgresql/data"
+    env:
+      POSTGRES_DB: sprachalyzer
+      POSTGRES_USER: sprachalyzer
+      POSTGRES_PASSWORD: "{{ item.sal_postgres_password }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sprachalyzer -d sprachalyzer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    state: started
+  loop: "{{ sal_sites_effective }}"
+  no_log: true
+
+- name: Wait for Sprach-A-Lyzer PostgreSQL readiness
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres"
+      - pg_isready
+      - -U
+      - sprachalyzer
+      - -d
+      - sprachalyzer
+  register: sal_postgres_readiness
+  changed_when: false
+  retries: 30
+  delay: 2
+  until: sal_postgres_readiness.rc == 0
+  loop: "{{ sal_sites_effective }}"
+  when: not ansible_check_mode
+
+- name: Remove stale Sprach-A-Lyzer one-shot containers
+  community.docker.docker_container:
+    name: "sprach-a-lyzer-{{ item.0.domain | replace('.', '-') }}-{{ item.1 }}"
+    state: absent
+  loop: "{{ sal_sites_effective | product(['migrate', 'seed']) | list }}"
+
+- name: Run Sprach-A-Lyzer database migrations
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-migrate"
+      - --network
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-internal"
+      - --env-file
+      - "/srv/sprach-a-lyzer/{{ item.domain }}/sprach-a-lyzer.env"
+      - "{{ item.sal_image }}"
+      - sprach-a-lyzer-migrate
+  changed_when: true
+  loop: "{{ sal_sites_effective }}"
+  when: not ansible_check_mode
+
+- name: Apply idempotent Sprach-A-Lyzer foundation seed
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-seed"
+      - --network
+      - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-internal"
+      - --env-file
+      - "/srv/sprach-a-lyzer/{{ item.domain }}/sprach-a-lyzer.env"
+      - "{{ item.sal_image }}"
+      - sprach-a-lyzer-seed
+  changed_when: true
+  loop: "{{ sal_sites_effective }}"
+  when: not ansible_check_mode
+
+- name: Deploy protected Sprach-A-Lyzer application containers
+  community.docker.docker_container:
+    name: "sprach-a-lyzer-{{ sal_site_id }}"
+    image: "{{ item.sal_image }}"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    networks:
+      - name: traefik
+      - name: "sprach-a-lyzer-{{ sal_site_id }}-internal"
+    networks_cli_compatible: true
+    purge_networks: true
+    env_file: "/srv/sprach-a-lyzer/{{ item.domain }}/sprach-a-lyzer.env"
+    labels: "{{ sal_labels }}"
+    state: started
+  vars:
+    sal_site_id: "{{ item.domain | replace('.', '-') }}"
+    sal_router_name: "sprach-a-lyzer-{{ sal_site_id }}"
+    sal_service_name: "sprach-a-lyzer-{{ sal_site_id }}"
+    sal_auth_middleware: "{{ sal_router_name }}-basic-auth"
+    sal_extra_middleware: "{{ item.sal_traefik_middleware_default | default('', true) }}"
+    sal_https_middlewares: "{{ (([sal_extra_middleware] if sal_extra_middleware | length > 0 else []) + [sal_auth_middleware]) | join(',') }}"
+    sal_labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik
+      "traefik.http.services.{{ sal_service_name }}.loadbalancer.server.port": "8080"
+      "traefik.http.routers.{{ sal_router_name }}.entrypoints": websecure
+      "traefik.http.routers.{{ sal_router_name }}.rule": "Host(`{{ item.domain }}`)"
+      "traefik.http.routers.{{ sal_router_name }}.tls": "true"
+      "traefik.http.routers.{{ sal_router_name }}.tls.certresolver": letsEncrypt
+      "traefik.http.routers.{{ sal_router_name }}.service": "{{ sal_service_name }}"
+      "traefik.http.routers.{{ sal_router_name }}.middlewares": "{{ sal_https_middlewares }}"
+      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.realm": "{{ item.sal_basic_auth_realm | default('Sprach-A-Lyzer MVP', true) }}"
+      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.users": "{{ item.sal_basic_auth_username }}:{{ item.sal_basic_auth_password_hash }}"
+      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.removeheader": "true"
+      "traefik.http.middlewares.{{ sal_router_name }}-https-redirect.redirectscheme.scheme": https
+      "traefik.http.middlewares.{{ sal_router_name }}-https-redirect.redirectscheme.permanent": "true"
+      "traefik.http.routers.{{ sal_router_name }}-web.entrypoints": web
+      "traefik.http.routers.{{ sal_router_name }}-web.rule": "Host(`{{ item.domain }}`)"
+      "traefik.http.routers.{{ sal_router_name }}-web.middlewares": "{{ sal_router_name }}-https-redirect"
+      "traefik.http.routers.{{ sal_router_name }}-web.service": noop@internal
+  loop: "{{ sal_sites_effective }}"
+  no_log: true
+
+- name: Verify unauthenticated Sprach-A-Lyzer access is rejected
+  ansible.builtin.uri:
+    url: "https://{{ item.domain }}/"
+    method: GET
+    follow_redirects: none
+    status_code: 401
+    validate_certs: true
+  register: sal_auth_barrier
+  retries: "{{ item.sal_smoke_retries | default(20, true) }}"
+  delay: "{{ item.sal_smoke_delay_seconds | default(3, true) }}"
+  until: sal_auth_barrier.status == 401
+  changed_when: false
+  loop: "{{ sal_sites_effective }}"
+  when: not ansible_check_mode
