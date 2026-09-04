@@ -71,7 +71,7 @@ Managed-Knowledge-Einsatz ergänzt und ist nicht Teil dieses Smoke-Deployments.
 ## Kennwortwechsel
 
 ```bash
-htpasswd -nB andy
+htpasswd -nB -C 12 andy
 ```
 
 Den neuen bcrypt-Anteil nach `andy:` als

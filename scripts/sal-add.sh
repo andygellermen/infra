@@ -54,7 +54,7 @@ else
 fi
 
 info "Bitte jetzt das Zugriffskennwort fuer ${AUTH_USERNAME} zweimal eingeben."
-AUTH_LINE="$(htpasswd -nB "$AUTH_USERNAME")"
+AUTH_LINE="$(htpasswd -nB -C 12 "$AUTH_USERNAME")"
 AUTH_HASH="${AUTH_LINE#*:}"
 POSTGRES_PASSWORD="$(openssl rand -hex 32)"
 

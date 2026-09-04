@@ -20,6 +20,7 @@ grep -q 'status_code: 401' "$ROLE"
 grep -q 'tls.certresolver' "$ROLE"
 grep -q 'sprach-a-lyzer-migrate' "$ROLE"
 grep -q 'sprach-a-lyzer-seed' "$ROLE"
+grep -q 'htpasswd -nB -C 12' "$ROOT_DIR/scripts/sal-add.sh"
 
 if grep -Eq 'published_ports:|^[[:space:]]+ports:' "$ROLE"; then
   echo "Sprach-A-Lyzer deployment must not publish host ports" >&2
