@@ -11,6 +11,7 @@
     sal_site_vars: "{{ lookup('file', item) | from_yaml }}"
   loop: "{{ sal_hostvar_files }}"
   when: (lookup('file', item) | from_yaml).sal_enabled | default(false)
+  no_log: true
 
 - name: Validate requested Sprach-A-Lyzer domain exists
   ansible.builtin.assert:
@@ -29,6 +30,29 @@
         if not (target_domain is defined and (target_domain | length) > 0)
         else (sal_sites | selectattr('domain', 'equalto', target_domain) | list)
       }}
+  no_log: true
+
+- name: Initialize secret-free Sprach-A-Lyzer runtime site list
+  ansible.builtin.set_fact:
+    sal_runtime_sites: []
+
+- name: Build secret-free Sprach-A-Lyzer runtime site list
+  ansible.builtin.set_fact:
+    sal_runtime_sites: >-
+      {{
+        (sal_runtime_sites | default([]))
+        + [
+          {
+            'domain': item.domain,
+            'sal_image': item.sal_image,
+            'sal_postgres_image': item.sal_postgres_image | default('postgres:17-alpine', true),
+            'sal_smoke_retries': item.sal_smoke_retries | default(20, true),
+            'sal_smoke_delay_seconds': item.sal_smoke_delay_seconds | default(3, true)
+          }
+        ]
+      }}
+  loop: "{{ sal_sites_effective }}"
+  no_log: true
 
 - name: Validate Sprach-A-Lyzer production settings
   ansible.builtin.assert:
@@ -56,7 +80,7 @@
     driver: bridge
     internal: true
     state: present
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
 
 - name: Ensure Sprach-A-Lyzer runtime directories exist
   ansible.builtin.file:
@@ -65,7 +89,7 @@
     owner: root
     group: root
     mode: "0750"
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
 
 - name: Render protected Sprach-A-Lyzer environment files
   ansible.builtin.copy:
@@ -85,7 +109,7 @@
   community.docker.docker_volume:
     name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres"
     state: present
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
 
 - name: Deploy internal Sprach-A-Lyzer PostgreSQL containers
   community.docker.docker_container:
@@ -129,14 +153,14 @@
   retries: 30
   delay: 2
   until: sal_postgres_readiness.rc == 0
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
   when: not ansible_check_mode
 
 - name: Remove stale Sprach-A-Lyzer one-shot containers
   community.docker.docker_container:
     name: "sprach-a-lyzer-{{ item.0.domain | replace('.', '-') }}-{{ item.1 }}"
     state: absent
-  loop: "{{ sal_sites_effective | product(['migrate', 'seed']) | list }}"
+  loop: "{{ sal_runtime_sites | product(['migrate', 'seed']) | list }}"
 
 - name: Run Sprach-A-Lyzer database migrations
   ansible.builtin.command:
@@ -153,7 +177,7 @@
       - "{{ item.sal_image }}"
       - sprach-a-lyzer-migrate
   changed_when: true
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
   when: not ansible_check_mode
 
 - name: Apply idempotent Sprach-A-Lyzer foundation seed
@@ -171,7 +195,7 @@
       - "{{ item.sal_image }}"
       - sprach-a-lyzer-seed
   changed_when: true
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
   when: not ansible_check_mode
 
 - name: Deploy protected Sprach-A-Lyzer application containers
@@ -195,25 +219,29 @@
     sal_auth_middleware: "{{ sal_router_name }}-basic-auth"
     sal_extra_middleware: "{{ item.sal_traefik_middleware_default | default('', true) }}"
     sal_https_middlewares: "{{ (([sal_extra_middleware] if sal_extra_middleware | length > 0 else []) + [sal_auth_middleware]) | join(',') }}"
-    sal_labels:
-      traefik.enable: "true"
-      traefik.docker.network: traefik
-      "traefik.http.services.{{ sal_service_name }}.loadbalancer.server.port": "8080"
-      "traefik.http.routers.{{ sal_router_name }}.entrypoints": websecure
-      "traefik.http.routers.{{ sal_router_name }}.rule": "Host(`{{ item.domain }}`)"
-      "traefik.http.routers.{{ sal_router_name }}.tls": "true"
-      "traefik.http.routers.{{ sal_router_name }}.tls.certresolver": letsEncrypt
-      "traefik.http.routers.{{ sal_router_name }}.service": "{{ sal_service_name }}"
-      "traefik.http.routers.{{ sal_router_name }}.middlewares": "{{ sal_https_middlewares }}"
-      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.realm": "{{ item.sal_basic_auth_realm | default('Sprach-A-Lyzer MVP', true) }}"
-      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.users": "{{ item.sal_basic_auth_username }}:{{ item.sal_basic_auth_password_hash }}"
-      "traefik.http.middlewares.{{ sal_auth_middleware }}.basicauth.removeheader": "true"
-      "traefik.http.middlewares.{{ sal_router_name }}-https-redirect.redirectscheme.scheme": https
-      "traefik.http.middlewares.{{ sal_router_name }}-https-redirect.redirectscheme.permanent": "true"
-      "traefik.http.routers.{{ sal_router_name }}-web.entrypoints": web
-      "traefik.http.routers.{{ sal_router_name }}-web.rule": "Host(`{{ item.domain }}`)"
-      "traefik.http.routers.{{ sal_router_name }}-web.middlewares": "{{ sal_router_name }}-https-redirect"
-      "traefik.http.routers.{{ sal_router_name }}-web.service": noop@internal
+    sal_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik',
+          ('traefik.http.services.' ~ sal_service_name ~ '.loadbalancer.server.port'): '8080',
+          ('traefik.http.routers.' ~ sal_router_name ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ sal_router_name ~ '.rule'): 'Host(`' ~ item.domain ~ '`)',
+          ('traefik.http.routers.' ~ sal_router_name ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ sal_router_name ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ sal_router_name ~ '.service'): sal_service_name,
+          ('traefik.http.routers.' ~ sal_router_name ~ '.middlewares'): sal_https_middlewares,
+          ('traefik.http.middlewares.' ~ sal_auth_middleware ~ '.basicauth.realm'): (item.sal_basic_auth_realm | default('Sprach-A-Lyzer MVP', true)),
+          ('traefik.http.middlewares.' ~ sal_auth_middleware ~ '.basicauth.users'): item.sal_basic_auth_username ~ ':' ~ item.sal_basic_auth_password_hash,
+          ('traefik.http.middlewares.' ~ sal_auth_middleware ~ '.basicauth.removeheader'): 'true',
+          ('traefik.http.middlewares.' ~ sal_router_name ~ '-https-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ sal_router_name ~ '-https-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ sal_router_name ~ '-web.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ sal_router_name ~ '-web.rule'): 'Host(`' ~ item.domain ~ '`)',
+          ('traefik.http.routers.' ~ sal_router_name ~ '-web.middlewares'): sal_router_name ~ '-https-redirect',
+          ('traefik.http.routers.' ~ sal_router_name ~ '-web.service'): 'noop@internal'
+        }
+      }}
   loop: "{{ sal_sites_effective }}"
   no_log: true
 
@@ -225,9 +253,9 @@
     status_code: 401
     validate_certs: true
   register: sal_auth_barrier
-  retries: "{{ item.sal_smoke_retries | default(20, true) }}"
-  delay: "{{ item.sal_smoke_delay_seconds | default(3, true) }}"
+  retries: "{{ item.sal_smoke_retries }}"
+  delay: "{{ item.sal_smoke_delay_seconds }}"
   until: sal_auth_barrier.status == 401
   changed_when: false
-  loop: "{{ sal_sites_effective }}"
+  loop: "{{ sal_runtime_sites }}"
   when: not ansible_check_mode

@@ -71,10 +71,17 @@ Managed-Knowledge-Einsatz ergänzt und ist nicht Teil dieses Smoke-Deployments.
 ## Kennwortwechsel
 
 ```bash
-htpasswd -nB -C 12 andy
+./scripts/sal-rotate-secrets.sh sal.geller.men
+./scripts/sal-redeploy.sh sal.geller.men
 ```
 
-Den neuen bcrypt-Anteil nach `andy:` als
-`sal_basic_auth_password_hash` in
-`ansible/hostvars/sal.geller.men.yml` einsetzen und erneut deployen. Das
-Klartextkennwort gehört niemals in Git oder die Hostvars.
+Das Rotationsskript fragt das neue Zugriffskennwort verdeckt zweimal ab,
+wechselt zusätzlich das PostgreSQL-Rollenkennwort und aktualisiert die
+ignorierten Hostvars atomar. Falls deren Aktualisierung scheitert, setzt es das
+bisherige Datenbankkennwort zurück. Es gibt keinen Geheimwert auf der Konsole
+aus. Der unmittelbar folgende Redeploy synchronisiert die Container mit den
+neuen Werten. Das Klartext-Zugriffskennwort gehört niemals in Git oder die
+Hostvars.
+
+Wurde ein Geheimwert versehentlich in einem Konsolenprotokoll offengelegt, ist
+dieselbe vollständige Rotation vor dem nächsten Redeploy verpflichtend.

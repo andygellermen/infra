@@ -6,6 +6,7 @@ ROLE="$ROOT_DIR/ansible/playbooks/roles/sprach-a-lyzer/tasks/main.yml"
 
 bash -n \
   "$ROOT_DIR/scripts/sal-add.sh" \
+  "$ROOT_DIR/scripts/sal-rotate-secrets.sh" \
   "$ROOT_DIR/scripts/sal-redeploy.sh" \
   "$ROOT_DIR/scripts/sal-smoke-check.sh"
 
@@ -21,6 +22,14 @@ grep -q 'tls.certresolver' "$ROLE"
 grep -q 'sprach-a-lyzer-migrate' "$ROLE"
 grep -q 'sprach-a-lyzer-seed' "$ROLE"
 grep -q 'htpasswd -nB -C 12' "$ROOT_DIR/scripts/sal-add.sh"
+grep -q 'htpasswd -nB -C 12' "$ROOT_DIR/scripts/sal-rotate-secrets.sh"
+grep -q 'ALTER ROLE sprachalyzer' "$ROOT_DIR/scripts/sal-rotate-secrets.sh"
+grep -q 'loop: "{{ sal_runtime_sites }}"' "$ROLE"
+
+if grep -Eq 'traefik\.(http|docker)[^:]*[{][{]' "$ROLE"; then
+  echo "Dynamic Traefik label keys must be constructed as a rendered map" >&2
+  exit 1
+fi
 
 if grep -Eq 'published_ports:|^[[:space:]]+ports:' "$ROLE"; then
   echo "Sprach-A-Lyzer deployment must not publish host ports" >&2
