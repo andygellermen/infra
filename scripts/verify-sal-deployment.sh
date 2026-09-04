@@ -26,3 +26,8 @@ if grep -Eq 'published_ports:|^[[:space:]]+ports:' "$ROLE"; then
   echo "Sprach-A-Lyzer deployment must not publish host ports" >&2
   exit 1
 fi
+
+if grep -q 'purge_networks:' "$ROLE"; then
+  echo "Sprach-A-Lyzer deployment must remain compatible with the server Docker collection" >&2
+  exit 1
+fi

@@ -97,7 +97,6 @@
     networks:
       - name: "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-internal"
     networks_cli_compatible: true
-    purge_networks: true
     volumes:
       - "sprach-a-lyzer-{{ item.domain | replace('.', '-') }}-postgres:/var/lib/postgresql/data"
     env:
@@ -186,7 +185,6 @@
       - name: traefik
       - name: "sprach-a-lyzer-{{ sal_site_id }}-internal"
     networks_cli_compatible: true
-    purge_networks: true
     env_file: "/srv/sprach-a-lyzer/{{ item.domain }}/sprach-a-lyzer.env"
     labels: "{{ sal_labels }}"
     state: started
