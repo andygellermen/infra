@@ -88,7 +88,7 @@ func (s *PublicSheetSyncer) Sync(ctx context.Context) error {
 		listItems = append(listItems, items...)
 	}
 
-	if err := s.store.ReplaceAll(ctx, routes, vcards, texts, listItems); err != nil {
+	if err := s.store.ReplaceTenant(ctx, s.cfg.Domain, routes, vcards, texts, listItems); err != nil {
 		return fmt.Errorf("replace synced data: %w", err)
 	}
 	return nil

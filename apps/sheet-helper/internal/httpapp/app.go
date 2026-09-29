@@ -262,7 +262,7 @@ func (a *App) handleVCard(w http.ResponseWriter, r *http.Request, route model.Ro
 }
 
 func (a *App) handleList(w http.ResponseWriter, r *http.Request, route model.Route) {
-	items, err := a.store.ListItems(r.Context(), route.ListSheet)
+	items, err := a.store.ListItems(r.Context(), route.Domain, route.ListSheet)
 	if err != nil {
 		http.Error(w, "list lookup failed", http.StatusInternalServerError)
 		return

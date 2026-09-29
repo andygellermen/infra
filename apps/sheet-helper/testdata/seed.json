@@ -74,6 +74,7 @@
   ],
   "list_items": [
     {
+      "domain": "localhost",
       "sheet_name": "list_agileebooks",
       "sort": 10,
       "label": "Scrum Pocket Guide",
@@ -84,6 +85,7 @@
       "enabled": true
     },
     {
+      "domain": "localhost",
       "sheet_name": "list_agileebooks",
       "sort": 20,
       "label": "Kanban Basics",

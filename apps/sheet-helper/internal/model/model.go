@@ -47,6 +47,7 @@ type TextEntry struct {
 }
 
 type ListItem struct {
+	Domain      string
 	SheetName   string
 	Sort        int
 	Label       string

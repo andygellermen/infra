@@ -40,6 +40,24 @@ SHEET_HELPER_SYNC_TOKEN=<WERT AUS sheet_helper_sync_token>
    - `https://www.mf2go.de/`
    - optional einen manuellen Trigger ueber das Apps Script mit `manualSync()`
 
+### Gemeinsamer Redeploy aller Sheet-Helper-Domains
+
+Alle aktivierten Sheet-Helper-Domains laufen in einem gemeinsamen Container. Nach einer Aenderung an der App wird deshalb genau ein Redeploy ohne Domainargument ausgefuehrt:
+
+```bash
+./scripts/sheethelper-redeploy.sh
+```
+
+Das Playbook liest dabei alle Hostvars mit `sheet_helper_enabled: true`, erzeugt daraus die gemeinsame Tenant-Konfiguration und startet den Container neu. Beim Start synchronisiert die App jede konfigurierte Domain in denselben SQLite-Cache. Die Synchronisierung ersetzt dabei nur die Eintraege der jeweils betroffenen Domain; bereits geladene Daten anderer Domains bleiben erhalten.
+
+Das optionale Domainargument dient nur dazu, die Hostvars einer einzelnen Domain vor dem gemeinsamen Deploy zusaetzlich zu validieren:
+
+```bash
+./scripts/sheethelper-redeploy.sh mf2go.de
+```
+
+Es begrenzt den Deploy nicht auf diese Domain. Auch mit Domainargument wird der gemeinsame Container fuer alle aktivierten Domains neu ausgerollt.
+
 ### Quick-Start Hostvars
 
 Nach dem Anlegen mit `sheethelper-add.sh` sollte die Datei fuer eine Domain am Ende mindestens so aussehen:

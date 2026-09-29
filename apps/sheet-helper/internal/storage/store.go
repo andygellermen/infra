@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -74,6 +75,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		)`,
 		`CREATE TABLE IF NOT EXISTS list_items (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			domain TEXT NOT NULL DEFAULT '',
 			sheet_name TEXT NOT NULL,
 			sort_order INTEGER NOT NULL DEFAULT 0,
 			label TEXT NOT NULL DEFAULT '',
@@ -101,7 +103,45 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		}
 	}
 
+	hasDomain, err := s.tableHasColumn(ctx, "list_items", "domain")
+	if err != nil {
+		return err
+	}
+	if !hasDomain {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE list_items ADD COLUMN domain TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("migrate list_items domain: %w", err)
+		}
+	}
+	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_list_items_domain_sheet ON list_items(domain, sheet_name)`); err != nil {
+		return fmt.Errorf("create list_items tenant index: %w", err)
+	}
+
 	return nil
+}
+
+func (s *Store) tableHasColumn(ctx context.Context, table, column string) (bool, error) {
+	rows, err := s.db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+	if err != nil {
+		return false, fmt.Errorf("inspect %s schema: %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, fmt.Errorf("scan %s schema: %w", table, err)
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate %s schema: %w", table, err)
+	}
+	return false, nil
 }
 
 func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []model.VCardEntry, texts []model.TextEntry, listItems []model.ListItem) error {
@@ -117,6 +157,44 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 		}
 	}
 
+	return replaceData(ctx, tx, routes, vCards, texts, listItems)
+}
+
+func (s *Store) ReplaceTenant(ctx context.Context, domain string, routes []model.Route, vCards []model.VCardEntry, texts []model.TextEntry, listItems []model.ListItem) error {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return fmt.Errorf("replace tenant: domain is required")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, table := range []string{"routes", "vcard_entries", "text_entries", "list_items"} {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE domain = ?", domain); err != nil {
+			return fmt.Errorf("clear %s for %s: %w", table, domain, err)
+		}
+	}
+
+	for i := range routes {
+		routes[i].Domain = domain
+	}
+	for i := range vCards {
+		vCards[i].Domain = domain
+	}
+	for i := range texts {
+		texts[i].Domain = domain
+	}
+	for i := range listItems {
+		listItems[i].Domain = domain
+	}
+
+	return replaceData(ctx, tx, routes, vCards, texts, listItems)
+}
+
+func replaceData(ctx context.Context, tx *sql.Tx, routes []model.Route, vCards []model.VCardEntry, texts []model.TextEntry, listItems []model.ListItem) error {
 	for _, route := range routes {
 		route.Path = pathutil.Normalize(route.Path)
 		if _, err := tx.ExecContext(ctx, `
@@ -152,9 +230,9 @@ func (s *Store) ReplaceAll(ctx context.Context, routes []model.Route, vCards []m
 
 	for _, item := range listItems {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO list_items (sheet_name, sort_order, label, url, description, category, password, enabled)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.SheetName, item.Sort, item.Label, item.URL, item.Description, item.Category, item.Password, boolToInt(item.Enabled),
+			INSERT INTO list_items (domain, sheet_name, sort_order, label, url, description, category, password, enabled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			item.Domain, item.SheetName, item.Sort, item.Label, item.URL, item.Description, item.Category, item.Password, boolToInt(item.Enabled),
 		); err != nil {
 			return fmt.Errorf("insert list item: %w", err)
 		}
@@ -257,13 +335,13 @@ func (s *Store) GetText(ctx context.Context, domain, path string) (model.TextEnt
 	return entry, true, nil
 }
 
-func (s *Store) ListItems(ctx context.Context, sheetName string) ([]model.ListItem, error) {
+func (s *Store) ListItems(ctx context.Context, domain, sheetName string) ([]model.ListItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT sheet_name, sort_order, label, url, description, category, password, enabled
+		SELECT domain, sheet_name, sort_order, label, url, description, category, password, enabled
 		FROM list_items
-		WHERE sheet_name = ? AND enabled = 1
+		WHERE domain = ? AND sheet_name = ? AND enabled = 1
 		ORDER BY sort_order ASC, label ASC`,
-		sheetName,
+		domain, sheetName,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query list items: %w", err)
@@ -274,7 +352,7 @@ func (s *Store) ListItems(ctx context.Context, sheetName string) ([]model.ListIt
 	for rows.Next() {
 		var item model.ListItem
 		var enabled int
-		if err := rows.Scan(&item.SheetName, &item.Sort, &item.Label, &item.URL, &item.Description, &item.Category, &item.Password, &enabled); err != nil {
+		if err := rows.Scan(&item.Domain, &item.SheetName, &item.Sort, &item.Label, &item.URL, &item.Description, &item.Category, &item.Password, &enabled); err != nil {
 			return nil, fmt.Errorf("scan list item: %w", err)
 		}
 		item.Enabled = enabled == 1
