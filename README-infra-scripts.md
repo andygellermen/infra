@@ -1,5 +1,20 @@
 # 📘 Dokumentation der Ghost-Infra-Skripte
 
+## OpenProject
+
+Installation und Betrieb je Domain, auf dem Infra-Host mit `sudo`:
+
+```bash
+sudo ./scripts/op-add.sh --domain=op.domain.de
+sudo ./scripts/op-update.sh --domain=op.domain.de --version=17.8.0
+sudo ./scripts/op-backup.sh --domain=op.domain.de
+sudo ./scripts/op-restore.sh --domain=op.domain.de --backup=/backups/op.tar.gz --dry-run
+```
+
+Ohne Domain wird interaktiv gefragt. Updates sichern zuerst; Restore prüft das
+Archiv und fordert vor Überschreiben eine Bestätigung. Voraussetzungen,
+Erstzugang und Recovery stehen im [OpenProject-Runbook](apps/openproject/README.md).
+
 ## Sprach-A-Lyzer – geschützter MVP
 
 Der v0.6-MVP wird über Traefik ausschließlich per HTTPS und mit Basic Auth

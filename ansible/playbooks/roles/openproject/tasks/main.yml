@@ -1,0 +1,34 @@
+---
+- name: Require a single validated target
+  ansible.builtin.assert:
+    that:
+      - target_domain is defined
+      - op_data.domain == target_domain
+      - op_data.op_enabled | bool
+      - op_site_dir | length > 1
+      - op_project is match('^op-[a-f0-9]{64}$')
+    fail_msg: Use scripts/op-add.sh or scripts/op-update.sh with a domain.
+  no_log: true
+
+- name: Create private instance directory
+  ansible.builtin.file:
+    path: "{{ op_site_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Render private runtime configuration
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ op_site_dir }}/{{ item }}"
+    mode: '0600'
+  loop:
+    - compose.yml
+    - openproject.env
+  no_log: true
+
+- name: Save the deployed configuration for consistent backups
+  ansible.builtin.copy:
+    content: "{{ op_data | to_nice_json }}"
+    dest: "{{ op_site_dir }}/hostvars.yml"
+    mode: '0600'
+  no_log: true

@@ -54,3 +54,7 @@ apps/static-inline-editor/.gomodcache/
 !apps/sprach-a-lyzer/data/
 !apps/sprach-a-lyzer/data/**
 apps/sprach-a-lyzer/.env
+
+# OpenProject Python helpers/tests
+scripts/lib/__pycache__/
+apps/openproject/**/__pycache__/

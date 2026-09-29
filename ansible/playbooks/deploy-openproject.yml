@@ -1,0 +1,8 @@
+---
+# Render only. The op-*.sh lifecycle commands own the domain lock and start/stop.
+- name: Render one OpenProject instance
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - openproject
