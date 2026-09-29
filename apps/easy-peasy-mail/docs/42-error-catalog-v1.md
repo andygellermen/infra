@@ -1,0 +1,49 @@
+# Error Catalog v1
+
+## Klassen
+
+### AUTH
+
+-   `AUTH_REQUIRED`
+-   `SESSION_EXPIRED`
+-   `DEVICE_REVOKED`
+-   `FORBIDDEN`
+
+### STATE
+
+-   `STATE_VERSION_CONFLICT`
+-   `DRAFT_CONFLICT`
+-   `ENTITY_NOT_FOUND`
+-   `ENTITY_GONE`
+
+### INBOUND
+
+-   `INGRESS_PARSE_FAILED`
+-   `INGRESS_RECIPIENT_UNKNOWN`
+-   `INGRESS_DUPLICATE`
+-   `INGRESS_QUARANTINED`
+
+### ATTACHMENT
+
+-   `ATTACHMENT_REMOTE`
+-   `ATTACHMENT_UNAVAILABLE`
+-   `ATTACHMENT_QUARANTINED`
+-   `ATTACHMENT_TOO_LARGE`
+
+### SEND
+
+-   `SEND_TEMPORARY_FAILURE`
+-   `SEND_PERMANENT_FAILURE`
+-   `SEND_PROVIDER_UNKNOWN`
+-   `SEND_CANCEL_TOO_LATE`
+
+### SYNC
+
+-   `SYNC_CURSOR_EXPIRED`
+-   `SYNC_REBOOTSTRAP_REQUIRED`
+
+## Regel
+
+HTTP Status und Domain Error Code werden getrennt behandelt. Clients
+entscheiden Retry-Verhalten anhand `retryable`, nicht anhand erratener
+Textmeldungen.
