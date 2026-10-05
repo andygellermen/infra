@@ -4,6 +4,9 @@ Die vier Skripte verwalten getrennte OpenProject-Community-Instanzen je Domain.
 Traefik übernimmt HTTPS; jede Instanz erhält PostgreSQL, Memcached, Web, Worker,
 Cron und Hocuspocus für gemeinsames Bearbeiten. Die AI Bridge aus
 [Chads Spezifikation](docs/OPENPROJECT_AI_BRIDGE_SPEC.md) ist ein separates Folgeprojekt.
+Ihre private Installation wird mit den
+[Bridge-Lifecycle-Skripten](docs/OPENPROJECT_AI_BRIDGE_OPERATIONS.md) gestartet,
+gestoppt, geprüft und aktualisiert.
 
 ## Voraussetzungen
 
