@@ -58,3 +58,6 @@ apps/sprach-a-lyzer/.env
 # OpenProject Python helpers/tests
 scripts/lib/__pycache__/
 apps/openproject/**/__pycache__/
+
+# Local Git worktrees
+.worktrees/
