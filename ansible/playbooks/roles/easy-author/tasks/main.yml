@@ -1,0 +1,110 @@
+---
+- name: Load enabled EasyAuthor hostvars
+  ansible.builtin.set_fact:
+    easy_author_sites: "{{ (easy_author_sites | default([])) + [lookup('file', item) | from_yaml] }}"
+  loop: "{{ query('fileglob', playbook_dir ~ '/../hostvars/*.yml') | sort }}"
+  when: (lookup('file', item) | from_yaml).easy_author_enabled | default(false)
+  no_log: true
+
+- name: Select requested EasyAuthor instance
+  ansible.builtin.set_fact:
+    easy_author_site: "{{ (easy_author_sites | default([]) | selectattr('domain', 'equalto', target_domain) | list | first) }}"
+  no_log: true
+
+- name: Validate protected EasyAuthor configuration
+  ansible.builtin.assert:
+    that:
+      - target_domain == 'author.geller.men'
+      - easy_author_site.domain == target_domain
+      - easy_author_site.easy_author_basic_auth_username is match('^[A-Za-z0-9._-]+$')
+      - easy_author_site.easy_author_basic_auth_password_hash is match('^[$]2[aby][$]')
+      - easy_author_deploy_api_image is match('^[a-z0-9._/-]+:[0-9a-f]{40}$')
+      - easy_author_deploy_web_image is match('^[a-z0-9._/-]+:[0-9a-f]{40}$')
+    fail_msg: EasyAuthor-Konfiguration oder unveraenderlicher Image-Tag ist ungueltig.
+  no_log: true
+
+- name: Ensure Traefik network exists
+  community.docker.docker_network:
+    name: traefik
+    driver: bridge
+    attachable: true
+    state: present
+
+- name: Ensure private EasyAuthor network exists
+  community.docker.docker_network:
+    name: "easy-author-{{ target_domain | replace('.', '-') }}-internal"
+    driver: bridge
+    internal: true
+    state: present
+
+- name: Ensure protected EasyAuthor directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ easy_author_site.easy_author_instance_root }}", mode: "0750" }
+    - { path: "{{ easy_author_site.easy_author_instance_root }}/data", mode: "0700" }
+    - { path: "{{ easy_author_site.easy_author_instance_root }}/data/library", mode: "0700" }
+    - { path: "{{ easy_author_site.easy_author_instance_root }}/backups", mode: "0700" }
+
+- name: Deploy private EasyAuthor API
+  community.docker.docker_container:
+    name: "easy-author-{{ target_domain | replace('.', '-') }}-api"
+    hostname: easy-author-api
+    image: "{{ easy_author_deploy_api_image }}"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    published_ports: []
+    networks:
+      - name: "easy-author-{{ target_domain | replace('.', '-') }}-internal"
+        aliases: [easy-author-api]
+    networks_cli_compatible: true
+    volumes:
+      - "{{ easy_author_site.easy_author_instance_root }}/data:/srv/easy-author/data"
+    env:
+      EASY_AUTHOR_ADDR: 0.0.0.0:8086
+      EASY_AUTHOR_DB_PATH: /srv/easy-author/data/easy-author.sqlite
+      EASY_AUTHOR_LIBRARY_DIR: /srv/easy-author/data/library
+      EASY_AUTHOR_ALLOWED_ORIGIN: "https://{{ target_domain }}"
+    state: started
+
+- name: Deploy protected EasyAuthor web
+  community.docker.docker_container:
+    name: "easy-author-{{ target_domain | replace('.', '-') }}-web"
+    image: "{{ easy_author_deploy_web_image }}"
+    pull: false
+    restart_policy: unless-stopped
+    recreate: true
+    published_ports: []
+    networks:
+      - name: traefik
+      - name: "easy-author-{{ target_domain | replace('.', '-') }}-internal"
+    networks_cli_compatible: true
+    labels: "{{ easy_author_labels }}"
+    state: started
+  vars:
+    site_id: "easy-author-{{ target_domain | replace('.', '-') }}"
+    auth: "{{ site_id }}-auth"
+    easy_author_labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik
+      "traefik.http.services.{{ site_id }}.loadbalancer.server.port": "8080"
+      "traefik.http.routers.{{ site_id }}.entrypoints": websecure
+      "traefik.http.routers.{{ site_id }}.rule": "Host(`{{ target_domain }}`)"
+      "traefik.http.routers.{{ site_id }}.tls": "true"
+      "traefik.http.routers.{{ site_id }}.tls.certresolver": letsEncrypt
+      "traefik.http.routers.{{ site_id }}.middlewares": "{{ auth }}"
+      "traefik.http.middlewares.{{ auth }}.basicauth.users": "{{ easy_author_site.easy_author_basic_auth_username }}:{{ easy_author_site.easy_author_basic_auth_password_hash }}"
+      "traefik.http.middlewares.{{ auth }}.basicauth.realm": "{{ easy_author_site.easy_author_basic_auth_realm }}"
+      "traefik.http.middlewares.{{ auth }}.basicauth.removeheader": "true"
+      "traefik.http.middlewares.{{ site_id }}-redirect.redirectscheme.scheme": https
+      "traefik.http.middlewares.{{ site_id }}-redirect.redirectscheme.permanent": "true"
+      "traefik.http.routers.{{ site_id }}-http.entrypoints": web
+      "traefik.http.routers.{{ site_id }}-http.rule": "Host(`{{ target_domain }}`)"
+      "traefik.http.routers.{{ site_id }}-http.middlewares": "{{ site_id }}-redirect"
+      "traefik.http.routers.{{ site_id }}-http.service": noop@internal
+  no_log: true

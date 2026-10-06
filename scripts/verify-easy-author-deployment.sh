@@ -118,12 +118,44 @@ SH
   grep -q '^new$' "$root/author.geller.men/data/easy-author.sqlite" || fail "Restore ersetzte SQLite nicht"
 }
 
+verify_ansible() {
+  local role="$ROOT_DIR/ansible/playbooks/roles/easy-author/tasks/main.yml"
+  local playbook="$ROOT_DIR/ansible/playbooks/deploy-easy-author.yml"
+  [[ -f "$role" && -f "$playbook" ]] || fail "EasyAuthor-Ansible fehlt"
+  require_text "$role" 'no_log: true'
+  require_text "$role" 'easy_author_basic_auth_password_hash'
+  require_text "$role" "password_hash is match"
+  require_text "$role" 'internal: true'
+  require_text "$role" 'name: traefik'
+  require_text "$role" 'removeheader.*true'
+  require_text "$role" 'certresolver'
+  require_text "$role" 'redirectscheme'
+  require_text "$role" 'published_ports: \[\]'
+  require_text "$role" 'loadbalancer.server.port.*8080'
+  require_text "$playbook" 'become: true'
+  require_text "$playbook" '- easy-author'
+}
+
+verify_redeploy() {
+  local script="$ROOT_DIR/scripts/easy-author-redeploy.sh"
+  [[ -x "$script" ]] || fail "Redeploy-Helfer fehlt"
+  require_text "$script" 'git .*rev-parse HEAD'
+  require_text "$script" 'git .*diff --quiet'
+  require_text "$script" 'easy_author_deploy_api_image'
+  require_text "$script" 'easy_author_deploy_web_image'
+  require_text "$script" 'easy-author-backup.sh'
+  require_text "$script" 'easy-author-smoke-check.sh'
+  require_text "$script" '--target production'
+}
+
 case "${1:-all}" in
   containers) verify_containers ;;
   hostvars) verify_hostvars ;;
   backup) verify_backup ;;
   restore) verify_restore ;;
-  all) verify_containers; verify_hostvars; verify_backup; verify_restore ;;
+  ansible) verify_ansible ;;
+  redeploy) verify_redeploy ;;
+  all) verify_containers; verify_hostvars; verify_backup; verify_restore; verify_ansible; verify_redeploy ;;
   *) fail "Unbekannte Prüfgruppe: $1" ;;
 esac
 printf 'PASS: %s\n' "${1:-all}"
