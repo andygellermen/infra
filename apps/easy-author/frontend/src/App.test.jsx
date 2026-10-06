@@ -222,7 +222,7 @@ async function clickTransientControl(user, name) {
   if (!screen.queryByRole("toolbar", { name: "Schreibsteuerung" })) {
     await user.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
   }
-  await user.click(screen.getByRole("button", { name }));
+  await user.click(within(screen.getByRole("toolbar", { name: "Schreibsteuerung" })).getByRole("button", { name }));
 }
 
 async function openMarkdownEditor(user) {
@@ -291,9 +291,18 @@ function mockApi() {
       [bookTwo.id]: [],
       [bookThree.id]: [],
     },
+    presentationsByBook: {
+      [book.id]: { book_id: book.id, default_work_view: "intense", typography_overrides: {} },
+      [bookTwo.id]: { book_id: bookTwo.id, default_work_view: "intense", typography_overrides: {} },
+      [bookThree.id]: { book_id: bookThree.id, default_work_view: "review", typography_overrides: {} },
+    },
   };
 
   api.get.mockImplementation(async (path) => {
+    if (path.startsWith("/api/books/") && path.endsWith("/presentation")) {
+      const bookId = path.split("/")[3];
+      return state.presentationsByBook[bookId] || { book_id: bookId, default_work_view: "clean", typography_overrides: {} };
+    }
     if (path.startsWith("/api/projects/") && path.endsWith("/knowledge-items")) {
       const projectId = path.split("/")[3];
       return { knowledge_items: projectId === project.id ? state.knowledgeItems : [] };
@@ -531,6 +540,12 @@ function mockApi() {
   });
 
   api.put.mockImplementation(async (path, payload) => {
+    if (path.startsWith("/api/books/") && path.endsWith("/presentation")) {
+      const bookId = path.split("/")[3];
+      const updated = { book_id: bookId, ...payload };
+      state.presentationsByBook[bookId] = updated;
+      return updated;
+    }
     if (path.endsWith("/chapters/reorder")) {
       const bookId = path.split("/")[3];
       const orderedIds = payload.chapter_ids;
@@ -728,6 +743,43 @@ describe("App editor smoke test", () => {
     expect(sections[1].content).not.toContain("[^1]: Das ist die erste Fussnote.");
     expect(sections[1].content).not.toContain("[^2]: Das ist die zweite Fussnote.");
     expect(sections[1].content).toContain("# Kapitel 2");
+  });
+
+  it("loads the saved book work view and keeps later switches session-only", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem("easy-author.work-mode.v1", "clean");
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Buch wechseln/ }));
+    await user.click(screen.getByRole("button", { name: /Buch Zwei/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
+    expect(await screen.findByRole("button", { name: /Intense/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Intense/ }));
+    const picker = screen.getByRole("dialog", { name: "Arbeitsansicht wählen" });
+    await user.click(within(picker).getByRole("button", { name: /Review/ }));
+    expect(api.put).not.toHaveBeenCalledWith(`/api/books/${bookTwo.id}/presentation`, expect.anything());
+  });
+
+  it("asks for and persists a work view after creating a book", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Buch mit Fokus");
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "+ Buch" }));
+    expect(await screen.findByRole("dialog", { name: "Arbeitsansicht wählen" })).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalledWith(expect.stringMatching(/presentation$/), expect.anything());
+    await user.click(screen.getByRole("button", { name: /Intense/ }));
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(expect.stringMatching(/\/api\/books\/book-\d+\/presentation$/), {
+        default_work_view: "intense",
+        typography_overrides: {},
+      });
+    });
+    promptSpy.mockRestore();
   });
 
   it("loads a chapter, switches to markdown, saves, and returns to rich mode", async () => {

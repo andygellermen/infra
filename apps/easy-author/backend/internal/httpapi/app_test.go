@@ -198,6 +198,47 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	}
 }
 
+func TestBookPresentationEndpointsValidateAndPersistWorkView(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+	projectID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects", map[string]any{"title": "Testprojekt"})["id"].(string)
+	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{"title": "Testbuch"})["id"].(string)
+
+	initial := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID+"/presentation", nil)
+	if initial["default_work_view"] != "clean" {
+		t.Fatalf("expected clean default, got %#v", initial)
+	}
+
+	for _, workView := range []string{"clean", "intense", "review"} {
+		updated := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+			"default_work_view":    workView,
+			"typography_overrides": map[string]any{},
+		}, http.StatusOK)
+		if updated["default_work_view"] != workView {
+			t.Fatalf("expected %q, got %#v", workView, updated)
+		}
+	}
+
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view": "write",
+	}, http.StatusBadRequest)
+	persisted := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID+"/presentation", nil)
+	if persisted["default_work_view"] != "review" {
+		t.Fatalf("invalid update changed persisted view: %#v", persisted)
+	}
+}
+
 func createJSON(t *testing.T, handler http.Handler, method, path string, payload any) map[string]any {
 	t.Helper()
 	response := requestJSONWithStatus(t, handler, method, path, payload, http.StatusCreated)

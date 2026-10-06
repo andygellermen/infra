@@ -1,5 +1,7 @@
 package model
 
+import "encoding/json"
+
 type Project struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
@@ -22,6 +24,12 @@ type Book struct {
 	CoverAssetID string `json:"cover_asset_id"`
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
+}
+
+type BookPresentation struct {
+	BookID              string          `json:"book_id"`
+	DefaultWorkView     string          `json:"default_work_view"`
+	TypographyOverrides json.RawMessage `json:"typography_overrides"`
 }
 
 type Chapter struct {

@@ -2,11 +2,73 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
 	"github.com/andygellermann/infra/apps/easy-author/backend/internal/db"
+	"github.com/andygellermann/infra/apps/easy-author/backend/internal/model"
 )
+
+func TestBookPresentationDefaultsAndPersistsAcrossReopen(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "easy-author.sqlite")
+	database, err := db.OpenSQLite(databasePath)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	appStore := New(database, filepath.Dir(databasePath))
+	if err := appStore.Init(ctx); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	project, err := appStore.CreateProject(ctx, CreateProjectInput{Title: "Romanprojekt"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	book, err := appStore.CreateBook(ctx, project.ID, CreateBookInput{Title: "Testbuch"})
+	if err != nil {
+		t.Fatalf("create book: %v", err)
+	}
+
+	presentation, err := appStore.GetBookPresentation(ctx, book.ID)
+	if err != nil {
+		t.Fatalf("get default presentation: %v", err)
+	}
+	if presentation.DefaultWorkView != "clean" || string(presentation.TypographyOverrides) != "{}" {
+		t.Fatalf("unexpected legacy default: %#v", presentation)
+	}
+
+	wantTypography := json.RawMessage(`{"bodyFont":"Literata"}`)
+	if _, err := appStore.UpdateBookPresentation(ctx, model.BookPresentation{
+		BookID:              book.ID,
+		DefaultWorkView:     "review",
+		TypographyOverrides: wantTypography,
+	}); err != nil {
+		t.Fatalf("update presentation: %v", err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatalf("close sqlite: %v", err)
+	}
+
+	reopened, err := db.OpenSQLite(databasePath)
+	if err != nil {
+		t.Fatalf("reopen sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reopenedStore := New(reopened, filepath.Dir(databasePath))
+	if err := reopenedStore.Init(ctx); err != nil {
+		t.Fatalf("re-init store: %v", err)
+	}
+	persisted, err := reopenedStore.GetBookPresentation(ctx, book.ID)
+	if err != nil {
+		t.Fatalf("get persisted presentation: %v", err)
+	}
+	if persisted.DefaultWorkView != "review" || string(persisted.TypographyOverrides) != string(wantTypography) {
+		t.Fatalf("presentation did not persist: %#v", persisted)
+	}
+}
 
 func TestInitMigratesLegacyReviewCommentsRevisionColumn(t *testing.T) {
 	t.Parallel()

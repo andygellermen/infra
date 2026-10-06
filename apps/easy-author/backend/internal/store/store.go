@@ -263,6 +263,12 @@ func (s *Store) Init(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS book_presentations (
+			book_id TEXT PRIMARY KEY,
+			default_work_view TEXT NOT NULL DEFAULT 'clean' CHECK(default_work_view IN ('clean', 'intense', 'review')),
+			typography_overrides TEXT NOT NULL DEFAULT '{}',
+			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS chapters (
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
@@ -632,6 +638,62 @@ func (s *Store) CreateBook(ctx context.Context, projectID string, input CreateBo
 		return model.Book{}, fmt.Errorf("touch project: %w", err)
 	}
 	return item, nil
+}
+
+func (s *Store) GetBookPresentation(ctx context.Context, bookID string) (model.BookPresentation, error) {
+	var item model.BookPresentation
+	var typography string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT book_id, default_work_view, typography_overrides
+		FROM book_presentations
+		WHERE book_id = ?
+	`, bookID).Scan(&item.BookID, &item.DefaultWorkView, &typography)
+	if errors.Is(err, sql.ErrNoRows) {
+		var exists int
+		if lookupErr := s.db.QueryRowContext(ctx, `SELECT 1 FROM books WHERE id = ?`, bookID).Scan(&exists); errors.Is(lookupErr, sql.ErrNoRows) {
+			return model.BookPresentation{}, ErrNotFound
+		} else if lookupErr != nil {
+			return model.BookPresentation{}, fmt.Errorf("lookup book presentation parent: %w", lookupErr)
+		}
+		return model.BookPresentation{BookID: bookID, DefaultWorkView: "clean", TypographyOverrides: json.RawMessage(`{}`)}, nil
+	}
+	if err != nil {
+		return model.BookPresentation{}, fmt.Errorf("get book presentation: %w", err)
+	}
+	item.TypographyOverrides = json.RawMessage(typography)
+	return item, nil
+}
+
+func (s *Store) UpdateBookPresentation(ctx context.Context, input model.BookPresentation) (model.BookPresentation, error) {
+	if input.DefaultWorkView != "clean" && input.DefaultWorkView != "intense" && input.DefaultWorkView != "review" {
+		return model.BookPresentation{}, fmt.Errorf("default_work_view must be clean, intense, or review")
+	}
+	typography := input.TypographyOverrides
+	if len(typography) == 0 {
+		typography = json.RawMessage(`{}`)
+	}
+	if !json.Valid(typography) {
+		return model.BookPresentation{}, fmt.Errorf("typography_overrides must be valid JSON")
+	}
+	result, err := s.db.ExecContext(ctx, `
+		INSERT INTO book_presentations (book_id, default_work_view, typography_overrides)
+		VALUES (?, ?, ?)
+		ON CONFLICT(book_id) DO UPDATE SET
+			default_work_view = excluded.default_work_view,
+			typography_overrides = excluded.typography_overrides
+	`, input.BookID, input.DefaultWorkView, string(typography))
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "foreign key") {
+			return model.BookPresentation{}, ErrNotFound
+		}
+		return model.BookPresentation{}, fmt.Errorf("update book presentation: %w", err)
+	}
+	if affected, affectedErr := result.RowsAffected(); affectedErr != nil {
+		return model.BookPresentation{}, fmt.Errorf("update book presentation rows: %w", affectedErr)
+	} else if affected == 0 {
+		return model.BookPresentation{}, ErrNotFound
+	}
+	return s.GetBookPresentation(ctx, input.BookID)
 }
 
 func (s *Store) GetBook(ctx context.Context, bookID string) (model.BookBundle, error) {

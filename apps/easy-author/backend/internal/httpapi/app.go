@@ -45,6 +45,8 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /api/books/{id}", a.handleGetBook)
 	a.mux.HandleFunc("POST /api/projects/{projectId}/books", a.handleCreateBook)
 	a.mux.HandleFunc("PUT /api/books/{id}", a.handleUpdateBook)
+	a.mux.HandleFunc("GET /api/books/{bookId}/presentation", a.handleGetBookPresentation)
+	a.mux.HandleFunc("PUT /api/books/{bookId}/presentation", a.handleUpdateBookPresentation)
 	a.mux.HandleFunc("GET /api/books/{bookId}/structure", a.handleGetBookStructure)
 	a.mux.HandleFunc("GET /api/books/{bookId}/reusable-pages", a.handleListReusablePages)
 	a.mux.HandleFunc("POST /api/books/{bookId}/reusable-pages", a.handleCreateReusablePage)

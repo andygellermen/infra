@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import EditorPane from "./components/EditorPane";
 import SidebarSection from "./components/SidebarSection";
 import TransientControlBar from "./components/TransientControlBar";
+import WorkViewPicker from "./components/WorkViewPicker";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
@@ -31,11 +32,6 @@ const EMPTY_DRAFT = {
 const DEFAULT_EDITOR_APPEARANCE = DEFAULT_GLOBAL_APPEARANCE;
 const POPUP_HOLD_DELAY_MS = 2000;
 const POPUP_FADE_IN_DELAY_MS = 24;
-const WORK_MODES = [
-  { key: "clean", label: "Schreibfluss", hint: "Schnell, direkt, ablenkungsarm" },
-  { key: "intense", label: "Struktur", hint: "Verknüpfen, Wissen, Workflow" },
-  { key: "review", label: "Finalisierung", hint: "Revision, Proofing, Verlag" },
-];
 const GOOGLE_FONT_PRESETS = [
   "Cormorant Garamond",
   "Crimson Pro",
@@ -924,6 +920,9 @@ function App() {
   const [editorAppearance, setEditorAppearance] = useState(loadStoredEditorAppearance);
   const [showEditorHeader, setShowEditorHeader] = useState(false);
   const [workMode, setWorkMode] = useState(loadStoredWorkMode);
+  const [showWorkViewPicker, setShowWorkViewPicker] = useState(false);
+  const [persistWorkViewChoice, setPersistWorkViewChoice] = useState(false);
+  const [workViewPickerBookId, setWorkViewPickerBookId] = useState("");
   const [showChapterOutline, setShowChapterOutline] = useState(true);
   const [revisions, setRevisions] = useState([]);
   const [autosaveDrafts, setAutosaveDrafts] = useState([]);
@@ -1580,6 +1579,19 @@ function App() {
     setShowBookDetails(false);
     setShowBookEdit(false);
     loadBook(selectedBookId);
+    let cancelled = false;
+    api.get(`/api/books/${selectedBookId}/presentation`)
+      .then((presentation) => {
+        if (!cancelled && ["clean", "intense", "review"].includes(presentation?.default_work_view)) {
+          setWorkMode(presentation.default_work_view);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setErrorMessage(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedBookId]);
 
   useEffect(() => {
@@ -1665,13 +1677,13 @@ function App() {
   }, [selectedChapterId, currentChapterId]);
 
   useEffect(() => {
-    if (workMode === "write") {
+    if (workMode === "clean") {
       setShowLeftOverlay(false);
       setShowRightOverlay(false);
       setShowWritingTools(false);
       return;
     }
-    if (workMode === "structure") {
+    if (workMode === "intense") {
       setActiveLeftSection("workflow");
       setActiveRightSection("clipboard");
       return;
@@ -2340,10 +2352,31 @@ function App() {
       });
       await loadProject(selectedProjectId);
       setSelectedBookId(book.id);
+      setWorkViewPickerBookId(book.id);
+      setPersistWorkViewChoice(true);
+      setShowWorkViewPicker(true);
       setShowBookPicker(false);
     } catch (error) {
       setErrorMessage(error.message);
     }
+  }
+
+  async function selectWorkView(nextView, { persistDefault = false } = {}) {
+    setWorkMode(nextView);
+    if (persistDefault) {
+      try {
+        await api.put(`/api/books/${workViewPickerBookId || selectedBookId}/presentation`, {
+          default_work_view: nextView,
+          typography_overrides: {},
+        });
+      } catch (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+    }
+    setShowWorkViewPicker(false);
+    setPersistWorkViewChoice(false);
+    setWorkViewPickerBookId("");
   }
 
   async function createChapter() {
@@ -3288,8 +3321,12 @@ function App() {
         chapter={currentChapter}
         workView={workMode}
         saveState={saveState}
-        blocked={Boolean(showEditorHelp || showEditorSettings || showWritingTools || showClipboardPalette || showReviewComposer || activeReviewCommentId)}
-        onWorkView={setWorkMode}
+        blocked={Boolean(showEditorHelp || showEditorSettings || showWritingTools || showClipboardPalette || showReviewComposer || activeReviewCommentId || showWorkViewPicker)}
+        onWorkView={() => {
+          setPersistWorkViewChoice(false);
+          setWorkViewPickerBookId(selectedBookId);
+          setShowWorkViewPicker(true);
+        }}
         onCommand={() => setShowWritingTools(true)}
         onAppearance={() => setShowEditorSettings(true)}
         onSettings={() => setShowEditorSettings(true)}
@@ -3301,6 +3338,14 @@ function App() {
         onHelp={() => setShowEditorHelp((previous) => !previous)}
         onFullscreen={() => setIsEditorFullscreen((previous) => !previous)}
         isFullscreen={isEditorFullscreen}
+      />
+
+      <WorkViewPicker
+        open={showWorkViewPicker}
+        currentView={workMode}
+        persistDefault={persistWorkViewChoice}
+        onSelect={selectWorkView}
+        onClose={() => setShowWorkViewPicker(false)}
       />
 
       {!isEditorFullscreen && !isWriteMode ? (
@@ -4241,22 +4286,6 @@ function App() {
             </div>
           </div>
 
-          <div className={`work-mode-tabs ${isWriteMode ? "work-mode-tabs--minimal" : ""}`} role="tablist" aria-label="Arbeitsmodi">
-            {WORK_MODES.map((mode) => (
-              <button
-                key={mode.key}
-                type="button"
-                role="tab"
-                aria-selected={workMode === mode.key}
-                className={`work-mode-tab ${workMode === mode.key ? "is-active" : ""}`}
-                onClick={() => setWorkMode(mode.key)}
-                title={mode.hint}
-              >
-                <strong>{mode.label}</strong>
-                <span>{mode.hint}</span>
-              </button>
-            ))}
-          </div>
         </section>
 
         <aside className={`workspace-panel right-panel ${showRightOverlay ? "is-open" : ""}`}>

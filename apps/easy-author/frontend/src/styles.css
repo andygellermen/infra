@@ -56,7 +56,18 @@ button {
 .transient-controls__location { display: flex; gap: 10px; min-width: 0; }
 .transient-controls__location span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .transient-controls__actions { display: flex; justify-content: flex-end; align-items: center; gap: 4px; color: var(--muted); }
+.work-view-picker__backdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgba(24, 20, 17, .58); backdrop-filter: blur(12px); }
+.work-view-picker { width: min(760px, 100%); padding: 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: 0 28px 80px rgba(20, 16, 13, .3); }
+.work-view-picker > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.work-view-picker > header h2 { margin: 4px 0 0; }
+.work-view-picker > header button { min-width: 44px; min-height: 44px; border: 0; border-radius: 999px; background: transparent; color: inherit; font-size: 1.4rem; cursor: pointer; }
+.work-view-picker__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.work-view-picker__card { display: grid; justify-items: start; gap: 10px; min-height: 190px; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel-soft); color: inherit; text-align: left; cursor: pointer; }
+.work-view-picker__card:hover, .work-view-picker__card:focus-visible, .work-view-picker__card.is-current { border-color: var(--accent); background: var(--panel-strong); }
+.work-view-picker__card > span:last-child { color: var(--muted); line-height: 1.5; }
+.work-view-picker__icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 15px; background: var(--accent-soft); color: var(--accent); font-size: 1.45rem; }
 @media (max-width: 720px) { .transient-controls__bar { grid-template-columns: 1fr auto; margin-right: 66px; } .transient-controls__location { display: none; } }
+@media (max-width: 720px) { .work-view-picker__cards { grid-template-columns: 1fr; } .work-view-picker { max-height: calc(100vh - 32px); overflow: auto; } .work-view-picker__card { min-height: 132px; } }
 @media (prefers-reduced-motion: reduce) { .transient-controls * { transition: none !important; } }
 
 .app-shell.editor-fullscreen-shell {
