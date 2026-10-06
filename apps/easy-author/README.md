@@ -73,6 +73,9 @@ Ansicht und werden nicht in den Buechern gespeichert. Je Phase werden zunaechst
 
 ## Lokales Setup
 
+Die vorbereitete, vollständig Basic-Auth-geschützte Staging-Bereitstellung ist
+in [docs/PROTECTED-STAGING.md](docs/PROTECTED-STAGING.md) dokumentiert.
+
 ### Schnellstart
 
 ```bash

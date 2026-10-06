@@ -148,6 +148,23 @@ verify_redeploy() {
   require_text "$script" '--target production'
 }
 
+verify_smoke() {
+  local script="$ROOT_DIR/scripts/easy-author-smoke-check.sh"
+  [[ -x "$script" ]] || fail "Smoke-Helfer fehlt"
+  require_text "$script" 'http://.*domain'
+  require_text "$script" '401'
+  require_text "$script" '/api/health'
+  require_text "$script" '/api/projects'
+  require_text "$script" '/api/kanban'
+  require_text "$script" 'backlog.*todo.*in_progress.*review.*done'
+  require_text "$script" 'DOCKER_BIN.*restart'
+  require_text "$script" 'PortBindings'
+  require_text "$script" 'mktemp'
+  require_text "$script" 'chmod 0600'
+  require_text "$script" 'read -r -s'
+  require_text "$script" 'trap cleanup'
+}
+
 case "${1:-all}" in
   containers) verify_containers ;;
   hostvars) verify_hostvars ;;
@@ -155,7 +172,8 @@ case "${1:-all}" in
   restore) verify_restore ;;
   ansible) verify_ansible ;;
   redeploy) verify_redeploy ;;
-  all) verify_containers; verify_hostvars; verify_backup; verify_restore; verify_ansible; verify_redeploy ;;
+  smoke) verify_smoke ;;
+  all) verify_containers; verify_hostvars; verify_backup; verify_restore; verify_ansible; verify_redeploy; verify_smoke ;;
   *) fail "Unbekannte Prüfgruppe: $1" ;;
 esac
 printf 'PASS: %s\n' "${1:-all}"
