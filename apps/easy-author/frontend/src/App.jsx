@@ -864,6 +864,10 @@ export function splitMarkdownIntoChapterSections(markdown, fallbackTitle) {
   }));
 }
 
+export function isKanbanTargetReady(target, currentBookId, currentChapterId) {
+  return Boolean(target?.anchorId && target.bookId === currentBookId && target.chapterId === currentChapterId);
+}
+
 function App() {
   const editorRef = useRef(null);
   const markdownTextareaRef = useRef(null);
@@ -961,7 +965,7 @@ function App() {
   const [kanbanCounts, setKanbanCounts] = useState({});
   const [kanbanColors, setKanbanColors] = useState(new Map());
   const [kanbanLimit, setKanbanLimit] = useState(12);
-  const [pendingKanbanAnchorId, setPendingKanbanAnchorId] = useState("");
+  const [pendingKanbanTarget, setPendingKanbanTarget] = useState(null);
   const [showResolvedContexts, setShowResolvedContexts] = useState(true);
   const [systemPrefersDark, setSystemPrefersDark] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({
@@ -1683,14 +1687,14 @@ function App() {
   }, [showKanban, kanbanScope, projectDetail?.books]);
 
   useEffect(() => {
-    if (!pendingKanbanAnchorId || !selectedChapterId) return;
+    if (!isKanbanTargetReady(pendingKanbanTarget, currentBook?.id, currentChapter?.id)) return;
     const timer = window.setTimeout(() => {
-      editorRef.current?.focusDocumentAnchor?.(pendingKanbanAnchorId);
-      setActiveContextAnchorId(pendingKanbanAnchorId);
-      setPendingKanbanAnchorId("");
+      editorRef.current?.focusDocumentAnchor?.(pendingKanbanTarget.anchorId);
+      setActiveContextAnchorId(pendingKanbanTarget.anchorId);
+      setPendingKanbanTarget(null);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [pendingKanbanAnchorId, selectedChapterId, chapterDraft.editor_json]);
+  }, [pendingKanbanTarget, currentBook?.id, currentChapter?.id, chapterDraft.editor_json]);
 
   useEffect(() => {
     const lookup = {
@@ -2018,7 +2022,9 @@ function App() {
     setShowKanban(false);
     if (item.book_id) setSelectedBookId(item.book_id);
     if (item.chapter_id) setSelectedChapterId(item.chapter_id);
-    if (item.anchor_id) setPendingKanbanAnchorId(item.anchor_id);
+    if (item.book_id && item.chapter_id && item.anchor_id) {
+      setPendingKanbanTarget({ bookId: item.book_id, chapterId: item.chapter_id, anchorId: item.anchor_id });
+    }
   }
 
   async function loadProject(projectId) {

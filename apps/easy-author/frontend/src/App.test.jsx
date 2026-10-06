@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import App, { splitMarkdownIntoChapterSections } from "./App";
+import App, { isKanbanTargetReady, splitMarkdownIntoChapterSections } from "./App";
 import { api } from "./lib/api";
 import { markdownToDoc } from "./lib/markdown";
 
@@ -724,6 +724,13 @@ describe("App editor smoke test", () => {
     window.localStorage.clear();
     window.localStorage.setItem("easy-author.work-mode.v1", "structure");
     mockApi();
+  });
+
+  it("waits for both the destination book and chapter before focusing a Kanban source", () => {
+    const target = { bookId: "book-2", chapterId: "chapter-9", anchorId: "anchor-3" };
+    expect(isKanbanTargetReady(target, "book-1", "chapter-9")).toBe(false);
+    expect(isKanbanTargetReady(target, "book-2", "chapter-1")).toBe(false);
+    expect(isKanbanTargetReady(target, "book-2", "chapter-9")).toBe(true);
   });
 
   it("keeps footnote definitions with the earlier chapter when a new H1 starts below their references", () => {

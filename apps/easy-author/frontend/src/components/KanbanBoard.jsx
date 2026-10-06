@@ -34,7 +34,7 @@ export default function KanbanBoard({ phases = KANBAN_PHASES, items = {}, totals
   return (
     <div className="kanban-board" aria-label="Kanban-Board">
       {phases.map((phase, phaseIndex) => {
-        const cards = items[phase.id] || [];
+        const cards = (items[phase.id] || []).slice(0, 20);
         const total = totals[phase.id] || 0;
         return (
           <section key={phase.id} className={`kanban-column kanban-column--${phase.id}`} role="region" aria-label={`${phase.label}, ${total} Vorgänge`}

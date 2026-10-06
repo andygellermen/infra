@@ -1,6 +1,6 @@
 # EasyAuthor UI-MVP – Gesamt-Abnahme
 
-Stand: 6. Oktober 2026  
+Stand: 6. Oktober 2026
 Geltungsbereich: Pakete 1 bis 5 aus `2026-10-06-easy-author-ui-reader-design.md`
 
 ## Ergebnis
@@ -119,7 +119,7 @@ Ausgeführt am 6. Oktober 2026 im isolierten Arbeitszweig:
 | Prüfung | Ergebnis |
 | --- | --- |
 | `cd apps/easy-author/backend && go test ./...` | erfolgreich; Store- und HTTP-Pakete bestanden, übrige Pakete ohne eigene Tests |
-| `cd apps/easy-author/frontend && npm test` | erfolgreich; 10 Markdown-, 43 Editor-/App- und 42 UI-Tests |
+| `cd apps/easy-author/frontend && npm test` | erfolgreich; 10 Markdown-, 44 Editor-/App- und 42 UI-Tests |
 | `cd apps/easy-author/frontend && npm run build` | erfolgreich; 162 Module transformiert |
 | `cd apps/easy-author && docker compose config --quiet` | erfolgreich, keine Konfigurationsfehler |
 
