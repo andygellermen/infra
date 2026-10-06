@@ -32,9 +32,48 @@ verify_containers() {
   reject_text "$backend" 'apt-get|apk add|COPY .*data'
 }
 
+verify_hostvars() {
+  local add="$ROOT_DIR/scripts/easy-author-add.sh"
+  local rotate="$ROOT_DIR/scripts/easy-author-rotate-secrets.sh"
+  local template="$ROOT_DIR/ansible/hostvars/templates/easy-author-hostvars.j2"
+  [[ -x "$add" && -x "$rotate" && -f "$template" ]] || fail "EasyAuthor-Hostvars-Helfer fehlen"
+  require_text "$add" 'umask 077'
+  require_text "$add" 'htpasswd -nB'
+  require_text "$add" 'verify_domain_resolves_to_host_ipv4'
+  require_text "$add" 'mv.*hostvars_file'
+  reject_text "$template" '\$2[aby]\$[0-9][0-9]\$'
+  require_text "$rotate" 'os.replace'
+  require_text "$rotate" 'easy_author_basic_auth_password_hash'
+
+  local sandbox bindir hostdir output file
+  sandbox="$(mktemp -d)"
+  trap 'rm -rf "$sandbox"' RETURN
+  bindir="$sandbox/bin"; hostdir="$sandbox/hostvars"
+  mkdir -p "$bindir" "$hostdir"
+  cat > "$bindir/htpasswd" <<'SH'
+#!/bin/sh
+printf '%s:%s\n' "${4:-tester}" '$2y$12$abcdefghijklmnopqrstuv12345678901234567890123456789'
+SH
+  chmod +x "$bindir/htpasswd"
+  output="$(PATH="$bindir:$PATH" EASY_AUTHOR_HOSTVARS_DIR="$hostdir" "$add" author.geller.men --username=tester --skip-dns-check)"
+  file="$hostdir/author.geller.men.yml"
+  [[ -f "$file" ]] || fail "Hostvars wurden nicht erstellt"
+  [[ "$(stat -f '%Lp' "$file" 2>/dev/null || stat -c '%a' "$file")" == 600 ]] || fail "Hostvars sind nicht 0600"
+  require_text "$file" '^easy_author_basic_auth_username: "tester"$'
+  require_text "$file" '^easy_author_basic_auth_password_hash: "\$2y\$12\$'
+  ! printf '%s\n' "$output" | grep -Eq '\$2y\$|123456789' || fail "Geheimnis wurde ausgegeben"
+  if PATH="$bindir:$PATH" EASY_AUTHOR_HOSTVARS_DIR="$hostdir" "$add" author.geller.men --skip-dns-check >/dev/null 2>&1; then
+    fail "Doppelte Hostvars wurden akzeptiert"
+  fi
+  PATH="$bindir:$PATH" EASY_AUTHOR_HOSTVARS_DIR="$hostdir" "$rotate" author.geller.men --username=reviewer >/dev/null
+  require_text "$file" '^easy_author_basic_auth_username: "reviewer"$'
+  require_text "$file" '^easy_author_basic_auth_password_hash: "\$2y\$12\$'
+}
+
 case "${1:-all}" in
   containers) verify_containers ;;
-  all) verify_containers ;;
+  hostvars) verify_hostvars ;;
+  all) verify_containers; verify_hostvars ;;
   *) fail "Unbekannte Prüfgruppe: $1" ;;
 esac
 printf 'PASS: %s\n' "${1:-all}"
