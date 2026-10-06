@@ -218,6 +218,30 @@ type UpdateReviewCommentInput struct {
 	IsTodoDone    bool   `json:"is_todo_done"`
 }
 
+type DocumentAnchorInput struct {
+	BlockID       string `json:"block_id"`
+	SelectedText  string `json:"selected_text"`
+	StartOffset   int    `json:"start_offset"`
+	EndOffset     int    `json:"end_offset"`
+	ContextBefore string `json:"context_before"`
+	ContextAfter  string `json:"context_after"`
+	Checksum      string `json:"checksum"`
+}
+
+type CreateThreadMessageInput struct {
+	Author string `json:"author"`
+	Body   string `json:"body"`
+}
+
+type CreateContextInput struct {
+	AnchorID    string                    `json:"anchor_id"`
+	Anchor      DocumentAnchorInput       `json:"anchor"`
+	ContextType string                    `json:"context_type"`
+	TargetID    string                    `json:"target_id"`
+	Status      string                    `json:"status"`
+	Message     *CreateThreadMessageInput `json:"message,omitempty"`
+}
+
 type CreateKnowledgeItemInput struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
@@ -336,6 +360,53 @@ func (s *Store) Init(ctx context.Context) error {
 			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
 			FOREIGN KEY(revision_id) REFERENCES revisions(id) ON DELETE SET DEFAULT
 		);`,
+		`CREATE TABLE IF NOT EXISTS document_anchors (
+			id TEXT PRIMARY KEY,
+			chapter_id TEXT NOT NULL,
+			block_id TEXT NOT NULL DEFAULT '',
+			selected_text TEXT NOT NULL DEFAULT '',
+			start_offset INTEGER NOT NULL DEFAULT 0,
+			end_offset INTEGER NOT NULL DEFAULT 0,
+			context_before TEXT NOT NULL DEFAULT '',
+			context_after TEXT NOT NULL DEFAULT '',
+			checksum TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS document_anchors_chapter_position_idx ON document_anchors(chapter_id, start_offset, id);`,
+		`CREATE TABLE IF NOT EXISTS anchor_contexts (
+			id TEXT PRIMARY KEY,
+			anchor_id TEXT NOT NULL,
+			context_type TEXT NOT NULL CHECK(context_type IN ('comment', 'work_item', 'link', 'clipboard_insert', 'clipboard_source')),
+			target_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'planned', 'in_progress', 'review', 'resolved', 'deleted')),
+			legacy_entity_id TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(anchor_id) REFERENCES document_anchors(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS anchor_contexts_anchor_created_idx ON anchor_contexts(anchor_id, created_at, id);`,
+		`CREATE INDEX IF NOT EXISTS anchor_contexts_legacy_idx ON anchor_contexts(legacy_entity_id) WHERE legacy_entity_id <> '';`,
+		`CREATE TABLE IF NOT EXISTS comment_threads (
+			id TEXT PRIMARY KEY,
+			context_id TEXT NOT NULL UNIQUE,
+			status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'planned', 'in_progress', 'review', 'resolved')),
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(context_id) REFERENCES anchor_contexts(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS comment_messages (
+			id TEXT PRIMARY KEY,
+			thread_id TEXT NOT NULL,
+			author TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL,
+			position INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY(thread_id) REFERENCES comment_threads(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS comment_messages_thread_created_idx ON comment_messages(thread_id, created_at, id);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS comment_messages_thread_position_idx ON comment_messages(thread_id, position);`,
 		`CREATE TABLE IF NOT EXISTS clipboard_items (
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
@@ -433,8 +504,41 @@ func (s *Store) Init(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS review_comments_chapter_revision_created_idx ON review_comments(chapter_id, revision_id, created_at DESC)`); err != nil {
 		return fmt.Errorf("migrate review comment revision index: %w", err)
 	}
+	if err := s.ensureDemoContent(ctx); err != nil {
+		return err
+	}
+	return s.migrateLegacyContexts(ctx)
+}
 
-	return s.ensureDemoContent(ctx)
+func (s *Store) migrateLegacyContexts(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin context migration: %w", err)
+	}
+	defer tx.Rollback()
+	statements := []string{
+		`INSERT OR IGNORE INTO document_anchors (id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at)
+		 SELECT id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at FROM anchors`,
+		`INSERT OR IGNORE INTO anchor_contexts (id, anchor_id, context_type, target_id, status, legacy_entity_id, created_at, updated_at)
+		 SELECT 'legacy-anchor-' || id, id, 'link', workflow_box_id, 'open', id, created_at, updated_at FROM anchors`,
+		`INSERT OR IGNORE INTO document_anchors (id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at)
+		 SELECT 'review-' || id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO anchor_contexts (id, anchor_id, context_type, status, legacy_entity_id, created_at, updated_at)
+		 SELECT id, 'review-' || id, 'comment', CASE WHEN status IN ('resolved', 'applied', 'rejected') OR is_todo_done = 1 THEN 'resolved' ELSE 'open' END, id, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO comment_threads (id, context_id, status, created_at, updated_at)
+		 SELECT id, id, CASE WHEN status IN ('resolved', 'applied', 'rejected') OR is_todo_done = 1 THEN 'resolved' ELSE 'open' END, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO comment_messages (id, thread_id, author, body, created_at)
+		 SELECT 'legacy-' || id, id, author, CASE WHEN body <> '' THEN body ELSE suggested_text END, created_at FROM review_comments WHERE body <> '' OR suggested_text <> ''`,
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate legacy contexts: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit context migration: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) ensureDemoContent(ctx context.Context) error {
@@ -1789,4 +1893,8 @@ func max(left, right int) int {
 	return right
 }
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound = errors.New("not found")
+	ErrInvalid  = errors.New("invalid input")
+	ErrConflict = errors.New("conflict")
+)

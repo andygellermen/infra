@@ -10,6 +10,156 @@ import (
 	"github.com/andygellermann/infra/apps/easy-author/backend/internal/model"
 )
 
+func newContextTestStore(t *testing.T) (*Store, context.Context, model.Chapter) {
+	t.Helper()
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "easy-author.sqlite")
+	database, err := db.OpenSQLite(databasePath)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := New(database, filepath.Dir(databasePath))
+	if err := appStore.Init(ctx); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	project, err := appStore.CreateProject(ctx, CreateProjectInput{Title: "Kontextprojekt"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	book, err := appStore.CreateBook(ctx, project.ID, CreateBookInput{Title: "Kontextbuch"})
+	if err != nil {
+		t.Fatalf("create book: %v", err)
+	}
+	chapter, err := appStore.CreateChapter(ctx, book.ID, CreateChapterInput{Title: "Kapitel", MarkdownContent: "Eine wichtige Passage."})
+	if err != nil {
+		t.Fatalf("create chapter: %v", err)
+	}
+	return appStore, ctx, chapter
+}
+
+func TestContextsShareAnchorAndDeleteIndependently(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+
+	comment, err := appStore.CreateContext(ctx, chapter.ID, CreateContextInput{
+		ContextType: "comment",
+		Anchor:      DocumentAnchorInput{SelectedText: "wichtige Passage", StartOffset: 5, EndOffset: 22, ContextBefore: "Eine ", ContextAfter: "."},
+		Message:     &CreateThreadMessageInput{Author: "Andy", Body: "Bitte genauer prüfen."},
+	})
+	if err != nil {
+		t.Fatalf("create comment context: %v", err)
+	}
+	link, err := appStore.CreateContext(ctx, chapter.ID, CreateContextInput{
+		ContextType: "link",
+		AnchorID:    comment.AnchorID,
+		TargetID:    "chapter-ziel",
+	})
+	if err != nil {
+		t.Fatalf("create link context: %v", err)
+	}
+	if link.AnchorID != comment.AnchorID {
+		t.Fatalf("contexts should share anchor: %#v %#v", comment, link)
+	}
+
+	items, err := appStore.ListChapterContexts(ctx, chapter.ID)
+	if err != nil {
+		t.Fatalf("list contexts: %v", err)
+	}
+	if len(items) != 2 || items[0].Anchor.ID != items[1].Anchor.ID {
+		t.Fatalf("expected two contexts on one anchor, got %#v", items)
+	}
+	if err := appStore.DeleteContext(ctx, link.ID); err != nil {
+		t.Fatalf("delete sibling context: %v", err)
+	}
+	remaining, err := appStore.ListChapterContexts(ctx, chapter.ID)
+	if err != nil {
+		t.Fatalf("list remaining contexts: %v", err)
+	}
+	if len(remaining) != 1 || remaining[0].ID != comment.ID || remaining[0].Anchor.ID != comment.AnchorID {
+		t.Fatalf("deleting one context removed its sibling or anchor: %#v", remaining)
+	}
+}
+
+func TestContextThreadRepliesAndResolvedStatus(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+	created, err := appStore.CreateContext(ctx, chapter.ID, CreateContextInput{
+		ContextType: "comment",
+		Anchor:      DocumentAnchorInput{SelectedText: "Passage", StartOffset: 14, EndOffset: 21},
+		Message:     &CreateThreadMessageInput{Author: "Andy", Body: "Erste Frage"},
+	})
+	if err != nil {
+		t.Fatalf("create threaded context: %v", err)
+	}
+	if _, err := appStore.CreateThreadMessage(ctx, created.Thread.ID, CreateThreadMessageInput{Author: "Cody", Body: "Erste Antwort"}); err != nil {
+		t.Fatalf("create reply: %v", err)
+	}
+	if _, err := appStore.CreateThreadMessage(ctx, created.Thread.ID, CreateThreadMessageInput{Author: "Andy", Body: "Zweite Antwort"}); err != nil {
+		t.Fatalf("create second reply: %v", err)
+	}
+	thread, err := appStore.UpdateThreadStatus(ctx, created.Thread.ID, "resolved")
+	if err != nil {
+		t.Fatalf("resolve thread: %v", err)
+	}
+	if thread.Status != "resolved" || len(thread.Messages) != 3 {
+		t.Fatalf("unexpected resolved thread: %#v", thread)
+	}
+	for index, body := range []string{"Erste Frage", "Erste Antwort", "Zweite Antwort"} {
+		if thread.Messages[index].Body != body {
+			t.Fatalf("messages not in stable order: %#v", thread.Messages)
+		}
+	}
+	items, err := appStore.ListChapterContexts(ctx, chapter.ID)
+	if err != nil || len(items) != 1 || items[0].Status != "resolved" || items[0].Thread.Status != "resolved" {
+		t.Fatalf("resolved status not reflected by context: items=%#v err=%v", items, err)
+	}
+}
+
+func TestInitMigratesLegacyAnchorsAndCommentsIntoContexts(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+	box, err := appStore.CreateWorkflowBox(ctx, chapter.BookID, CreateWorkflowBoxInput{Title: "Legacy-Ziel", Type: "notes"})
+	if err != nil {
+		t.Fatalf("create workflow box: %v", err)
+	}
+	legacyAnchor, err := appStore.CreateAnchor(ctx, chapter.ID, CreateAnchorInput{
+		WorkflowBoxID: box.ID, SelectedText: "wichtige Passage", StartOffset: 5, EndOffset: 22,
+	})
+	if err != nil {
+		t.Fatalf("create legacy anchor: %v", err)
+	}
+	revision, err := appStore.CreateRevision(ctx, chapter.ID, CreateRevisionInput{RevisionType: "manual", CreatedBy: "test"})
+	if err != nil {
+		t.Fatalf("create legacy revision: %v", err)
+	}
+	legacyComment, err := appStore.CreateReviewComment(ctx, chapter.ID, CreateReviewCommentInput{
+		RevisionID: revision.ID, Author: "Andy", Body: "Legacy-Kommentar", SelectedText: "Passage", StartOffset: 14, EndOffset: 21, Status: "resolved",
+	})
+	if err != nil {
+		t.Fatalf("create legacy comment: %v", err)
+	}
+	if err := appStore.Init(ctx); err != nil {
+		t.Fatalf("repeat migration: %v", err)
+	}
+	items, err := appStore.ListChapterContexts(ctx, chapter.ID)
+	if err != nil {
+		t.Fatalf("list migrated contexts: %v", err)
+	}
+	var foundAnchor, foundComment bool
+	for _, item := range items {
+		if item.Anchor.ID == legacyAnchor.ID && item.LegacyEntityID == legacyAnchor.ID && item.ContextType == "link" {
+			foundAnchor = true
+		}
+		if item.ID == legacyComment.ID && item.LegacyEntityID == legacyComment.ID && item.ContextType == "comment" && item.Status == "resolved" {
+			foundComment = true
+		}
+	}
+	if !foundAnchor || !foundComment {
+		t.Fatalf("legacy records were not preserved in context view: %#v", items)
+	}
+}
+
 func TestBookPresentationDefaultsAndPersistsAcrossReopen(t *testing.T) {
 	t.Parallel()
 

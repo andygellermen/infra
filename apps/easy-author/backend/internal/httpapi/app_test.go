@@ -252,6 +252,79 @@ func TestBookPresentationEndpointsValidateAndPersistWorkView(t *testing.T) {
 	}, http.StatusBadRequest)
 }
 
+func TestContextEndpointsCreateListReplyResolveAndDelete(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+	projectID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects", map[string]any{"title": "Kontextprojekt"})["id"].(string)
+	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{"title": "Kontextbuch"})["id"].(string)
+	chapterID := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/chapters", map[string]any{"title": "Kapitel", "markdown_content": "Eine Passage."})["id"].(string)
+
+	comment := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/contexts", map[string]any{
+		"context_type": "comment",
+		"anchor":       map[string]any{"selected_text": "Passage", "start_offset": 5, "end_offset": 12},
+		"message":      map[string]any{"author": "Andy", "body": "Bitte prüfen"},
+	})
+	anchorID := comment["anchor_id"].(string)
+	threadID := comment["thread"].(map[string]any)["id"].(string)
+	link := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/contexts", map[string]any{
+		"context_type": "link", "anchor_id": anchorID, "target_id": "kapitel-zwei",
+	})
+	createJSON(t, app.Handler(), http.MethodPost, "/api/threads/"+threadID+"/messages", map[string]any{"author": "Cody", "body": "Ist geprüft"})
+	resolved := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/threads/"+threadID, map[string]any{"status": "resolved"}, http.StatusOK)
+	if resolved["status"] != "resolved" {
+		t.Fatalf("thread was not resolved: %#v", resolved)
+	}
+	messages := resolved["messages"].([]any)
+	if len(messages) != 2 || messages[0].(map[string]any)["body"] != "Bitte prüfen" || messages[1].(map[string]any)["body"] != "Ist geprüft" {
+		t.Fatalf("thread replies are not stable: %#v", messages)
+	}
+	listed := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/contexts", nil)["contexts"].([]any)
+	if len(listed) != 2 || listed[0].(map[string]any)["anchor_id"] != anchorID || listed[1].(map[string]any)["anchor_id"] != anchorID {
+		t.Fatalf("unexpected context list: %#v", listed)
+	}
+	requestJSONWithStatus(t, app.Handler(), http.MethodDelete, "/api/contexts/"+link["id"].(string), nil, http.StatusNoContent)
+	remaining := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/contexts", nil)["contexts"].([]any)
+	if len(remaining) != 1 || remaining[0].(map[string]any)["status"] != "resolved" {
+		t.Fatalf("unexpected remaining context: %#v", remaining)
+	}
+}
+
+func TestContextEndpointsRejectInvalidParentsTypesAndStatuses(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/chapters/missing/contexts", map[string]any{
+		"context_type": "link", "anchor": map[string]any{"selected_text": "Text", "start_offset": 0, "end_offset": 4},
+	}, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodGet, "/api/chapters/missing/contexts", nil, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/chapters/missing/contexts", map[string]any{
+		"context_type": "unknown", "anchor": map[string]any{"selected_text": "Text", "start_offset": 0, "end_offset": 4},
+	}, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/threads/missing/messages", map[string]any{"body": "Antwort"}, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/threads/missing", map[string]any{"status": "maybe"}, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodDelete, "/api/contexts/missing", nil, http.StatusNotFound)
+}
+
 func createJSON(t *testing.T, handler http.Handler, method, path string, payload any) map[string]any {
 	t.Helper()
 	response := requestJSONWithStatus(t, handler, method, path, payload, http.StatusCreated)

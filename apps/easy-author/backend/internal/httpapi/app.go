@@ -82,6 +82,11 @@ func (a *App) routes() {
 	a.mux.HandleFunc("POST /api/chapters/{chapterId}/comments", a.handleCreateReviewComment)
 	a.mux.HandleFunc("PUT /api/comments/{id}", a.handleUpdateReviewComment)
 	a.mux.HandleFunc("DELETE /api/comments/{id}", a.handleDeleteReviewComment)
+	a.mux.HandleFunc("GET /api/chapters/{chapterId}/contexts", a.handleListContexts)
+	a.mux.HandleFunc("POST /api/chapters/{chapterId}/contexts", a.handleCreateContext)
+	a.mux.HandleFunc("DELETE /api/contexts/{id}", a.handleDeleteContext)
+	a.mux.HandleFunc("PUT /api/threads/{id}", a.handleUpdateThread)
+	a.mux.HandleFunc("POST /api/threads/{id}/messages", a.handleCreateThreadMessage)
 	a.mux.HandleFunc("GET /api/books/{bookId}/clipboard", a.handleListClipboard)
 	a.mux.HandleFunc("POST /api/books/{bookId}/clipboard", a.handleCreateClipboard)
 	a.mux.HandleFunc("PUT /api/clipboard/{id}", a.handleUpdateClipboard)
@@ -482,6 +487,10 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeClientError(w, http.StatusNotFound, "resource not found")
+	case errors.Is(err, store.ErrInvalid):
+		writeClientError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, store.ErrConflict):
+		writeClientError(w, http.StatusConflict, err.Error())
 	default:
 		writeClientError(w, http.StatusInternalServerError, err.Error())
 	}
