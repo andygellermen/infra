@@ -256,7 +256,7 @@ func TestContextThreadRepliesAndResolvedStatus(t *testing.T) {
 	}
 }
 
-func TestInitMigratesLegacyAnchorsAndCommentsIntoContexts(t *testing.T) {
+func TestExistingDatabaseFixtureRemainsReadableAndGainsNormalizedViews(t *testing.T) {
 	t.Parallel()
 	appStore, ctx, chapter := newContextTestStore(t)
 	box, err := appStore.CreateWorkflowBox(ctx, chapter.BookID, CreateWorkflowBoxInput{Title: "Legacy-Ziel", Type: "notes"})
@@ -279,6 +279,10 @@ func TestInitMigratesLegacyAnchorsAndCommentsIntoContexts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create legacy comment: %v", err)
 	}
+	clipboard, err := appStore.CreateClipboardItem(ctx, chapter.BookID, CreateClipboardItemInput{ChapterID: chapter.ID, Content: "Bewahrter Ausschnitt"})
+	if err != nil {
+		t.Fatalf("create clipboard fixture: %v", err)
+	}
 	if err := appStore.Init(ctx); err != nil {
 		t.Fatalf("repeat migration: %v", err)
 	}
@@ -297,6 +301,26 @@ func TestInitMigratesLegacyAnchorsAndCommentsIntoContexts(t *testing.T) {
 	}
 	if !foundAnchor || !foundComment {
 		t.Fatalf("legacy records were not preserved in context view: %#v", items)
+	}
+	bundle, err := appStore.GetBook(ctx, chapter.BookID)
+	if err != nil || bundle.Book.ID != chapter.BookID || len(bundle.Chapters) == 0 {
+		t.Fatalf("book and chapter were not preserved: bundle=%#v err=%v", bundle, err)
+	}
+	clips, err := appStore.ListClipboardItems(ctx, chapter.BookID)
+	if err != nil || len(clips) != 1 || clips[0].ID != clipboard.ID {
+		t.Fatalf("clipboard fixture was not preserved: clips=%#v err=%v", clips, err)
+	}
+	revisions, err := appStore.ListRevisionsByChapter(ctx, chapter.ID)
+	if err != nil || len(revisions) == 0 || revisions[0].ID != revision.ID {
+		t.Fatalf("revision fixture was not preserved: revisions=%#v err=%v", revisions, err)
+	}
+	presentation, err := appStore.GetBookPresentation(ctx, chapter.BookID)
+	if err != nil || presentation.DefaultWorkView != "clean" {
+		t.Fatalf("legacy book did not gain presentation defaults: %#v err=%v", presentation, err)
+	}
+	board, err := appStore.ListKanban(ctx, KanbanQuery{BookIDs: []string{chapter.BookID}, LimitPerPhase: 12, IncludeDone: true})
+	if err != nil || board.Totals["done"] != 1 || len(board.Items["done"]) != 1 {
+		t.Fatalf("legacy resolved comment did not gain a work-item view: %#v err=%v", board, err)
 	}
 }
 

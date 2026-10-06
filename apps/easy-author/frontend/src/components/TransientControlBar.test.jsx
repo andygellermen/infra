@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import TransientControlBar from "./TransientControlBar";
 
 describe("TransientControlBar", () => {
@@ -62,5 +63,20 @@ describe("TransientControlBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
     fireEvent.keyDown(screen.getByRole("toolbar", { name: "Schreibsteuerung" }), { key: "Escape" });
     expect(screen.queryByRole("toolbar", { name: "Schreibsteuerung" })).not.toBeInTheDocument();
+  });
+
+  it("supports complete forward keyboard traversal through its actions", async () => {
+    const user = userEvent.setup();
+    render(<TransientControlBar />);
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await user.tab();
+    expect(screen.getByRole("button", { name: /Clean & Free/ })).toHaveFocus();
+    const actions = ["Kapitel speichern", "Rich", "Markdown", "Werkzeuge", "Kanban öffnen", "Hilfe", "Vollbild", "Befehlspalette öffnen", "Erscheinungsbild öffnen", "Einstellungen öffnen"];
+    for (const name of actions) {
+      await user.tab();
+      expect(screen.getByRole("button", { name })).toHaveFocus();
+    }
   });
 });

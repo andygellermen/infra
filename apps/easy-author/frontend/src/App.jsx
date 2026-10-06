@@ -962,6 +962,8 @@ function App() {
   const [kanbanColors, setKanbanColors] = useState(new Map());
   const [kanbanLimit, setKanbanLimit] = useState(12);
   const [pendingKanbanAnchorId, setPendingKanbanAnchorId] = useState("");
+  const [showResolvedContexts, setShowResolvedContexts] = useState(true);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({
     title: "",
     description: "",
@@ -1566,6 +1568,15 @@ function App() {
   }, [editorAppearance]);
 
   useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return undefined;
+    const sync = () => setSystemPrefersDark(media.matches);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
+  }, []);
+
+  useEffect(() => {
     saveSessionWorkView(window.localStorage, workMode);
   }, [workMode]);
 
@@ -1895,6 +1906,12 @@ function App() {
         return;
       }
 
+      if (event.key === "Escape" && showKanban) {
+        event.preventDefault();
+        setShowKanban(false);
+        return;
+      }
+
       if (event.key === "Escape" && (showLeftOverlay || showRightOverlay || showEditorHelp || showEditorSettings || showClipboardPalette || showReviewComposer || activeReviewCommentId || selectionContext)) {
         event.preventDefault();
         closeTransientPanels();
@@ -1919,6 +1936,7 @@ function App() {
     activeReviewCommentId,
     selectionContext,
     isEditorFullscreen,
+    showKanban,
     currentChapter,
     chapterDraft,
     editorMode,
@@ -3522,6 +3540,7 @@ function App() {
   return (
     <div
       className={`app-shell ${isEditorFullscreen ? "editor-fullscreen-shell" : ""} ${showLeftOverlay ? "has-left-overlay" : ""} ${showRightOverlay ? "has-right-overlay" : ""} ${isWidgetFocusActive ? "has-widget-focus" : ""}`}
+      data-theme={editorAppearance.themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : editorAppearance.themeMode}
     >
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
       {showFocusScrim ? <div className="focus-scrim" aria-hidden="true" onClick={closeTransientPanels} /> : null}
@@ -4507,7 +4526,7 @@ function App() {
                       pinnedSlots={pinnedSlots}
                       activeReviewCommentId={activeReviewCommentId}
                       reviewComments={reviewCommentsForEditor}
-                      contexts={contexts}
+                      contexts={showResolvedContexts ? contexts : (contexts || []).filter((context) => context.status !== "resolved")}
                       onSelectionChange={setHasSelection}
                       onSelectionContextChange={applyEditorSelectionContext}
                       onReviewCommentActivate={activateReviewComment}
@@ -5358,6 +5377,10 @@ function App() {
             onBookChange={updateBookTypography}
             onResetBook={updateBookTypography}
           />
+          <label className="checkbox-row">
+            <input type="checkbox" checked={showResolvedContexts} onChange={(event) => setShowResolvedContexts(event.target.checked)} />
+            Erledigte Kontextmarkierungen anzeigen
+          </label>
         </section>
       ) : null}
 

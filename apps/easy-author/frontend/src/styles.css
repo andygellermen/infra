@@ -13,6 +13,21 @@
   font-family: "Avenir Next", "Segoe UI", sans-serif;
 }
 
+.app-shell[data-theme="dark"] {
+  --bg: #181614;
+  --panel: rgba(35, 32, 29, 0.88);
+  --panel-strong: rgba(46, 42, 38, 0.96);
+  --line: rgba(245, 239, 231, 0.13);
+  --text: #eee8df;
+  --muted: #aaa095;
+  --accent: #d5a36e;
+  --accent-strong: #efbd85;
+  --ink: #faf6f0;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+}
+
 .kanban-workspace {
   position: fixed;
   inset: 18px;

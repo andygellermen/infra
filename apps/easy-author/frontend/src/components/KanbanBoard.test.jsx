@@ -36,4 +36,15 @@ describe("KanbanBoard", () => {
     fireEvent.keyDown(card, { key: "ArrowRight", altKey: true });
     expect(onMove).toHaveBeenCalledWith("one", "todo");
   });
+
+  it("keeps five loaded columns operable with twenty cards each", () => {
+    const items = Object.fromEntries(KANBAN_PHASES.map(({ id }) => [id, Array.from({ length: 20 }, (_, index) => ({
+      id: `${id}-${index}`, title: `${id} Aufgabe ${index + 1}`, book_id: "a",
+    }))]));
+    render(<KanbanBoard phases={KANBAN_PHASES} items={items}
+      totals={Object.fromEntries(KANBAN_PHASES.map(({ id }) => [id, 20]))} limit={20} />);
+    expect(screen.getAllByRole("article")).toHaveLength(100);
+    expect(screen.queryByText("Weitere anzeigen")).not.toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "done Aufgabe 20" })).toHaveAttribute("tabindex", "0");
+  });
 });

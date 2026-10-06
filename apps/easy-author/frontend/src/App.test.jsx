@@ -299,6 +299,9 @@ function mockApi() {
   };
 
   api.get.mockImplementation(async (path) => {
+    if (path.startsWith("/api/kanban?")) {
+      return { items: { backlog: [], todo: [], in_progress: [], review: [], done: [] }, totals: { backlog: 0, todo: 0, in_progress: 0, review: 0, done: 0 } };
+    }
     if (path.startsWith("/api/books/") && path.endsWith("/presentation")) {
       const bookId = path.split("/")[3];
       return state.presentationsByBook[bookId] || { book_id: bookId, default_work_view: "clean", typography_overrides: {} };
@@ -1005,6 +1008,35 @@ describe("App editor smoke test", () => {
     await waitFor(() => {
       expect(container.querySelector(".workspace-grid")?.className).not.toContain("editor-fullscreen");
     });
+  });
+
+  it("opens the Kanban workspace from the keyboard-accessible controls and closes it with Escape", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    await clickTransientControl(user, "Kanban öffnen");
+    expect(await screen.findByRole("dialog", { name: "Kanban-Arbeitsansicht" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Kanban-Arbeitsansicht" })).not.toBeInTheDocument());
+  });
+
+  it("tracks system theme changes without changing the stored global preference", async () => {
+    let dark = false;
+    const listeners = new Set();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      get matches() { return dark; },
+      addEventListener: (_name, listener) => listeners.add(listener),
+      removeEventListener: (_name, listener) => listeners.delete(listener),
+    }));
+    const { container } = render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    expect(container.firstChild).toHaveAttribute("data-theme", "light");
+    dark = true;
+    await act(async () => listeners.forEach((listener) => listener()));
+    expect(container.firstChild).toHaveAttribute("data-theme", "dark");
+    expect(JSON.parse(window.localStorage.getItem("easy-author.editor-appearance.v1")).themeMode).toBe("system");
+    window.matchMedia = originalMatchMedia;
   });
 
   it("edits and persists book description metadata", async () => {

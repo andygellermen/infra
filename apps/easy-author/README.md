@@ -25,11 +25,51 @@ apps/easy-author/
 - Erste Wissensbank mit `[[...]]`-Links fuer Personen, Orte, Ereignisse und weitere Knowledge-Typen
 - SQLite-Initialisierung mit Demo-Daten beim ersten Start
 - Markdown-Snapshots pro Kapitel unter `backend/data/library/...`
-- React-Frontend mit dreispaltigem Autoren-Cockpit
+- Ruhiger, editorzentrierter Schreibraum mit einer bei Bedarf eingeblendeten Kontrollleiste
+- Buchbezogene Arbeitsansichten `Clean & Free`, `Intense` und `Review`
+- React-Frontend mit optionalen Werkzeug- und Kontextbereichen
 - Tiptap-Editor mit Autosave, manuellem Speichern, Tabellen-Tools, Zitat-/Fussnoten-Helfern und Slot-Shortcuts `Cmd/Ctrl + Shift + 1-9`
 - Umschaltbarer Editor zwischen Rich-Ansicht und rohem Markdown pro Kapitel
 - Editor-Hilfe und Editor-Einstellungen im zentralen Schreibbereich fuer Markdown-Support, Tabellen, Clipboard-Slots und Workflow-Anker
 - Rechte Sidebar fuer Wiki-Link-Kontext, Anker, Clipboard und gepinnte Slots
+- Dauerhafte Textkontexte fuer Kommentare, Aufgaben, Verknuepfungen und Clipboard-Bezuege
+- Threadfaehige Kommentare und ein synchronisiertes Kanban mit fuenf Phasen
+
+## UI-MVP bedienen
+
+Die Drei-Punkte-Schaltflaeche rechts oben blendet die Kontrollleiste ein. Sie
+verschwindet nach 60 Sekunden Inaktivitaet, bleibt bei Fokus, Mausinteraktion
+oder geoeffnetem Dialog jedoch stehen. Alle zentralen Aktionen sind als native
+Schaltflaechen per Tabulator erreichbar; `Escape` schliesst offene Arbeits- und
+Hilfsansichten.
+
+Beim ersten Anlegen eines Buches wird eine Arbeitsansicht gewaehlt. Der
+Buchstandard wird dauerhaft gespeichert; ein spaeterer Wechsel fuer die
+laufende Sitzung veraendert ihn nicht ungefragt:
+
+- `Clean & Free` zeigt den Schreibtext mit minimaler Umgebung.
+- `Intense` stellt Struktur, Recherche und Verknuepfungen bereit.
+- `Review` fokussiert Kommentare, Aufgaben und Pruefhinweise.
+
+Hell, Dunkel oder das aktuelle Systemfarbschema gelten global. Typografie kann
+global vorgegeben und pro Buch feldweise ueberschrieben werden. Nicht
+ueberschriebene Schriftarten, H1-H6-Groessen, Fliesstext-, Zitat- und
+Tabellengroessen sowie Textbreite, Erstzeileneinzug, Zeilen- und Absatzabstand
+erben weiterhin den Gesamtstandard.
+
+Eine Textauswahl kann mit mehreren unabhaengigen Kontexten verbunden werden.
+Kommentar-Threads besitzen Antworten und bleiben nach dem Erledigen als graue
+Markierung erhalten; ihre Anzeige kann in den Editor-Einstellungen abgeschaltet
+werden. Das explizite Loeschen eines Kontextes entfernt keine Geschwister am
+selben Textanker.
+
+Das Kanban wird ueber `Kanban oeffnen` in der temporaeren Kontrollleiste
+erreicht. Es bietet `Backlog`, `To-do`, `In Arbeit`, `Pruefung` und `Fertig`.
+Karten lassen sich ziehen, mit den Pfeilschaltflaechen oder fokussiert mittels
+`Alt` + `Pfeil links/rechts` bewegen. Die Buecheruebersicht erlaubt eine
+Mehrfachauswahl; ihre kontrastreichen Buchfarben gelten nur fuer die aktuelle
+Ansicht und werden nicht in den Buechern gespeichert. Je Phase werden zunaechst
+12 und nach bewusstem Nachladen hoechstens 20 Karten dargestellt.
 
 ## Lokales Setup
 
@@ -98,6 +138,15 @@ Frontend-URL: `http://127.0.0.1:5173`
 
 Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 
+### Letzte MVP-Smoke-Pruefung (2026-10-06)
+
+- Backend lokal gestartet; `/api/health` antwortete mit `status: ok`.
+- Projektliste blieb lesbar und der Kanban-Endpunkt lieferte alle fuenf Phasen.
+- Vite-Frontend startete auf Port 5173; Startseite und API-Proxy waren erreichbar.
+- `docker compose config --quiet` war erfolgreich. Ein Container-Smoke konnte
+  in der Pruefumgebung nicht zusaetzlich gestartet werden, weil dort kein
+  Docker-Daemon lief; dies ist eine Umgebungsgrenze, kein Compose-Fehler.
+
 ### Markdown-Workflow
 
 - Jedes Kapitel kann zwischen `Rich` und `Markdown` umgeschaltet werden.
@@ -134,6 +183,14 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 - `DELETE /api/anchors/:id`
 - `GET/POST /api/books/:bookId/clipboard`
 - `PUT/DELETE /api/clipboard/:id`
+- `GET/PUT /api/books/:bookId/presentation`
+- `GET/POST /api/chapters/:chapterId/contexts`
+- `POST /api/threads/:threadId/messages`
+- `PUT /api/threads/:threadId`
+- `DELETE /api/contexts/:contextId`
+- `GET /api/kanban?book_ids=...`
+- `POST /api/books/:bookId/work-items`
+- `PUT /api/work-items/:workItemId/phase`
 
 ## Bekannte Einschraenkungen des Spikes
 
@@ -141,7 +198,7 @@ Die Vite-Konfiguration proxyt `/api` automatisch auf das lokale Go-Backend.
 - Kein vollstaendiger Markdown-Roundtrip fuer alle Sonderfaelle; der Parser/Serializer deckt aktuell Ueberschriften, verschachtelte Listen, Zitate, Code-Fences, Trennlinien, harte Umbrueche, Escaping und Basis-Inline-Markup ab
 - Kein PDF/EPUB/DOCX-Export
 - Kein Asset-Management und keine Wissensbank-Entitaeten ausser Workflow-Boxen
-- Keine Kapitel-Reihenfolge per Drag-and-drop
+- Die globale Kanban-Ansicht ist fuer grosse Bibliotheken bewusst auf maximal 20 sichtbare Karten je Phase begrenzt
 
 ## Naechste sinnvolle Schritte
 
