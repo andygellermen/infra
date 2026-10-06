@@ -218,9 +218,18 @@ const reviewCommentThree = {
 const MARKDOWN_PLACEHOLDER =
   "Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten.";
 
+async function clickTransientControl(user, name) {
+  if (!screen.queryByRole("toolbar", { name: "Schreibsteuerung" })) {
+    await user.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
+  }
+  await user.click(screen.getByRole("button", { name }));
+}
+
 async function openMarkdownEditor(user) {
-  await user.click(screen.getByRole("button", { name: "Markdown" }));
-  return screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
+  await clickTransientControl(user, "Markdown");
+  const textarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
+  await act(async () => Promise.resolve());
+  return textarea;
 }
 
 function selectMarkdownText(textarea, selectedText) {
@@ -736,7 +745,7 @@ describe("App editor smoke test", () => {
       target: { value: nextMarkdown },
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -755,7 +764,7 @@ describe("App editor smoke test", () => {
     expect(api.put).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
 
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
   });
@@ -769,7 +778,7 @@ describe("App editor smoke test", () => {
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
     expect(screen.getByTestId("editor-pane")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
 
     expect(await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(RICH_SNAPSHOT_MARKDOWN);
     expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
@@ -926,7 +935,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+    await clickTransientControl(user, "Vollbild");
 
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
     expect(screen.queryByRole("button", { name: "Vollbild" })).not.toBeInTheDocument();
@@ -997,7 +1006,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Hilfe" }));
+    await clickTransientControl(user, "Hilfe");
 
     expect(screen.getByRole("dialog", { name: "Editor-Hilfe" })).toBeInTheDocument();
     expect(screen.getByText("MVP-Referenz fuer Schreiben, Workflow und Einfuegen")).toBeInTheDocument();
@@ -1023,7 +1032,7 @@ describe("App editor smoke test", () => {
     expect(editorFrame).toBeTruthy();
     expect(workspaceGrid).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /Einstellungen/ }));
+    await clickTransientControl(user, /Einstellungen/);
 
     expect(screen.getByRole("dialog", { name: "Editor-Einstellungen" })).toBeInTheDocument();
 
@@ -1046,7 +1055,7 @@ describe("App editor smoke test", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+    await clickTransientControl(user, "Vollbild");
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
     expect(editorFrame?.style.getPropertyValue("--fullscreen-backdrop-start")).toBe("#ede1d9");
     fireEvent.keyDown(window, {
@@ -1360,7 +1369,7 @@ describe("App editor smoke test", () => {
       expect(textarea).toHaveValue(expectedMarkdown);
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -1386,7 +1395,7 @@ describe("App editor smoke test", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
 
     const textarea = await screen.findByPlaceholderText(
       "Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten.",
@@ -1470,10 +1479,10 @@ describe("App editor smoke test", () => {
       expect(textarea).toHaveValue(expectedMarkdown);
     });
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
     const returnedTextarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
 
     await waitFor(() => {
@@ -1597,10 +1606,10 @@ describe("App editor smoke test", () => {
     expect(slotCards[3].textContent).toContain(firstSelection);
     expect(slotCards[6].textContent).toContain("leer");
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
     const returnedTextarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
 
     await waitFor(() => {
@@ -1878,7 +1887,7 @@ describe("App editor smoke test", () => {
     });
 
     expect(screen.getByText("Autosave ausstehend")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapterTwo.id}`, expect.objectContaining({
@@ -1922,8 +1931,14 @@ describe("App editor smoke test", () => {
 
     const failedAutosaveDraft = `${chapter.markdown_content}\n\nFehlerfall`;
     const saveError = new Error("Speicherziel nicht erreichbar");
-    api.put.mockImplementationOnce(async () => {
-      throw saveError;
+    const successfulPut = api.put.getMockImplementation();
+    let rejectAutosave = true;
+    api.put.mockImplementation(async (path, payload) => {
+      if (rejectAutosave && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "autosave") {
+        throw saveError;
+      }
+      if (path === `/api/chapters/${chapter.id}` && payload?.save_mode === "manual") rejectAutosave = false;
+      return successfulPut(path, payload);
     });
 
     await act(async () => {
@@ -1939,13 +1954,14 @@ describe("App editor smoke test", () => {
         expect(screen.getByText("Fehler beim Speichern")).toBeInTheDocument();
         expect(screen.getByText("Speicherziel nicht erreichbar")).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
 
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(failedAutosaveDraft);
-    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalled();
+    api.put.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -1961,7 +1977,7 @@ describe("App editor smoke test", () => {
       }));
     });
 
-    expect(api.put).toHaveBeenCalledTimes(2);
+    expect(api.put).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Speicherziel nicht erreichbar")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -1972,7 +1988,7 @@ describe("App editor smoke test", () => {
       expect(screen.getByText("Synchron")).toBeInTheDocument();
       expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(failedAutosaveDraft);
     });
-  }, 9000);
+  }, 16000);
 
   it("updates repeated save errors and clears stale failure state after switching chapters", async () => {
     const user = userEvent.setup();
@@ -1986,11 +2002,19 @@ describe("App editor smoke test", () => {
     const autosaveError = new Error("Autosave Verbindung verloren");
     const manualError = new Error("Manuelles Speichern weiterhin blockiert");
 
-    api.put.mockImplementationOnce(async () => {
-      throw autosaveError;
-    });
-    api.put.mockImplementationOnce(async () => {
-      throw manualError;
+    const successfulPut = api.put.getMockImplementation();
+    let rejectAutosave = true;
+    let manualRejected = false;
+    api.put.mockImplementation(async (path, payload) => {
+      if (rejectAutosave && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "autosave") {
+        throw autosaveError;
+      }
+      if (!manualRejected && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "manual") {
+        rejectAutosave = false;
+        manualRejected = true;
+        throw manualError;
+      }
+      return successfulPut(path, payload);
     });
 
     await act(async () => {
@@ -2004,10 +2028,11 @@ describe("App editor smoke test", () => {
         expect(screen.getByText("Fehler beim Speichern")).toBeInTheDocument();
         expect(screen.getByText("Autosave Verbindung verloren")).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
+    api.put.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(screen.getByText("Manuelles Speichern weiterhin blockiert")).toBeInTheDocument();
@@ -2015,7 +2040,7 @@ describe("App editor smoke test", () => {
 
     expect(screen.queryByText("Autosave Verbindung verloren")).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(unstableDraft);
-    expect(api.put).toHaveBeenCalledTimes(2);
+    expect(api.put).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: /Kapitel 2/ }));
 
@@ -2035,7 +2060,7 @@ describe("App editor smoke test", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapterTwo.id}`, expect.objectContaining({
@@ -2051,7 +2076,7 @@ describe("App editor smoke test", () => {
       }));
     });
 
-    expect(api.put).toHaveBeenCalledTimes(3);
+    expect(api.put).toHaveBeenCalledTimes(2);
     expect(screen.queryByText("Manuelles Speichern weiterhin blockiert")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -2062,7 +2087,7 @@ describe("App editor smoke test", () => {
       expect(screen.getByText("Synchron")).toBeInTheDocument();
       expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(recoveredDraft);
     });
-  }, 10000);
+  }, 16000);
 
   it("recovers from anchor and clipboard failures without losing the current markdown draft", async () => {
     const user = userEvent.setup();

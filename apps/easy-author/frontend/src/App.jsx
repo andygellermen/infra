@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EditorPane from "./components/EditorPane";
 import SidebarSection from "./components/SidebarSection";
+import TransientControlBar from "./components/TransientControlBar";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
@@ -3174,6 +3175,9 @@ function App() {
     if (nextMode === "markdown") {
       const snapshot = editorRef.current?.getDocumentSnapshot?.();
       if (snapshot) {
+        // A mode switch captures live rich text. It must not leave the hydration
+        // guard armed, otherwise the first Markdown edit can miss autosave.
+        skipAutosaveRef.current = false;
         setChapterDraft((previous) => ({
           ...previous,
           ...snapshot,
@@ -3279,6 +3283,26 @@ function App() {
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
       {showFocusScrim ? <div className="focus-scrim" aria-hidden="true" onClick={closeTransientPanels} /> : null}
 
+      <TransientControlBar
+        book={currentBook}
+        chapter={currentChapter}
+        workView={workMode}
+        saveState={saveState}
+        blocked={Boolean(showEditorHelp || showEditorSettings || showWritingTools || showClipboardPalette || showReviewComposer || activeReviewCommentId)}
+        onWorkView={setWorkMode}
+        onCommand={() => setShowWritingTools(true)}
+        onAppearance={() => setShowEditorSettings(true)}
+        onSettings={() => setShowEditorSettings(true)}
+        editorMode={editorMode}
+        onEditorMode={switchEditorMode}
+        onSave={() => saveChapter(true)}
+        saveDisabled={!currentChapter}
+        onWritingTools={() => setShowWritingTools((previous) => !previous)}
+        onHelp={() => setShowEditorHelp((previous) => !previous)}
+        onFullscreen={() => setIsEditorFullscreen((previous) => !previous)}
+        isFullscreen={isEditorFullscreen}
+      />
+
       {!isEditorFullscreen && !isWriteMode ? (
         <div className="floating-rail floating-rail--left" aria-label="Navigation">
           {leftRailItems.map((item) => (
@@ -3294,21 +3318,6 @@ function App() {
               <span className="rail-button__icon" aria-hidden="true">{item.icon}</span>
             </button>
           ))}
-        </div>
-      ) : null}
-
-      {!isEditorFullscreen && !isWriteMode ? (
-        <div className={`floating-rail floating-rail--top ${showTopRail ? "is-revealed" : "is-dormant"}`} aria-label="Editor-Steuerung">
-          <span className={`floating-status-pill ${showFloatingStatus ? "is-visible" : "is-idle"}`} title={saveState}>
-            {saveState}
-          </span>
-          <button className="icon-button top-icon top-icon--save hover-tooltip-button" type="button" aria-label="Kapitel speichern" title="Kapitel speichern" data-tooltip="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>💾</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" title="Richtext-Modus" data-tooltip="Richtext-Modus" onClick={() => switchEditorMode("rich")}>✍</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" title="Markdown-Modus" data-tooltip="Markdown-Modus" onClick={() => switchEditorMode("markdown")}>#</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showWritingTools ? "active" : ""}`} aria-label={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} title={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} data-tooltip={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} onClick={() => setShowWritingTools((previous) => !previous)}>✚</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorHelp ? "active" : ""}`} aria-label={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} title={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} data-tooltip={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} onClick={() => setShowEditorHelp((previous) => !previous)}>?</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorSettings ? "active" : ""}`} aria-label={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} title={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} data-tooltip={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} onClick={() => setShowEditorSettings((previous) => !previous)}>⚙</button>
-          <button type="button" className={`icon-button top-icon top-icon--focus hover-tooltip-button ${isEditorFullscreen ? "active" : ""}`} aria-label={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} title={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} data-tooltip={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} aria-pressed={isEditorFullscreen} onClick={() => setIsEditorFullscreen((previous) => !previous)}>⛶</button>
         </div>
       ) : null}
 
