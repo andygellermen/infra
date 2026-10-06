@@ -5,6 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail(){ printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 require_text(){ grep -Eq -- "$2" "$1" || fail "$1 fehlt: $2"; }
 reject_text(){ ! grep -Eq -- "$2" "$1" || fail "$1 enthaelt unerlaubt: $2"; }
+file_mode(){
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+  else
+    stat -f '%Lp' "$1"
+  fi
+}
 
 verify_containers() {
   local frontend="$ROOT_DIR/apps/easy-author/frontend/Dockerfile"
@@ -58,7 +65,7 @@ SH
   output="$(PATH="$bindir:$PATH" EASY_AUTHOR_HOSTVARS_DIR="$hostdir" "$add" author.geller.men --username=tester --skip-dns-check)"
   file="$hostdir/author.geller.men.yml"
   [[ -f "$file" ]] || fail "Hostvars wurden nicht erstellt"
-  [[ "$(stat -f '%Lp' "$file" 2>/dev/null || stat -c '%a' "$file")" == 600 ]] || fail "Hostvars sind nicht 0600"
+  [[ "$(file_mode "$file")" == 600 ]] || fail "Hostvars sind nicht 0600"
   require_text "$file" '^easy_author_basic_auth_username: "tester"$'
   require_text "$file" '^easy_author_basic_auth_password_hash: "\$2y\$12\$'
   ! printf '%s\n' "$output" | grep -Eq '\$2y\$|123456789' || fail "Geheimnis wurde ausgegeben"
@@ -86,7 +93,7 @@ case "$1" in inspect) printf 'true\n';; stop|start) printf '%s %s\n' "$1" "$2" >
 SH
   chmod +x "$bindir/docker"
   archive="$(EASY_AUTHOR_SRV_ROOT="$root" EASY_AUTHOR_DOCKER_BIN="$bindir/docker" EASY_AUTHOR_DOCKER_LOG="$sandbox/docker.log" "$script" author.geller.men --retention=2)"
-  [[ -f "$archive" && "$(stat -f '%Lp' "$archive" 2>/dev/null || stat -c '%a' "$archive")" == 600 ]] || fail "Backup fehlt oder hat falschen Modus"
+  [[ -f "$archive" && "$(file_mode "$archive")" == 600 ]] || fail "Backup fehlt oder hat falschen Modus"
   tar -tf "$archive" | grep -qx 'data/easy-author.sqlite' || fail "SQLite fehlt im Backup"
   grep -q '^stop ' "$sandbox/docker.log" && grep -q '^start ' "$sandbox/docker.log" || fail "API wurde nicht kontrolliert neu gestartet"
   ! find "$root" -name '*.partial' | grep -q . || fail "Partielles Archiv blieb liegen"
