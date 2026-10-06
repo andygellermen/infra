@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail(){ printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-require_text(){ grep -Eq "$2" "$1" || fail "$1 fehlt: $2"; }
-reject_text(){ ! grep -Eq "$2" "$1" || fail "$1 enthaelt unerlaubt: $2"; }
+require_text(){ grep -Eq -- "$2" "$1" || fail "$1 fehlt: $2"; }
+reject_text(){ ! grep -Eq -- "$2" "$1" || fail "$1 enthaelt unerlaubt: $2"; }
 
 verify_containers() {
   local frontend="$ROOT_DIR/apps/easy-author/frontend/Dockerfile"
@@ -70,10 +70,60 @@ SH
   require_text "$file" '^easy_author_basic_auth_password_hash: "\$2y\$12\$'
 }
 
+verify_backup() {
+  local script="$ROOT_DIR/scripts/easy-author-backup.sh" sandbox bindir root archive
+  [[ -x "$script" ]] || fail "Backup-Helfer fehlt"
+  require_text "$script" '\.partial'
+  require_text "$script" 'tar -tf'
+  require_text "$script" 'trap restart'
+  sandbox="$(mktemp -d)"; trap 'rm -rf "$sandbox"' RETURN
+  bindir="$sandbox/bin"; root="$sandbox/srv"; mkdir -p "$bindir" "$root/author.geller.men/data/library"
+  printf 'sqlite' > "$root/author.geller.men/data/easy-author.sqlite"
+  printf 'book' > "$root/author.geller.men/data/library/book.md"
+  cat > "$bindir/docker" <<'SH'
+#!/bin/sh
+case "$1" in inspect) printf 'true\n';; stop|start) printf '%s %s\n' "$1" "$2" >> "$EASY_AUTHOR_DOCKER_LOG";; esac
+SH
+  chmod +x "$bindir/docker"
+  archive="$(EASY_AUTHOR_SRV_ROOT="$root" EASY_AUTHOR_DOCKER_BIN="$bindir/docker" EASY_AUTHOR_DOCKER_LOG="$sandbox/docker.log" "$script" author.geller.men --retention=2)"
+  [[ -f "$archive" && "$(stat -f '%Lp' "$archive" 2>/dev/null || stat -c '%a' "$archive")" == 600 ]] || fail "Backup fehlt oder hat falschen Modus"
+  tar -tf "$archive" | grep -qx 'data/easy-author.sqlite' || fail "SQLite fehlt im Backup"
+  grep -q '^stop ' "$sandbox/docker.log" && grep -q '^start ' "$sandbox/docker.log" || fail "API wurde nicht kontrolliert neu gestartet"
+  ! find "$root" -name '*.partial' | grep -q . || fail "Partielles Archiv blieb liegen"
+}
+
+verify_restore() {
+  local script="$ROOT_DIR/scripts/easy-author-restore.sh" backup="$ROOT_DIR/scripts/easy-author-backup.sh"
+  local sandbox bindir root archive
+  [[ -x "$script" ]] || fail "Restore-Helfer fehlt"
+  require_text "$script" '--confirm='
+  require_text "$script" 'tar -tf'
+  require_text "$script" '\.restore-'
+  sandbox="$(mktemp -d)"; trap 'rm -rf "$sandbox"' RETURN
+  bindir="$sandbox/bin"; root="$sandbox/srv"; mkdir -p "$bindir" "$root/author.geller.men/data/library" "$sandbox/source/data/library"
+  printf 'old' > "$root/author.geller.men/data/easy-author.sqlite"
+  printf 'new' > "$sandbox/source/data/easy-author.sqlite"
+  printf 'new-book' > "$sandbox/source/data/library/book.md"
+  archive="$root/author.geller.men/easy-author-author.geller.men-20261006T000000Z.tar.gz"
+  tar -C "$sandbox/source" -czf "$archive" data
+  cat > "$bindir/docker" <<'SH'
+#!/bin/sh
+case "$1" in inspect) printf 'false\n';; stop|start) :;; esac
+SH
+  chmod +x "$bindir/docker"
+  if EASY_AUTHOR_SRV_ROOT="$root" EASY_AUTHOR_DOCKER_BIN="$bindir/docker" "$script" author.geller.men "$archive" >/dev/null 2>&1; then
+    fail "Restore ohne Bestaetigung wurde akzeptiert"
+  fi
+  EASY_AUTHOR_SRV_ROOT="$root" EASY_AUTHOR_DOCKER_BIN="$bindir/docker" EASY_AUTHOR_BACKUP_BIN="$backup" "$script" author.geller.men "$archive" --confirm=author.geller.men >/dev/null
+  grep -q '^new$' "$root/author.geller.men/data/easy-author.sqlite" || fail "Restore ersetzte SQLite nicht"
+}
+
 case "${1:-all}" in
   containers) verify_containers ;;
   hostvars) verify_hostvars ;;
-  all) verify_containers; verify_hostvars ;;
+  backup) verify_backup ;;
+  restore) verify_restore ;;
+  all) verify_containers; verify_hostvars; verify_backup; verify_restore ;;
   *) fail "Unbekannte Prüfgruppe: $1" ;;
 esac
 printf 'PASS: %s\n' "${1:-all}"
