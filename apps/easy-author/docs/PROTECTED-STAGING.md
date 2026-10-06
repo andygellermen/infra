@@ -68,3 +68,24 @@ bewussten Staging-Deploy. Der aktuelle lokale Prüfhost stellte während der
 Vorbereitung weder einen laufenden Docker-Daemon noch `ansible-playbook` bereit;
 Image- und Ansible-Laufzeitprüfungen müssen daher auf dem Infra-Host nachgeholt
 werden.
+
+### Readiness-Protokoll vom 6. Oktober 2026
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Deployment-Verifikator | 7/7 Gruppen bestanden |
+| Shell-Syntax | alle 7 EasyAuthor-Skripte bestanden |
+| Frontend | 96/96 Tests bestanden; Vite-Produktionsbuild erfolgreich |
+| Backend | alle Go-Pakete bestanden |
+| Compose | `docker compose config --quiet` erfolgreich |
+| Geheimnis-/Datenscan | keine EasyAuthor-Hostvars, Login-Hashes, Klartextkennwörter, SQLite-, Bibliotheks- oder Backupdaten getrackt |
+| Port-/Auth-Modell | API und Web ohne Host-Port; nur Web im Traefik-Netz; HTTPS-Router mit Basic Auth und entferntem Authorization-Header |
+| Shellcheck | lokal nicht installiert; durch `bash -n` und Sandbox-Verhaltenstests ersetzt |
+| Ansible Syntax/Check | lokal nicht ausführbar, weil `ansible-playbook` fehlt; statischer Rollenvertrag bestanden |
+| Image-/Container-Smoke | lokal nicht ausführbar, weil der Docker-Daemon nicht läuft; Dockerfiles und Compose statisch geprüft |
+
+Vor einem realen Deploy sind auf dem Infra-Host deshalb zwingend
+`ansible-playbook --syntax-check`, ein Check-Mode-Lauf, beide Image-Builds und
+der vollständige authentifizierte Smoke nachzuholen. Bis diese vier Prüfungen
+erfolgreich sind, ist der Stand **lokal deployment-ready**, aber noch nicht als
+live bereitgestellt oder produktiv freigegeben zu verstehen.
