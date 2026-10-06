@@ -71,6 +71,7 @@
       EASY_AUTHOR_LIBRARY_DIR: /srv/easy-author/data/library
       EASY_AUTHOR_ALLOWED_ORIGIN: "https://{{ target_domain }}"
     state: started
+  when: not ansible_check_mode
 
 - name: Deploy protected EasyAuthor web
   community.docker.docker_container:
@@ -108,3 +109,4 @@
       "traefik.http.routers.{{ site_id }}-http.middlewares": "{{ site_id }}-redirect"
       "traefik.http.routers.{{ site_id }}-http.service": noop@internal
   no_log: true
+  when: not ansible_check_mode
