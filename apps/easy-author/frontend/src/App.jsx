@@ -4,6 +4,14 @@ import SidebarSection from "./components/SidebarSection";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
+  DEFAULT_GLOBAL_APPEARANCE,
+  loadGlobalAppearance,
+  loadSessionWorkView,
+  normalizeGlobalAppearance,
+  saveGlobalAppearance,
+  saveSessionWorkView,
+} from "./lib/uiPreferences";
+import {
   extractWikiLinks,
   formatTagInput,
   knowledgeReference,
@@ -19,28 +27,12 @@ const EMPTY_DRAFT = {
   editor_json: "",
 };
 
-const DEFAULT_EDITOR_APPEARANCE = {
-  fontFamily: "serif",
-  googleFontName: "Cormorant Garamond",
-  fontSize: 18,
-  lineHeight: 1.8,
-  contentWidth: 860,
-  fullscreenContentWidth: 1040,
-  fullscreenBackdrop: "linen",
-  surfacePreset: "warm",
-  caretColor: "#76c7ff",
-};
-
-const EDITOR_APPEARANCE_STORAGE_KEY = "easy-author.editor-appearance.v1";
-const WORK_MODE_STORAGE_KEY = "easy-author.work-mode.v1";
+const DEFAULT_EDITOR_APPEARANCE = DEFAULT_GLOBAL_APPEARANCE;
 const POPUP_HOLD_DELAY_MS = 2000;
 const POPUP_FADE_IN_DELAY_MS = 24;
-const ALLOWED_FULLSCREEN_BACKDROPS = new Set(["linen", "paper", "dusk", "night"]);
-const ALLOWED_SURFACE_PRESETS = new Set(["warm", "paper", "night"]);
-const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono", "google"]);
 const WORK_MODES = [
-  { key: "write", label: "Schreibfluss", hint: "Schnell, direkt, ablenkungsarm" },
-  { key: "structure", label: "Struktur", hint: "Verknüpfen, Wissen, Workflow" },
+  { key: "clean", label: "Schreibfluss", hint: "Schnell, direkt, ablenkungsarm" },
+  { key: "intense", label: "Struktur", hint: "Verknüpfen, Wissen, Workflow" },
   { key: "review", label: "Finalisierung", hint: "Revision, Proofing, Verlag" },
 ];
 const GOOGLE_FONT_PRESETS = [
@@ -326,46 +318,11 @@ function detectStoryTimeCues(text) {
 }
 
 function sanitizeEditorAppearance(value) {
-  const next = {
-    ...DEFAULT_EDITOR_APPEARANCE,
-    ...(value && typeof value === "object" ? value : {}),
-  };
-  next.fontFamily = ALLOWED_FONT_FAMILIES.has(next.fontFamily) ? next.fontFamily : DEFAULT_EDITOR_APPEARANCE.fontFamily;
-  next.googleFontName = String(next.googleFontName || DEFAULT_EDITOR_APPEARANCE.googleFontName).trim().slice(0, 80) || DEFAULT_EDITOR_APPEARANCE.googleFontName;
-  next.surfacePreset = ALLOWED_SURFACE_PRESETS.has(next.surfacePreset)
-    ? next.surfacePreset
-    : DEFAULT_EDITOR_APPEARANCE.surfacePreset;
-  next.fullscreenBackdrop = ALLOWED_FULLSCREEN_BACKDROPS.has(next.fullscreenBackdrop)
-    ? next.fullscreenBackdrop
-    : DEFAULT_EDITOR_APPEARANCE.fullscreenBackdrop;
-  next.fontSize = Math.min(24, Math.max(16, Number(next.fontSize) || DEFAULT_EDITOR_APPEARANCE.fontSize));
-  next.lineHeight = Math.min(2.2, Math.max(1.5, Number(next.lineHeight) || DEFAULT_EDITOR_APPEARANCE.lineHeight));
-  next.contentWidth = [640, 720, 860, 960, 1040, 1160].includes(Number(next.contentWidth))
-    ? Number(next.contentWidth)
-    : DEFAULT_EDITOR_APPEARANCE.contentWidth;
-  next.fullscreenContentWidth = [860, 1040, 1200, 1360].includes(Number(next.fullscreenContentWidth))
-    ? Number(next.fullscreenContentWidth)
-    : DEFAULT_EDITOR_APPEARANCE.fullscreenContentWidth;
-  next.caretColor =
-    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(next.caretColor || "").trim())
-      ? String(next.caretColor).trim()
-      : DEFAULT_EDITOR_APPEARANCE.caretColor;
-  return next;
+  return normalizeGlobalAppearance(value);
 }
 
 function loadStoredEditorAppearance() {
-  if (typeof window === "undefined") {
-    return DEFAULT_EDITOR_APPEARANCE;
-  }
-  try {
-    const raw = window.localStorage.getItem(EDITOR_APPEARANCE_STORAGE_KEY);
-    if (!raw) {
-      return DEFAULT_EDITOR_APPEARANCE;
-    }
-    return sanitizeEditorAppearance(JSON.parse(raw));
-  } catch {
-    return DEFAULT_EDITOR_APPEARANCE;
-  }
+  return loadGlobalAppearance(typeof window === "undefined" ? null : window.localStorage);
 }
 
 function emptyReviewCommentDraft() {
@@ -729,15 +686,7 @@ function reviewCommentPhaseLabel(comment, revisionById) {
 }
 
 function loadStoredWorkMode() {
-  if (typeof window === "undefined") {
-    return "write";
-  }
-  try {
-    const stored = window.localStorage.getItem(WORK_MODE_STORAGE_KEY);
-    return WORK_MODES.some((mode) => mode.key === stored) ? stored : "write";
-  } catch {
-    return "write";
-  }
+  return loadSessionWorkView(typeof window === "undefined" ? null : window.localStorage) || "clean";
 }
 
 function normalizeHeadingTitle(value, fallback = "Unbenanntes Kapitel") {
@@ -1011,8 +960,8 @@ function App() {
     () => projectDetail?.project || projects.find((project) => project.id === selectedProjectId) || null,
     [projectDetail, projects, selectedProjectId],
   );
-  const isWriteMode = workMode === "write";
-  const isStructureMode = workMode === "structure";
+  const isWriteMode = workMode === "clean";
+  const isStructureMode = workMode === "intense";
   const isReviewMode = workMode === "review";
   const chaptersById = useMemo(
     () => new Map((bookBundle?.chapters || []).map((chapter) => [chapter.id, chapter])),
@@ -1570,19 +1519,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(EDITOR_APPEARANCE_STORAGE_KEY, JSON.stringify(editorAppearance));
-    } catch {
-      // ignore local persistence failures
-    }
+    saveGlobalAppearance(window.localStorage, editorAppearance);
   }, [editorAppearance]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(WORK_MODE_STORAGE_KEY, workMode);
-    } catch {
-      // ignore local persistence failures
-    }
+    saveSessionWorkView(window.localStorage, workMode);
   }, [workMode]);
 
   useEffect(
