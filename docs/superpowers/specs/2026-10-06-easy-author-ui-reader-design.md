@@ -70,9 +70,24 @@ oder über die Befehlspalette.
 ### 3.3 Erscheinungsbild
 
 Hell, Dunkel und Systemeinstellung sind globale Präferenzen. Ein Buchwechsel
-darf keinen unerwarteten Wechsel des Farbschemas verursachen. Schrift,
-Textbreite sowie Fokus- und Schreibmaschinenmodus sind über das
-Erscheinungsbild-Menü erreichbar.
+darf keinen unerwarteten Wechsel des Farbschemas verursachen. EasyAuthor stellt
+globale typografische Standardwerte bereit. Jedes Buch kann davon in seinen
+Bucheinstellungen abweichen, um eine eigene Schreibatmosphäre zu erhalten.
+
+Für ein Buch sind mindestens einstellbar:
+
+- Schriftart,
+- getrennte Schriftgrößen für jeden Überschriftentyp,
+- Schriftgröße für Fließtext, Zitate und Tabellen,
+- Textbreite,
+- Einrückung der ersten Zeile eines Absatzes,
+- Zeilenabstand,
+- Abstand nach einem Absatz.
+
+Nicht gesetzte Buchwerte erben den jeweiligen Gesamtstandard. Eine Aktion
+`Auf Gesamtstandard zurücksetzen` entfernt die buchbezogenen Überschreibungen,
+statt aktuelle globale Werte in das Buch zu kopieren. Fokus- und
+Schreibmaschinenmodus bleiben über das Erscheinungsbild-Menü erreichbar.
 
 ## 4. Buchbezogene Arbeitsansichten
 
@@ -118,12 +133,43 @@ Die Farbtöne besitzen angepasste Varianten für Hell und Dunkel. Symbole,
 Beschriftungen und zugängliche Zustände verhindern, dass Bedeutung allein von
 Farbe abhängt.
 
-### 5.3 Schwebende Kommentar-Threads
+### 5.3 Dauerhafte Kontextmarkierungen und Rand-Icons
+
+Ein hinterlegter Kommentar, eine Aufgabe, eine Verknüpfung, eine
+Clipboard-Einfügung oder eine als Clipboard-Quelle vorgemerkte Passage bleibt
+im Text dauerhaft markiert, bis der jeweilige Kontext bewusst gelöscht wird.
+Die Markierung ist die gemeinsame sichtbare Spur des zugrunde liegenden
+`DocumentAnchor`; die fachlichen Kontexte werden zusätzlich durch Icons rechts
+neben dem Text unterschieden.
+
+Mögliche Icons stehen mindestens für:
+
+- Kommentar-Thread,
+- Kanban-Aufgabe oder Erinnerung,
+- Verknüpfungsziel,
+- eingefügten Clipboard-Inhalt,
+- Quelle eines Knowledge-Clipboard-Eintrags.
+
+Mehrere Kontexte an derselben oder an nahe beieinanderliegenden Passagen werden
+zu einer ruhigen Icon-Gruppe gebündelt. Die Gruppe zeigt die vorhandenen Typen
+und ihre Anzahl. Ein Klick beziehungsweise Tastaturaufruf öffnet eine
+zugängliche Kontextauswahl; von dort gelangt der Autor direkt zum Thread, zur
+Aufgabe, zum Verknüpfungsziel, zum Clipboard-Eintrag oder zur Quelle. Die Icons
+sind auch ohne Farbe unterscheidbar und besitzen Beschriftungen für Tooltip und
+Screenreader.
+
+Erledigte Kontexte dürfen gemäß ihrer Sichtbarkeitseinstellung ausgeblendet
+werden. Ausblenden löscht weder Markierung noch Kontext. Erst bewusstes Löschen
+entfernt die betreffende Verknüpfung; andere Kontexte desselben Ankers bleiben
+erhalten.
+
+### 5.4 Schwebende Kommentar-Threads
 
 Kommentarblasen erscheinen freihängend rechts neben der zugehörigen Passage.
-Nahe Blasen werden gestaffelt oder gruppiert. Ein Klick öffnet einen
-threadfähigen Dialog im Messenger-Stil. Antworten gehören zum selben Thread und
-erzeugen keine separaten Aufgaben.
+Sie sind eine spezialisierte Darstellung der Kommentar-Icons. Nahe Blasen
+werden gestaffelt oder zusammen mit anderen Kontext-Icons gruppiert. Ein Klick
+öffnet einen threadfähigen Dialog im Messenger-Stil. Antworten gehören zum
+selben Thread und erzeugen keine separaten Aufgaben.
 
 Ein Thread kennt mindestens `offen`, `geplant`, `in_arbeit`, `pruefung`,
 `erledigt` und `geloescht`. Statusänderungen wirken gleichzeitig auf
@@ -268,6 +314,33 @@ EasyAuthor:
 4. Quelle senden.
 5. optional in EasyReader öffnen oder eine Aufgabe anlegen.
 
+### 8.1 Erkennung bereits gespeicherter Seiten
+
+AddToBook erkennt anhand der kanonischen URL, ob die aktuell geöffnete Seite
+bereits als Quelle gespeichert wurde. Für eine bekannte Seite wird der aktuell
+extrahierte und normalisierte relevante Inhalt mit derselben
+Extraktionsversion gehasht und mit der jüngsten gespeicherten Prüfsumme
+verglichen.
+
+- Bei identischer Prüfsumme bleibt die Erweiterung ruhig und zeigt lediglich
+  den vorhandenen Speicherstatus an.
+- Bei abweichender Prüfsumme öffnet sie proaktiv ein Pop-up. Dieses weist auf
+  die Veränderung hin und fragt, ob die aktuelle Seite erneut beziehungsweise
+  als zusätzliche Revision eingelesen werden soll.
+- Ablehnen oder Schließen verändert keine gespeicherte Revision.
+- Bestätigen startet den bekannten Importfluss; die neue Fassung wird erst nach
+  erfolgreicher Extraktion und Speicherung zu einer weiteren unveränderlichen
+  Revision.
+
+Die proaktive Erkennung darf keine vollständigen Inhalte oder den allgemeinen
+Browser-Verlauf ungefragt an EasyAuthor übertragen. URL-Abgleich und
+Prüfsummenvergleich erfolgen nur innerhalb der ausdrücklich aktivierten
+AddToBook-Funktion und mit der für die Seite erforderlichen Berechtigung. Die
+Erweiterung drosselt wiederholte Hinweise für dieselbe unveränderte Fassung und
+bietet eine globale Option zum Abschalten proaktiver Pop-ups.
+
+### 8.2 Vertrauensgrenze
+
 Die Erweiterung benötigt möglichst geringe Browserrechte. Clientseitige
 Extraktion ist kein Vertrauensanker: EasyAuthor behandelt jeden Import als
 nicht vertrauenswürdig, bereinigt ihn erneut und übernimmt keine aktiven
@@ -284,12 +357,13 @@ Farbdarstellung, Fokus- und Tastaturverhalten.
 ### Paket 2 – Buchbezogene Arbeitsansichten
 
 Auswahl-Widget, Clean & Free, Intense, Review, Speicherung und temporärer
-Wechsel.
+Wechsel sowie vererbbare globale und buchbezogene Typografieeinstellungen.
 
 ### Paket 3 – Markierungen und Kommentar-Threads
 
 Auswahlmenü, gelbe Hervorhebung, grüne und graue Kommentarmarkierung,
-schwebende Blasen, Threads und robuste Anker.
+dauerhafte Kontextmarkierungen, gebündelte Rand-Icons, schwebende Blasen,
+Threads und robuste Anker.
 
 ### Paket 4 – Kanban-Arbeitsansicht
 
@@ -309,7 +383,7 @@ Annotationen, Knowledge-Clipboard und manueller Diff.
 ### Paket 7 – AddToBook
 
 Browser-Erweiterung, Hauptinhaltsextraktion, Zielauswahl, sicherer Importvertrag
-und Übergabe an EasyReader.
+und Übergabe an EasyReader sowie Erkennung bekannter und veränderter Seiten.
 
 ## 10. Architekturgrenzen und Datenfluss
 
@@ -359,7 +433,9 @@ Besonders wichtig sind:
 
 - Ein- und Ausblendlogik der Kontrollleiste mit Maus und Tastatur,
 - Persistenz und temporärer Wechsel der Arbeitsansichten,
+- Vererbung, Überschreibung und Zurücksetzen buchbezogener Typografie,
 - Markierungssemantik in Hell und Dunkel,
+- dauerhafte Kontextmarkierungen und zugängliche Gruppierung der Rand-Icons,
 - Wiederfinden von Ankern nach Textänderungen,
 - Thread- und Kanban-Statussynchronisation,
 - Drag-and-drop sowie Tastaturalternative,
@@ -368,7 +444,9 @@ Besonders wichtig sind:
 - sichere und reproduzierbare Webextraktion,
 - lokale Bildreferenzen und Formatbehandlung,
 - unveränderliche Quellenrevisionen,
-- Diff sowie Wiederzuordnung bestehender Annotationen.
+- Diff sowie Wiederzuordnung bestehender Annotationen,
+- Erkennung bekannter URLs und identischer beziehungsweise abweichender
+  Prüfsummen ohne doppelte oder wiederholte Pop-ups.
 
 Nach Paket 1 und 2 erfolgt eine gemeinsame Erfahrungsprüfung der tatsächlichen
 Ablenkungsarmut. Paket 6 und 7 beginnen erst, wenn Paket 5 stabil abgeschlossen
