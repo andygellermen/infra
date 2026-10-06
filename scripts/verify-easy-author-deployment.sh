@@ -139,6 +139,7 @@ verify_ansible() {
   require_text "$role" 'redirectscheme'
   require_text "$role" 'published_ports: \[\]'
   require_text "$role" 'loadbalancer.server.port.*8080'
+  reject_text "$role" '^[[:space:]]+"?traefik\.[^:]*[{][{]'
   [[ "$(grep -c 'when: not ansible_check_mode' "$role")" -ge 2 ]] || fail "Container-Tasks sind im frischen Check-Mode nicht geschuetzt"
   require_text "$playbook" 'become: true'
   require_text "$playbook" '- easy-author'

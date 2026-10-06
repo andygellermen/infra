@@ -90,23 +90,27 @@
   vars:
     site_id: "easy-author-{{ target_domain | replace('.', '-') }}"
     auth: "{{ site_id }}-auth"
-    easy_author_labels:
-      traefik.enable: "true"
-      traefik.docker.network: traefik
-      "traefik.http.services.{{ site_id }}.loadbalancer.server.port": "8080"
-      "traefik.http.routers.{{ site_id }}.entrypoints": websecure
-      "traefik.http.routers.{{ site_id }}.rule": "Host(`{{ target_domain }}`)"
-      "traefik.http.routers.{{ site_id }}.tls": "true"
-      "traefik.http.routers.{{ site_id }}.tls.certresolver": letsEncrypt
-      "traefik.http.routers.{{ site_id }}.middlewares": "{{ auth }}"
-      "traefik.http.middlewares.{{ auth }}.basicauth.users": "{{ easy_author_site.easy_author_basic_auth_username }}:{{ easy_author_site.easy_author_basic_auth_password_hash }}"
-      "traefik.http.middlewares.{{ auth }}.basicauth.realm": "{{ easy_author_site.easy_author_basic_auth_realm }}"
-      "traefik.http.middlewares.{{ auth }}.basicauth.removeheader": "true"
-      "traefik.http.middlewares.{{ site_id }}-redirect.redirectscheme.scheme": https
-      "traefik.http.middlewares.{{ site_id }}-redirect.redirectscheme.permanent": "true"
-      "traefik.http.routers.{{ site_id }}-http.entrypoints": web
-      "traefik.http.routers.{{ site_id }}-http.rule": "Host(`{{ target_domain }}`)"
-      "traefik.http.routers.{{ site_id }}-http.middlewares": "{{ site_id }}-redirect"
-      "traefik.http.routers.{{ site_id }}-http.service": noop@internal
+    easy_author_labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.docker.network': 'traefik',
+          ('traefik.http.services.' ~ site_id ~ '.loadbalancer.server.port'): '8080',
+          ('traefik.http.routers.' ~ site_id ~ '.entrypoints'): 'websecure',
+          ('traefik.http.routers.' ~ site_id ~ '.rule'): 'Host(`' ~ target_domain ~ '`)',
+          ('traefik.http.routers.' ~ site_id ~ '.tls'): 'true',
+          ('traefik.http.routers.' ~ site_id ~ '.tls.certresolver'): 'letsEncrypt',
+          ('traefik.http.routers.' ~ site_id ~ '.middlewares'): auth,
+          ('traefik.http.middlewares.' ~ auth ~ '.basicauth.users'): easy_author_site.easy_author_basic_auth_username ~ ':' ~ easy_author_site.easy_author_basic_auth_password_hash,
+          ('traefik.http.middlewares.' ~ auth ~ '.basicauth.realm'): easy_author_site.easy_author_basic_auth_realm,
+          ('traefik.http.middlewares.' ~ auth ~ '.basicauth.removeheader'): 'true',
+          ('traefik.http.middlewares.' ~ site_id ~ '-redirect.redirectscheme.scheme'): 'https',
+          ('traefik.http.middlewares.' ~ site_id ~ '-redirect.redirectscheme.permanent'): 'true',
+          ('traefik.http.routers.' ~ site_id ~ '-http.entrypoints'): 'web',
+          ('traefik.http.routers.' ~ site_id ~ '-http.rule'): 'Host(`' ~ target_domain ~ '`)',
+          ('traefik.http.routers.' ~ site_id ~ '-http.middlewares'): site_id ~ '-redirect',
+          ('traefik.http.routers.' ~ site_id ~ '-http.service'): 'noop@internal'
+        }
+      }}
   no_log: true
   when: not ansible_check_mode
