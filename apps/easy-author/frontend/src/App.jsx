@@ -3,6 +3,7 @@ import EditorPane from "./components/EditorPane";
 import SidebarSection from "./components/SidebarSection";
 import TransientControlBar from "./components/TransientControlBar";
 import WorkViewPicker from "./components/WorkViewPicker";
+import TypographySettings from "./components/TypographySettings";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
@@ -13,6 +14,12 @@ import {
   saveGlobalAppearance,
   saveSessionWorkView,
 } from "./lib/uiPreferences";
+import {
+  loadGlobalTypography,
+  normalizeTypographyOverrides,
+  resolveTypography,
+  saveGlobalTypography,
+} from "./lib/typography";
 import {
   extractWikiLinks,
   formatTagInput,
@@ -923,6 +930,9 @@ function App() {
   const [showWorkViewPicker, setShowWorkViewPicker] = useState(false);
   const [persistWorkViewChoice, setPersistWorkViewChoice] = useState(false);
   const [workViewPickerBookId, setWorkViewPickerBookId] = useState("");
+  const [bookDefaultWorkView, setBookDefaultWorkView] = useState("clean");
+  const [globalTypography, setGlobalTypography] = useState(() => loadGlobalTypography(window.localStorage));
+  const [bookTypographyOverrides, setBookTypographyOverrides] = useState({});
   const [showChapterOutline, setShowChapterOutline] = useState(true);
   const [revisions, setRevisions] = useState([]);
   const [autosaveDrafts, setAutosaveDrafts] = useState([]);
@@ -1439,8 +1449,9 @@ function App() {
     editorMode === "markdown" ? "Modus · Markdown" : "",
   ].filter(Boolean);
 
-  const editorSurfaceStyle = useMemo(
-    () => ({
+  const editorSurfaceStyle = useMemo(() => {
+    const typography = resolveTypography(globalTypography, bookTypographyOverrides);
+    return {
       "--editor-font-family":
         editorAppearance.fontFamily === "google"
           ? `"${editorAppearance.googleFontName}", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif`
@@ -1467,9 +1478,23 @@ function App() {
       "--fullscreen-card-end": fullscreenBackdropTheme.cardEnd,
       "--fullscreen-card-border": fullscreenBackdropTheme.cardBorder,
       "--fullscreen-card-shadow": fullscreenBackdropTheme.cardShadow,
-    }),
-    [editorAppearance, fullscreenBackdropTheme],
-  );
+      "--book-body-font": typography.bodyFont,
+      "--book-heading-font": typography.headingFont,
+      "--book-h1-size": `${typography.h1Size}px`,
+      "--book-h2-size": `${typography.h2Size}px`,
+      "--book-h3-size": `${typography.h3Size}px`,
+      "--book-h4-size": `${typography.h4Size}px`,
+      "--book-h5-size": `${typography.h5Size}px`,
+      "--book-h6-size": `${typography.h6Size}px`,
+      "--book-body-size": `${typography.bodySize}px`,
+      "--book-quote-size": `${typography.quoteSize}px`,
+      "--book-table-size": `${typography.tableSize}px`,
+      "--book-text-width": `${typography.textWidth}px`,
+      "--book-first-line-indent": `${typography.firstLineIndent}px`,
+      "--book-line-height": String(typography.lineHeight),
+      "--book-paragraph-spacing": `${typography.paragraphSpacing}px`,
+    };
+  }, [bookTypographyOverrides, editorAppearance, fullscreenBackdropTheme, globalTypography]);
 
   function clearSelectionPopup() {
     window.clearTimeout(selectionPopupDelayRef.current);
@@ -1526,6 +1551,10 @@ function App() {
     saveSessionWorkView(window.localStorage, workMode);
   }, [workMode]);
 
+  useEffect(() => {
+    saveGlobalTypography(window.localStorage, globalTypography);
+  }, [globalTypography]);
+
   useEffect(
     () => () => {
       window.clearTimeout(selectionPopupDelayRef.current);
@@ -1578,12 +1607,18 @@ function App() {
     setShowBookPicker(false);
     setShowBookDetails(false);
     setShowBookEdit(false);
+    setBookDefaultWorkView("clean");
+    setBookTypographyOverrides({});
     loadBook(selectedBookId);
     let cancelled = false;
     api.get(`/api/books/${selectedBookId}/presentation`)
       .then((presentation) => {
-        if (!cancelled && ["clean", "intense", "review"].includes(presentation?.default_work_view)) {
-          setWorkMode(presentation.default_work_view);
+        if (!cancelled) {
+          if (["clean", "intense", "review"].includes(presentation?.default_work_view)) {
+            setWorkMode(presentation.default_work_view);
+            setBookDefaultWorkView(presentation.default_work_view);
+          }
+          setBookTypographyOverrides(normalizeTypographyOverrides(presentation.typography_overrides));
         }
       })
       .catch((error) => {
@@ -2369,6 +2404,7 @@ function App() {
           default_work_view: nextView,
           typography_overrides: {},
         });
+        setBookDefaultWorkView(nextView);
       } catch (error) {
         setErrorMessage(error.message);
         return;
@@ -2377,6 +2413,20 @@ function App() {
     setShowWorkViewPicker(false);
     setPersistWorkViewChoice(false);
     setWorkViewPickerBookId("");
+  }
+
+  async function updateBookTypography(nextOverrides) {
+    const normalized = normalizeTypographyOverrides(nextOverrides);
+    setBookTypographyOverrides(normalized);
+    try {
+      await api.put(`/api/books/${selectedBookId}/presentation`, {
+        default_work_view: bookDefaultWorkView,
+        typography_overrides: normalized,
+      });
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
   }
 
   async function createChapter() {
@@ -5101,6 +5151,13 @@ function App() {
               />
             </label>
           </div>
+          <TypographySettings
+            globalDefaults={globalTypography}
+            bookOverrides={bookTypographyOverrides}
+            onGlobalChange={setGlobalTypography}
+            onBookChange={updateBookTypography}
+            onResetBook={updateBookTypography}
+          />
         </section>
       ) : null}
 

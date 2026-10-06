@@ -66,6 +66,25 @@ button {
 .work-view-picker__card:hover, .work-view-picker__card:focus-visible, .work-view-picker__card.is-current { border-color: var(--accent); background: var(--panel-strong); }
 .work-view-picker__card > span:last-child { color: var(--muted); line-height: 1.5; }
 .work-view-picker__icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 15px; background: var(--accent-soft); color: var(--accent); font-size: 1.45rem; }
+.typography-settings { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+.typography-settings__head { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 16px; }
+.typography-settings__head p { margin: 5px 0 0; color: var(--muted); }
+.typography-settings__grid { display: grid; gap: 12px; }
+.typography-setting { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.typography-setting label { display: grid; gap: 6px; }
+.typography-setting label span { color: var(--muted); font-size: .78rem; }
+.typography-setting input { width: 100%; }
+.editor-content-shell { max-width: min(100%, var(--book-text-width, var(--editor-max-width))); }
+.editor-surface, .markdown-textarea { font-family: var(--book-body-font, var(--editor-font-family)); font-size: var(--book-body-size, var(--editor-font-size)); line-height: var(--book-line-height, var(--editor-line-height)); }
+.editor-surface .ProseMirror h1 { font: inherit; font-family: var(--book-heading-font); font-size: var(--book-h1-size); }
+.editor-surface .ProseMirror h2 { font-family: var(--book-heading-font); font-size: var(--book-h2-size); }
+.editor-surface .ProseMirror h3 { font-family: var(--book-heading-font); font-size: var(--book-h3-size); }
+.editor-surface .ProseMirror h4 { font-family: var(--book-heading-font); font-size: var(--book-h4-size); }
+.editor-surface .ProseMirror h5 { font-family: var(--book-heading-font); font-size: var(--book-h5-size); }
+.editor-surface .ProseMirror h6 { font-family: var(--book-heading-font); font-size: var(--book-h6-size); }
+.editor-surface .ProseMirror p { margin-bottom: var(--book-paragraph-spacing); text-indent: var(--book-first-line-indent); }
+.editor-surface .ProseMirror blockquote { font-size: var(--book-quote-size); }
+.editor-surface .ProseMirror table { font-size: var(--book-table-size); }
 @media (max-width: 720px) { .transient-controls__bar { grid-template-columns: 1fr auto; margin-right: 66px; } .transient-controls__location { display: none; } }
 @media (max-width: 720px) { .work-view-picker__cards { grid-template-columns: 1fr; } .work-view-picker { max-height: calc(100vh - 32px); overflow: auto; } .work-view-picker__card { min-height: 132px; } }
 @media (prefers-reduced-motion: reduce) { .transient-controls * { transition: none !important; } }

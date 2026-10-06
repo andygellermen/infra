@@ -34,6 +34,11 @@ func (a *App) handleUpdateBookPresentation(w http.ResponseWriter, r *http.Reques
 	if len(input.TypographyOverrides) == 0 {
 		input.TypographyOverrides = json.RawMessage(`{}`)
 	}
+	var typographyObject map[string]json.RawMessage
+	if err := json.Unmarshal(input.TypographyOverrides, &typographyObject); err != nil || typographyObject == nil {
+		writeClientError(w, http.StatusBadRequest, "typography_overrides must be a JSON object")
+		return
+	}
 	presentation, err := a.store.UpdateBookPresentation(r.Context(), model.BookPresentation{
 		BookID:              r.PathValue("bookId"),
 		DefaultWorkView:     input.DefaultWorkView,

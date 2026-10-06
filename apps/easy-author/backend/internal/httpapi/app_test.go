@@ -237,6 +237,19 @@ func TestBookPresentationEndpointsValidateAndPersistWorkView(t *testing.T) {
 	if persisted["default_work_view"] != "review" {
 		t.Fatalf("invalid update changed persisted view: %#v", persisted)
 	}
+
+	withTypography := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view":    "review",
+		"typography_overrides": map[string]any{"bodyFont": "Literata", "bodySize": 19},
+	}, http.StatusOK)
+	typography := withTypography["typography_overrides"].(map[string]any)
+	if typography["bodyFont"] != "Literata" || typography["bodySize"] != float64(19) {
+		t.Fatalf("expected partial typography round trip, got %#v", typography)
+	}
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view":    "review",
+		"typography_overrides": []any{"not", "an", "object"},
+	}, http.StatusBadRequest)
 }
 
 func createJSON(t *testing.T, handler http.Handler, method, path string, payload any) map[string]any {
