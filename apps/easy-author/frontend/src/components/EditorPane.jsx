@@ -11,6 +11,8 @@ import { docToMarkdown, markdownToDoc, normalizeRichTableMarkdown } from "../lib
 import FootnoteReference from "../extensions/FootnoteReference";
 import FootnoteDefinition from "../extensions/FootnoteDefinition";
 import ReviewComment from "../extensions/ReviewComment";
+import DocumentContext, { MarkdownHighlight, mergeContextTypes } from "../extensions/DocumentContext";
+import ContextRail, { groupContextsByAnchor } from "./ContextRail";
 
 function selectionPayloadFromState(state) {
   if (!state || state.selection.empty) {
@@ -87,11 +89,13 @@ const EditorPane = forwardRef(function EditorPane(
     pinnedSlots,
     activeReviewCommentId,
     reviewComments,
+    contexts,
     onDocumentChange,
     onSelectionChange,
     onClipboardCapture,
     onSelectionContextChange,
     onReviewCommentActivate,
+    onContextActivate,
   },
   ref,
 ) {
@@ -136,6 +140,8 @@ const EditorPane = forwardRef(function EditorPane(
       FootnoteReference,
       FootnoteDefinition,
       ReviewComment,
+      DocumentContext,
+      MarkdownHighlight,
       Placeholder.configure({
         placeholder: "Schreibe hier an deinem Kapitel weiter ...",
       }),
@@ -227,6 +233,25 @@ const EditorPane = forwardRef(function EditorPane(
     target.addEventListener("keydown", handler);
     return () => target.removeEventListener("keydown", handler);
   }, [editor]);
+
+  useEffect(() => {
+    const markType = editor?.state?.schema?.marks?.documentContext;
+    if (!Array.isArray(contexts) || !markType || !editor?.state?.tr || !editor?.view?.dispatch) return;
+    let transaction = editor.state.tr.removeMark(1, editor.state.doc.content.size, markType);
+    groupContextsByAnchor(contexts).forEach((group) => {
+      const from = Math.max(1, Number(group.anchor.start_offset) || 0);
+      const to = Math.max(from, Number(group.anchor.end_offset) || 0);
+      if (from === to || to > editor.state.doc.content.size) return;
+      const contextTypes = mergeContextTypes("", group.contexts.map((context) => context.context_type));
+      const contextState = group.contexts.every((context) => context.status === "resolved") ? "resolved" : "open";
+      transaction = transaction.removeMark(from, to, markType).addMark(from, to, markType.create({
+        anchorId: group.anchorId,
+        contextTypes,
+        contextState,
+      }));
+    });
+    if (transaction.docChanged || transaction.steps?.length) editor.view.dispatch(transaction);
+  }, [contexts, editor]);
 
   useEffect(() => {
     if (!editor) {
@@ -352,6 +377,26 @@ const EditorPane = forwardRef(function EditorPane(
               }),
             );
         editor.view.dispatch(transaction);
+      },
+      applyDocumentContext(context) {
+        if (!editor || !context?.anchor) return;
+        const from = Math.max(1, Number(context.anchor.start_offset) || 0);
+        const to = Math.max(from, Number(context.anchor.end_offset) || 0);
+        const markType = editor.state.schema.marks.documentContext;
+        if (!markType || from === to) return;
+        const transaction = editor.state.tr.addMark(from, to, markType.create({
+          anchorId: context.anchor_id,
+          contextTypes: context.context_type,
+          contextState: context.status || "open",
+        }));
+        editor.view.dispatch(transaction);
+      },
+      focusDocumentAnchor(anchorId) {
+        if (!editor || !anchorId) return false;
+        return editor.commands.focusDocumentAnchor?.(anchorId) || false;
+      },
+      toggleMarkdownHighlight() {
+        editor?.chain().focus().toggleMarkdownHighlight().run();
       },
       removeReviewCommentMark(commentId) {
         if (!editor || !commentId) {
@@ -511,6 +556,7 @@ const EditorPane = forwardRef(function EditorPane(
         </div>
       ) : null}
       <EditorContent editor={editor} />
+      <ContextRail contexts={contexts || []} onActivate={onContextActivate} />
     </div>
   );
 });

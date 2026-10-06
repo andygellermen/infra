@@ -4,6 +4,7 @@ import SidebarSection from "./components/SidebarSection";
 import TransientControlBar from "./components/TransientControlBar";
 import WorkViewPicker from "./components/WorkViewPicker";
 import TypographySettings from "./components/TypographySettings";
+import CommentThread from "./components/CommentThread";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
@@ -889,6 +890,8 @@ function App() {
   const [chapterDraft, setChapterDraft] = useState(EMPTY_DRAFT);
   const [anchors, setAnchors] = useState([]);
   const [reviewComments, setReviewComments] = useState([]);
+  const [contexts, setContexts] = useState(null);
+  const [activeContextAnchorId, setActiveContextAnchorId] = useState("");
   const [clipboardItems, setClipboardItems] = useState([]);
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
@@ -1190,6 +1193,11 @@ function App() {
     () => reviewComments.find((comment) => comment.id === activeReviewCommentId) || null,
     [activeReviewCommentId, reviewComments],
   );
+  const activeContext = useMemo(() => {
+    const group = (contexts || []).filter((context) => context.anchor_id === activeContextAnchorId);
+    const comment = group.find((context) => context.context_type === "comment");
+    return comment || group[0] || null;
+  }, [activeContextAnchorId, contexts]);
   const reviewSummary = useMemo(() => {
     const summary = {
       total: reviewComments.length,
@@ -1681,6 +1689,8 @@ function App() {
       chapterSessionRef.current = createChapterSessionId();
       setAnchors([]);
       setReviewComments([]);
+      setContexts(null);
+      setActiveContextAnchorId("");
       setRevisions([]);
       setAutosaveDrafts([]);
       setMilestones([]);
@@ -1709,6 +1719,7 @@ function App() {
     });
     loadAnchors(currentChapter.id);
     loadReviewComments(currentChapter.id);
+    loadContexts(currentChapter.id);
   }, [selectedChapterId, currentChapterId]);
 
   useEffect(() => {
@@ -1970,6 +1981,15 @@ function App() {
       const response = await api.get(`/api/chapters/${chapterId}/comments`);
       setReviewComments(response.comments || []);
       setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function loadContexts(chapterId) {
+    try {
+      const response = await api.get(`/api/chapters/${chapterId}/contexts`);
+      setContexts(response.contexts || []);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -2781,6 +2801,26 @@ function App() {
     }
 
     try {
+      if (reviewCommentDraft.comment_type === "comment") {
+        const created = await api.post(`/api/chapters/${selectedChapterId}/contexts`, {
+          context_type: "comment",
+          anchor: {
+            selected_text: reviewCommentDraft.selected_text,
+            start_offset: reviewCommentDraft.start_offset,
+            end_offset: reviewCommentDraft.end_offset,
+            context_before: reviewCommentDraft.context_before,
+            context_after: reviewCommentDraft.context_after,
+          },
+          message: { author: reviewCommentDraft.author, body: reviewCommentDraft.body },
+        });
+        setContexts((previous) => [...(previous || []), created]);
+        editorRef.current?.applyDocumentContext?.(created);
+        setActiveContextAnchorId(created.anchor_id);
+        closeReviewComposer();
+        clearSelectionPopup();
+        setErrorMessage("");
+        return;
+      }
       const created = await api.post(`/api/chapters/${selectedChapterId}/comments`, reviewCommentDraft);
       setReviewComments((previous) => [created, ...previous]);
       editorRef.current?.applyReviewCommentMark?.({
@@ -2802,6 +2842,46 @@ function App() {
       closeReviewComposer();
       clearSelectionPopup();
       setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  function activateContextGroup(group) {
+    if (!group?.anchorId) return;
+    editorRef.current?.focusDocumentAnchor?.(group.anchorId);
+    setActiveContextAnchorId(group.anchorId);
+  }
+
+  async function replyToActiveThread(body) {
+    if (!activeContext?.thread?.id) return;
+    try {
+      const message = await api.post(`/api/threads/${activeContext.thread.id}/messages`, { author: "Autor", body });
+      setContexts((previous) => (previous || []).map((context) => context.id === activeContext.id ? {
+        ...context,
+        thread: { ...context.thread, messages: [...(context.thread.messages || []), message] },
+      } : context));
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function updateActiveThreadStatus(status) {
+    if (!activeContext?.thread?.id) return;
+    try {
+      const thread = await api.put(`/api/threads/${activeContext.thread.id}`, { status });
+      setContexts((previous) => (previous || []).map((context) => context.id === activeContext.id ? { ...context, status: thread.status, thread } : context));
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function deleteActiveContext() {
+    if (!activeContext?.id) return;
+    try {
+      await api.delete(`/api/contexts/${activeContext.id}`);
+      setContexts((previous) => (previous || []).filter((context) => context.id !== activeContext.id));
+      setActiveContextAnchorId("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -2885,7 +2965,10 @@ function App() {
     editorRef.current?.replaceReviewCommentText?.({
       commentId: comment.id,
       text: replacementText.trim(),
-      keepMark: false,
+      keepMark: true,
+      commentType: comment.comment_type,
+      commentState: "applied",
+      commentPhase: reviewCommentPhaseKey(comment, revisionById),
     });
     await updateReviewComment(comment.id, {
       status: "applied",
@@ -2893,7 +2976,6 @@ function App() {
       suggested_text: replacementText.trim(),
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2915,7 +2997,6 @@ function App() {
       suggested_text: comment.suggested_text,
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2926,13 +3007,15 @@ function App() {
     if (!comment) {
       return;
     }
-    await updateReviewComment(comment.id, {
+    const updated = await updateReviewComment(comment.id, {
       status: "resolved",
       body: comment.body,
       suggested_text: comment.suggested_text,
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    if (updated) {
+      editorRef.current?.applyReviewCommentMark?.({ ...updated, comment_phase: reviewCommentPhaseKey(updated, revisionById) });
+    }
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2952,7 +3035,7 @@ function App() {
     if (!updated) {
       return;
     }
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    editorRef.current?.applyReviewCommentMark?.({ ...updated, comment_phase: reviewCommentPhaseKey(updated, revisionById) });
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -4160,6 +4243,11 @@ function App() {
                     <button type="button" className="ghost-button" onClick={insertWikiLinkFromSelection}>
                       Wiki-Link
                     </button>
+                    {editorMode === "rich" ? (
+                      <button type="button" className="ghost-button" onClick={() => editorRef.current?.toggleMarkdownHighlight?.()}>
+                        Hervorheben
+                      </button>
+                    ) : null}
                     {!isWriteMode ? (
                       <>
                         <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
@@ -4319,9 +4407,11 @@ function App() {
                       pinnedSlots={pinnedSlots}
                       activeReviewCommentId={activeReviewCommentId}
                       reviewComments={reviewCommentsForEditor}
+                      contexts={contexts}
                       onSelectionChange={setHasSelection}
                       onSelectionContextChange={applyEditorSelectionContext}
                       onReviewCommentActivate={activateReviewComment}
+                      onContextActivate={activateContextGroup}
                       onClipboardCapture={handleEditorCopy}
                       onDocumentChange={(nextDocument) =>
                         setChapterDraft((previous) => ({
@@ -4335,6 +4425,16 @@ function App() {
               </div>
             </div>
           </div>
+
+          {activeContext?.context_type === "comment" ? (
+            <CommentThread
+              thread={activeContext.thread}
+              onReply={replyToActiveThread}
+              onStatusChange={updateActiveThreadStatus}
+              onDelete={deleteActiveContext}
+              onClose={() => setActiveContextAnchorId("")}
+            />
+          ) : null}
 
         </section>
 

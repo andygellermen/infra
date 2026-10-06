@@ -361,6 +361,9 @@ function mockApi() {
         return { comments: state.comments[chapter.id] };
       case `/api/chapters/${chapterTwo.id}/comments`:
         return { comments: state.comments[chapterTwo.id] };
+      case `/api/chapters/${chapter.id}/contexts`:
+      case `/api/chapters/${chapterTwo.id}/contexts`:
+        return { contexts: [] };
       default:
         throw new Error(`Unexpected GET ${path}`);
     }
