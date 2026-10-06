@@ -242,6 +242,23 @@ type CreateContextInput struct {
 	Message     *CreateThreadMessageInput `json:"message,omitempty"`
 }
 
+type CreateWorkItemInput struct {
+	ChapterID string `json:"chapter_id"`
+	AnchorID  string `json:"anchor_id"`
+	ThreadID  string `json:"thread_id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Phase     string `json:"phase"`
+	Priority  int    `json:"priority"`
+	DueAt     string `json:"due_at"`
+}
+
+type KanbanQuery struct {
+	BookIDs       []string
+	LimitPerPhase int
+	IncludeDone   bool
+}
+
 type CreateKnowledgeItemInput struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
@@ -407,6 +424,25 @@ func (s *Store) Init(ctx context.Context) error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS comment_messages_thread_created_idx ON comment_messages(thread_id, created_at, id);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS comment_messages_thread_position_idx ON comment_messages(thread_id, position);`,
+		`CREATE TABLE IF NOT EXISTS work_items (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			book_id TEXT NOT NULL,
+			chapter_id TEXT NOT NULL DEFAULT '',
+			anchor_id TEXT NOT NULL DEFAULT '',
+			thread_id TEXT NOT NULL DEFAULT '',
+			kind TEXT NOT NULL CHECK(kind IN ('task', 'comment', 'reminder')),
+			title TEXT NOT NULL,
+			phase TEXT NOT NULL DEFAULT 'backlog' CHECK(phase IN ('backlog', 'todo', 'in_progress', 'review', 'done')),
+			priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 3),
+			due_at TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS work_items_board_idx ON work_items(book_id, phase, priority DESC, due_at, updated_at DESC);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS work_items_thread_idx ON work_items(thread_id) WHERE thread_id <> '';`,
 		`CREATE TABLE IF NOT EXISTS clipboard_items (
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
@@ -529,6 +565,17 @@ func (s *Store) migrateLegacyContexts(ctx context.Context) error {
 		 SELECT id, id, CASE WHEN status IN ('resolved', 'applied', 'rejected') OR is_todo_done = 1 THEN 'resolved' ELSE 'open' END, created_at, updated_at FROM review_comments`,
 		`INSERT OR IGNORE INTO comment_messages (id, thread_id, author, body, created_at)
 		 SELECT 'legacy-' || id, id, author, CASE WHEN body <> '' THEN body ELSE suggested_text END, created_at FROM review_comments WHERE body <> '' OR suggested_text <> ''`,
+		`INSERT OR IGNORE INTO work_items (id, project_id, book_id, chapter_id, anchor_id, thread_id, kind, title, phase, priority, created_at, updated_at)
+		 SELECT 'thread-card-' || t.id, b.project_id, ch.book_id, ch.id, a.id, t.id, 'comment',
+		 CASE WHEN m.body <> '' THEN substr(m.body, 1, 120) ELSE 'Kommentar' END,
+		 CASE t.status WHEN 'planned' THEN 'todo' WHEN 'in_progress' THEN 'in_progress' WHEN 'review' THEN 'review' WHEN 'resolved' THEN 'done' ELSE 'backlog' END,
+		 0, t.created_at, t.updated_at
+		 FROM comment_threads t
+		 JOIN anchor_contexts c ON c.id = t.context_id
+		 JOIN document_anchors a ON a.id = c.anchor_id
+		 JOIN chapters ch ON ch.id = a.chapter_id
+		 JOIN books b ON b.id = ch.book_id
+		 LEFT JOIN comment_messages m ON m.thread_id = t.id AND m.position = 0`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {

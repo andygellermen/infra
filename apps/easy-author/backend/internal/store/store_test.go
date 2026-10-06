@@ -3,12 +3,148 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/andygellermann/infra/apps/easy-author/backend/internal/db"
 	"github.com/andygellermann/infra/apps/easy-author/backend/internal/model"
 )
+
+func TestWorkItemsUseFivePhasesAndThreadCardsStayUnique(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+
+	standalone, err := appStore.CreateWorkItem(ctx, chapter.BookID, CreateWorkItemInput{Kind: "task", Title: "Kapitel prüfen"})
+	if err != nil {
+		t.Fatalf("create work item: %v", err)
+	}
+	if standalone.Phase != "backlog" {
+		t.Fatalf("new work item should start in backlog, got %#v", standalone)
+	}
+	for _, phase := range []string{"backlog", "todo", "in_progress", "review", "done"} {
+		moved, err := appStore.MoveWorkItem(ctx, standalone.ID, phase)
+		if err != nil {
+			t.Fatalf("move to %s: %v", phase, err)
+		}
+		if moved.Phase != phase {
+			t.Fatalf("move returned phase %q, want %q", moved.Phase, phase)
+		}
+	}
+	if _, err := appStore.MoveWorkItem(ctx, standalone.ID, "finished"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("invalid phase should be rejected, got %v", err)
+	}
+
+	comment, err := appStore.CreateContext(ctx, chapter.ID, CreateContextInput{
+		ContextType: "comment",
+		Anchor:      DocumentAnchorInput{SelectedText: "Passage", StartOffset: 5, EndOffset: 12},
+		Message:     &CreateThreadMessageInput{Author: "Andy", Body: "Bitte prüfen"},
+	})
+	if err != nil {
+		t.Fatalf("create comment context: %v", err)
+	}
+	board, err := appStore.ListKanban(ctx, KanbanQuery{BookIDs: []string{chapter.BookID}, LimitPerPhase: 12})
+	if err != nil {
+		t.Fatalf("list board: %v", err)
+	}
+	var threadCards int
+	for _, item := range board.Items["backlog"] {
+		if item.ThreadID == comment.Thread.ID {
+			threadCards++
+		}
+	}
+	if threadCards != 1 {
+		t.Fatalf("one thread must produce exactly one card, got %#v", board.Items["backlog"])
+	}
+	if board.Totals["done"] != 1 || len(board.Items["done"]) != 0 {
+		t.Fatalf("hidden done cards must still contribute to totals: %#v", board)
+	}
+	if _, err := appStore.CreateWorkItem(ctx, chapter.BookID, CreateWorkItemInput{Kind: "comment", Title: "Duplikat", ThreadID: comment.Thread.ID}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("duplicate thread card should conflict, got %v", err)
+	}
+}
+
+func TestKanbanFiltersSortsAndLimitsEachPhase(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+	project, err := appStore.CreateProject(ctx, CreateProjectInput{Title: "Zweites Projekt"})
+	if err != nil {
+		t.Fatalf("create second project: %v", err)
+	}
+	otherBook, err := appStore.CreateBook(ctx, project.ID, CreateBookInput{Title: "Anderes Buch"})
+	if err != nil {
+		t.Fatalf("create second book: %v", err)
+	}
+
+	overdue := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
+	items := []CreateWorkItemInput{
+		{Kind: "task", Title: "Normal neu", Priority: 0},
+		{Kind: "reminder", Title: "Überfällig", Priority: 0, DueAt: overdue},
+		{Kind: "task", Title: "Hohe Priorität", Priority: 3},
+	}
+	for _, input := range items {
+		if _, err := appStore.CreateWorkItem(ctx, chapter.BookID, input); err != nil {
+			t.Fatalf("create %s: %v", input.Title, err)
+		}
+	}
+	if _, err := appStore.CreateWorkItem(ctx, otherBook.ID, CreateWorkItemInput{Kind: "task", Title: "Fremdes Buch", Priority: 3}); err != nil {
+		t.Fatalf("create foreign item: %v", err)
+	}
+
+	board, err := appStore.ListKanban(ctx, KanbanQuery{BookIDs: []string{chapter.BookID}, LimitPerPhase: 2})
+	if err != nil {
+		t.Fatalf("list filtered board: %v", err)
+	}
+	if board.Totals["backlog"] != 3 || len(board.Items["backlog"]) != 2 {
+		t.Fatalf("limit must not change total: %#v", board)
+	}
+	if board.Items["backlog"][0].Title != "Hohe Priorität" || board.Items["backlog"][1].Title != "Überfällig" {
+		t.Fatalf("priority and overdue ordering is wrong: %#v", board.Items["backlog"])
+	}
+	for _, item := range board.Items["backlog"] {
+		if item.BookID != chapter.BookID || item.Title == "Fremdes Buch" {
+			t.Fatalf("book filter leaked another book: %#v", board.Items["backlog"])
+		}
+	}
+}
+
+func TestMoveWorkItemRollsBackWhenLinkedThreadUpdateFails(t *testing.T) {
+	t.Parallel()
+	appStore, ctx, chapter := newContextTestStore(t)
+	comment, err := appStore.CreateContext(ctx, chapter.ID, CreateContextInput{
+		ContextType: "comment",
+		Anchor:      DocumentAnchorInput{SelectedText: "Passage", StartOffset: 5, EndOffset: 12},
+		Message:     &CreateThreadMessageInput{Author: "Andy", Body: "Bitte prüfen"},
+	})
+	if err != nil {
+		t.Fatalf("create comment: %v", err)
+	}
+	board, err := appStore.ListKanban(ctx, KanbanQuery{BookIDs: []string{chapter.BookID}, LimitPerPhase: 12})
+	if err != nil || len(board.Items["backlog"]) != 1 {
+		t.Fatalf("load linked card: %#v %v", board, err)
+	}
+	item := board.Items["backlog"][0]
+	if _, err := appStore.db.ExecContext(ctx, `CREATE TRIGGER fail_thread_move BEFORE UPDATE ON comment_threads BEGIN SELECT RAISE(FAIL, 'thread update blocked'); END`); err != nil {
+		t.Fatalf("create failure trigger: %v", err)
+	}
+	if _, err := appStore.MoveWorkItem(ctx, item.ID, "in_progress"); err == nil {
+		t.Fatal("move should fail when linked thread update fails")
+	}
+	var phase, threadStatus, contextStatus string
+	if err := appStore.db.QueryRowContext(ctx, `SELECT phase FROM work_items WHERE id = ?`, item.ID).Scan(&phase); err != nil {
+		t.Fatalf("read item phase: %v", err)
+	}
+	if err := appStore.db.QueryRowContext(ctx, `SELECT status FROM comment_threads WHERE id = ?`, comment.Thread.ID).Scan(&threadStatus); err != nil {
+		t.Fatalf("read thread status: %v", err)
+	}
+	if err := appStore.db.QueryRowContext(ctx, `SELECT status FROM anchor_contexts WHERE id = ?`, comment.ID).Scan(&contextStatus); err != nil {
+		t.Fatalf("read context status: %v", err)
+	}
+	if phase != "backlog" || threadStatus != "open" || contextStatus != "open" {
+		t.Fatalf("failed move was not rolled back: phase=%s thread=%s context=%s", phase, threadStatus, contextStatus)
+	}
+}
 
 func newContextTestStore(t *testing.T) (*Store, context.Context, model.Chapter) {
 	t.Helper()
@@ -113,6 +249,10 @@ func TestContextThreadRepliesAndResolvedStatus(t *testing.T) {
 	items, err := appStore.ListChapterContexts(ctx, chapter.ID)
 	if err != nil || len(items) != 1 || items[0].Status != "resolved" || items[0].Thread.Status != "resolved" {
 		t.Fatalf("resolved status not reflected by context: items=%#v err=%v", items, err)
+	}
+	board, err := appStore.ListKanban(ctx, KanbanQuery{BookIDs: []string{chapter.BookID}, LimitPerPhase: 12, IncludeDone: true})
+	if err != nil || board.Totals["done"] != 1 || len(board.Items["done"]) != 1 || board.Items["done"][0].ThreadID != created.Thread.ID {
+		t.Fatalf("resolved thread did not move its card atomically: board=%#v err=%v", board, err)
 	}
 }
 

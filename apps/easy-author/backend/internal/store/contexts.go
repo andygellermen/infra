@@ -93,6 +93,12 @@ func (s *Store) CreateContext(ctx context.Context, chapterID string, input Creat
 			newID(), threadID, strings.TrimSpace(input.Message.Author), strings.TrimSpace(input.Message.Body), now); err != nil {
 			return model.AnchorContext{}, fmt.Errorf("create comment message: %w", err)
 		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO work_items (id, project_id, book_id, chapter_id, anchor_id, thread_id, kind, title, phase, priority, created_at, updated_at)
+			SELECT ?, b.project_id, ch.book_id, ch.id, ?, ?, 'comment', ?, 'backlog', 0, ?, ?
+			FROM chapters ch JOIN books b ON b.id = ch.book_id WHERE ch.id = ?`,
+			newID(), anchorID, threadID, truncateRunes(input.Message.Body, 120), now, now, chapterID); err != nil {
+			return model.AnchorContext{}, fmt.Errorf("create thread work item: %w", err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return model.AnchorContext{}, err
@@ -260,6 +266,10 @@ func (s *Store) UpdateThreadStatus(ctx context.Context, threadID, status string)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE anchor_contexts SET status = ?, updated_at = ? WHERE id = (SELECT context_id FROM comment_threads WHERE id = ?)`, status, now, threadID); err != nil {
 		return model.CommentThread{}, err
+	}
+	phase := map[string]string{"open": "backlog", "planned": "todo", "in_progress": "in_progress", "review": "review", "resolved": "done"}[status]
+	if _, err := tx.ExecContext(ctx, `UPDATE work_items SET phase = ?, updated_at = ? WHERE thread_id = ?`, phase, now, threadID); err != nil {
+		return model.CommentThread{}, fmt.Errorf("update linked work item: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return model.CommentThread{}, err

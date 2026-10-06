@@ -254,6 +254,27 @@ type AnchorContext struct {
 	UpdatedAt      string         `json:"updated_at"`
 }
 
+type WorkItem struct {
+	ID        string `json:"id"`
+	ProjectID string `json:"project_id"`
+	BookID    string `json:"book_id"`
+	ChapterID string `json:"chapter_id"`
+	AnchorID  string `json:"anchor_id"`
+	ThreadID  string `json:"thread_id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Phase     string `json:"phase"`
+	Priority  int    `json:"priority"`
+	DueAt     string `json:"due_at"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type KanbanResult struct {
+	Items  map[string][]WorkItem `json:"items"`
+	Totals map[string]int        `json:"totals"`
+}
+
 type ClipboardItem struct {
 	ID             string `json:"id"`
 	BookID         string `json:"book_id"`
