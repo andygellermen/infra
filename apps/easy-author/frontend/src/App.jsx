@@ -5,6 +5,8 @@ import TransientControlBar from "./components/TransientControlBar";
 import WorkViewPicker from "./components/WorkViewPicker";
 import TypographySettings from "./components/TypographySettings";
 import CommentThread from "./components/CommentThread";
+import KanbanBoard, { KANBAN_PHASES } from "./components/KanbanBoard";
+import BookKanbanFilter from "./components/BookKanbanFilter";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
 import {
@@ -952,6 +954,14 @@ function App() {
   const [reviewFilter, setReviewFilter] = useState("open");
   const [reviewPhaseFilter, setReviewPhaseFilter] = useState("all");
   const [editingMilestoneId, setEditingMilestoneId] = useState("");
+  const [showKanban, setShowKanban] = useState(false);
+  const [kanbanScope, setKanbanScope] = useState("book");
+  const [kanbanSelectedBookIds, setKanbanSelectedBookIds] = useState([]);
+  const [kanbanData, setKanbanData] = useState({ items: {}, totals: {} });
+  const [kanbanCounts, setKanbanCounts] = useState({});
+  const [kanbanColors, setKanbanColors] = useState(new Map());
+  const [kanbanLimit, setKanbanLimit] = useState(12);
+  const [pendingKanbanAnchorId, setPendingKanbanAnchorId] = useState("");
   const [milestoneDraft, setMilestoneDraft] = useState({
     title: "",
     description: "",
@@ -1638,6 +1648,40 @@ function App() {
   }, [selectedBookId]);
 
   useEffect(() => {
+    if (!showKanban || kanbanSelectedBookIds.length === 0) {
+      setKanbanData({ items: {}, totals: {} });
+      return;
+    }
+    let cancelled = false;
+    const query = encodeURIComponent(kanbanSelectedBookIds.join(","));
+    api.get(`/api/kanban?book_ids=${query}&include_done=true&limit=${kanbanLimit}`)
+      .then((response) => { if (!cancelled) setKanbanData(response); })
+      .catch((error) => { if (!cancelled) setErrorMessage(error.message); });
+    return () => { cancelled = true; };
+  }, [showKanban, kanbanSelectedBookIds.join("|"), kanbanLimit]);
+
+  useEffect(() => {
+    if (!showKanban || kanbanScope !== "global") return;
+    let cancelled = false;
+    Promise.all((projectDetail?.books || []).map(async (book) => {
+      const response = await api.get(`/api/kanban?book_ids=${encodeURIComponent(book.id)}&include_done=true&limit=1`);
+      return [book.id, response.totals || {}];
+    })).then((entries) => { if (!cancelled) setKanbanCounts(Object.fromEntries(entries)); })
+      .catch((error) => { if (!cancelled) setErrorMessage(error.message); });
+    return () => { cancelled = true; };
+  }, [showKanban, kanbanScope, projectDetail?.books]);
+
+  useEffect(() => {
+    if (!pendingKanbanAnchorId || !selectedChapterId) return;
+    const timer = window.setTimeout(() => {
+      editorRef.current?.focusDocumentAnchor?.(pendingKanbanAnchorId);
+      setActiveContextAnchorId(pendingKanbanAnchorId);
+      setPendingKanbanAnchorId("");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pendingKanbanAnchorId, selectedChapterId, chapterDraft.editor_json]);
+
+  useEffect(() => {
     const lookup = {
       project: projectSectionRef,
       book: bookSectionRef,
@@ -1924,6 +1968,39 @@ function App() {
     } catch (error) {
       setErrorMessage(error.message);
     }
+  }
+
+  function openKanban(scope = "book") {
+    const available = projectDetail?.books || [];
+    setKanbanScope(scope);
+    setKanbanLimit(12);
+    setKanbanSelectedBookIds(scope === "book" ? [selectedBookId].filter(Boolean) : (kanbanSelectedBookIds.length ? kanbanSelectedBookIds : available.map((book) => book.id)));
+    setShowKanban(true);
+  }
+
+  function toggleKanbanBook(bookId) {
+    setKanbanSelectedBookIds((previous) => previous.includes(bookId) ? previous.filter((id) => id !== bookId) : [...previous, bookId]);
+  }
+
+  async function moveKanbanItem(itemId, phase) {
+    try {
+      const moved = await api.put(`/api/work-items/${itemId}/phase`, { phase });
+      setKanbanData((previous) => {
+        const nextItems = Object.fromEntries(KANBAN_PHASES.map(({ id }) => [id, (previous.items?.[id] || []).filter((item) => item.id !== itemId)]));
+        nextItems[phase] = [...(nextItems[phase] || []), moved];
+        const totals = { ...(previous.totals || {}) };
+        const oldPhase = KANBAN_PHASES.find(({ id }) => (previous.items?.[id] || []).some((item) => item.id === itemId))?.id;
+        if (oldPhase && oldPhase !== phase) { totals[oldPhase] = Math.max(0, (totals[oldPhase] || 0) - 1); totals[phase] = (totals[phase] || 0) + 1; }
+        return { items: nextItems, totals };
+      });
+    } catch (error) { setErrorMessage(error.message); }
+  }
+
+  function openKanbanSource(item) {
+    setShowKanban(false);
+    if (item.book_id) setSelectedBookId(item.book_id);
+    if (item.chapter_id) setSelectedChapterId(item.chapter_id);
+    if (item.anchor_id) setPendingKanbanAnchorId(item.anchor_id);
   }
 
   async function loadProject(projectId) {
@@ -3470,6 +3547,7 @@ function App() {
         onWritingTools={() => setShowWritingTools((previous) => !previous)}
         onHelp={() => setShowEditorHelp((previous) => !previous)}
         onFullscreen={() => setIsEditorFullscreen((previous) => !previous)}
+        onKanban={() => openKanban("book")}
         isFullscreen={isEditorFullscreen}
       />
 
@@ -3480,6 +3558,28 @@ function App() {
         onSelect={selectWorkView}
         onClose={() => setShowWorkViewPicker(false)}
       />
+
+      {showKanban ? (
+        <section className="kanban-workspace" role="dialog" aria-modal="true" aria-label="Kanban-Arbeitsansicht">
+          <header className="kanban-workspace__header">
+            <div><div className="panel-eyebrow">Aufgaben und Kommentare</div><h1>Kanban</h1></div>
+            <div className="kanban-workspace__scope" aria-label="Kanban-Umfang">
+              <button type="button" aria-pressed={kanbanScope === "book"} onClick={() => openKanban("book")}>Dieses Buch</button>
+              <button type="button" aria-pressed={kanbanScope === "global"} onClick={() => openKanban("global")}>Bücherübersicht</button>
+              <button type="button" className="ghost-button" onClick={() => setShowKanban(false)}>Schließen</button>
+            </div>
+          </header>
+          <div className={`kanban-workspace__body ${kanbanScope === "global" ? "has-filter" : ""}`}>
+            {kanbanScope === "global" ? <BookKanbanFilter books={projectDetail?.books || []} selectedIds={kanbanSelectedBookIds}
+              counts={kanbanCounts} colors={kanbanColors} onToggle={toggleKanbanBook} onColorsChange={setKanbanColors} /> : null}
+            <KanbanBoard phases={KANBAN_PHASES} items={kanbanData.items} totals={kanbanData.totals} limit={kanbanLimit}
+              selectedBookCount={kanbanSelectedBookIds.length}
+              bookTitles={Object.fromEntries((projectDetail?.books || []).map((book) => [book.id, book.title]))}
+              colors={kanbanColors} onMove={moveKanbanItem} onLoadMore={() => setKanbanLimit((value) => Math.min(20, value + 8))}
+              onOpenSource={openKanbanSource} />
+          </div>
+        </section>
+      ) : null}
 
       {!isEditorFullscreen && !isWriteMode ? (
         <div className="floating-rail floating-rail--left" aria-label="Navigation">

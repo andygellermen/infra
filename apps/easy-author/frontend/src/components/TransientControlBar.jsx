@@ -19,6 +19,7 @@ export default function TransientControlBar({
   onWritingTools,
   onHelp,
   onFullscreen,
+  onKanban,
   isFullscreen = false,
 }) {
   const controls = useTransientControls({ timeoutMs: 60000, blocked });
@@ -48,6 +49,7 @@ export default function TransientControlBar({
             <button type="button" aria-label="Rich" aria-pressed={editorMode === "rich"} onClick={() => onEditorMode?.("rich")}>✍</button>
             <button type="button" aria-label="Markdown" aria-pressed={editorMode === "markdown"} onClick={() => onEditorMode?.("markdown")}>#</button>
             <button type="button" aria-label="Werkzeuge" onClick={onWritingTools}>✚</button>
+            <button type="button" aria-label="Kanban öffnen" onClick={onKanban}>▥</button>
             <button type="button" aria-label="Hilfe" onClick={onHelp}>?</button>
             <button type="button" aria-label={isFullscreen ? "Vollbild verlassen" : "Vollbild"} aria-pressed={isFullscreen} onClick={onFullscreen}>⛶</button>
             <button type="button" aria-label="Befehlspalette öffnen" onClick={onCommand}>⌘</button>
