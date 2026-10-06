@@ -12,8 +12,9 @@
     "build": "npm run check:node && vite build",
     "preview": "npm run check:node && vite preview",
     "test:markdown": "npm run check:node && node --test src/lib/markdown.test.js",
-    "test:editor": "npm run check:node && vitest run src/App.test.jsx src/components/EditorPane.test.jsx",
-    "test": "npm run test:markdown && npm run test:editor"
+    "test:editor": "npm run check:node && vitest run --maxWorkers=1 src/App.test.jsx src/components/EditorPane.test.jsx",
+    "test:ui": "npm run check:node && vitest run src/components/TransientControlBar.test.jsx src/components/WorkViewPicker.test.jsx src/components/TypographySettings.test.jsx src/components/ContextRail.test.jsx src/components/CommentThread.test.jsx src/components/BookKanbanFilter.test.jsx src/components/KanbanBoard.test.jsx src/extensions/DocumentContext.test.js src/hooks/useTransientControls.test.jsx src/lib/uiPreferences.test.js src/lib/typography.test.js src/lib/bookColorAllocation.test.js",
+    "test": "npm run test:markdown && npm run test:editor && npm run test:ui"
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^2.11.5",

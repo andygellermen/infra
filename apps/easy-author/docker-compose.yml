@@ -15,6 +15,7 @@ services:
   easy-author-frontend:
     build:
       context: ./frontend
+      target: development
     environment:
       VITE_API_BASE_URL: http://127.0.0.1:8086
     ports:

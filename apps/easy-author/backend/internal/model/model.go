@@ -1,5 +1,7 @@
 package model
 
+import "encoding/json"
+
 type Project struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
@@ -22,6 +24,12 @@ type Book struct {
 	CoverAssetID string `json:"cover_asset_id"`
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
+}
+
+type BookPresentation struct {
+	BookID              string          `json:"book_id"`
+	DefaultWorkView     string          `json:"default_work_view"`
+	TypographyOverrides json.RawMessage `json:"typography_overrides"`
 }
 
 type Chapter struct {
@@ -198,6 +206,73 @@ type ReviewComment struct {
 	IsTodoDone    bool   `json:"is_todo_done"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
+}
+
+// DocumentAnchor is the durable, content-oriented location shared by every
+// annotation type attached to the same passage.
+type DocumentAnchor struct {
+	ID            string `json:"id"`
+	ChapterID     string `json:"chapter_id"`
+	BlockID       string `json:"block_id"`
+	SelectedText  string `json:"selected_text"`
+	StartOffset   int    `json:"start_offset"`
+	EndOffset     int    `json:"end_offset"`
+	ContextBefore string `json:"context_before"`
+	ContextAfter  string `json:"context_after"`
+	Checksum      string `json:"checksum"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type CommentMessage struct {
+	ID        string `json:"id"`
+	ThreadID  string `json:"thread_id"`
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+}
+
+type CommentThread struct {
+	ID        string           `json:"id"`
+	ContextID string           `json:"context_id"`
+	Status    string           `json:"status"`
+	Messages  []CommentMessage `json:"messages"`
+	CreatedAt string           `json:"created_at"`
+	UpdatedAt string           `json:"updated_at"`
+}
+
+type AnchorContext struct {
+	ID             string         `json:"id"`
+	AnchorID       string         `json:"anchor_id"`
+	ContextType    string         `json:"context_type"`
+	TargetID       string         `json:"target_id"`
+	Status         string         `json:"status"`
+	LegacyEntityID string         `json:"legacy_entity_id"`
+	Anchor         DocumentAnchor `json:"anchor"`
+	Thread         CommentThread  `json:"thread,omitempty"`
+	CreatedAt      string         `json:"created_at"`
+	UpdatedAt      string         `json:"updated_at"`
+}
+
+type WorkItem struct {
+	ID        string `json:"id"`
+	ProjectID string `json:"project_id"`
+	BookID    string `json:"book_id"`
+	ChapterID string `json:"chapter_id"`
+	AnchorID  string `json:"anchor_id"`
+	ThreadID  string `json:"thread_id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Phase     string `json:"phase"`
+	Priority  int    `json:"priority"`
+	DueAt     string `json:"due_at"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type KanbanResult struct {
+	Items  map[string][]WorkItem `json:"items"`
+	Totals map[string]int        `json:"totals"`
 }
 
 type ClipboardItem struct {

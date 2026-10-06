@@ -45,3 +45,74 @@ Webseite / Artikel / Quelle
 → Verknüpfung mit Buchobjekten
 → Kanban-Karte
 → spätere Einordnung ins Manuskript
+```
+
+## Vertragsgrenze nach dem UI-MVP
+
+Die Pakete 1 bis 5 stellen bereits die wiederverwendbaren Manuskriptverträge
+bereit. EasyReader und AddToBook dürfen diese Verträge erweitern, aber nicht
+durch parallele Quellvarianten duplizieren.
+
+### Bereits implementierte Verträge
+
+- `DocumentAnchor` lokalisiert eine Passage über Kapitel, Blockkennung,
+  Textzitat, Start-/Endposition, Kontext davor und danach sowie Prüfsumme.
+- `AnchorContext` ordnet einem Anker unabhängig Kommentar, Aufgabe,
+  Verknüpfung, Clipboard-Einfügung oder Clipboard-Quelle zu.
+- `CommentThread` bewahrt Status und geordnete Dialognachrichten.
+- `WorkItem` bewahrt Projekt, Buch, Kapitel, Anker, optionalen Thread, Art,
+  Titel, Phase, Priorität und Fälligkeit. Ein Thread besitzt höchstens eine
+  Karte; Phasenänderungen sind atomar synchronisiert.
+- Das heutige `ClipboardItem` bewahrt Buch-/Kapitelbezug, Inhalt,
+  Inhaltstyp, Quellanker und Slot. Es ist die vorhandene Manuskriptfunktion,
+  aber noch nicht der vollständige Quellenvertrag `KnowledgeClipboardItem`.
+
+### Paket 6 ergänzt
+
+`Source` beschreibt die dauerhaft identifizierbare Quelle. Mindestens
+vorzusehen sind ID, Original- und kanonische URL, Domain, aktueller
+Importstatus, zugeordnete Bücher und Zeitstempel.
+
+`SourceRevision` ist unveränderlich und benötigt mindestens:
+
+- Quellen-ID und fortlaufende Revision,
+- bereinigtes Markdown beziehungsweise Pfad zu `content.md`,
+- Titel, Autor, Veröffentlichungsdatum und Sprache, soweit ermittelbar,
+- exakten Importzeitpunkt, Inhaltsprüfsumme und Extraktionsversion,
+- lokale Medienreferenzen mit Original-URL, Format, WebP-/SVG-Ziel,
+  Alt-Text, Prüfsumme und erkennbarem Rechtehinweis,
+- Status für vollständige, teilweise oder fehlgeschlagene Extraktion.
+
+`KnowledgeClipboardItem` erweitert den heutigen Clipboard-Vertrag um
+`source_revision_id`, exaktes Zitat, einen `DocumentAnchor` innerhalb der
+Quellenrevision, Herkunftsmetadaten und mehrere Verknüpfungsziele. Die spätere
+Übernahme ins Manuskript darf diese Provenienz nicht verlieren.
+
+Für Quellenanker wird `DocumentAnchor` medienneutral erweitert: Statt nur
+`chapter_id` wird ein typisiertes Dokumentziel aus Manuskriptkapitel oder
+Quellenrevision benötigt. Die vorhandene Wiederfindelogik aus Zitat, Kontext,
+Position und Prüfsumme bleibt maßgeblich.
+
+### Paket 7 verwendet ausschließlich den Importvertrag
+
+AddToBook übergibt keine bereits vertrauenswürdigen Datenbankobjekte, sondern
+einen Importauftrag mit URL, kanonischer URL, Browser-Metadaten, extrahiertem
+Kandidateninhalt, Bildkandidaten, Extraktionsversion und optionalem Zielbuch.
+EasyAuthor bereinigt und validiert alles erneut.
+
+Die Erweiterung darf zur Erkennung bekannter Seiten einen URL-Abgleich und den
+Hash des normalisierten relevanten Inhalts anfragen. Nur eine abweichende
+Prüfsumme löst den proaktiven Revisionsdialog aus; ohne Bestätigung wird weder
+eine Revision angelegt noch eine bestehende verändert.
+
+### Ausdrücklich noch nicht implementiert
+
+- `Source`, `SourceRevision` und revisionsgebundene Quellenanker,
+- Hauptinhaltsextraktion und Markdown-Normalisierung von Webseiten,
+- Download, Bereinigung und WebP-Konvertierung von Bildern,
+- manueller Diff und Wiederzuordnung von Annotationen,
+- Browser-Erweiterung, Berechtigungsmodell und bekannte-Seiten-Pop-up,
+- automatische oder zeitgesteuerte Quellenprüfung.
+
+Damit bleibt der UI-MVP unabhängig von der späteren Importpipeline, während
+EasyReader Manuskriptansicht und Kanban ohne Modellbruch wiederverwenden kann.

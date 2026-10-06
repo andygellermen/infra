@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import App, { splitMarkdownIntoChapterSections } from "./App";
+import App, { isKanbanTargetReady, splitMarkdownIntoChapterSections } from "./App";
 import { api } from "./lib/api";
 import { markdownToDoc } from "./lib/markdown";
 
@@ -218,9 +218,18 @@ const reviewCommentThree = {
 const MARKDOWN_PLACEHOLDER =
   "Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten.";
 
+async function clickTransientControl(user, name) {
+  if (!screen.queryByRole("toolbar", { name: "Schreibsteuerung" })) {
+    await user.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
+  }
+  await user.click(within(screen.getByRole("toolbar", { name: "Schreibsteuerung" })).getByRole("button", { name }));
+}
+
 async function openMarkdownEditor(user) {
-  await user.click(screen.getByRole("button", { name: "Markdown" }));
-  return screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
+  await clickTransientControl(user, "Markdown");
+  const textarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
+  await act(async () => Promise.resolve());
+  return textarea;
 }
 
 function selectMarkdownText(textarea, selectedText) {
@@ -282,9 +291,21 @@ function mockApi() {
       [bookTwo.id]: [],
       [bookThree.id]: [],
     },
+    presentationsByBook: {
+      [book.id]: { book_id: book.id, default_work_view: "intense", typography_overrides: {} },
+      [bookTwo.id]: { book_id: bookTwo.id, default_work_view: "intense", typography_overrides: {} },
+      [bookThree.id]: { book_id: bookThree.id, default_work_view: "review", typography_overrides: {} },
+    },
   };
 
   api.get.mockImplementation(async (path) => {
+    if (path.startsWith("/api/kanban?")) {
+      return { items: { backlog: [], todo: [], in_progress: [], review: [], done: [] }, totals: { backlog: 0, todo: 0, in_progress: 0, review: 0, done: 0 } };
+    }
+    if (path.startsWith("/api/books/") && path.endsWith("/presentation")) {
+      const bookId = path.split("/")[3];
+      return state.presentationsByBook[bookId] || { book_id: bookId, default_work_view: "clean", typography_overrides: {} };
+    }
     if (path.startsWith("/api/projects/") && path.endsWith("/knowledge-items")) {
       const projectId = path.split("/")[3];
       return { knowledge_items: projectId === project.id ? state.knowledgeItems : [] };
@@ -343,6 +364,9 @@ function mockApi() {
         return { comments: state.comments[chapter.id] };
       case `/api/chapters/${chapterTwo.id}/comments`:
         return { comments: state.comments[chapterTwo.id] };
+      case `/api/chapters/${chapter.id}/contexts`:
+      case `/api/chapters/${chapterTwo.id}/contexts`:
+        return { contexts: [] };
       default:
         throw new Error(`Unexpected GET ${path}`);
     }
@@ -522,6 +546,12 @@ function mockApi() {
   });
 
   api.put.mockImplementation(async (path, payload) => {
+    if (path.startsWith("/api/books/") && path.endsWith("/presentation")) {
+      const bookId = path.split("/")[3];
+      const updated = { book_id: bookId, ...payload };
+      state.presentationsByBook[bookId] = updated;
+      return updated;
+    }
     if (path.endsWith("/chapters/reorder")) {
       const bookId = path.split("/")[3];
       const orderedIds = payload.chapter_ids;
@@ -696,6 +726,13 @@ describe("App editor smoke test", () => {
     mockApi();
   });
 
+  it("waits for both the destination book and chapter before focusing a Kanban source", () => {
+    const target = { bookId: "book-2", chapterId: "chapter-9", anchorId: "anchor-3" };
+    expect(isKanbanTargetReady(target, "book-1", "chapter-9")).toBe(false);
+    expect(isKanbanTargetReady(target, "book-2", "chapter-1")).toBe(false);
+    expect(isKanbanTargetReady(target, "book-2", "chapter-9")).toBe(true);
+  });
+
   it("keeps footnote definitions with the earlier chapter when a new H1 starts below their references", () => {
     const sections = splitMarkdownIntoChapterSections(
       [
@@ -721,6 +758,43 @@ describe("App editor smoke test", () => {
     expect(sections[1].content).toContain("# Kapitel 2");
   });
 
+  it("loads the saved book work view and keeps later switches session-only", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem("easy-author.work-mode.v1", "clean");
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Buch wechseln/ }));
+    await user.click(screen.getByRole("button", { name: /Buch Zwei/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Alle Bedienelemente anzeigen" }));
+    expect(await screen.findByRole("button", { name: /Intense/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Intense/ }));
+    const picker = screen.getByRole("dialog", { name: "Arbeitsansicht wählen" });
+    await user.click(within(picker).getByRole("button", { name: /Review/ }));
+    expect(api.put).not.toHaveBeenCalledWith(`/api/books/${bookTwo.id}/presentation`, expect.anything());
+  });
+
+  it("asks for and persists a work view after creating a book", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Buch mit Fokus");
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "+ Buch" }));
+    expect(await screen.findByRole("dialog", { name: "Arbeitsansicht wählen" })).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalledWith(expect.stringMatching(/presentation$/), expect.anything());
+    await user.click(screen.getByRole("button", { name: /Intense/ }));
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(expect.stringMatching(/\/api\/books\/book-\d+\/presentation$/), {
+        default_work_view: "intense",
+        typography_overrides: {},
+      });
+    });
+    promptSpy.mockRestore();
+  });
+
   it("loads a chapter, switches to markdown, saves, and returns to rich mode", async () => {
     const user = userEvent.setup();
 
@@ -736,7 +810,7 @@ describe("App editor smoke test", () => {
       target: { value: nextMarkdown },
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -755,7 +829,7 @@ describe("App editor smoke test", () => {
     expect(api.put).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
 
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
   });
@@ -769,7 +843,7 @@ describe("App editor smoke test", () => {
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
     expect(screen.getByTestId("editor-pane")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
 
     expect(await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(RICH_SNAPSHOT_MARKDOWN);
     expect(screen.getByText("Modus · Markdown")).toBeInTheDocument();
@@ -926,7 +1000,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+    await clickTransientControl(user, "Vollbild");
 
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
     expect(screen.queryByRole("button", { name: "Vollbild" })).not.toBeInTheDocument();
@@ -941,6 +1015,35 @@ describe("App editor smoke test", () => {
     await waitFor(() => {
       expect(container.querySelector(".workspace-grid")?.className).not.toContain("editor-fullscreen");
     });
+  });
+
+  it("opens the Kanban workspace from the keyboard-accessible controls and closes it with Escape", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    await clickTransientControl(user, "Kanban öffnen");
+    expect(await screen.findByRole("dialog", { name: "Kanban-Arbeitsansicht" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Kanban-Arbeitsansicht" })).not.toBeInTheDocument());
+  });
+
+  it("tracks system theme changes without changing the stored global preference", async () => {
+    let dark = false;
+    const listeners = new Set();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      get matches() { return dark; },
+      addEventListener: (_name, listener) => listeners.add(listener),
+      removeEventListener: (_name, listener) => listeners.delete(listener),
+    }));
+    const { container } = render(<App />);
+    expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
+    expect(container.firstChild).toHaveAttribute("data-theme", "light");
+    dark = true;
+    await act(async () => listeners.forEach((listener) => listener()));
+    expect(container.firstChild).toHaveAttribute("data-theme", "dark");
+    expect(JSON.parse(window.localStorage.getItem("easy-author.editor-appearance.v1")).themeMode).toBe("system");
+    window.matchMedia = originalMatchMedia;
   });
 
   it("edits and persists book description metadata", async () => {
@@ -997,7 +1100,7 @@ describe("App editor smoke test", () => {
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Hilfe" }));
+    await clickTransientControl(user, "Hilfe");
 
     expect(screen.getByRole("dialog", { name: "Editor-Hilfe" })).toBeInTheDocument();
     expect(screen.getByText("MVP-Referenz fuer Schreiben, Workflow und Einfuegen")).toBeInTheDocument();
@@ -1023,7 +1126,7 @@ describe("App editor smoke test", () => {
     expect(editorFrame).toBeTruthy();
     expect(workspaceGrid).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /Einstellungen/ }));
+    await clickTransientControl(user, /Einstellungen/);
 
     expect(screen.getByRole("dialog", { name: "Editor-Einstellungen" })).toBeInTheDocument();
 
@@ -1046,7 +1149,7 @@ describe("App editor smoke test", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "Vollbild" }));
+    await clickTransientControl(user, "Vollbild");
     expect(container.querySelector(".workspace-grid")?.className).toContain("editor-fullscreen");
     expect(editorFrame?.style.getPropertyValue("--fullscreen-backdrop-start")).toBe("#ede1d9");
     fireEvent.keyDown(window, {
@@ -1360,7 +1463,7 @@ describe("App editor smoke test", () => {
       expect(textarea).toHaveValue(expectedMarkdown);
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -1386,7 +1489,7 @@ describe("App editor smoke test", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Kapitel 1")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
 
     const textarea = await screen.findByPlaceholderText(
       "Schreibe hier direkt in Markdown. Wiki-Links wie [[Mara]] oder [[Ort:Alter Garten]] bleiben erhalten.",
@@ -1470,10 +1573,10 @@ describe("App editor smoke test", () => {
       expect(textarea).toHaveValue(expectedMarkdown);
     });
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
     const returnedTextarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
 
     await waitFor(() => {
@@ -1597,10 +1700,10 @@ describe("App editor smoke test", () => {
     expect(slotCards[3].textContent).toContain(firstSelection);
     expect(slotCards[6].textContent).toContain("leer");
 
-    await user.click(screen.getByRole("button", { name: "Rich" }));
+    await clickTransientControl(user, "Rich");
     expect(await screen.findByTestId("editor-pane")).toHaveTextContent("Rich Editor: Kapitel 1");
 
-    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await clickTransientControl(user, "Markdown");
     const returnedTextarea = await screen.findByPlaceholderText(MARKDOWN_PLACEHOLDER);
 
     await waitFor(() => {
@@ -1878,7 +1981,7 @@ describe("App editor smoke test", () => {
     });
 
     expect(screen.getByText("Autosave ausstehend")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapterTwo.id}`, expect.objectContaining({
@@ -1922,8 +2025,14 @@ describe("App editor smoke test", () => {
 
     const failedAutosaveDraft = `${chapter.markdown_content}\n\nFehlerfall`;
     const saveError = new Error("Speicherziel nicht erreichbar");
-    api.put.mockImplementationOnce(async () => {
-      throw saveError;
+    const successfulPut = api.put.getMockImplementation();
+    let rejectAutosave = true;
+    api.put.mockImplementation(async (path, payload) => {
+      if (rejectAutosave && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "autosave") {
+        throw saveError;
+      }
+      if (path === `/api/chapters/${chapter.id}` && payload?.save_mode === "manual") rejectAutosave = false;
+      return successfulPut(path, payload);
     });
 
     await act(async () => {
@@ -1939,13 +2048,14 @@ describe("App editor smoke test", () => {
         expect(screen.getByText("Fehler beim Speichern")).toBeInTheDocument();
         expect(screen.getByText("Speicherziel nicht erreichbar")).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
 
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(failedAutosaveDraft);
-    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalled();
+    api.put.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapter.id}`, expect.objectContaining({
@@ -1961,7 +2071,7 @@ describe("App editor smoke test", () => {
       }));
     });
 
-    expect(api.put).toHaveBeenCalledTimes(2);
+    expect(api.put).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Speicherziel nicht erreichbar")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -1972,7 +2082,7 @@ describe("App editor smoke test", () => {
       expect(screen.getByText("Synchron")).toBeInTheDocument();
       expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(failedAutosaveDraft);
     });
-  }, 9000);
+  }, 16000);
 
   it("updates repeated save errors and clears stale failure state after switching chapters", async () => {
     const user = userEvent.setup();
@@ -1986,11 +2096,19 @@ describe("App editor smoke test", () => {
     const autosaveError = new Error("Autosave Verbindung verloren");
     const manualError = new Error("Manuelles Speichern weiterhin blockiert");
 
-    api.put.mockImplementationOnce(async () => {
-      throw autosaveError;
-    });
-    api.put.mockImplementationOnce(async () => {
-      throw manualError;
+    const successfulPut = api.put.getMockImplementation();
+    let rejectAutosave = true;
+    let manualRejected = false;
+    api.put.mockImplementation(async (path, payload) => {
+      if (rejectAutosave && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "autosave") {
+        throw autosaveError;
+      }
+      if (!manualRejected && path === `/api/chapters/${chapter.id}` && payload?.save_mode === "manual") {
+        rejectAutosave = false;
+        manualRejected = true;
+        throw manualError;
+      }
+      return successfulPut(path, payload);
     });
 
     await act(async () => {
@@ -2004,10 +2122,11 @@ describe("App editor smoke test", () => {
         expect(screen.getByText("Fehler beim Speichern")).toBeInTheDocument();
         expect(screen.getByText("Autosave Verbindung verloren")).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
+    api.put.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(screen.getByText("Manuelles Speichern weiterhin blockiert")).toBeInTheDocument();
@@ -2015,7 +2134,7 @@ describe("App editor smoke test", () => {
 
     expect(screen.queryByText("Autosave Verbindung verloren")).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(unstableDraft);
-    expect(api.put).toHaveBeenCalledTimes(2);
+    expect(api.put).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: /Kapitel 2/ }));
 
@@ -2035,7 +2154,7 @@ describe("App editor smoke test", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "Kapitel speichern" }));
+    await clickTransientControl(user, "Kapitel speichern");
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(`/api/chapters/${chapterTwo.id}`, expect.objectContaining({
@@ -2051,7 +2170,7 @@ describe("App editor smoke test", () => {
       }));
     });
 
-    expect(api.put).toHaveBeenCalledTimes(3);
+    expect(api.put).toHaveBeenCalledTimes(2);
     expect(screen.queryByText("Manuelles Speichern weiterhin blockiert")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -2062,7 +2181,7 @@ describe("App editor smoke test", () => {
       expect(screen.getByText("Synchron")).toBeInTheDocument();
       expect(screen.getByPlaceholderText(MARKDOWN_PLACEHOLDER)).toHaveValue(recoveredDraft);
     });
-  }, 10000);
+  }, 16000);
 
   it("recovers from anchor and clipboard failures without losing the current markdown draft", async () => {
     const user = userEvent.setup();

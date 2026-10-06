@@ -218,6 +218,47 @@ type UpdateReviewCommentInput struct {
 	IsTodoDone    bool   `json:"is_todo_done"`
 }
 
+type DocumentAnchorInput struct {
+	BlockID       string `json:"block_id"`
+	SelectedText  string `json:"selected_text"`
+	StartOffset   int    `json:"start_offset"`
+	EndOffset     int    `json:"end_offset"`
+	ContextBefore string `json:"context_before"`
+	ContextAfter  string `json:"context_after"`
+	Checksum      string `json:"checksum"`
+}
+
+type CreateThreadMessageInput struct {
+	Author string `json:"author"`
+	Body   string `json:"body"`
+}
+
+type CreateContextInput struct {
+	AnchorID    string                    `json:"anchor_id"`
+	Anchor      DocumentAnchorInput       `json:"anchor"`
+	ContextType string                    `json:"context_type"`
+	TargetID    string                    `json:"target_id"`
+	Status      string                    `json:"status"`
+	Message     *CreateThreadMessageInput `json:"message,omitempty"`
+}
+
+type CreateWorkItemInput struct {
+	ChapterID string `json:"chapter_id"`
+	AnchorID  string `json:"anchor_id"`
+	ThreadID  string `json:"thread_id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Phase     string `json:"phase"`
+	Priority  int    `json:"priority"`
+	DueAt     string `json:"due_at"`
+}
+
+type KanbanQuery struct {
+	BookIDs       []string
+	LimitPerPhase int
+	IncludeDone   bool
+}
+
 type CreateKnowledgeItemInput struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
@@ -262,6 +303,12 @@ func (s *Store) Init(ctx context.Context) error {
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS book_presentations (
+			book_id TEXT PRIMARY KEY,
+			default_work_view TEXT NOT NULL DEFAULT 'clean' CHECK(default_work_view IN ('clean', 'intense', 'review')),
+			typography_overrides TEXT NOT NULL DEFAULT '{}',
+			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS chapters (
 			id TEXT PRIMARY KEY,
@@ -330,6 +377,72 @@ func (s *Store) Init(ctx context.Context) error {
 			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
 			FOREIGN KEY(revision_id) REFERENCES revisions(id) ON DELETE SET DEFAULT
 		);`,
+		`CREATE TABLE IF NOT EXISTS document_anchors (
+			id TEXT PRIMARY KEY,
+			chapter_id TEXT NOT NULL,
+			block_id TEXT NOT NULL DEFAULT '',
+			selected_text TEXT NOT NULL DEFAULT '',
+			start_offset INTEGER NOT NULL DEFAULT 0,
+			end_offset INTEGER NOT NULL DEFAULT 0,
+			context_before TEXT NOT NULL DEFAULT '',
+			context_after TEXT NOT NULL DEFAULT '',
+			checksum TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS document_anchors_chapter_position_idx ON document_anchors(chapter_id, start_offset, id);`,
+		`CREATE TABLE IF NOT EXISTS anchor_contexts (
+			id TEXT PRIMARY KEY,
+			anchor_id TEXT NOT NULL,
+			context_type TEXT NOT NULL CHECK(context_type IN ('comment', 'work_item', 'link', 'clipboard_insert', 'clipboard_source')),
+			target_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'planned', 'in_progress', 'review', 'resolved', 'deleted')),
+			legacy_entity_id TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(anchor_id) REFERENCES document_anchors(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS anchor_contexts_anchor_created_idx ON anchor_contexts(anchor_id, created_at, id);`,
+		`CREATE INDEX IF NOT EXISTS anchor_contexts_legacy_idx ON anchor_contexts(legacy_entity_id) WHERE legacy_entity_id <> '';`,
+		`CREATE TABLE IF NOT EXISTS comment_threads (
+			id TEXT PRIMARY KEY,
+			context_id TEXT NOT NULL UNIQUE,
+			status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'planned', 'in_progress', 'review', 'resolved')),
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(context_id) REFERENCES anchor_contexts(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS comment_messages (
+			id TEXT PRIMARY KEY,
+			thread_id TEXT NOT NULL,
+			author TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL,
+			position INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY(thread_id) REFERENCES comment_threads(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS comment_messages_thread_created_idx ON comment_messages(thread_id, created_at, id);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS comment_messages_thread_position_idx ON comment_messages(thread_id, position);`,
+		`CREATE TABLE IF NOT EXISTS work_items (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			book_id TEXT NOT NULL,
+			chapter_id TEXT NOT NULL DEFAULT '',
+			anchor_id TEXT NOT NULL DEFAULT '',
+			thread_id TEXT NOT NULL DEFAULT '',
+			kind TEXT NOT NULL CHECK(kind IN ('task', 'comment', 'reminder')),
+			title TEXT NOT NULL,
+			phase TEXT NOT NULL DEFAULT 'backlog' CHECK(phase IN ('backlog', 'todo', 'in_progress', 'review', 'done')),
+			priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 3),
+			due_at TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+			FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS work_items_board_idx ON work_items(book_id, phase, priority DESC, due_at, updated_at DESC);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS work_items_thread_idx ON work_items(thread_id) WHERE thread_id <> '';`,
 		`CREATE TABLE IF NOT EXISTS clipboard_items (
 			id TEXT PRIMARY KEY,
 			book_id TEXT NOT NULL,
@@ -427,8 +540,52 @@ func (s *Store) Init(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS review_comments_chapter_revision_created_idx ON review_comments(chapter_id, revision_id, created_at DESC)`); err != nil {
 		return fmt.Errorf("migrate review comment revision index: %w", err)
 	}
+	if err := s.ensureDemoContent(ctx); err != nil {
+		return err
+	}
+	return s.migrateLegacyContexts(ctx)
+}
 
-	return s.ensureDemoContent(ctx)
+func (s *Store) migrateLegacyContexts(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin context migration: %w", err)
+	}
+	defer tx.Rollback()
+	statements := []string{
+		`INSERT OR IGNORE INTO document_anchors (id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at)
+		 SELECT id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at FROM anchors`,
+		`INSERT OR IGNORE INTO anchor_contexts (id, anchor_id, context_type, target_id, status, legacy_entity_id, created_at, updated_at)
+		 SELECT 'legacy-anchor-' || id, id, 'link', workflow_box_id, 'open', id, created_at, updated_at FROM anchors`,
+		`INSERT OR IGNORE INTO document_anchors (id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at)
+		 SELECT 'review-' || id, chapter_id, selected_text, start_offset, end_offset, context_before, context_after, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO anchor_contexts (id, anchor_id, context_type, status, legacy_entity_id, created_at, updated_at)
+		 SELECT id, 'review-' || id, 'comment', CASE WHEN status IN ('resolved', 'applied', 'rejected') OR is_todo_done = 1 THEN 'resolved' ELSE 'open' END, id, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO comment_threads (id, context_id, status, created_at, updated_at)
+		 SELECT id, id, CASE WHEN status IN ('resolved', 'applied', 'rejected') OR is_todo_done = 1 THEN 'resolved' ELSE 'open' END, created_at, updated_at FROM review_comments`,
+		`INSERT OR IGNORE INTO comment_messages (id, thread_id, author, body, created_at)
+		 SELECT 'legacy-' || id, id, author, CASE WHEN body <> '' THEN body ELSE suggested_text END, created_at FROM review_comments WHERE body <> '' OR suggested_text <> ''`,
+		`INSERT OR IGNORE INTO work_items (id, project_id, book_id, chapter_id, anchor_id, thread_id, kind, title, phase, priority, created_at, updated_at)
+		 SELECT 'thread-card-' || t.id, b.project_id, ch.book_id, ch.id, a.id, t.id, 'comment',
+		 CASE WHEN m.body <> '' THEN substr(m.body, 1, 120) ELSE 'Kommentar' END,
+		 CASE t.status WHEN 'planned' THEN 'todo' WHEN 'in_progress' THEN 'in_progress' WHEN 'review' THEN 'review' WHEN 'resolved' THEN 'done' ELSE 'backlog' END,
+		 0, t.created_at, t.updated_at
+		 FROM comment_threads t
+		 JOIN anchor_contexts c ON c.id = t.context_id
+		 JOIN document_anchors a ON a.id = c.anchor_id
+		 JOIN chapters ch ON ch.id = a.chapter_id
+		 JOIN books b ON b.id = ch.book_id
+		 LEFT JOIN comment_messages m ON m.thread_id = t.id AND m.position = 0`,
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate legacy contexts: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit context migration: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) ensureDemoContent(ctx context.Context) error {
@@ -632,6 +789,62 @@ func (s *Store) CreateBook(ctx context.Context, projectID string, input CreateBo
 		return model.Book{}, fmt.Errorf("touch project: %w", err)
 	}
 	return item, nil
+}
+
+func (s *Store) GetBookPresentation(ctx context.Context, bookID string) (model.BookPresentation, error) {
+	var item model.BookPresentation
+	var typography string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT book_id, default_work_view, typography_overrides
+		FROM book_presentations
+		WHERE book_id = ?
+	`, bookID).Scan(&item.BookID, &item.DefaultWorkView, &typography)
+	if errors.Is(err, sql.ErrNoRows) {
+		var exists int
+		if lookupErr := s.db.QueryRowContext(ctx, `SELECT 1 FROM books WHERE id = ?`, bookID).Scan(&exists); errors.Is(lookupErr, sql.ErrNoRows) {
+			return model.BookPresentation{}, ErrNotFound
+		} else if lookupErr != nil {
+			return model.BookPresentation{}, fmt.Errorf("lookup book presentation parent: %w", lookupErr)
+		}
+		return model.BookPresentation{BookID: bookID, DefaultWorkView: "clean", TypographyOverrides: json.RawMessage(`{}`)}, nil
+	}
+	if err != nil {
+		return model.BookPresentation{}, fmt.Errorf("get book presentation: %w", err)
+	}
+	item.TypographyOverrides = json.RawMessage(typography)
+	return item, nil
+}
+
+func (s *Store) UpdateBookPresentation(ctx context.Context, input model.BookPresentation) (model.BookPresentation, error) {
+	if input.DefaultWorkView != "clean" && input.DefaultWorkView != "intense" && input.DefaultWorkView != "review" {
+		return model.BookPresentation{}, fmt.Errorf("default_work_view must be clean, intense, or review")
+	}
+	typography := input.TypographyOverrides
+	if len(typography) == 0 {
+		typography = json.RawMessage(`{}`)
+	}
+	if !json.Valid(typography) {
+		return model.BookPresentation{}, fmt.Errorf("typography_overrides must be valid JSON")
+	}
+	result, err := s.db.ExecContext(ctx, `
+		INSERT INTO book_presentations (book_id, default_work_view, typography_overrides)
+		VALUES (?, ?, ?)
+		ON CONFLICT(book_id) DO UPDATE SET
+			default_work_view = excluded.default_work_view,
+			typography_overrides = excluded.typography_overrides
+	`, input.BookID, input.DefaultWorkView, string(typography))
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "foreign key") {
+			return model.BookPresentation{}, ErrNotFound
+		}
+		return model.BookPresentation{}, fmt.Errorf("update book presentation: %w", err)
+	}
+	if affected, affectedErr := result.RowsAffected(); affectedErr != nil {
+		return model.BookPresentation{}, fmt.Errorf("update book presentation rows: %w", affectedErr)
+	} else if affected == 0 {
+		return model.BookPresentation{}, ErrNotFound
+	}
+	return s.GetBookPresentation(ctx, input.BookID)
 }
 
 func (s *Store) GetBook(ctx context.Context, bookID string) (model.BookBundle, error) {
@@ -1727,4 +1940,8 @@ func max(left, right int) int {
 	return right
 }
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound = errors.New("not found")
+	ErrInvalid  = errors.New("invalid input")
+	ErrConflict = errors.New("conflict")
+)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -196,6 +197,199 @@ func TestAuthorFlowEndpoints(t *testing.T) {
 	if len(knowledgeItems["knowledge_items"].([]any)) == 0 {
 		t.Fatalf("expected knowledge items in project response")
 	}
+}
+
+func TestBookPresentationEndpointsValidateAndPersistWorkView(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+	projectID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects", map[string]any{"title": "Testprojekt"})["id"].(string)
+	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{"title": "Testbuch"})["id"].(string)
+
+	initial := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID+"/presentation", nil)
+	if initial["default_work_view"] != "clean" {
+		t.Fatalf("expected clean default, got %#v", initial)
+	}
+
+	for _, workView := range []string{"clean", "intense", "review"} {
+		updated := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+			"default_work_view":    workView,
+			"typography_overrides": map[string]any{},
+		}, http.StatusOK)
+		if updated["default_work_view"] != workView {
+			t.Fatalf("expected %q, got %#v", workView, updated)
+		}
+	}
+
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view": "write",
+	}, http.StatusBadRequest)
+	persisted := requestJSON(t, app.Handler(), http.MethodGet, "/api/books/"+bookID+"/presentation", nil)
+	if persisted["default_work_view"] != "review" {
+		t.Fatalf("invalid update changed persisted view: %#v", persisted)
+	}
+
+	withTypography := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view":    "review",
+		"typography_overrides": map[string]any{"bodyFont": "Literata", "bodySize": 19},
+	}, http.StatusOK)
+	typography := withTypography["typography_overrides"].(map[string]any)
+	if typography["bodyFont"] != "Literata" || typography["bodySize"] != float64(19) {
+		t.Fatalf("expected partial typography round trip, got %#v", typography)
+	}
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/books/"+bookID+"/presentation", map[string]any{
+		"default_work_view":    "review",
+		"typography_overrides": []any{"not", "an", "object"},
+	}, http.StatusBadRequest)
+}
+
+func TestContextEndpointsCreateListReplyResolveAndDelete(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+	projectID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects", map[string]any{"title": "Kontextprojekt"})["id"].(string)
+	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{"title": "Kontextbuch"})["id"].(string)
+	chapterID := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/chapters", map[string]any{"title": "Kapitel", "markdown_content": "Eine Passage."})["id"].(string)
+
+	comment := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/contexts", map[string]any{
+		"context_type": "comment",
+		"anchor":       map[string]any{"selected_text": "Passage", "start_offset": 5, "end_offset": 12},
+		"message":      map[string]any{"author": "Andy", "body": "Bitte prüfen"},
+	})
+	anchorID := comment["anchor_id"].(string)
+	threadID := comment["thread"].(map[string]any)["id"].(string)
+	link := createJSON(t, app.Handler(), http.MethodPost, "/api/chapters/"+chapterID+"/contexts", map[string]any{
+		"context_type": "link", "anchor_id": anchorID, "target_id": "kapitel-zwei",
+	})
+	createJSON(t, app.Handler(), http.MethodPost, "/api/threads/"+threadID+"/messages", map[string]any{"author": "Cody", "body": "Ist geprüft"})
+	resolved := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/threads/"+threadID, map[string]any{"status": "resolved"}, http.StatusOK)
+	if resolved["status"] != "resolved" {
+		t.Fatalf("thread was not resolved: %#v", resolved)
+	}
+	messages := resolved["messages"].([]any)
+	if len(messages) != 2 || messages[0].(map[string]any)["body"] != "Bitte prüfen" || messages[1].(map[string]any)["body"] != "Ist geprüft" {
+		t.Fatalf("thread replies are not stable: %#v", messages)
+	}
+	listed := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/contexts", nil)["contexts"].([]any)
+	if len(listed) != 2 || listed[0].(map[string]any)["anchor_id"] != anchorID || listed[1].(map[string]any)["anchor_id"] != anchorID {
+		t.Fatalf("unexpected context list: %#v", listed)
+	}
+	requestJSONWithStatus(t, app.Handler(), http.MethodDelete, "/api/contexts/"+link["id"].(string), nil, http.StatusNoContent)
+	remaining := requestJSON(t, app.Handler(), http.MethodGet, "/api/chapters/"+chapterID+"/contexts", nil)["contexts"].([]any)
+	if len(remaining) != 1 || remaining[0].(map[string]any)["status"] != "resolved" {
+		t.Fatalf("unexpected remaining context: %#v", remaining)
+	}
+}
+
+func TestContextEndpointsRejectInvalidParentsTypesAndStatuses(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/chapters/missing/contexts", map[string]any{
+		"context_type": "link", "anchor": map[string]any{"selected_text": "Text", "start_offset": 0, "end_offset": 4},
+	}, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodGet, "/api/chapters/missing/contexts", nil, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/chapters/missing/contexts", map[string]any{
+		"context_type": "unknown", "anchor": map[string]any{"selected_text": "Text", "start_offset": 0, "end_offset": 4},
+	}, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/threads/missing/messages", map[string]any{"body": "Antwort"}, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/threads/missing", map[string]any{"status": "maybe"}, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodDelete, "/api/contexts/missing", nil, http.StatusNotFound)
+}
+
+func TestKanbanEndpointsCreateQueryAndMoveAcrossFivePhases(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+	projectID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects", map[string]any{"title": "Kanbanprojekt"})["id"].(string)
+	bookID := createJSON(t, app.Handler(), http.MethodPost, "/api/projects/"+projectID+"/books", map[string]any{"title": "Kanbanbuch"})["id"].(string)
+
+	var firstID string
+	for index := 0; index < 13; index++ {
+		created := createJSON(t, app.Handler(), http.MethodPost, "/api/books/"+bookID+"/work-items", map[string]any{
+			"kind": "task", "title": fmt.Sprintf("Aufgabe %02d", index+1), "priority": index % 4,
+		})
+		if index == 0 {
+			firstID = created["id"].(string)
+		}
+		if created["phase"] != "backlog" {
+			t.Fatalf("new card did not default to backlog: %#v", created)
+		}
+	}
+	board := requestJSON(t, app.Handler(), http.MethodGet, "/api/kanban?book_ids="+bookID, nil)
+	backlog := board["items"].(map[string]any)["backlog"].([]any)
+	if len(backlog) != 12 || board["totals"].(map[string]any)["backlog"] != float64(13) {
+		t.Fatalf("default per-phase limit or total is wrong: %#v", board)
+	}
+	for _, phase := range []string{"todo", "in_progress", "review", "done"} {
+		moved := requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/work-items/"+firstID+"/phase", map[string]any{"phase": phase}, http.StatusOK)
+		if moved["phase"] != phase {
+			t.Fatalf("move to %s failed: %#v", phase, moved)
+		}
+	}
+	withDone := requestJSON(t, app.Handler(), http.MethodGet, "/api/kanban?book_ids="+bookID+"&include_done=true&limit=20", nil)
+	if withDone["totals"].(map[string]any)["done"] != float64(1) {
+		t.Fatalf("done card missing from explicit query: %#v", withDone)
+	}
+}
+
+func TestKanbanEndpointsRejectMalformedFiltersAndLimits(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	database, err := db.OpenSQLite(filepath.Join(tempDir, "easy-author.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	appStore := store.New(database, filepath.Join(tempDir, "library"))
+	if err := appStore.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	app := httpapi.New(config.Config{}, appStore)
+
+	requestJSONWithStatus(t, app.Handler(), http.MethodGet, "/api/kanban?book_ids=book-a,,book-b", nil, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodGet, "/api/kanban?limit=21", nil, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodGet, "/api/kanban?limit=abc", nil, http.StatusBadRequest)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPost, "/api/books/missing/work-items", map[string]any{"kind": "task", "title": "Nicht möglich"}, http.StatusNotFound)
+	requestJSONWithStatus(t, app.Handler(), http.MethodPut, "/api/work-items/missing/phase", map[string]any{"phase": "finished"}, http.StatusBadRequest)
 }
 
 func createJSON(t *testing.T, handler http.Handler, method, path string, payload any) map[string]any {

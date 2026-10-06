@@ -1,0 +1,8 @@
+---
+- name: Deploy protected EasyAuthor staging
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  roles:
+    - easy-author

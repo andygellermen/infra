@@ -226,3 +226,22 @@ positioniert werden.
 Nicht als voll ausinszeniertes Gesamt-Produktionssystem in jeder sichtbaren Ebene gleichzeitig.
 
 Das Potenzial fuer Story-Kalender, Bundler, Regie-Planung und tiefere Workflow-Orchestrierung ist klar vorhanden — aber fuer Orientierung und Nutzbarkeit sollten diese Ebenen schrittweise ueber den Kernpfad gelegt werden.
+
+## Stand nach dem UI-MVP-Umbau
+
+Die im Kassensturz benannte Richtung ist mit den Paketen 1 bis 5 technisch
+umgesetzt. Der Editor ist Mittelpunkt; Navigation und Werkzeuge erscheinen
+ueber temporaere Bedienelemente oder den passenden Arbeitsmodus. Clean & Free,
+Intense und Review staffeln dieselben Manuskriptdaten nach Autorenaufgabe.
+
+Das Kontextmodell vereinheitlicht inzwischen dauerhafte Textanker,
+Kommentar-Threads, Rand-Icons und Kanban-Karten. Die eigene Kanban-Ansicht
+unterstuetzt Einzelbuch- und Mehrbuchvergleich, ohne Buchfarben dauerhaft in
+den Fachdaten zu speichern. Globale Gestaltung und vererbbare Buchtypografie
+trennen die naechtliche Arbeitsumgebung von der individuellen Schreibatmosphaere.
+
+Der naechste Bewertungsmaßstab ist daher nicht mehr die grundsaetzliche
+Funktionsabdeckung, sondern das Autoren-Erfahrungsreview auf einer geschuetzten
+Staging-Installation: Ablenkungsarmut, mentale Orientierung, sinnvolle
+Voreinstellungen und Reibung bei laengeren echten Schreibsitzungen. Die
+technische Nachweismatrix liegt in `apps/easy-author/docs/ui-mvp-validation.md`.

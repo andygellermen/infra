@@ -1,8 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EditorPane from "./components/EditorPane";
 import SidebarSection from "./components/SidebarSection";
+import TransientControlBar from "./components/TransientControlBar";
+import WorkViewPicker from "./components/WorkViewPicker";
+import TypographySettings from "./components/TypographySettings";
+import CommentThread from "./components/CommentThread";
+import KanbanBoard, { KANBAN_PHASES } from "./components/KanbanBoard";
+import BookKanbanFilter from "./components/BookKanbanFilter";
 import { api } from "./lib/api";
 import { markdownToDoc, previewText } from "./lib/markdown";
+import {
+  DEFAULT_GLOBAL_APPEARANCE,
+  loadGlobalAppearance,
+  loadSessionWorkView,
+  normalizeGlobalAppearance,
+  saveGlobalAppearance,
+  saveSessionWorkView,
+} from "./lib/uiPreferences";
+import {
+  loadGlobalTypography,
+  normalizeTypographyOverrides,
+  resolveTypography,
+  saveGlobalTypography,
+} from "./lib/typography";
 import {
   extractWikiLinks,
   formatTagInput,
@@ -19,30 +39,9 @@ const EMPTY_DRAFT = {
   editor_json: "",
 };
 
-const DEFAULT_EDITOR_APPEARANCE = {
-  fontFamily: "serif",
-  googleFontName: "Cormorant Garamond",
-  fontSize: 18,
-  lineHeight: 1.8,
-  contentWidth: 860,
-  fullscreenContentWidth: 1040,
-  fullscreenBackdrop: "linen",
-  surfacePreset: "warm",
-  caretColor: "#76c7ff",
-};
-
-const EDITOR_APPEARANCE_STORAGE_KEY = "easy-author.editor-appearance.v1";
-const WORK_MODE_STORAGE_KEY = "easy-author.work-mode.v1";
+const DEFAULT_EDITOR_APPEARANCE = DEFAULT_GLOBAL_APPEARANCE;
 const POPUP_HOLD_DELAY_MS = 2000;
 const POPUP_FADE_IN_DELAY_MS = 24;
-const ALLOWED_FULLSCREEN_BACKDROPS = new Set(["linen", "paper", "dusk", "night"]);
-const ALLOWED_SURFACE_PRESETS = new Set(["warm", "paper", "night"]);
-const ALLOWED_FONT_FAMILIES = new Set(["serif", "sans", "mono", "google"]);
-const WORK_MODES = [
-  { key: "write", label: "Schreibfluss", hint: "Schnell, direkt, ablenkungsarm" },
-  { key: "structure", label: "Struktur", hint: "Verknüpfen, Wissen, Workflow" },
-  { key: "review", label: "Finalisierung", hint: "Revision, Proofing, Verlag" },
-];
 const GOOGLE_FONT_PRESETS = [
   "Cormorant Garamond",
   "Crimson Pro",
@@ -326,46 +325,11 @@ function detectStoryTimeCues(text) {
 }
 
 function sanitizeEditorAppearance(value) {
-  const next = {
-    ...DEFAULT_EDITOR_APPEARANCE,
-    ...(value && typeof value === "object" ? value : {}),
-  };
-  next.fontFamily = ALLOWED_FONT_FAMILIES.has(next.fontFamily) ? next.fontFamily : DEFAULT_EDITOR_APPEARANCE.fontFamily;
-  next.googleFontName = String(next.googleFontName || DEFAULT_EDITOR_APPEARANCE.googleFontName).trim().slice(0, 80) || DEFAULT_EDITOR_APPEARANCE.googleFontName;
-  next.surfacePreset = ALLOWED_SURFACE_PRESETS.has(next.surfacePreset)
-    ? next.surfacePreset
-    : DEFAULT_EDITOR_APPEARANCE.surfacePreset;
-  next.fullscreenBackdrop = ALLOWED_FULLSCREEN_BACKDROPS.has(next.fullscreenBackdrop)
-    ? next.fullscreenBackdrop
-    : DEFAULT_EDITOR_APPEARANCE.fullscreenBackdrop;
-  next.fontSize = Math.min(24, Math.max(16, Number(next.fontSize) || DEFAULT_EDITOR_APPEARANCE.fontSize));
-  next.lineHeight = Math.min(2.2, Math.max(1.5, Number(next.lineHeight) || DEFAULT_EDITOR_APPEARANCE.lineHeight));
-  next.contentWidth = [640, 720, 860, 960, 1040, 1160].includes(Number(next.contentWidth))
-    ? Number(next.contentWidth)
-    : DEFAULT_EDITOR_APPEARANCE.contentWidth;
-  next.fullscreenContentWidth = [860, 1040, 1200, 1360].includes(Number(next.fullscreenContentWidth))
-    ? Number(next.fullscreenContentWidth)
-    : DEFAULT_EDITOR_APPEARANCE.fullscreenContentWidth;
-  next.caretColor =
-    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(next.caretColor || "").trim())
-      ? String(next.caretColor).trim()
-      : DEFAULT_EDITOR_APPEARANCE.caretColor;
-  return next;
+  return normalizeGlobalAppearance(value);
 }
 
 function loadStoredEditorAppearance() {
-  if (typeof window === "undefined") {
-    return DEFAULT_EDITOR_APPEARANCE;
-  }
-  try {
-    const raw = window.localStorage.getItem(EDITOR_APPEARANCE_STORAGE_KEY);
-    if (!raw) {
-      return DEFAULT_EDITOR_APPEARANCE;
-    }
-    return sanitizeEditorAppearance(JSON.parse(raw));
-  } catch {
-    return DEFAULT_EDITOR_APPEARANCE;
-  }
+  return loadGlobalAppearance(typeof window === "undefined" ? null : window.localStorage);
 }
 
 function emptyReviewCommentDraft() {
@@ -729,15 +693,7 @@ function reviewCommentPhaseLabel(comment, revisionById) {
 }
 
 function loadStoredWorkMode() {
-  if (typeof window === "undefined") {
-    return "write";
-  }
-  try {
-    const stored = window.localStorage.getItem(WORK_MODE_STORAGE_KEY);
-    return WORK_MODES.some((mode) => mode.key === stored) ? stored : "write";
-  } catch {
-    return "write";
-  }
+  return loadSessionWorkView(typeof window === "undefined" ? null : window.localStorage) || "clean";
 }
 
 function normalizeHeadingTitle(value, fallback = "Unbenanntes Kapitel") {
@@ -908,6 +864,10 @@ export function splitMarkdownIntoChapterSections(markdown, fallbackTitle) {
   }));
 }
 
+export function isKanbanTargetReady(target, currentBookId, currentChapterId) {
+  return Boolean(target?.anchorId && target.bookId === currentBookId && target.chapterId === currentChapterId);
+}
+
 function App() {
   const editorRef = useRef(null);
   const markdownTextareaRef = useRef(null);
@@ -936,6 +896,8 @@ function App() {
   const [chapterDraft, setChapterDraft] = useState(EMPTY_DRAFT);
   const [anchors, setAnchors] = useState([]);
   const [reviewComments, setReviewComments] = useState([]);
+  const [contexts, setContexts] = useState(null);
+  const [activeContextAnchorId, setActiveContextAnchorId] = useState("");
   const [clipboardItems, setClipboardItems] = useState([]);
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
@@ -974,6 +936,12 @@ function App() {
   const [editorAppearance, setEditorAppearance] = useState(loadStoredEditorAppearance);
   const [showEditorHeader, setShowEditorHeader] = useState(false);
   const [workMode, setWorkMode] = useState(loadStoredWorkMode);
+  const [showWorkViewPicker, setShowWorkViewPicker] = useState(false);
+  const [persistWorkViewChoice, setPersistWorkViewChoice] = useState(false);
+  const [workViewPickerBookId, setWorkViewPickerBookId] = useState("");
+  const [bookDefaultWorkView, setBookDefaultWorkView] = useState("clean");
+  const [globalTypography, setGlobalTypography] = useState(() => loadGlobalTypography(window.localStorage));
+  const [bookTypographyOverrides, setBookTypographyOverrides] = useState({});
   const [showChapterOutline, setShowChapterOutline] = useState(true);
   const [revisions, setRevisions] = useState([]);
   const [autosaveDrafts, setAutosaveDrafts] = useState([]);
@@ -990,6 +958,16 @@ function App() {
   const [reviewFilter, setReviewFilter] = useState("open");
   const [reviewPhaseFilter, setReviewPhaseFilter] = useState("all");
   const [editingMilestoneId, setEditingMilestoneId] = useState("");
+  const [showKanban, setShowKanban] = useState(false);
+  const [kanbanScope, setKanbanScope] = useState("book");
+  const [kanbanSelectedBookIds, setKanbanSelectedBookIds] = useState([]);
+  const [kanbanData, setKanbanData] = useState({ items: {}, totals: {} });
+  const [kanbanCounts, setKanbanCounts] = useState({});
+  const [kanbanColors, setKanbanColors] = useState(new Map());
+  const [kanbanLimit, setKanbanLimit] = useState(12);
+  const [pendingKanbanTarget, setPendingKanbanTarget] = useState(null);
+  const [showResolvedContexts, setShowResolvedContexts] = useState(true);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({
     title: "",
     description: "",
@@ -1011,8 +989,8 @@ function App() {
     () => projectDetail?.project || projects.find((project) => project.id === selectedProjectId) || null,
     [projectDetail, projects, selectedProjectId],
   );
-  const isWriteMode = workMode === "write";
-  const isStructureMode = workMode === "structure";
+  const isWriteMode = workMode === "clean";
+  const isStructureMode = workMode === "intense";
   const isReviewMode = workMode === "review";
   const chaptersById = useMemo(
     () => new Map((bookBundle?.chapters || []).map((chapter) => [chapter.id, chapter])),
@@ -1231,6 +1209,11 @@ function App() {
     () => reviewComments.find((comment) => comment.id === activeReviewCommentId) || null,
     [activeReviewCommentId, reviewComments],
   );
+  const activeContext = useMemo(() => {
+    const group = (contexts || []).filter((context) => context.anchor_id === activeContextAnchorId);
+    const comment = group.find((context) => context.context_type === "comment");
+    return comment || group[0] || null;
+  }, [activeContextAnchorId, contexts]);
   const reviewSummary = useMemo(() => {
     const summary = {
       total: reviewComments.length,
@@ -1490,8 +1473,9 @@ function App() {
     editorMode === "markdown" ? "Modus · Markdown" : "",
   ].filter(Boolean);
 
-  const editorSurfaceStyle = useMemo(
-    () => ({
+  const editorSurfaceStyle = useMemo(() => {
+    const typography = resolveTypography(globalTypography, bookTypographyOverrides);
+    return {
       "--editor-font-family":
         editorAppearance.fontFamily === "google"
           ? `"${editorAppearance.googleFontName}", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif`
@@ -1518,9 +1502,23 @@ function App() {
       "--fullscreen-card-end": fullscreenBackdropTheme.cardEnd,
       "--fullscreen-card-border": fullscreenBackdropTheme.cardBorder,
       "--fullscreen-card-shadow": fullscreenBackdropTheme.cardShadow,
-    }),
-    [editorAppearance, fullscreenBackdropTheme],
-  );
+      "--book-body-font": typography.bodyFont,
+      "--book-heading-font": typography.headingFont,
+      "--book-h1-size": `${typography.h1Size}px`,
+      "--book-h2-size": `${typography.h2Size}px`,
+      "--book-h3-size": `${typography.h3Size}px`,
+      "--book-h4-size": `${typography.h4Size}px`,
+      "--book-h5-size": `${typography.h5Size}px`,
+      "--book-h6-size": `${typography.h6Size}px`,
+      "--book-body-size": `${typography.bodySize}px`,
+      "--book-quote-size": `${typography.quoteSize}px`,
+      "--book-table-size": `${typography.tableSize}px`,
+      "--book-text-width": `${typography.textWidth}px`,
+      "--book-first-line-indent": `${typography.firstLineIndent}px`,
+      "--book-line-height": String(typography.lineHeight),
+      "--book-paragraph-spacing": `${typography.paragraphSpacing}px`,
+    };
+  }, [bookTypographyOverrides, editorAppearance, fullscreenBackdropTheme, globalTypography]);
 
   function clearSelectionPopup() {
     window.clearTimeout(selectionPopupDelayRef.current);
@@ -1570,20 +1568,25 @@ function App() {
   }, []);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(EDITOR_APPEARANCE_STORAGE_KEY, JSON.stringify(editorAppearance));
-    } catch {
-      // ignore local persistence failures
-    }
+    saveGlobalAppearance(window.localStorage, editorAppearance);
   }, [editorAppearance]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(WORK_MODE_STORAGE_KEY, workMode);
-    } catch {
-      // ignore local persistence failures
-    }
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return undefined;
+    const sync = () => setSystemPrefersDark(media.matches);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
+  }, []);
+
+  useEffect(() => {
+    saveSessionWorkView(window.localStorage, workMode);
   }, [workMode]);
+
+  useEffect(() => {
+    saveGlobalTypography(window.localStorage, globalTypography);
+  }, [globalTypography]);
 
   useEffect(
     () => () => {
@@ -1637,8 +1640,61 @@ function App() {
     setShowBookPicker(false);
     setShowBookDetails(false);
     setShowBookEdit(false);
+    setBookDefaultWorkView("clean");
+    setBookTypographyOverrides({});
     loadBook(selectedBookId);
+    let cancelled = false;
+    api.get(`/api/books/${selectedBookId}/presentation`)
+      .then((presentation) => {
+        if (!cancelled) {
+          if (["clean", "intense", "review"].includes(presentation?.default_work_view)) {
+            setWorkMode(presentation.default_work_view);
+            setBookDefaultWorkView(presentation.default_work_view);
+          }
+          setBookTypographyOverrides(normalizeTypographyOverrides(presentation.typography_overrides));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setErrorMessage(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedBookId]);
+
+  useEffect(() => {
+    if (!showKanban || kanbanSelectedBookIds.length === 0) {
+      setKanbanData({ items: {}, totals: {} });
+      return;
+    }
+    let cancelled = false;
+    const query = encodeURIComponent(kanbanSelectedBookIds.join(","));
+    api.get(`/api/kanban?book_ids=${query}&include_done=true&limit=${kanbanLimit}`)
+      .then((response) => { if (!cancelled) setKanbanData(response); })
+      .catch((error) => { if (!cancelled) setErrorMessage(error.message); });
+    return () => { cancelled = true; };
+  }, [showKanban, kanbanSelectedBookIds.join("|"), kanbanLimit]);
+
+  useEffect(() => {
+    if (!showKanban || kanbanScope !== "global") return;
+    let cancelled = false;
+    Promise.all((projectDetail?.books || []).map(async (book) => {
+      const response = await api.get(`/api/kanban?book_ids=${encodeURIComponent(book.id)}&include_done=true&limit=1`);
+      return [book.id, response.totals || {}];
+    })).then((entries) => { if (!cancelled) setKanbanCounts(Object.fromEntries(entries)); })
+      .catch((error) => { if (!cancelled) setErrorMessage(error.message); });
+    return () => { cancelled = true; };
+  }, [showKanban, kanbanScope, projectDetail?.books]);
+
+  useEffect(() => {
+    if (!isKanbanTargetReady(pendingKanbanTarget, currentBook?.id, currentChapter?.id)) return;
+    const timer = window.setTimeout(() => {
+      editorRef.current?.focusDocumentAnchor?.(pendingKanbanTarget.anchorId);
+      setActiveContextAnchorId(pendingKanbanTarget.anchorId);
+      setPendingKanbanTarget(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pendingKanbanTarget, currentBook?.id, currentChapter?.id, chapterDraft.editor_json]);
 
   useEffect(() => {
     const lookup = {
@@ -1692,6 +1748,8 @@ function App() {
       chapterSessionRef.current = createChapterSessionId();
       setAnchors([]);
       setReviewComments([]);
+      setContexts(null);
+      setActiveContextAnchorId("");
       setRevisions([]);
       setAutosaveDrafts([]);
       setMilestones([]);
@@ -1720,16 +1778,17 @@ function App() {
     });
     loadAnchors(currentChapter.id);
     loadReviewComments(currentChapter.id);
+    loadContexts(currentChapter.id);
   }, [selectedChapterId, currentChapterId]);
 
   useEffect(() => {
-    if (workMode === "write") {
+    if (workMode === "clean") {
       setShowLeftOverlay(false);
       setShowRightOverlay(false);
       setShowWritingTools(false);
       return;
     }
-    if (workMode === "structure") {
+    if (workMode === "intense") {
       setActiveLeftSection("workflow");
       setActiveRightSection("clipboard");
       return;
@@ -1851,6 +1910,12 @@ function App() {
         return;
       }
 
+      if (event.key === "Escape" && showKanban) {
+        event.preventDefault();
+        setShowKanban(false);
+        return;
+      }
+
       if (event.key === "Escape" && (showLeftOverlay || showRightOverlay || showEditorHelp || showEditorSettings || showClipboardPalette || showReviewComposer || activeReviewCommentId || selectionContext)) {
         event.preventDefault();
         closeTransientPanels();
@@ -1875,6 +1940,7 @@ function App() {
     activeReviewCommentId,
     selectionContext,
     isEditorFullscreen,
+    showKanban,
     currentChapter,
     chapterDraft,
     editorMode,
@@ -1923,6 +1989,41 @@ function App() {
       }
     } catch (error) {
       setErrorMessage(error.message);
+    }
+  }
+
+  function openKanban(scope = "book") {
+    const available = projectDetail?.books || [];
+    setKanbanScope(scope);
+    setKanbanLimit(12);
+    setKanbanSelectedBookIds(scope === "book" ? [selectedBookId].filter(Boolean) : (kanbanSelectedBookIds.length ? kanbanSelectedBookIds : available.map((book) => book.id)));
+    setShowKanban(true);
+  }
+
+  function toggleKanbanBook(bookId) {
+    setKanbanSelectedBookIds((previous) => previous.includes(bookId) ? previous.filter((id) => id !== bookId) : [...previous, bookId]);
+  }
+
+  async function moveKanbanItem(itemId, phase) {
+    try {
+      const moved = await api.put(`/api/work-items/${itemId}/phase`, { phase });
+      setKanbanData((previous) => {
+        const nextItems = Object.fromEntries(KANBAN_PHASES.map(({ id }) => [id, (previous.items?.[id] || []).filter((item) => item.id !== itemId)]));
+        nextItems[phase] = [...(nextItems[phase] || []), moved];
+        const totals = { ...(previous.totals || {}) };
+        const oldPhase = KANBAN_PHASES.find(({ id }) => (previous.items?.[id] || []).some((item) => item.id === itemId))?.id;
+        if (oldPhase && oldPhase !== phase) { totals[oldPhase] = Math.max(0, (totals[oldPhase] || 0) - 1); totals[phase] = (totals[phase] || 0) + 1; }
+        return { items: nextItems, totals };
+      });
+    } catch (error) { setErrorMessage(error.message); }
+  }
+
+  function openKanbanSource(item) {
+    setShowKanban(false);
+    if (item.book_id) setSelectedBookId(item.book_id);
+    if (item.chapter_id) setSelectedChapterId(item.chapter_id);
+    if (item.book_id && item.chapter_id && item.anchor_id) {
+      setPendingKanbanTarget({ bookId: item.book_id, chapterId: item.chapter_id, anchorId: item.anchor_id });
     }
   }
 
@@ -1981,6 +2082,15 @@ function App() {
       const response = await api.get(`/api/chapters/${chapterId}/comments`);
       setReviewComments(response.comments || []);
       setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function loadContexts(chapterId) {
+    try {
+      const response = await api.get(`/api/chapters/${chapterId}/contexts`);
+      setContexts(response.contexts || []);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -2398,7 +2508,43 @@ function App() {
       });
       await loadProject(selectedProjectId);
       setSelectedBookId(book.id);
+      setWorkViewPickerBookId(book.id);
+      setPersistWorkViewChoice(true);
+      setShowWorkViewPicker(true);
       setShowBookPicker(false);
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function selectWorkView(nextView, { persistDefault = false } = {}) {
+    setWorkMode(nextView);
+    if (persistDefault) {
+      try {
+        await api.put(`/api/books/${workViewPickerBookId || selectedBookId}/presentation`, {
+          default_work_view: nextView,
+          typography_overrides: {},
+        });
+        setBookDefaultWorkView(nextView);
+      } catch (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+    }
+    setShowWorkViewPicker(false);
+    setPersistWorkViewChoice(false);
+    setWorkViewPickerBookId("");
+  }
+
+  async function updateBookTypography(nextOverrides) {
+    const normalized = normalizeTypographyOverrides(nextOverrides);
+    setBookTypographyOverrides(normalized);
+    try {
+      await api.put(`/api/books/${selectedBookId}/presentation`, {
+        default_work_view: bookDefaultWorkView,
+        typography_overrides: normalized,
+      });
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -2756,6 +2902,26 @@ function App() {
     }
 
     try {
+      if (reviewCommentDraft.comment_type === "comment") {
+        const created = await api.post(`/api/chapters/${selectedChapterId}/contexts`, {
+          context_type: "comment",
+          anchor: {
+            selected_text: reviewCommentDraft.selected_text,
+            start_offset: reviewCommentDraft.start_offset,
+            end_offset: reviewCommentDraft.end_offset,
+            context_before: reviewCommentDraft.context_before,
+            context_after: reviewCommentDraft.context_after,
+          },
+          message: { author: reviewCommentDraft.author, body: reviewCommentDraft.body },
+        });
+        setContexts((previous) => [...(previous || []), created]);
+        editorRef.current?.applyDocumentContext?.(created);
+        setActiveContextAnchorId(created.anchor_id);
+        closeReviewComposer();
+        clearSelectionPopup();
+        setErrorMessage("");
+        return;
+      }
       const created = await api.post(`/api/chapters/${selectedChapterId}/comments`, reviewCommentDraft);
       setReviewComments((previous) => [created, ...previous]);
       editorRef.current?.applyReviewCommentMark?.({
@@ -2777,6 +2943,46 @@ function App() {
       closeReviewComposer();
       clearSelectionPopup();
       setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  function activateContextGroup(group) {
+    if (!group?.anchorId) return;
+    editorRef.current?.focusDocumentAnchor?.(group.anchorId);
+    setActiveContextAnchorId(group.anchorId);
+  }
+
+  async function replyToActiveThread(body) {
+    if (!activeContext?.thread?.id) return;
+    try {
+      const message = await api.post(`/api/threads/${activeContext.thread.id}/messages`, { author: "Autor", body });
+      setContexts((previous) => (previous || []).map((context) => context.id === activeContext.id ? {
+        ...context,
+        thread: { ...context.thread, messages: [...(context.thread.messages || []), message] },
+      } : context));
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function updateActiveThreadStatus(status) {
+    if (!activeContext?.thread?.id) return;
+    try {
+      const thread = await api.put(`/api/threads/${activeContext.thread.id}`, { status });
+      setContexts((previous) => (previous || []).map((context) => context.id === activeContext.id ? { ...context, status: thread.status, thread } : context));
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function deleteActiveContext() {
+    if (!activeContext?.id) return;
+    try {
+      await api.delete(`/api/contexts/${activeContext.id}`);
+      setContexts((previous) => (previous || []).filter((context) => context.id !== activeContext.id));
+      setActiveContextAnchorId("");
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -2860,7 +3066,10 @@ function App() {
     editorRef.current?.replaceReviewCommentText?.({
       commentId: comment.id,
       text: replacementText.trim(),
-      keepMark: false,
+      keepMark: true,
+      commentType: comment.comment_type,
+      commentState: "applied",
+      commentPhase: reviewCommentPhaseKey(comment, revisionById),
     });
     await updateReviewComment(comment.id, {
       status: "applied",
@@ -2868,7 +3077,6 @@ function App() {
       suggested_text: replacementText.trim(),
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2890,7 +3098,6 @@ function App() {
       suggested_text: comment.suggested_text,
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2901,13 +3108,15 @@ function App() {
     if (!comment) {
       return;
     }
-    await updateReviewComment(comment.id, {
+    const updated = await updateReviewComment(comment.id, {
       status: "resolved",
       body: comment.body,
       suggested_text: comment.suggested_text,
       is_todo_done: true,
     });
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    if (updated) {
+      editorRef.current?.applyReviewCommentMark?.({ ...updated, comment_phase: reviewCommentPhaseKey(updated, revisionById) });
+    }
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -2927,7 +3136,7 @@ function App() {
     if (!updated) {
       return;
     }
-    editorRef.current?.removeReviewCommentMark?.(comment.id);
+    editorRef.current?.applyReviewCommentMark?.({ ...updated, comment_phase: reviewCommentPhaseKey(updated, revisionById) });
     setActiveReviewCommentId("");
     setReviewBubblePosition(null);
     setIsEditingReviewSuggestion(false);
@@ -3233,6 +3442,9 @@ function App() {
     if (nextMode === "markdown") {
       const snapshot = editorRef.current?.getDocumentSnapshot?.();
       if (snapshot) {
+        // A mode switch captures live rich text. It must not leave the hydration
+        // guard armed, otherwise the first Markdown edit can miss autosave.
+        skipAutosaveRef.current = false;
         setChapterDraft((previous) => ({
           ...previous,
           ...snapshot,
@@ -3334,9 +3546,65 @@ function App() {
   return (
     <div
       className={`app-shell ${isEditorFullscreen ? "editor-fullscreen-shell" : ""} ${showLeftOverlay ? "has-left-overlay" : ""} ${showRightOverlay ? "has-right-overlay" : ""} ${isWidgetFocusActive ? "has-widget-focus" : ""}`}
+      data-theme={editorAppearance.themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : editorAppearance.themeMode}
     >
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
       {showFocusScrim ? <div className="focus-scrim" aria-hidden="true" onClick={closeTransientPanels} /> : null}
+
+      <TransientControlBar
+        book={currentBook}
+        chapter={currentChapter}
+        workView={workMode}
+        saveState={saveState}
+        blocked={Boolean(showEditorHelp || showEditorSettings || showWritingTools || showClipboardPalette || showReviewComposer || activeReviewCommentId || showWorkViewPicker)}
+        onWorkView={() => {
+          setPersistWorkViewChoice(false);
+          setWorkViewPickerBookId(selectedBookId);
+          setShowWorkViewPicker(true);
+        }}
+        onCommand={() => setShowWritingTools(true)}
+        onAppearance={() => setShowEditorSettings(true)}
+        onSettings={() => setShowEditorSettings(true)}
+        editorMode={editorMode}
+        onEditorMode={switchEditorMode}
+        onSave={() => saveChapter(true)}
+        saveDisabled={!currentChapter}
+        onWritingTools={() => setShowWritingTools((previous) => !previous)}
+        onHelp={() => setShowEditorHelp((previous) => !previous)}
+        onFullscreen={() => setIsEditorFullscreen((previous) => !previous)}
+        onKanban={() => openKanban("book")}
+        isFullscreen={isEditorFullscreen}
+      />
+
+      <WorkViewPicker
+        open={showWorkViewPicker}
+        currentView={workMode}
+        persistDefault={persistWorkViewChoice}
+        onSelect={selectWorkView}
+        onClose={() => setShowWorkViewPicker(false)}
+      />
+
+      {showKanban ? (
+        <section className="kanban-workspace" role="dialog" aria-modal="true" aria-label="Kanban-Arbeitsansicht">
+          <header className="kanban-workspace__header">
+            <div><div className="panel-eyebrow">Aufgaben und Kommentare</div><h1>Kanban</h1></div>
+            <div className="kanban-workspace__scope" aria-label="Kanban-Umfang">
+              <button type="button" aria-pressed={kanbanScope === "book"} onClick={() => openKanban("book")}>Dieses Buch</button>
+              <button type="button" aria-pressed={kanbanScope === "global"} onClick={() => openKanban("global")}>Bücherübersicht</button>
+              <button type="button" className="ghost-button" onClick={() => setShowKanban(false)}>Schließen</button>
+            </div>
+          </header>
+          <div className={`kanban-workspace__body ${kanbanScope === "global" ? "has-filter" : ""}`}>
+            {kanbanScope === "global" ? <BookKanbanFilter books={projectDetail?.books || []} selectedIds={kanbanSelectedBookIds}
+              counts={kanbanCounts} colors={kanbanColors} onToggle={toggleKanbanBook} onColorsChange={setKanbanColors} /> : null}
+            <KanbanBoard phases={KANBAN_PHASES} items={kanbanData.items} totals={kanbanData.totals} limit={kanbanLimit}
+              selectedBookCount={kanbanSelectedBookIds.length}
+              bookTitles={Object.fromEntries((projectDetail?.books || []).map((book) => [book.id, book.title]))}
+              colors={kanbanColors} onMove={moveKanbanItem} onLoadMore={() => setKanbanLimit((value) => Math.min(20, value + 8))}
+              onOpenSource={openKanbanSource} />
+          </div>
+        </section>
+      ) : null}
 
       {!isEditorFullscreen && !isWriteMode ? (
         <div className="floating-rail floating-rail--left" aria-label="Navigation">
@@ -3353,21 +3621,6 @@ function App() {
               <span className="rail-button__icon" aria-hidden="true">{item.icon}</span>
             </button>
           ))}
-        </div>
-      ) : null}
-
-      {!isEditorFullscreen && !isWriteMode ? (
-        <div className={`floating-rail floating-rail--top ${showTopRail ? "is-revealed" : "is-dormant"}`} aria-label="Editor-Steuerung">
-          <span className={`floating-status-pill ${showFloatingStatus ? "is-visible" : "is-idle"}`} title={saveState}>
-            {saveState}
-          </span>
-          <button className="icon-button top-icon top-icon--save hover-tooltip-button" type="button" aria-label="Kapitel speichern" title="Kapitel speichern" data-tooltip="Kapitel speichern" onClick={() => saveChapter(true)} disabled={!currentChapter}>💾</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "rich" ? "active" : ""}`} aria-label="Rich" title="Richtext-Modus" data-tooltip="Richtext-Modus" onClick={() => switchEditorMode("rich")}>✍</button>
-          <button type="button" className={`icon-button top-icon top-icon--mode hover-tooltip-button ${editorMode === "markdown" ? "active" : ""}`} aria-label="Markdown" title="Markdown-Modus" data-tooltip="Markdown-Modus" onClick={() => switchEditorMode("markdown")}>#</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showWritingTools ? "active" : ""}`} aria-label={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} title={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} data-tooltip={showWritingTools ? "Werkzeuge ausblenden" : "Werkzeuge"} onClick={() => setShowWritingTools((previous) => !previous)}>✚</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorHelp ? "active" : ""}`} aria-label={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} title={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} data-tooltip={showEditorHelp ? "Hilfe ausblenden" : "Hilfe"} onClick={() => setShowEditorHelp((previous) => !previous)}>?</button>
-          <button type="button" className={`icon-button top-icon top-icon--utility hover-tooltip-button ${showEditorSettings ? "active" : ""}`} aria-label={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} title={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} data-tooltip={showEditorSettings ? "Einstellungen ausblenden" : "Einstellungen"} onClick={() => setShowEditorSettings((previous) => !previous)}>⚙</button>
-          <button type="button" className={`icon-button top-icon top-icon--focus hover-tooltip-button ${isEditorFullscreen ? "active" : ""}`} aria-label={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} title={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} data-tooltip={isEditorFullscreen ? "Vollbild verlassen" : "Vollbild"} aria-pressed={isEditorFullscreen} onClick={() => setIsEditorFullscreen((previous) => !previous)}>⛶</button>
         </div>
       ) : null}
 
@@ -4115,6 +4368,11 @@ function App() {
                     <button type="button" className="ghost-button" onClick={insertWikiLinkFromSelection}>
                       Wiki-Link
                     </button>
+                    {editorMode === "rich" ? (
+                      <button type="button" className="ghost-button" onClick={() => editorRef.current?.toggleMarkdownHighlight?.()}>
+                        Hervorheben
+                      </button>
+                    ) : null}
                     {!isWriteMode ? (
                       <>
                         <button type="button" className="secondary-button" onClick={() => createAnchor(effectiveWorkflowBoxId || selectedWorkflowBoxId, { promptForNote: true })}>
@@ -4274,9 +4532,11 @@ function App() {
                       pinnedSlots={pinnedSlots}
                       activeReviewCommentId={activeReviewCommentId}
                       reviewComments={reviewCommentsForEditor}
+                      contexts={showResolvedContexts ? contexts : (contexts || []).filter((context) => context.status !== "resolved")}
                       onSelectionChange={setHasSelection}
                       onSelectionContextChange={applyEditorSelectionContext}
                       onReviewCommentActivate={activateReviewComment}
+                      onContextActivate={activateContextGroup}
                       onClipboardCapture={handleEditorCopy}
                       onDocumentChange={(nextDocument) =>
                         setChapterDraft((previous) => ({
@@ -4291,22 +4551,16 @@ function App() {
             </div>
           </div>
 
-          <div className={`work-mode-tabs ${isWriteMode ? "work-mode-tabs--minimal" : ""}`} role="tablist" aria-label="Arbeitsmodi">
-            {WORK_MODES.map((mode) => (
-              <button
-                key={mode.key}
-                type="button"
-                role="tab"
-                aria-selected={workMode === mode.key}
-                className={`work-mode-tab ${workMode === mode.key ? "is-active" : ""}`}
-                onClick={() => setWorkMode(mode.key)}
-                title={mode.hint}
-              >
-                <strong>{mode.label}</strong>
-                <span>{mode.hint}</span>
-              </button>
-            ))}
-          </div>
+          {activeContext?.context_type === "comment" ? (
+            <CommentThread
+              thread={activeContext.thread}
+              onReply={replyToActiveThread}
+              onStatusChange={updateActiveThreadStatus}
+              onDelete={deleteActiveContext}
+              onClose={() => setActiveContextAnchorId("")}
+            />
+          ) : null}
+
         </section>
 
         <aside className={`workspace-panel right-panel ${showRightOverlay ? "is-open" : ""}`}>
@@ -5122,6 +5376,17 @@ function App() {
               />
             </label>
           </div>
+          <TypographySettings
+            globalDefaults={globalTypography}
+            bookOverrides={bookTypographyOverrides}
+            onGlobalChange={setGlobalTypography}
+            onBookChange={updateBookTypography}
+            onResetBook={updateBookTypography}
+          />
+          <label className="checkbox-row">
+            <input type="checkbox" checked={showResolvedContexts} onChange={(event) => setShowResolvedContexts(event.target.checked)} />
+            Erledigte Kontextmarkierungen anzeigen
+          </label>
         </section>
       ) : null}
 
